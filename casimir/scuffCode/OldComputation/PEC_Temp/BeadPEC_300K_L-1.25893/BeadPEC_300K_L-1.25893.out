@@ -1,0 +1,8 @@
+# scuff-cas3D run on fell0307 at 02/05/15::05:55:19
+# data file columns: 
+#1: transform tag
+#2: energy 
+#3: energy error due to numerical Xi integration 
+#4: z-force 
+#5: z-force error due to numerical Xi integration 
+1.25893 -3.251039e-02 1.398892e-09 -5.020581e-02 2.272664e-09 
