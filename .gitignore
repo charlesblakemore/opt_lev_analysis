@@ -1,0 +1,8 @@
+.*
+*.pyc
+*~
+/scripts/gravity_sim/test_masses/**/*
+
+processed.pkl
+!/.gitignore
+#*
