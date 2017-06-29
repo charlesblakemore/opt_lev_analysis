@@ -12,16 +12,16 @@ from scipy.optimize import minimize_scalar as minimize
 
 #dirs = [29,30,31,32]
 #dirs = [132,133,172,]
-dirs = [402,]
+dirs = [18,]
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_classy/scripts/cant_force/dir_file.txt" )
+ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 
 load_charge_cal = True
-step_cal_path = './calibrations/step_cal_20160808.p'
-thermal_path = '/data/20160808/bead1/1_5mbar_nocool_final.h5'
+step_cal_path = './calibrations/step_cal_20170627.p'
+thermal_path = '/data/20170627/bead4/1_6mbar_nocool.h5'
 
-date = '20160808'
-save = False
+date = '20170627'
+save = True
 
 maxfiles = 1000
 
@@ -71,6 +71,9 @@ def proc_dir(d):
                          plot_fits=True, plot_inits=False, weight_phase=True, grid=True)#, fit_osc_sum=True)
     
     return dir_obj
+
+
+
 
 
 dir_objs = map(proc_dir, dirs)

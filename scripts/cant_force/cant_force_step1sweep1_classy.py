@@ -10,31 +10,32 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-dirs = [410,]
-bdirs = [385,]
+dirs = [46,]
+bdirs = [19,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_classy/scripts/cant_force/dir_file.txt" )
+ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 #print ddict
 
-load_from_file = False
 cant_axis = 2
 step_axis = 0
-respaxis = 1
-bin_size = 5
+respaxis = 0
+bin_size = 1  # um
+lpf = 150 # Hz
 
 init_data = [0., 0., 20.]
 load_charge_cal = True
+cal_drive_freq = 41.
 
-fit_height = True
-fit_dist = 30.   # um
+fit_height = False #True
+fit_dist = 35.   # um
 
 maxfiles = 1000
 
 fig_title = 'Force vs. Cantilever Position: Finding height'
 
-tf_path = './trans_funcs/Hout_20160808.p'
-step_cal_path = './calibrations/step_cal_20160808.p'
+tf_path = '../general_analysis/trans_funcs/Hout_20170627.p'
+step_cal_path = '../general_analysis/calibrations/step_cal_20170627.p'
 
 #################
 
@@ -91,6 +92,8 @@ diag_fits = {}
 f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
 if subtract_background:
     f2, axarr2 = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
+
+
 for i, pos in enumerate(pos_keys):
     newobj = cu.Data_dir(0, init_data, pos)
     newobj.files = pos_dict[pos]
@@ -107,8 +110,8 @@ for i, pos in enumerate(pos_keys):
 
     newobj.calibrate_H()
 
-    newobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200.,# plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=18.)
+    newobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
+                             build_conv_facs=True, drive_freq=cal_drive_freq)
     newobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
 
     # Load background files

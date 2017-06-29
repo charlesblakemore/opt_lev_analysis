@@ -11,11 +11,6 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 
-#dirs = [42,38,39,40,41]
-dirs = [46,]
-
-ddict = bu.load_dir_file( "/home/charles/opt_lev_classy/scripts/cant_force/dir_file.txt" )
-#print ddict
 
 load_from_file = False
 show_each_file = False
@@ -27,19 +22,19 @@ calibrate = True
 ## Build Charge Cal ##
 ######################
 
-charge_cal = [['/data/20160714/bead1/second_discharge/chargelp_cal'], 'Cal', 20]
+charge_cal = [['/data/20170613/bead2/nextday/discharge4'], 'Cal', 0]
 
 charge_cal_dir_obj = cu.Data_dir(charge_cal[0], [0,0,charge_cal[2]], charge_cal[1])
-#charge_cal_dir_obj.load_dir(cu.simple_loader)
-#charge_cal_dir_obj.build_step_cal_vec()
-#charge_cal_dir_obj.step_cal()
-#charge_cal_dir_obj.save_step_cal('./calibrations/step_cal_20160718.p')
-charge_cal_dir_obj.load_step_cal('./calibrations/step_cal_20160718.p')
+charge_cal_dir_obj.load_dir(cu.simple_loader)
+charge_cal_dir_obj.build_step_cal_vec(pcol = 0)
+charge_cal_dir_obj.step_cal(amp_gain = 1.)
+charge_cal_dir_obj.save_step_cal('./calibrations/step_cal_20170613.p')
+#charge_cal_dir_obj.load_step_cal('./calibrations/step_cal_20160718.p')
 
-#for fobj in charge_cal_dir_obj.fobjs:
-#    fobj.close_dat()
+for fobj in charge_cal_dir_obj.fobjs:
+    fobj.close_dat()
 
-charge_cal_dir_obj.load_H("./trans_funcs/Hout_20160718.p")
+#charge_cal_dir_obj.load_H("./trans_funcs/Hout_20160718.p")
 
 #charge_cal_dir_obj.calibrate_H()
 charge_cal_dir_obj.get_conv_facs()
@@ -49,7 +44,7 @@ charge_cal_dir_obj.get_conv_facs()
 ######################
 
 
-therm_path = '/data/20160720/bead1/1_5mbar_zcool_init2.h5'
+therm_path = '/data/20170613/bead2/nextday/1_1mbar_zcool.h5'
 #therm_path = '/data/20160627/bead1/1_5mbar_zcool.h5'
 #therm_path = '/data/20160627/bead1/1_5mbar_nocool_withap.h5'
 

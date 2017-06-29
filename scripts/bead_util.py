@@ -38,7 +38,7 @@ prime_freqs = [23,29,31,37,41,
 
 
 
-chamfil = h5py.File('/home/charles/opt_lev/scripts/chamsdata/2D_chameleon_force.h5', 'r')
+chamfil = h5py.File('/home/charles/opt_lev_analysis/scripts/chamsdata/2D_chameleon_force.h5', 'r')
 ## these don't work if the data is not in ascending order
 cham_xforce = interp.RectBivariateSpline(chamfil['xcoord'],\
                                         chamfil['ycoord'], chamfil['xforce'])

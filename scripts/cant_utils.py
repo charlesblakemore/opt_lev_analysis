@@ -11,6 +11,10 @@ import cPickle as pickle
 import scipy.signal as sig
 from multiprocessing import Pool
 
+
+## Helper functions
+
+
 def round_sig(x, sig=2):
     # round a number to a certain number of sig figs
     if x == 0:
@@ -55,9 +59,9 @@ def thermal_psd_spec(f, A, f0, g):
     #The position power spectrum of a microsphere normalized so that A = (volts/meter)^2*2kb*t/M
     w = 2.*np.pi*f #Convert to angular frequency.
     w0 = 2.*np.pi*f0
-    num = g
+    num = g * w0**2
     denom = ((w0**2 - w**2)**2 + w**2*g**2)
-    return 2 * (A*num/denom) # Extra factor of 2 from single-sided PSD
+    return 2 * (A * num / denom) # Extra factor of 2 from single-sided PSD
 
 def step_fun(x, q, x0):
     #decreasing step function at x0 with step size q.
@@ -86,9 +90,9 @@ def emap(eind):
     if eind == 1 or eind == 2:
         return 2
     elif eind == 3 or eind == 4:
-        return 1
-    elif eind == 5 or eind == 6:
         return 0
+    elif eind == 5 or eind == 6:
+        return 1
 
 def emap2(drive):
     # Map from data axis back to electrode number, using nominal elecs
@@ -99,6 +103,16 @@ def emap2(drive):
         return 3
     elif drive == 2:
         return 1
+
+
+
+
+
+
+
+## Class for Fit Objects
+
+
 
 class Fit:
     # Holds the optimal parameters and errors from a fit. 
@@ -147,15 +161,21 @@ class Fit:
         return np.sum((ydata))
         
 
-def thermal_fit(psd, freqs, fit_freqs = [1., 500.], kelvin = 300., fudge_fact = 1e-6, p0=[]):
-    #Function to fit the thermal spectra of a bead's motion
-    #First need good intitial guesses for fit parameters.
-    fit_bool = bu.inrange(freqs, fit_freqs[0], fit_freqs[1]) #Boolian vector of frequencies over which the fit is performed
-    f0 = freqs[np.argmax(psd[fit_bool])] #guess resonant frequency from hightest part of spectrum
+def thermal_fit(psd, freqs, fit_freqs = [1., 500.], temp = 300., fudge_fact = 1e-6, p0=[]):
+    ## Function to fit the thermal spectra of a bead's motion
+    ## First need good intitial guesses for fit parameters.
+
+    # Boolian vector of frequencies over which the fit is performed
+    fit_bool = bu.inrange(freqs, fit_freqs[0], fit_freqs[1]) 
+
+    # guess resonant frequency from hightest part of spectrum
+    f0 = freqs[np.argmax(psd[fit_bool])] 
     df = freqs[1] - freqs[0] #Frequency increment.
-    vpmsq = bu.bead_mass/(bu.kb*kelvin)*np.sum(psd[fit_bool])*df*len(psd)/np.sum(fit_bool) #Guess at volts per meter using equipartition
-    g0 = 1./2.*f0 #Guess at damping assuming critical damping
-    A0 = vpmsq*2.*bu.kb*kelvin/(bu.bead_mass*fudge_fact)
+    
+    # Guess at volts per meter using equipartition
+    vpmsq = bu.bead_mass/(bu.kb*temp)*np.sum(psd[fit_bool])*df*len(psd)/np.sum(fit_bool) 
+    g0 = 1./2.*f0 # Guess at damping assuming critical damping
+    A0 = vpmsq*2.*bu.kb*temp/(bu.bead_mass*fudge_fact)
     if len(p0) == 0:
         p0 = [A0, f0, g0] #Initial parameter vectors 
 
@@ -163,7 +183,7 @@ def thermal_fit(psd, freqs, fit_freqs = [1., 500.], kelvin = 300., fudge_fact = 
     popt, pcov = curve_fit(thermal_psd_spec, freqs[fit_bool], psd[fit_bool], \
                            p0 = p0)#, sigma=weights)#, bounds = bounds)
     #print popt
-    popt[0] = popt[0]
+    #popt[0] = popt[0]
     if not np.shape(pcov):
         print 'Warning: Bad fit'
     f = Fit(popt, pcov, thermal_psd_spec)
@@ -209,6 +229,7 @@ def get_h5files(dir):
     files = glob.glob(dir + '/*.h5') 
     files = sorted(files, key = bu.find_str)
     return files
+
 
 def simple_loader(fname, sep):
     #print "Processing: ", fname
@@ -343,6 +364,7 @@ class Data_file:
         
         #Data vectors and their transforms
         self.pos_data = np.transpose(dat[:, 0:3]) #x, y, z bead position
+        self.other_data = np.transpose(dat[:,3:7])
         self.dc_pos =  np.mean(self.pos_data, axis = -1)
         self.image_pow_data = np.transpose(dat[:, 6])
 
@@ -436,6 +458,9 @@ class Data_file:
         self.psds = np.array(map(psder, self.pos_data))
         self.psd_freqs = np.fft.rfftfreq(NFFT, d = 1./self.Fsamp)
 
+        self.other_psds = np.array(map(psder, self.other_data))
+        self.other_psd_freqs = np.fft.rfftfreq(NFFT, d = 1. / self.Fsamp) 
+
     def get_fft(self):
         #Uses numpy fft rfft to compute the fft of the position data
         # Does not normalize at all
@@ -490,7 +515,8 @@ class Data_file:
             omega = 2. * np.pi * f
             # Although the factor can be simplified, we leave it in the following
             # form to help make clear from where it is derived
-            fac = (2*bu.kb*293)/(bu.bead_mass*amp) * (bu.bead_mass * omega**2)**2
+            fac = (2*bu.kb*293) / (bu.bead_mass * omega**2 * amp) \
+                  * (bu.bead_mass * omega**2)**2
             out.append(fac)
 
         return np.sqrt(np.array(out))
@@ -729,7 +755,9 @@ class Data_file:
 
 
 
-#Define a class to hold information about a whole directory of files.
+# Define a class to hold information about a whole directory of files.
+
+
 class Data_dir:
     #Holds all of the information from a directory of data files.
 
@@ -815,6 +843,7 @@ class Data_dir:
         else:
             cal_fobj = Data_file()
             cal_fobj.load(self.thermal_cal_file_path, [0,0,0])
+            cal_fobj.detrend()
             cal_fobj.thermal_calibration()
             self.thermal_cal_fobj = cal_fobj
 
@@ -974,18 +1003,26 @@ class Data_dir:
         return np.fft.irfft(ft_diag)
 
 
-    def build_step_cal_vec(self, drive_freq = 41., pcol = 1, ecol = 3):
+    def build_step_cal_vec(self, drive_freq = 41., pcol = 0, ecol = 3, files=[0,1000]):
         # Generates an array of step_cal values for the whole directory.
         # First check to make sure files are loaded and H is computed.
         if type(self.fobjs) == str: 
             self.load_dir(simple_loader)
-            
+        
         for fobj in self.fobjs:
             fobj.find_step_cal_response(drive_freq = drive_freq, \
                                         pcol = pcol, ecol = ecol)
 
-        Her = lambda fobj: fobj.step_cal_response
-        self.step_cal_vec = map(Her, self.fobjs)
+        i = 0
+        vec = []
+        for fobj in self.fobjs:
+            if i < files[0] or i > files[1]:
+                i += 1
+                continue
+            vec.append(fobj.step_cal_response)
+            i += 1
+
+        self.step_cal_vec = vec
 
     
     def build_uncalibrated_H(self, average_first=False, dpsd_thresh = 8e-2, mfreq = 1., \
@@ -1276,7 +1313,7 @@ class Data_dir:
 
         for drive in [0,1,2]:
             for resp in [0,1,2]:
-                print ("(%i, %i)" % (drive,resp)),
+                #print ("(%i, %i)" % (drive,resp)),
                 sys.stdout.flush()
                 magparams = self.Hfuncs[resp][drive][0]
                 phaseparams = self.Hfuncs[resp][drive][1]
@@ -1796,8 +1833,8 @@ class Data_dir:
         
     def step_cal(self, n_phi = 20, plate_sep = 0.004, \
                  drive_freq = 41., amp_gain = 200.):
-        #Produce a conversion between voltage and force given a directory with single electron steps.
-        #Check to see that Hs have been calculated.
+        # Produce a conversion between voltage and force given a directory with single electron steps.
+        # Check to see that Hs have been calculated.
         if type(self.step_cal_vec) == str:
             self.build_step_cal_vec(drive_freq = drive_freq)
         
@@ -1867,19 +1904,24 @@ class Data_dir:
         # Use transfer function to get charge step calibration in all channels
         # from the channel in which is was performed (nominally Y)
         fac = 1. / self.charge_step_calibration.popt[0]   # Gives Newton / Volt
-        freqs = np.array(self.Hs.keys())
-        ind = np.argmin(np.abs(drive_freq - freqs))
-        freq = freqs[ind]
-        mat = self.Hs[freq]
 
-        facs = []
-        j = step_cal_drive_channel
+        try:
+            freqs = np.array(self.Hs.keys())
+            ind = np.argmin(np.abs(drive_freq - freqs))
+            freq = freqs[ind]
+            mat = self.Hs[freq]
 
-        for i in [0,1,2]:
-            newfac = fac * np.abs(mat[j,j]) / np.abs(mat[i,i])
-            facs.append(newfac)
+            facs = []
+            j = step_cal_drive_channel
+
+            for i in [0,1,2]:
+                newfac = fac * np.abs(mat[j,j]) / np.abs(mat[i,i])
+                facs.append(newfac)
             
-        self.conv_facs = np.array(facs)
+            self.conv_facs = np.array(facs)
+
+        except:
+            self.conv_facs = [fac, fac, fac]
         
 
     def generate_alpha_lambda_limit(self, rbead=2.5e-06, sep=10.0e-06, \
