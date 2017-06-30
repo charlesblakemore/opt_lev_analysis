@@ -38,7 +38,7 @@ prime_freqs = [23,29,31,37,41,
 
 
 
-chamfil = h5py.File('/home/charles/opt_lev/scripts/chamsdata/2D_chameleon_force.h5', 'r')
+chamfil = h5py.File('/home/arider/opt_lev/scripts/chamsdata/2D_chameleon_force.h5', 'r')
 ## these don't work if the data is not in ascending order
 cham_xforce = interp.RectBivariateSpline(chamfil['xcoord'],\
                                         chamfil['ycoord'], chamfil['xforce'])
@@ -186,7 +186,7 @@ def get_calibration(refname, fit_freqs, make_plot=False,
     if( len(attribs) > 0 ):
         fsamp = attribs["Fsamp"]
     xdat = dat[:,data_columns[0]]
-    xpsd, freqs = matplotlib.mlab.psd(xdat, Fs = fsamp, NFFT = NFFT) 
+    xpsd, freqs = matplotlib.mlab.psd(xdat, Fs = fsamp, NFFT = NFFT, detrend = matplotlib.mlab.detrend_linear) 
     xpsd = np.ndarray.flatten(xpsd)
 
     ##first, fit for the absolute calibration
