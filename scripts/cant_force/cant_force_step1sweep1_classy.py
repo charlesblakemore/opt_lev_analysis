@@ -10,15 +10,15 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-dirs = [46,]
+dirs = [49,]
 bdirs = [19,]
 subtract_background = False
 
 ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 #print ddict
 
-cant_axis = 2
-step_axis = 0
+cant_axis = 1
+step_axis = 2
 respaxis = 0
 bin_size = 1  # um
 lpf = 150 # Hz
@@ -132,7 +132,7 @@ for i, pos in enumerate(pos_keys):
         bobj.calibrate_H()
 
         bobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200.,# plot_Happ=True, \
-                                 build_conv_facs=True, drive_freq=18.)
+                                 build_conv_facs=True, drive_freq=cal_drive_freq)
         bobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
 
 

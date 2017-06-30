@@ -1279,7 +1279,7 @@ class Data_dir:
 
     def diagonalize_files(self, fthresh = 40., simpleDCmat=False, plot_Happ=False, \
                           reconstruct_lowf=False, lowf_thresh=100., \
-                          build_conv_facs=False, drive_freq=41.):
+                          build_conv_facs=False, drive_freq=41., close_dat=True):
         if type(self.Hs_cal) == str:
             try:
                 self.calibrate_H()
@@ -1394,7 +1394,8 @@ class Data_dir:
             #plt.show()
 
             fobj.spatial_bin(diag=True)
-            fobj.close_dat(ft=False, elecs=False)
+            if close_dat:
+                fobj.close_dat(ft=False, elecs=False)
         # All previous print statements have had commas so print a newline
         print
 

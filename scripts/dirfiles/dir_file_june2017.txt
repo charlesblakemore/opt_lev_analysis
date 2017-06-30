@@ -83,3 +83,12 @@
 44; /data/20170627/bead4/nextday/lower_height_1/dipole_vs_height/cant_7V_70um_throw_18Hz; 0V; 20
 45; /data/20170627/bead4/nextday/lower_height_1/dipole_vs_height/cant_7V_70um_throw_18Hz_low; 0V; 20
 46; /data/20170627/bead4/nextday/lower_height_1/dipole_vs_height/cant_7V_70um_throw_18Hz_low_fine; 0V; 20
+
+
+
+47; /data/20170627/bead4/bead_out/gravity_data/cant_0V_h_30um_ysweep_full_various_zpos_fine; 20170628; 20
+48; /data/20170627/bead4/bead_out/gravity_data/cant_0V_h_15um_ysweep_full_various_zpos_fine; 20170628; 20
+49; /data/20170627/bead4/bead_out/gravity_data/cant_0V_h_0um_ysweep_full_various_zpos_fine; 20170628; 20
+
+
+
