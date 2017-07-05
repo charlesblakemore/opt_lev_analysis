@@ -208,4 +208,6 @@ def do_calibration(path, cal_file, outfile):
     stage_pos_fun(can_pos, ds, outfile)
 
 
-def measure_image(im_file, cal_file)
+def measure_image(im_file, cal_file):
+    #given an image file returns the calibrated coordinates of the cantileve edge
+    
