@@ -10,11 +10,11 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-dirs = [46,]
+dirs = [50,]
 bdirs = [19,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 #print ddict
 
 cant_axis = 2
@@ -27,15 +27,15 @@ init_data = [0., 0., 20.]
 load_charge_cal = True
 cal_drive_freq = 41.
 
-fit_height = False #True
+fit_height = True #True
 fit_dist = 35.   # um
 
 maxfiles = 1000
 
 fig_title = 'Force vs. Cantilever Position: Finding height'
 
-tf_path = '../general_analysis/trans_funcs/Hout_20170627.p'
-step_cal_path = '../general_analysis/calibrations/step_cal_20170627.p'
+tf_path = '../general_analysis/trans_funcs/Hout_20170629.p'
+step_cal_path = '../general_analysis/calibrations/step_cal_20170629.p'
 
 #################
 

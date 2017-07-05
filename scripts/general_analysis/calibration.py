@@ -10,17 +10,19 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
+
+
 #dirs = [29,30,31,32]
 #dirs = [132,133,172,]
-dirs = [18,]
+dirs = [48,]
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 
-load_charge_cal = True
-step_cal_path = './calibrations/step_cal_20170627.p'
-thermal_path = '/data/20170627/bead4/1_6mbar_nocool.h5'
+load_charge_cal = False
+step_cal_path = './calibrations/step_cal_20170629.p'
+thermal_path = '/data/20170629/bead6/1_6mbar_nocool.h5'
 
-date = '20170627'
+date = '20170629'
 save = True
 
 maxfiles = 1000
@@ -28,7 +30,7 @@ maxfiles = 1000
 #################################
 
 if not load_charge_cal:
-    cal = [['/data/20160808/bead1/20160808_chargelp_cal3'], 'Cal', 15, 1e-13]
+    cal = [['/data/20170629/bead6/discharge_fine'], 'Cal', 15, 1e-13]
 
     cal_dir_obj = cu.Data_dir(cal[0], [0,0,cal[2]], cal[1])
     cal_dir_obj.load_dir(cu.simple_loader)

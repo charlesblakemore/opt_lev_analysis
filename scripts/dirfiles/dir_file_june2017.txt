@@ -83,3 +83,11 @@
 44; /data/20170627/bead4/nextday/lower_height_1/dipole_vs_height/cant_7V_70um_throw_18Hz; 0V; 20
 45; /data/20170627/bead4/nextday/lower_height_1/dipole_vs_height/cant_7V_70um_throw_18Hz_low; 0V; 20
 46; /data/20170627/bead4/nextday/lower_height_1/dipole_vs_height/cant_7V_70um_throw_18Hz_low_fine; 0V; 20
+
+#transfer funs for bead6 on june 30
+47; /data/20170629/bead6/tf_20170630/freq_comb_elec1_10V, /data/20170629/bead6/tf_20170630/freq_comb_elec3_10V, /data/20170629/bead6/tf_20170630/freq_comb_elec5_10V; 20170627; -40
+48; /data/20170629/bead6/tf_long_20170630/freq_comb_elec1_10V, /data/20170629/bead6/tf_long_20170630/freq_comb_elec3_10V, /data/20170629/bead6/tf_long_20170630/freq_comb_elec5_10V; 20170627; -40
+
+#dipole height
+49; /data/20170629/bead6/dipole_vs_height/cant_1V_80um_throw_17Hz; 20170629; 20
+50; /data/20170629/bead6/dipole_vs_height/cant_5V_80um_throw_9Hz_movedback; 20170629; 20

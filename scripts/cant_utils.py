@@ -74,6 +74,7 @@ def multi_step_fun(x, qs, x0s):
     for i, x0 in enumerate(x0s):
         rfun += step_fun(x, qs[i], x0)
     return rfun
+    
 
 sf = lambda tup: tup[0] #Sort key for sort_pts.
 
@@ -1832,7 +1833,7 @@ class Data_dir:
 
         
     def step_cal(self, n_phi = 20, plate_sep = 0.004, \
-                 drive_freq = 41., amp_gain = 200.):
+                 drive_freq = 41., amp_gain = 1.):
         # Produce a conversion between voltage and force given a directory with single electron steps.
         # Check to see that Hs have been calculated.
         if type(self.step_cal_vec) == str:
@@ -1842,6 +1843,8 @@ class Data_dir:
         #yfit =  np.abs(dir_obj.step_cal_vec)*np.cos(np.angle(dir_obj.step_cal_vec) - phi)
 
         yfit = np.abs(self.step_cal_vec)
+        bvec = [yfit<10.*np.mean(yfit)] #exclude cray outliers
+        yfit = yfit[bvec]
 
         plt.figure(1)
         plt.ion()
@@ -1866,10 +1869,11 @@ class Data_dir:
             return multi_step_fun(x, qqs, nstep[1]) + offarr
 
         xfit = np.arange(len(self.step_cal_vec))
-        
+        xfit = xfit[bvec]
+
         #fit
         p0 = [nstep[2],0.02]#Initial guess for the fit
-        popt, pcov = curve_fit(ffun, xfit, yfit, p0 = p0)
+        popt, pcov = curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
 
         fitobj = Fit(popt, pcov, ffun)#Store fit in object.
 
