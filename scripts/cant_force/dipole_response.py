@@ -12,9 +12,15 @@ from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 import time
 
+<<<<<<< HEAD
 dirs = [25,]
 
 ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
+=======
+dirs = [49,]
+
+ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+>>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
 #print ddict
 
 calibrate = True
@@ -30,8 +36,13 @@ maxfiles = 100
 
 fig_title = 'Force vs. Cantilever Position: Gravity Background Alongside'
 
+<<<<<<< HEAD
 tf_path = '../general_analysis/trans_funcs/Hout_20170707.p'
 step_cal_path = '../general_analysis/calibrations/step_cal_20170707.p'
+=======
+tf_path = '../general_analysis/trans_funcs/Hout_20170629.p'
+step_cal_path = '../general_analysis/calibrations/step_cal_20170629.p'
+>>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
 
 
 
@@ -58,7 +69,7 @@ def proc_dir(d):
 
 dir_objs = map(proc_dir, dirs)
 
-thermal_cal_file_path = '/data/20170627/bead4/1_6mbar_nocool.h5'
+thermal_cal_file_path = '/data/20170629/bead6/1_6mbar_nocool.h5'
 
 
 #f, axarr = plt.subplots(3,2,sharey='all',sharex='all',figsize=(10,12),dpi=100)
