@@ -12,8 +12,10 @@ from scipy import stats
 
 
 path  = "/data/20170704/profiling/images"
-cal_file = "/home/arider/opt_lev_analysis/calibrations/20170704/stage_position.npy"
-out_file = "/home/arider/opt_lev_analysis/calibrations/20170704/stage_polynomial.npy"
+align_file = "/calibrations/20170704/stage_position.npy"
+cal_file = "/calibrations/20170704/stage_polynomial.npy"
+
+imfile =  "/data/20170712/background_test/position_2.bmp"
 
 def get_first_edge(row, l_ind, h_ind):
     #gets index of first non zero element in a vector
@@ -91,7 +93,7 @@ def parab_int(pz, py):
     return np.array([zs[minr], ys[minr]])
     
 
-def measure_cantilever(fpath, fun = parab, make_plot = False, plot_edges = False, thresh1 = 150, thresh2 = 250, app_width = 5):
+def measure_cantilever(fpath, fun = parab, make_plot = True, plot_edges = False, thresh1 = 550, thresh2 = 650, app_width = 5):
     #measures the position of the cantilever with respect to the beam by fitting the edges of the cantilever to fun
     #import
     img = cv2.imread(fpath, 0)
@@ -125,7 +127,7 @@ def measure_cantilever(fpath, fun = parab, make_plot = False, plot_edges = False
         plt.imshow(img)
         plt.show()
     
-    return np.real(corn_coords)
+    return np.array(np.real(corn_coords))
 
 def get_zydistance(string, unit = 'um'):
     #takes a string and gets the number following z before um as z and the number following y before um as y. returns a numpy array [z, y]
@@ -134,9 +136,9 @@ def get_zydistance(string, unit = 'um'):
     return np.array([z, y])
 
 
-def get_distances(path, cal_file, ext = '.bmp'):
+def get_distances(path, align_file, ext = '.bmp'):
     #gets all of the image  files and the stage settings cludgily encoded in the file name.
-    cal = np.load(cal_file)
+    cal = np.load(align_file)
     files  = glob.glob(path + '/*' + ext)
     ds = map(get_zydistance, files)
     ds = -1.*(np.array(ds) + cal)
@@ -183,12 +185,12 @@ def find_intercept(can_pos, ds, idx, make_plot = True, make_error_plot = False):
 
     return d0
 
-def stage_pos_fun(can_pos, ds, outfile, make_plot = True):
+def stage_pos_fun(can_pos, ds, cal_file, make_plot = True):
     #fits measured stage position in pixels vs 'true' stage position in microns to quadratic. Given a measured stage position this returns the 'true' stage position relative to the trap.
     popt_z, pcov_z = curve_fit(parab, can_pos[:, 0], ds[:, 0]) 
     popt_y, pcov_y = curve_fit(parab, can_pos[:, 1], ds[:, 1])
     out_poly = np.array([popt_z, popt_y])
-    np.save(outfile, out_poly)
+    np.save(cal_file, out_poly)
     if make_plot:
         fit_z = np.linspace(np.min(can_pos[:, 0]), np.max(can_pos[:, 0]), 100)
         fit_y = np.linspace(np.min(can_pos[:, 1]), np.max(can_pos[:, 1]), 100)
@@ -201,13 +203,21 @@ def stage_pos_fun(can_pos, ds, outfile, make_plot = True):
         plt.legend()
         plt.show()
  
-def do_calibration(path, cal_file, outfile):
+def do_calibration(path, align_file, cal_file):
     #Does all of the steps to get the calibration of cantilever images and saves the result.
-    fs, ds = get_distances(path, cal_file)
+    fs, ds = get_distances(path, align_file)
     can_pos = np.array(map(measure_cantilever, fs))
-    stage_pos_fun(can_pos, ds, outfile)
+    stage_pos_fun(can_pos, ds, cal_file)
+   
 
 
-def measure_image(im_file, cal_file):
+def measure_image(im_file, align_file):
     #given an image file returns the calibrated coordinates of the cantileve edge
+    pos = measure_cantilever(im_file, make_plot = True)
+    cal = np.load(align_file)
+    popt_z = cal[0]
+    popt_y = cal[1]
+    pz = parab(pos[0], *popt_z)
+    py = parab(pos[1], *popt_y)
+    return np.array([pz, py])
     

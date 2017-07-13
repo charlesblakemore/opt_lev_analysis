@@ -6,11 +6,11 @@ import scipy.signal as sig
 import scipy
 import glob
 from scipy.optimize import curve_fit
-
+    
 
 data_dir1 = "/data/20170704/profiling/zsweep5"
 data_dir2 = "/data/20170704/profiling/ysweep5"
-out_dir = "/home/arider/opt_lev_analysis/calibrations/20170704"
+out_dir = "/calibrations/20170704"
 
 
 #stage x = col 17, stage y = 18, stage z = 19

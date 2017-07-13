@@ -10,17 +10,15 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-
-dirs = [50,]
-
-bdirs = [19,]
+dirs = [12,]
+bdirs = [1,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
 #print ddict
 
-cant_axis = 1
-step_axis = 2
+cant_axis = 2
+step_axis = 1
 respaxis = 0
 bin_size = 1  # um
 lpf = 150 # Hz
@@ -29,17 +27,17 @@ init_data = [0., 0., 20.]
 load_charge_cal = True
 cal_drive_freq = 41.
 
-fit_height = True #True
+fit_height = False #True
 fit_dist = 35.   # um
 
 maxfiles = 1000
 
 fig_title = 'Force vs. Cantilever Position: Finding height'
 
-tf_path = '../general_analysis/trans_funcs/Hout_20170629.p'
-step_cal_path = '../general_analysis/calibrations/step_cal_20170629.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
 
-#################
+################
 
 def ffn(x, a, b, c):
     return a * (1. / x)**2 + b * (1. / x) + c
@@ -91,7 +89,7 @@ force_at_closest = {}
 fits = {}
 diag_fits = {}
 
-f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
+f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(7,8),dpi=100)
 if subtract_background:
     f2, axarr2 = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
 
@@ -134,7 +132,7 @@ for i, pos in enumerate(pos_keys):
         bobj.calibrate_H()
 
         bobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200.,# plot_Happ=True, \
-                                 build_conv_facs=True, drive_freq=cal_drive_freq)
+                                 build_conv_facs=True, drive_freq=18.)
         bobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
 
 
@@ -204,7 +202,7 @@ axarr[0,0].set_ylabel('X-direction Force [fN]')
 axarr[1,0].set_ylabel('Y-direction Force [fN]')
 axarr[2,0].set_ylabel('Z-direction Force [fN]')
 
-axarr[0,0].legend(loc=0, numpoints=1, ncol=2, fontsize=9)
+axarr[0,1].legend(loc=0, numpoints=1, ncol=2, fontsize=9)
 
 if len(fig_title):
     f.suptitle(fig_title, fontsize=18)

@@ -1,0 +1,12 @@
+1; /data/20170707/bead5/nobead_pinhole/cant_h10um_ysweep_0-80um; -0.25 um; -40
+2; /data/20170707/bead5/nobead_pinhole2/cant_h10um_ysweep_0-80um; -0.25 um; -40
+3; /data/20170707/bead5/nobead_pinhole/cant_h10um_ysweep_0-80um; -0.25 um; -40
+4; /data/20170707/bead5/nobead_pinhole/cant_h10um_ysweep_0-80um; -0.25 um; -40
+5; /data/20170712/background_test; -0.25 um; -40
+6; /data/20170712/background_test_imglaseroff; -0.25 um; -40
+7; /data/20170712/background_test_imglaseroff_trapoff; -0.25 um; -40
+8; /data/20170712/background_test_cham; -0.25 um; -40
+9; /data/20170712/background_test_cham_x10um; -0.25 um; -40
+10; /data/20170712/background_test_grav_x10um; -0.25 um; -40
+11; /data/20170712/background_test_grav_x10um_iris; -0.25 um; -40
+12; /data/20170712/background_end_past_10ums; -0.25 um; -40
