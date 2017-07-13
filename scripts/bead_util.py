@@ -10,8 +10,8 @@ import scipy.interpolate as interp
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
 
-bead_radius = 2.53e-6 ##m
-bead_rho = 2.0e3 ## kg/m^3
+bead_radius = 2.43e-6 ##m
+bead_rho = 2.2e3 ## kg/m^3
 kb = 1.3806488e-23 #J/K
 bead_mass = 4./3*np.pi*bead_radius**3 * bead_rho
 plate_sep = 1e-3 ## m

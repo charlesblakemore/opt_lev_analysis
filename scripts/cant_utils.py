@@ -468,7 +468,7 @@ class Data_file:
         self.fft_freqs = np.fft.rfftfreq(np.shape(self.pos_data)[1])*self.Fsamp
 
 
-    def thermal_calibration(self):
+    def thermal_calibration(self, temp=293.):
         #Use thermal calibration calibrate voltage scale into physical units
         #Check to see if psds is computed and compute if not.
         if type(self.psds) == str:
@@ -490,7 +490,7 @@ class Data_file:
             else:
                 fit_freqs = [1.,500.]
             newfit = thermal_fit(self.psds[i], self.psd_freqs, \
-                                 fit_freqs = fit_freqs, p0=p0)
+                                 fit_freqs = fit_freqs, p0=p0, temp=temp)
 
             # Since the PSD only cares about |omega| sometimes it fits to a 
             # negative frequency. The following corrects for that
@@ -501,12 +501,12 @@ class Data_file:
             self.thermal_cal.append(newfit)
         
 
-    def get_thermal_cal_facs(self):
+    def get_thermal_cal_facs(self, temp=293.):
         # Function to return the N/V converstion factor derived
         # from the thermal calibration and treating the bead as
         # and ideal harmonic oscillator
         if type(self.thermal_cal) == str:
-            self.thermal_calibration()
+            self.thermal_calibration(temp=temp)
         out = []
         for i in [0,1,2]:
             fit_obj = self.thermal_cal[i]
@@ -515,7 +515,7 @@ class Data_file:
             omega = 2. * np.pi * f
             # Although the factor can be simplified, we leave it in the following
             # form to help make clear from where it is derived
-            fac = (2*bu.kb*293) / (bu.bead_mass * omega**2 * amp) \
+            fac = (2*bu.kb*temp) / (bu.bead_mass * omega**2 * amp) \
                   * (bu.bead_mass * omega**2)**2
             out.append(fac)
 
@@ -837,14 +837,14 @@ class Data_dir:
         if count:
             self.ave_dc_pos = self.ave_dc_pos / count
 
-    def thermal_calibration(self):
+    def thermal_calibration(self, temp=293.):
         if 'not computed' in self.thermal_cal_file_path:
             print self.thermal_cal_file_path
         else:
             cal_fobj = Data_file()
             cal_fobj.load(self.thermal_cal_file_path, [0,0,0])
             cal_fobj.detrend()
-            cal_fobj.thermal_calibration()
+            cal_fobj.thermal_calibration(temp=temp)
             self.thermal_cal_fobj = cal_fobj
 
 
@@ -1020,6 +1020,9 @@ class Data_dir:
                 i += 1
                 continue
             vec.append(fobj.step_cal_response)
+            if len(vec) >= 2:
+                if np.abs(vec[-1]) > 10. * np.abs(vec[-2]):
+                    vec[-1] = vec[-2]
             i += 1
 
         self.step_cal_vec = vec
@@ -1231,7 +1234,7 @@ class Data_dir:
         self.noiseHs = Hout_noise
 
 
-    def calibrate_H(self, step_cal_drive_channel = 1, drive_freq = 41.,\
+    def calibrate_H(self, step_cal_drive_channel = 0, drive_freq = 41.,\
                     plate_sep = 0.004, bins_to_avg = 2):
         if type(self.charge_step_calibration) == str:
             print self.charge_step_calibration
@@ -1435,7 +1438,7 @@ class Data_dir:
 
         
 
-    def build_Hfuncs(self, fit_freqs = [120.,500], fpeaks=[240.,240.,50.], \
+    def build_Hfuncs(self, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
                      weight_peak=False, weight_lowf=False, lowf_thresh=60., \
                      weight_phase=False, plot_fits=False, plot_inits=False, \
                      grid = False, fit_osc_sum=False):
@@ -1496,13 +1499,13 @@ class Data_dir:
                     Amp = 1e17
                     f0 = therm_fits[2].popt[1]
                     g = therm_fits[2].popt[2]
-                    fit_freqs = [1.,100.]
+                    fit_freqs = [1.,200.]
                     fpeak = fpeaks[2]
                 else:
                     Amp = 1e19
-                    f0 = therm_fits[resp].popt[1] * 1.5
+                    f0 = therm_fits[resp].popt[1]
                     g = therm_fits[resp].popt[2]
-                    fit_freqs = [1.,500.]
+                    fit_freqs = [1.,600.]
                     fpeak = fpeaks[resp]
                 
                 # Construct initial paramter arrays

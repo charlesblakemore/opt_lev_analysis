@@ -60,7 +60,7 @@ def proc_dir(d):
 
     dir_obj.calibrate_H()
     dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200., #, plot_Happ=True) \
-                              build_conv_facs=True, drive_freq=18.)
+                              build_conv_facs=True, cal_drive_freq=41.)
         
     #dir_obj.plot_H(cal=True)
     

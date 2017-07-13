@@ -12,26 +12,26 @@ from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 import time
 
-dirs = [38,]
+dirs = [25,]
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
 #print ddict
 
 calibrate = True
 cal_drive_freq = 41.
 
 respdir = 'X'
-cant_axis = 2
-lpf = 61  # Hz
+cant_axis = 1
+lpf = 150  # Hz
 bin_size = 1  # um
 
 load_charge_cal = True
-maxfiles = 1000
+maxfiles = 100
 
-fig_title = 'Force vs. Cantilever Position: Dipole Response'
+fig_title = 'Force vs. Cantilever Position: Gravity Background Alongside'
 
-tf_path = '../general_analysis/trans_funcs/Hout_20170627.p'
-step_cal_path = '../general_analysis/calibrations/step_cal_20170627.p'
+tf_path = '../general_analysis/trans_funcs/Hout_20170707.p'
+step_cal_path = '../general_analysis/calibrations/step_cal_20170707.p'
 
 
 
@@ -106,7 +106,7 @@ for i, obj in enumerate(dir_objs):
 
 
     for col in [0,1]:
-        axarr[2,col].set_xlabel('Distance from Cantilever [um]')
+        axarr[2,col].set_xlabel('Distance along Cantilever [um]')
 
     axarr[0,0].set_ylabel('X-direction Force [fN]')
     axarr[1,0].set_ylabel('Y-direction Force [fN]')

@@ -1,0 +1,52 @@
+
+
+1; /data/20170629/bead6/tf_long_20170630/freq_comb_elec1_10V, /data/20170629/bead6/tf_long_20170630/freq_comb_elec3_10V, /data/20170629/bead6/tf_long_20170630/freq_comb_elec5_10V; 20170629; 20
+
+
+2; /data/20170706/bead4/tf_20170706/freq_comb_elec1_10V, /data/20170706/bead4/tf_20170706/freq_comb_elec3_10V, /data/20170706/bead4/tf_20170706/freq_comb_elec5_10V; 20170706; 20
+
+3; /data/20170707/bead5/tf_20170707/freq_comb_elec1_10V, /data/20170707/bead5/tf_20170707/freq_comb_elec3_10V, /data/20170707/bead5/tf_20170707/freq_comb_elec5_10V; 20170707; 20
+
+4; /data/20170707/bead5/dipole_vs_height/cant_5V_60um_throw_18Hz; 5V; 10
+
+5; /data/20170707/bead5/dipole_vs_height/cant_0V_60um_throw_18Hz; 0V; 10
+
+6; /data/20170707/bead5/dipole_vs_height/cant_5V_60um_throw_18Hz_fine; 5V; 10
+
+7; /data/20170707/bead5/dipole_vs_height/cant_0V_60um_throw_18Hz_fine; 0V; 10
+
+8; /data/20170707/bead5/dipole_vs_height/cant_0V_60um_throw_25Hz_fine; 0V; 10
+
+9; /data/20170707/bead5/dipole_vs_height/cant_0V_60um_throw_18Hz_fine_yoffset; 0V; 10
+
+
+10; /data/20170707/bead5/dipole_resp/h_0um_18Hz; 0 um; 10
+11; /data/20170707/bead5/dipole_resp/h_10um_18Hz; 10 um; 10
+12; /data/20170707/bead5/dipole_resp/h_20um_18Hz; 20 um; 10
+
+
+13; /data/20170707/bead5/gravity_data/cant_h0um_ysweep_0-80um_various_zpos; h=0um; -40
+14; /data/20170707/bead5/gravity_data/cant_h10um_ysweep_0-80um_various_zpos; h=10um; -40
+15; /data/20170707/bead5/gravity_data/cant_h20um_ysweep_0-80um_various_zpos; h=20um; -40
+
+16; /data/20170707/bead5/gravity_data/cant_h0um_ysweep_0-80um_various_zpos_close; h=0um; -40
+17; /data/20170707/bead5/gravity_data/cant_h10um_ysweep_0-80um_various_zpos_close; h=10um; -40
+18; /data/20170707/bead5/gravity_data/cant_h20um_ysweep_0-80um_various_zpos_close; h=20um; -40
+19; /data/20170707/bead5/gravity_data/cant_h30um_ysweep_0-80um_various_zpos_close; h=30um; -40
+
+20; /data/20170707/bead5/gravity_data/cant_z70um_ysweep_0-80um_various_height; sep=18um; -40
+
+
+21; /data/20170707/bead5/dipole_vs_height_ydrive/cant_5V_z80um_ysweep_0-20um; 5V; 10
+
+22; /data/20170707/bead5/psd_evolution_2; 5V; 10
+
+23; /data/20170707/bead5/contact_potentials/cant_h10um_ysweep_0-80um_z70um_various_cantV; h=10um; -40
+24; /data/20170707/bead5/gravity_data_zdrive/h10um_y20um_zsweep_0-80um_various_cantV_long; h=10um; -40
+
+25; /data/20170707/bead5/nobead/gravity_data/h10um_ysweep_0-80um_z75um_various_cantV; h=10um; -40
+26; /data/20170707/bead5/nobead/gravity_data_zdrive/h10um_y20um_zsweep_0-80um_various_cantV_long; h=10um; -40
+27; /data/20170707/bead5/nobead/gravity_data_zdrive/h10um_y20um_zsweep_0-80um_various_cantV_25Hz; h=10um; -40
+
+
+28; /data/20170707/bead5/nobead/gravity_data/h10um_ysweep_0-80um_various_zpos; h=10um; -40

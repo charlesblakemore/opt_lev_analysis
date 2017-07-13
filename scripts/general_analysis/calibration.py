@@ -12,28 +12,30 @@ from scipy.optimize import minimize_scalar as minimize
 
 #dirs = [29,30,31,32]
 #dirs = [132,133,172,]
-dirs = [18,]
+dirs = [52,]
 
 ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 
-load_charge_cal = True
-step_cal_path = './calibrations/step_cal_20170627.p'
-thermal_path = '/data/20170627/bead4/1_6mbar_nocool.h5'
+load_charge_cal = True #False
+step_cal_path = './calibrations/step_cal_20170707.p'
+thermal_path = '/data/20170707/bead5/1_5mbar_nocool.h5'
 
-date = '20170627'
+date = '20170707'
 save = True
 
 maxfiles = 1000
 
 #################################
 
+# [[1,1,1,1,1],[51,225,291,303,330],0.0003]
+
 if not load_charge_cal:
-    cal = [['/data/20160808/bead1/20160808_chargelp_cal3'], 'Cal', 15, 1e-13]
+    cal = [['/data/20170707/bead5/discharge_fine'], 'Cal', 15, 1e-13]
 
     cal_dir_obj = cu.Data_dir(cal[0], [0,0,cal[2]], cal[1])
     cal_dir_obj.load_dir(cu.simple_loader)
     cal_dir_obj.build_step_cal_vec()
-    cal_dir_obj.step_cal()
+    cal_dir_obj.step_cal(amp_gain = 1.)
     if save:
         cal_dir_obj.save_step_cal('./calibrations/step_cal_'+date+'.p')
 
@@ -62,12 +64,12 @@ def proc_dir(d):
 
     #print dir_obj.charge_step_calibration.popt[0]
 
-    dir_obj.calibrate_H()
+    dir_obj.calibrate_H(step_cal_drive_channel = 0)
 
     dir_obj.thermal_cal_file_path = thermal_path
     dir_obj.thermal_calibration()
 
-    dir_obj.build_Hfuncs(fpeaks=[245, 255, 50], weight_peak=False, weight_lowf=True,\
+    dir_obj.build_Hfuncs(fpeaks=[400, 400, 50], weight_peak=False, weight_lowf=False,\
                          plot_fits=True, plot_inits=False, weight_phase=True, grid=True)#, fit_osc_sum=True)
     
     return dir_obj
