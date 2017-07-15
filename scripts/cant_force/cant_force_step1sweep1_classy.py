@@ -10,29 +10,16 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-<<<<<<< HEAD
-dirs = [28,] # 42 with bead, 49 without bead
-bdirs = [10,]
-subtract_background = False
-
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
-#print ddict
-
-cant_axis = 1
-step_axis = 2
-respaxis = 1
-=======
 dirs = [12,]
 bdirs = [1,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
+ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 #print ddict
 
 cant_axis = 2
 step_axis = 1
 respaxis = 0
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
 bin_size = 1  # um
 lpf = 150 # Hz
 
@@ -48,13 +35,8 @@ maxfiles = 1000
 fig_title = 'Force vs. Cantilever Position: Mock Gravity Data at Various Sep'
 xlab = 'Distance Along Cantilever [um]'
 
-<<<<<<< HEAD
-tf_path = '../general_analysis/trans_funcs/Hout_20170707.p'
-step_cal_path = '../general_analysis/calibrations/step_cal_20170707.p'
-=======
 tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'
 step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
 
 ################
 

@@ -1935,7 +1935,7 @@ class Data_dir:
     def generate_alpha_lambda_limit(self, rbead=2.5e-06, sep=10.0e-06, \
                                     least_squares=True, opt_filt=False, \
                                     resp_axis=1, cant_axis=1, rebin=False, bin_size=5., \
-                                    average_first=True, diag=False, scale=1.0e18):
+                                    diag=False, scale=1.0e18):
         if type(self.gravity_signals) == str:
             print self.gravity_signals
             return
@@ -1947,129 +1947,78 @@ class Data_dir:
         fac = self.conv_facs[resp_axis]
 
         if least_squares:
+            if (type(self.avg_force_v_pos) == str) or rebin:
+                self.get_avg_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
+                self.get_avg_diag_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
 
-            if average_first:
-                if (type(self.avg_force_v_pos) == str) or rebin:
-                    self.get_avg_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
-                    self.get_avg_diag_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
+            if diag:
+                keys = self.avg_diag_force_v_pos.keys()
+                if len(keys) > 1:
+                    print "STUPIDITYError: Multiple Keys"
+                key = keys[0]
+                dat = self.avg_diag_force_v_pos[key][resp_axis,0]
+            else:
+                keys = self.avg_force_v_pos.keys()
+                if len(keys) > 1:
+                    print "STUPIDITYError: Multiple Keys"
+                key = keys[0]
+                dat = self.avg_force_v_pos[key][resp_axis,0]
 
-                if diag:
-                    keys = self.avg_diag_force_v_pos.keys()
-                    if len(keys) > 1:
-                        print "STUPIDITYError: Multiple Keys"
-                    key = keys[0]
-                    dat = self.avg_diag_force_v_pos[key][resp_axis,0]
-                else:
-                    keys = self.avg_force_v_pos.keys()
-                    if len(keys) > 1:
-                        print "STUPIDITYError: Multiple Keys"
-                    key = keys[0]
-                    dat = self.avg_force_v_pos[key][resp_axis,0]
+            posdat = dat[0]
+            forcedat = dat[1]
+            errs = dat[2]
 
-                posdat = dat[0]
-                forcedat = dat[1]
-                errs = dat[2]
+            if not diag:
+                forcedat = forcedat * fac
+                errs = errs * fac
 
-                if not diag:
-                    forcedat = forcedat * fac
-                    errs = errs * fac
+            alphas = []
+            print "Fitting different alpha values..."
+            sys.stdout.flush()
 
-                alphas = []
-                print "Fitting different alpha values..."
-                sys.stdout.flush()
+            poffsets = []
+            for yukind, yuklambda in enumerate(lambdas):
+                #per = int(100. * float(yukind) / float(len(lambdas)))
+                #if not per % 1:
+                #    print str(per) + ',',
+                #sys.stdout.flush()
 
-                poffsets = []
-                for yukind, yuklambda in enumerate(lambdas):
-                    #per = int(100. * float(yukind) / float(len(lambdas)))
-                    #if not per % 1:
-                    #    print str(per) + ',',
-                    #sys.stdout.flush()
+                fcurve = fcurves[yuklambda]
+                pos = np.linspace(- 0.5 * 80., 0.5*80, 80)
 
-                    posvec, Gcurve, yukcurve = fcurves[yuklambda]
-                    Gcurve = Gcurve - np.mean(Gcurve)
-                    yukcurve = yukcurve - np.mean(yukcurve)
+                fmax = np.max(forcedat) - np.min(forcedat)
+                yukmax = np.max(fcurve[1]) - np.min(fcurve[1])
+                alphaguess = fmax / yukmax
 
-                    Gforcefunc = interpolate.interp1d(posvec*1e6, Gcurve)
-                    yukforcefunc = interpolate.interp1d(posvec*1e6, yukcurve)
+                Gforcefunc = interpolate.interp1d(pos, fcurve[0])
+                yukforcefunc = interpolate.interp1d(pos, fcurve[1])
 
-                    yukforguess = yukforcefunc(posdat)
+                #plt.figure()
+                #plt.plot(pos)
+                #plt.plot(posdat)
+                #plt.show()
+                #raw_input()
 
-                    ## Fitting in the stupidest possible manner 
-                    guessalpha =  (np.max(forcedat) - np.min(forcedat)) / \
-                                  (np.max(yukforguess) - np.min(yukforguess))
-                    guess = np.log10(guessalpha)
+                #Gforcefunc = interpolate.interp1d(fcurve[0]*1e6, fcurve[1])
+                #yukforcefunc = interpolate.interp1d(fcurve[0]*1e6, fcurve[2])
 
-                    #plt.plot(posdat, forcedat)
-                    #plt.plot(posdat, Gforfit+guessalpha*yukforfit)
-                    #plt.show()
-                    
-                    def fitfun(x):
-                        alphapow = x[0]
-                        foffset = x[1]
-                        poffset = x[2]
-                        
-                        Gforfit = Gforcefunc(posdat+poffset)
-                        yukforfit = yukforcefunc(posdat+poffset)
+                def fitfun(x, alpha):
+                    return Gforcefunc(x) + alpha * yukforcefunc(x)
 
-                        return scale * (forcedat - \
-                            (Gforfit + (10.0**alphapow)*yukforfit + foffset)) #/ (errs**2)
+                popt, pcov = optimize.curve_fit(fitfun, posdat, forcedat, p0 = alphaguess)
 
-                    fit = optimize.least_squares(fitfun, [guess, 0.0, 0.0], \
-                                                 bounds=([3, -np.inf, -80], [30, np.inf, 80]))
+                #plt.plot(posdat, forcedat*1e15, 'o')
+                #plt.plot(posdat, fitfun(posdat, popt[0])*1e15)
+                #plt.show()
 
-                    newalpha = 10.0**fit.x[0]
+                alpha = popt[0]
+                if alpha < 0:
+                    alpha *= -1.
 
-                    Gfit = Gforcefunc(posdat+fit.x[2])
-                    yukfit = yukforcefunc(posdat+fit.x[2])
+                alphas.append(alpha)
 
-                    #plt.plot(posdat+fit.x[2], forcedat + fit.x[1])
-                    #plt.plot(posdat+fit.x[2], Gfit + newalpha*yukfit + fit.x[1])
-                    #plt.show()
+            return np.array(lambdas), np.array(alphas)
 
-                    alphas.append(newalpha)
-                    poffsets.append(fit.x[2])
-                plt.figure()
-                plt.hist(poffsets)
-                plt.show()
-                raw_input()
-                return np.array(lambdas), np.array(alphas)
-
-            if not average_first:
-                allalphas = []
-                for fobjind, fobj in enumerate(self.fobjs):
-                    allalphas.append([])
-                    if (type(fobj.binned_pos_data) == str) or rebin:
-                        bin_sizes = [bin_size, bin_size, bin_size]
-                        fobj.spatial_bin(bin_sizes=bin_sizes, diag=diag)
-
-                    if diag:
-                        posdat = fobj.diag_binned_cant_data[0][resp_axis][cant_axis]
-                        forcedat = fobj.diag_binned_pos_data[0][resp_axis][cant_axis]
-                        errs = fobj.diag_binned_pos_data[0][resp_axis][cant_axis]
-                    if not diag:
-                        posdat = fobj.binned_cant_data[0][resp_axis][cant_axis]
-                        forcedat = fobj.binned_pos_data[0][resp_axis][cant_axis] * fac
-                        errs = fobj.binned_pos_data[0][resp_axis][cant_axis] * fac
-
-                    for yuklambda in lambdas:
-                        posvec, Gcurve, yukcurve = fcurves[yuklambda]
-                        Gforcefunc = interpolate.interp1d(posvec*1e6, Gcurve)
-                        yukforcefunc = interpolate.interp1d(posvec*1e6, yukcurve)
-
-                        Gforfit = Gforcefunc(posdat)
-                        yukforfit = yukforcefunc(posdat)
-
-                        fitfun = lambda alphapow: np.sum( scale * (forcedat - \
-                                    (Gforfit + (10.0**alphapow)*yukforfit) )**2 / (errs**2) )
-
-                        fit = optimize.minimize(fitfun, 6)
-
-                        newalpha = 10.0**fit.x[0]
-                        allalphas[fobjind].append(newalpha)
-                allalphas = np.array(allalphas)
-                alphas = np.mean(allalphas, axis=0)
-
-                return np.array(lambdas), alphas
 
         if opt_filt:
             if type(fobj.pos_data) == str:
