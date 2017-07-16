@@ -72,6 +72,32 @@ scale = 1.0e15
 def proc_dir(d):
     dv = ddict[d]
 
+    init_data = [dv[0], [0,0,dv[-1]], dv[1]]
+    dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
+    dir_obj.load_dir(cu.simple_loader)
+    
+    return dir_obj
+
+dir_objs = map(proc_dir, dirs)
+
+
+pos_dict = {}
+for obj in dir_objs:
+    dirlabel = obj.label
+    for fobj in obj.fobjs:
+        cpos = fobj.get_stage_settings(axis=step_axis)[0]
+        cpos = cpos * 80. / 10.   # 80um travel per 10V control
+        if cpos not in pos_dict:
+            pos_dict[cpos] = []
+        pos_dict[cpos].append(fobj.fname)
+
+
+
+
+
+def proc_dir(d):
+    dv = ddict[d]
+
     dir_obj = cu.Data_dir(dv[0], [0,-40,dv[-1]], dv[1])
     dir_obj.load_dir(cu.diag_loader, maxfiles = maxfiles)
 

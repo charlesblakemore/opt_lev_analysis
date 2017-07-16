@@ -12,30 +12,16 @@ from scipy.optimize import minimize_scalar as minimize
 
 
 
-#dirs = [29,30,31,32]
-#dirs = [132,133,172,]
-<<<<<<< HEAD
-dirs = [52,]
-=======
-dirs = [48,]
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
 
-ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+dirs = [3,]
+ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 
-<<<<<<< HEAD
 load_charge_cal = True #False
-step_cal_path = './calibrations/step_cal_20170707.p'
-thermal_path = '/data/20170707/bead5/1_5mbar_nocool.h5'
+step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
+thermal_path = '/data/20170715/bead7/1_5mbar_zcool.h5'
 
-date = '20170707'
-=======
-load_charge_cal = False
-step_cal_path = './calibrations/step_cal_20170629.p'
-thermal_path = '/data/20170629/bead6/1_6mbar_nocool.h5'
-
-date = '20170629'
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
-save = True
+date = '20170715'
+save = False #True
 
 maxfiles = 1000
 
@@ -44,18 +30,14 @@ maxfiles = 1000
 # [[1,1,1,1,1],[51,225,291,303,330],0.0003]
 
 if not load_charge_cal:
-<<<<<<< HEAD
-    cal = [['/data/20170707/bead5/discharge_fine'], 'Cal', 15, 1e-13]
-=======
     cal = [['/data/20170629/bead6/discharge_fine'], 'Cal', 15, 1e-13]
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
 
     cal_dir_obj = cu.Data_dir(cal[0], [0,0,cal[2]], cal[1])
     cal_dir_obj.load_dir(cu.simple_loader)
     cal_dir_obj.build_step_cal_vec()
     cal_dir_obj.step_cal(amp_gain = 1.)
     if save:
-        cal_dir_obj.save_step_cal('./calibrations/step_cal_'+date+'.p')
+        cal_dir_obj.save_step_cal('/calibrations/step_cals/step_cal_'+date+'.p')
 
     for fobj in cal_dir_obj.fobjs:
         fobj.close_dat()
@@ -129,4 +111,4 @@ for obj in dir_objs:
     #obj.plot_H(phase=False, label=False, show=True, noise=True)
     #print obj.label
     if save:
-        obj.save_H('./trans_funcs/Hout_'+date+'.p')
+        obj.save_H('/calibrations/transfer_funcs/Hout_'+date+'.p')
