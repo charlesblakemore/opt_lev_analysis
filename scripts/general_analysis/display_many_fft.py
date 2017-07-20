@@ -19,8 +19,8 @@ filnames = []
 #labs = ['Charged', 'Discharged']
 use_labs = False #True
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
-dirs = [22]
+ddict = bu.load_dir_file( '/dirfiles/dir_file_july2017.txt' )
+dirs = [11]
 
 chan_to_plot = [0, 1, 2]
 chan_labs = ['X', 'Y', 'Z']
@@ -32,8 +32,8 @@ ylim = [6e-18,1.5e-14]
 maxfiles = 140
 
 calibrate = True
-tf_path = './trans_funcs/Hout_20170707.p'
-step_cal_path = './calibrations/step_cal_20170707.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
 
 charge_cal = [[''], 'Cal', 0]
 

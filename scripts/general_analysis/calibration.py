@@ -13,14 +13,14 @@ from scipy.optimize import minimize_scalar as minimize
 
 
 
-dirs = [3,]
+dirs = [7,]
 ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 
 load_charge_cal = True #False
-step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
-thermal_path = '/data/20170715/bead7/1_5mbar_zcool.h5'
+step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
+thermal_path = '/data/20170718/bead2/1_5mbar_zcool.h5'
 
-date = '20170715'
+date = '20170718'
 save = False #True
 
 maxfiles = 1000
@@ -30,7 +30,7 @@ maxfiles = 1000
 # [[1,1,1,1,1],[51,225,291,303,330],0.0003]
 
 if not load_charge_cal:
-    cal = [['/data/20170629/bead6/discharge_fine'], 'Cal', 15, 1e-13]
+    cal = [['/data/20170718/bead2/discharge_fine3'], 'Cal', 15]
 
     cal_dir_obj = cu.Data_dir(cal[0], [0,0,cal[2]], cal[1])
     cal_dir_obj.load_dir(cu.simple_loader)

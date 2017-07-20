@@ -23,6 +23,7 @@ ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 respdir = 'X'
 resp_axis = 0           # imaging response direction
 cant_axis = 2           # stage control axis
+step_axis = 1
 straighten_axis = 2     # axis with coherent drive to straighten
 
 bin_size = 2            # um of cantilever travel
@@ -39,24 +40,28 @@ cant_volts_to_um = 8.0    # 80 um / 10 V
 dirs = [1,]
 
 
-
-
 tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'
-
 step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
-
 thermal_cal_file_path = '/data/20170707/bead5/1_5mbar_nocool.h5'
 
 
-fcurve_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/7_5um_sep_force_curves.p'
+fcurve_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/7_5um_sep_200um_throw_force_curves.p'
 force_curve_dic = pickle.load( open(fcurve_path, 'rb') )
 
 limitdata_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/limitdata_20160928_datathief_nodecca2.txt'
 limitdata = np.loadtxt(limitdata_path, delimiter=',')
+limitlab = 'No Decca 2'
+
+limitdata_path2 = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/limitdata_20160914_datathief.txt'
+limitdata2 = np.loadtxt(limitdata_path2, delimiter=',')
+limitlab2 = 'With Decca 2'
+
+figtitle = 'Sensitivity with 10um Beads and Current Background'
 
 # Identify Sep and Rbead
-rbead = 2.5e-06
+rbead = 5.0e-06
 sep = 7.5e-06
+offset = 0.0
 
 least_squares = True
 opt_filt = False
@@ -67,7 +72,7 @@ average_first = True
 diag = False
 scale = 1.0e15
 
-
+'''
 
 def proc_dir(d):
     dv = ddict[d]
@@ -92,7 +97,7 @@ for obj in dir_objs:
         pos_dict[cpos].append(fobj.fname)
 
 
-
+'''
 
 
 def proc_dir(d):
@@ -135,7 +140,7 @@ for ind, obj in enumerate(dir_objs):
 
     obj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
 
-    lambdas, alphas = obj.generate_alpha_lambda_limit(rbead=rbead, sep=sep, \
+    lambdas, alphas = obj.generate_alpha_lambda_limit(rbead=rbead, sep=sep, offset=offset, \
                                                       least_squares=least_squares, opt_filt=opt_filt, \
                                                       resp_axis=resp_axis, cant_axis=cant_axis, \
                                                       rebin=rebin, bin_size=bin_size, diag=diag, \
@@ -218,7 +223,16 @@ flim, axlim = plt.subplots(figsize=(10,8), dpi=100)
 
 for ind in range(len(lambda_vecs)):
     col = colors_yeay[ind]
-    plt.loglog(lambda_vecs[ind], alpha_vecs[ind], color=col)
-    plt.loglog(limitdata[:,0], limitdata[:,1], '.-')
+    plt.loglog(lambda_vecs[ind], alpha_vecs[ind], color=col, label='Sensitivity', linewidth=2)
+    plt.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
+    if limitlab2:
+        plt.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
+    plt.legend(loc=0, numpoints=1, fontsize=14)
+    plt.xlabel('Lambda [um]')
+    plt.ylabel('Alpha')
+    plt.ylim(1e2, 1e16)
+    plt.xlim(1e-8, 2e-4)
+    plt.grid()
+    plt.title(figtitle)
 
 plt.show()

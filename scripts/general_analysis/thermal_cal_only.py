@@ -9,7 +9,7 @@ import bead_util as bu
 get_bead_mass = True
 bits_per_pi = 2000
 
-temp = 300
+temp = 500
 
 
 cal_dir_obj = cu.Data_dir('', [0,0,0], 'Therm Cal')
@@ -20,7 +20,7 @@ cal_dir_obj = cu.Data_dir('', [0,0,0], 'Therm Cal')
 ######################
 
 
-therm_path = '/data/20170706/bead4/1_5mbar_zcool.h5'
+therm_path = '/data/20170720/bead3/1_5mbar_nocool.h5'
 
 
 cal_dir_obj.thermal_cal_file_path = therm_path

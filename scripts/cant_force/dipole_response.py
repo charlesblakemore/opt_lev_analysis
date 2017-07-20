@@ -12,38 +12,27 @@ from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 import time
 
-<<<<<<< HEAD
-dirs = [25,]
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_july2017.txt" )
-=======
-dirs = [49,]
+dirs = [24,]
 
-ddict = bu.load_dir_file( "/home/arider/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
+ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 #print ddict
 
 calibrate = True
 cal_drive_freq = 41.
 
 respdir = 'X'
-cant_axis = 1
+cant_axis = 2
 lpf = 150  # Hz
 bin_size = 1  # um
 
 load_charge_cal = True
 maxfiles = 100
 
-fig_title = 'Force vs. Cantilever Position: Gravity Background Alongside'
+fig_title = 'Force vs. Cantilever Position: Dipole Response'
 
-<<<<<<< HEAD
-tf_path = '../general_analysis/trans_funcs/Hout_20170707.p'
-step_cal_path = '../general_analysis/calibrations/step_cal_20170707.p'
-=======
-tf_path = '../general_analysis/trans_funcs/Hout_20170629.p'
-step_cal_path = '../general_analysis/calibrations/step_cal_20170629.p'
->>>>>>> 19a6b2dd248cf02856283f0f02eacf037cb4f7ad
-
+tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
 
 
 def proc_dir(d):

@@ -10,7 +10,7 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-dirs = [12,]
+dirs = [32,]
 bdirs = [1,]
 subtract_background = False
 
@@ -19,24 +19,25 @@ ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 
 cant_axis = 2
 step_axis = 1
-respaxis = 0
-bin_size = 1  # um
+respaxis = 1
+bin_size = 4  # um
 lpf = 150 # Hz
 
-init_data = [0., 0., 10.4]
+init_data = [0., 0., 0]
 load_charge_cal = True
 cal_drive_freq = 41.
 
-fit_height = True
-fit_dist = 60.   # um
+fit_height = False #True
+fit_dist = 2.   # um
 
 maxfiles = 1000
 
-fig_title = 'Force vs. Cantilever Position: Mock Gravity Data at Various Sep'
-xlab = 'Distance Along Cantilever [um]'
+#fig_title = 'Force vs. Cantilever Position: Dipole vs. Height'
+fig_title = 'Force vs. Cantilever Position:'
+xlab = 'Distance along Cantilever [um]'
 
-tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
 
 ################
 
@@ -220,8 +221,8 @@ if fit_height:
     arr1 = []
     arr2 = []
     for key in keys:
-        arr1.append(ffn(fit_dist, fits[key][0][0], fits[key][0][1], fits[key][0][2]))
-        arr2.append(ffn(fit_dist, diag_fits[key][0][0], diag_fits[key][0][1], diag_fits[key][0][2]))
+        arr1.append(ffn(fit_dist, fits[key][0][0], fits[key][0][1], 0 )) #fits[key][0][2]))
+        arr2.append(ffn(fit_dist, diag_fits[key][0][0], diag_fits[key][0][1], 0 )) #diag_fits[key][0][2]))
 
     diff1 = np.abs(np.amax(arr1) - np.amin(arr1))
     diff2 = np.abs(np.amax(arr2) - np.amin(arr2))

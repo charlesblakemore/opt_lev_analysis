@@ -45,11 +45,13 @@ Npoints = 201.
 beadposvec = np.linspace(cent - 0.5*travel, cent + 0.5*travel, Npoints)
 
 
-rbeads = [2.5e-6, 10.0e-6]
-seps = [7.5e-6]
+rbeads = [2.43e-6, 4.8e-6]
+seps = [5.0e-6, 6.0e-6, 7.0e-6, 8.0e-6, 9.0e-6, 10.0e-6]
 
+#rbeads = [5.0e-6]
+#seps = [7.5e-6]
 
-respath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/7_5um_sep_200um_throw'
+respath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/5-10um_seps_200um_throw'
 results_dir = pickle.load( open(respath + '_force_curves.p', 'rb') )
 results_dir['order'] = 'Rbead, Sep, Yuklambda'
 

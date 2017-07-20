@@ -298,10 +298,12 @@ class Data_file:
         self.fname = "Filename not assigned."
         #self.path = "Directory not assigned." #Assuming directory in filename
         self.pos_data = "bead position data not loaded"
+        self.diag_pos_data = "Position Data not diagonalized"
+        self.pos_data_cantfilt = "bead position data not filtered by cantilever"
+        self.diag_pos_data_cantfilt = "diag position data not filtered by cantilever"
         self.image_pow_data = "Imaging power data not loaded"
         self.binned_image_pow_data = "Binned imaging power not computed"
         self.binned_image_pow_errs = "Binned imaging power errors not computed"
-        self.diag_pos_data = "Position Data not diagonalize"
         self.dc_pos = "DC positions not computed"
         self.binned_pos_data = "Binned data not computed"
         self.binned_data_errors = "binded data errors not computed"
@@ -691,6 +693,19 @@ class Data_file:
         self.step_cal_response = sign * response_amp2 / drive_amp
 
 
+    def filter_by_cantdrive(cant_axis=2, nharmonics=1, noise=False):
+
+        cantfft = np.fft.rfft( self.cant_data[cant_axis] )
+        fftsq = cantfft.conj() * cantfft
+        fundind = np.argmax( fftsq )
+        drive_freq = freqs[fundind]
+        cantfilt = (fftsq) / (fftsq[fundind])
+
+        for n in range(nharmonics):
+            harmind = np.argmin( np.abs(n * drive_freq - freqs))
+        
+
+
     def diagonalize(self, mat):
         #print "Transfer Matrix"
         #print np.abs(mat)
@@ -783,7 +798,9 @@ class Data_dir:
         self.charge_step_calibration = "No charge step calibration"
         self.conv_facs = "Final calibration factors not computed"
         self.avg_force_v_pos = "Average force vs position not computed"
+        self.avg_force_v_pos_cantfilt = "Average force vs position not computed"
         self.avg_diag_force_v_pos = "Average diagonalized force vs position not computed"
+        self.avg_diag_force_v_pos_cantfilt = "Average diagonalized force vs position not computed"
         self.avg_pos_data = "Average response not computed"
         self.ave_dc_pos = "Mean positions not computed"
         self.avg_pressure = 'pressures not loaded'
@@ -1278,6 +1295,23 @@ class Data_dir:
             Hs_cal[freq] = np.copy(self.Hs[freq]) * (plate_sep / q)
 
         self.Hs_cal = Hs_cal
+
+
+
+
+    def filter_files_by_cantdrive(self, cant_axis=2, nharmonics=1, noise=True):
+        # Apply to each file a filter constructed from the FFT of the 
+        # cantilever drive
+
+        print "Filtering files by cantilever drive"
+        sys.stdout.flush()
+
+        for fobj in self.fobjs:
+            fobj.filter_by_cantdrive(cant_axis=cant_axis, nharmonics=nharmonics, \
+                                     noise=noise)
+
+
+
 
 
 
@@ -1932,7 +1966,7 @@ class Data_dir:
             self.conv_facs = [fac, fac, fac]
         
 
-    def generate_alpha_lambda_limit(self, rbead=2.5e-06, sep=10.0e-06, \
+    def generate_alpha_lambda_limit(self, rbead=2.5e-06, sep=10.0e-06, offset=0., \
                                     least_squares=True, opt_filt=False, \
                                     resp_axis=1, cant_axis=1, rebin=False, bin_size=5., \
                                     diag=False, scale=1.0e18):
@@ -1941,6 +1975,7 @@ class Data_dir:
             return
         
         fcurves = self.gravity_signals[rbead][sep]
+        simposdat = self.gravity_signals['posvec'] * 1e6
         lambdas = fcurves.keys()
         lambdas.sort()
 
@@ -1964,7 +1999,7 @@ class Data_dir:
                 key = keys[0]
                 dat = self.avg_force_v_pos[key][resp_axis,0]
 
-            posdat = dat[0]
+            posdat = dat[0] + offset
             forcedat = dat[1]
             errs = dat[2]
 
@@ -1984,14 +2019,13 @@ class Data_dir:
                 #sys.stdout.flush()
 
                 fcurve = fcurves[yuklambda]
-                pos = np.linspace(- 0.5 * 80., 0.5*80, 80)
 
                 fmax = np.max(forcedat) - np.min(forcedat)
                 yukmax = np.max(fcurve[1]) - np.min(fcurve[1])
                 alphaguess = fmax / yukmax
 
-                Gforcefunc = interpolate.interp1d(pos, fcurve[0])
-                yukforcefunc = interpolate.interp1d(pos, fcurve[1])
+                Gforcefunc = interpolate.interp1d(simposdat, fcurve[0])
+                yukforcefunc = interpolate.interp1d(simposdat, fcurve[1])
 
                 #plt.figure()
                 #plt.plot(pos)
