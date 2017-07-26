@@ -9,7 +9,7 @@ import bead_util as bu
 get_bead_mass = True
 bits_per_pi = 2000
 
-temp = 500
+temp = 450
 
 
 cal_dir_obj = cu.Data_dir('', [0,0,0], 'Therm Cal')
