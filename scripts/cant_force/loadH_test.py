@@ -13,7 +13,7 @@ from scipy.optimize import minimize_scalar as minimize
 dirs = [13,14,15,16]
 cal = 5.0e-14
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_classy/scripts/cant_force/dir_file.txt" )
+ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
 
 load_from_file = False
 

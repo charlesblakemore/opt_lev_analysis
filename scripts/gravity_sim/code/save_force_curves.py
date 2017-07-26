@@ -8,26 +8,8 @@ import scipy.optimize as optimize
 from scipy.integrate import tplquad
 import scipy, sys, time
 
-def get_color_map(n):
-	jet = plt.get_cmap('jet')
-	cNorm = colors.Normalize(vmin=0, vmax=n)
-	scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
-	outmap = []
-	for i in range(n):
-		outmap.append( scalarMap.to_rgba(i) )
-	return outmap
 
-def dist(p1, p2):
-	return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2 + (p1[2] - p2[2])**2)
-
-def dist_p_arrp(p1, xs, ys, zs):
-	xnew = (xs - p1[0])**2
-	ynew = (ys - p1[1])**2
-	znew = (zs - p1[2])**2
-	return np.sqrt(np.add.outer(np.add.outer(xnew, ynew), znew))
-
-rhopath = '/Users/charlesblakemore/Stanford/beads/' + \
-			'gravity/test_masses/attractor_v2/rho_arr.p'
+rhopath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
 print "Density Loaded."
 sys.stdout.flush()
@@ -54,22 +36,46 @@ lambdas = np.logspace(-6.3, -3, 50)
 lambdas = lambdas[::-1]
 alphas = np.zeros(len(lambdas))
 
-G = 6.67e-11            # m^3 / (kg s^2)
+G = 6.67e-11     # m^3 / (kg s^2)
 rhobead = 2200.
 
-travel = 80.0e-6
+travel = 200.0e-6
 cent = 0.0e-6
-Npoints = 80.
+Npoints = 201.
 beadposvec = np.linspace(cent - 0.5*travel, cent + 0.5*travel, Npoints)
 
 
-rbeads = [2.5e-6, 10.0e-6]
-seps = [5.0e-6, 10.0e-6, 15.0e-6]
+rbeads = [2.43e-6, 4.8e-6]
+seps = [5.0e-6, 6.0e-6, 7.0e-6, 8.0e-6, 9.0e-6, 10.0e-6]
 
+#rbeads = [5.0e-6]
+#seps = [7.5e-6]
 
-respath = '/Users/charlesblakemore/Stanford/beads/gravity/data/'
-results_dir = pickle.load( open(respath + 'force_curves.p', 'rb') )
+respath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/5-10um_seps_200um_throw'
+results_dir = pickle.load( open(respath + '_force_curves.p', 'rb') )
 results_dir['order'] = 'Rbead, Sep, Yuklambda'
+
+
+
+def get_color_map(n):
+	jet = plt.get_cmap('jet')
+	cNorm = colors.Normalize(vmin=0, vmax=n)
+	scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
+	outmap = []
+	for i in range(n):
+		outmap.append( scalarMap.to_rgba(i) )
+	return outmap
+
+def dist(p1, p2):
+	return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2 + (p1[2] - p2[2])**2)
+
+def dist_p_arrp(p1, xs, ys, zs):
+	xnew = (xs - p1[0])**2
+	ynew = (ys - p1[1])**2
+	znew = (zs - p1[2])**2
+	return np.sqrt(np.add.outer(np.add.outer(xnew, ynew), znew))
+
+
 
 for rind, rbead in enumerate(rbeads):
 	if rbead not in results_dir:
@@ -110,9 +116,9 @@ for rind, rbead in enumerate(rbeads):
 			for ind, xpos in enumerate(beadposvec):
 				beadpos = [xpos, sep+rbead, 0]
 
-				#s = dist_p_arrp(beadpos, xpoints, ypoints, zpoints) - rbead
+				
 				s = dist_p_arrp(beadpos, xx, yy, zz) - rbead
-				#ysep = dist_p_arrp([0, sep+rbead, 0], xyseppoints, yyseppoints, zyseppoints)
+				
 				ysep = dist_p_arrp([0, sep+rbead, 0], xzeros, yy, zzeros)
 				projection = ysep / (s + rbead)
 
@@ -124,57 +130,8 @@ for rind, rbead in enumerate(rbeads):
 				yukforcecurve.append(totforce)
 			yukforcecurve = np.array(yukforcecurve)
 
-			results_dir[bead][sep][yuklambda] = (Gforcecurve, yukforcecurve)
+			results_dir[rbead][sep][yuklambda] = (Gforcecurve, yukforcecurve)
 
-pickle.dump(results_dir, open(respath + 'force_curves.p', 'wb') )
+results_dir['posvec'] = beadposvec
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Clean up holes in density profile
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+pickle.dump(results_dir, open(respath + '_force_curves.p', 'wb') )

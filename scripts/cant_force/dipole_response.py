@@ -12,28 +12,27 @@ from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 import time
 
-dirs = [387,]
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_classy/scripts/cant_force/dir_file.txt" )
+dirs = [24,]
+
+ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 #print ddict
 
-load_from_file = False
-show_each_file = False
-show_avg_force = False
-fft = False
 calibrate = True
+cal_drive_freq = 41.
 
-respdir = 'Y'
+respdir = 'X'
 cant_axis = 2
+lpf = 150  # Hz
+bin_size = 1  # um
 
 load_charge_cal = True
-maxfiles = 1000
+maxfiles = 100
 
 fig_title = 'Force vs. Cantilever Position: Dipole Response'
 
-tf_path = './trans_funcs/Hout_20160805.p'
-step_cal_path = './calibrations/step_cal_20160805.p'
-
+tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
 
 
 def proc_dir(d):
@@ -50,8 +49,8 @@ def proc_dir(d):
         dir_obj.charge_step_calibration = step_calibration
 
     dir_obj.calibrate_H()
-    dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200.,# plot_Happ=True, \
-                              build_conv_facs=True, drive_freq=18.)
+    dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf,# plot_Happ=True, \
+                              build_conv_facs=True, drive_freq=cal_drive_freq)
 
     #dir_obj.plot_H(cal=True)
     
@@ -59,7 +58,7 @@ def proc_dir(d):
 
 dir_objs = map(proc_dir, dirs)
 
-thermal_cal_file_path = '/data/20160714/bead1/1_5mbar_zcool_final2.h5'
+thermal_cal_file_path = '/data/20170629/bead6/1_6mbar_nocool.h5'
 
 
 #f, axarr = plt.subplots(3,2,sharey='all',sharex='all',figsize=(10,12),dpi=100)
@@ -70,9 +69,9 @@ for i, obj in enumerate(dir_objs):
     else:
         cal_facs = [1.,1.,1.]
 
-    obj.get_avg_force_v_pos(cant_axis = cant_axis, bin_size = 4, bias=True)
+    obj.get_avg_force_v_pos(cant_axis = cant_axis, bin_size = bin_size, bias=True)
 
-    obj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = 4, bias=True)
+    obj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size, bias=True)
 
     keys = obj.avg_force_v_pos.keys()
     keys.sort()
@@ -107,7 +106,7 @@ for i, obj in enumerate(dir_objs):
 
 
     for col in [0,1]:
-        axarr[2,col].set_xlabel('Distance from Cantilever [um]')
+        axarr[2,col].set_xlabel('Distance along Cantilever [um]')
 
     axarr[0,0].set_ylabel('X-direction Force [fN]')
     axarr[1,0].set_ylabel('Y-direction Force [fN]')
