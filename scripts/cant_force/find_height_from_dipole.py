@@ -11,12 +11,9 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
 ###########################
-# Generic script to display Force vs. Cant. Pos. with an
-# option to fit the response for various positions, find
-# the maximal response and thus locate the cantilever
-#
-# This script is specialized in analyze_grav_data.py,
-# find_height_from_dipole.py and more
+# Script to analyze the microsphere's dipole response to a fixed
+# voltage on the cantilver which is driven toward and away from
+# the bead
 ###########################
 
 dirs = [32,]
@@ -24,31 +21,34 @@ bdirs = [1,]
 subtract_background = False
 
 ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
-#print ddict
-
-cant_axis = 2    # Axis along which cantilever is actively driven
-step_axis = 1    # Axis with different DC cantilever positions
-respaxis = 1     # Expected signal axis
-bin_size = 4     # um
-lpf = 150        # Hz, acausal top-hat filter at this freq
-
-init_data = [0., 0., 0]  # Separation data to initialize empy directories
-
-fit_height = False #True
-fit_dist = 2.     # um, distance to compute force from fit to locate cantilever
-
 maxfiles = 1000   # Maximum number of files to load from a directory
 
-#fig_title = 'Force vs. Cantilever Position: Dipole vs. Height'
-fig_title = 'Force vs. Cantilever Position:'
-#xlab = 'Distance from Cantilever [um]'
-xlab = 'Distance along Cantilever [um]'
+fit_height = True
+fit_dist = 30.     # um, distance to compute force from fit to locate cantilever
+init_data = [0., 0., 20]  # Separation data to initialize directories
+
+bin_size = 4     # um, Binning for final force v. pos
+lpf = 150        # Hz, acausal top-hat filter at this freq
+
+fig_title = 'Force vs. Cantilever Position: Dipole vs. Height'
 
 # Locate Calibration files
 tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
 step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
-load_charge_cal = True
-cal_drive_freq = 41.
+
+
+
+##########################################################
+# Don't edit below this unless you know what you're doing
+
+SWEEP_AX = 2     # Cantilever sweep axis, 1 for Y, 2 for Z
+STEP_AX = 0      # Axis with differnt DC pos., 0 for height, 2 for sep 
+
+cal_drive_freq = 41  # Hz
+
+xlab = 'Distance from Cantilever [um]'
+
+maxfiles = 1000   # Maximum number of files to load from a directory
 
 ################
 

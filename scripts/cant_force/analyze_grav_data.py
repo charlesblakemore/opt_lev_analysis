@@ -11,12 +11,9 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
 ###########################
-# Generic script to display Force vs. Cant. Pos. with an
-# option to fit the response for various positions, find
-# the maximal response and thus locate the cantilever
-#
-# This script is specialized in analyze_grav_data.py,
-# find_height_from_dipole.py and more
+# Script to analyze "gravity" data in which the cantilever is
+# driven alongside the bead. The user can select the axis along 
+# which the cantilever is driven.
 ###########################
 
 dirs = [32,]
@@ -24,42 +21,30 @@ bdirs = [1,]
 subtract_background = False
 
 ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
-#print ddict
-
-cant_axis = 2    # Axis along which cantilever is actively driven
-step_axis = 1    # Axis with different DC cantilever positions
-respaxis = 1     # Expected signal axis
-bin_size = 4     # um
-lpf = 150        # Hz, acausal top-hat filter at this freq
-
-init_data = [0., 0., 0]  # Separation data to initialize empy directories
-
-fit_height = False #True
-fit_dist = 2.     # um, distance to compute force from fit to locate cantilever
-
 maxfiles = 1000   # Maximum number of files to load from a directory
 
-#fig_title = 'Force vs. Cantilever Position: Dipole vs. Height'
+SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
+STEP_AX = 0      # Axis with differnt DC pos., 0 for height, 2 for sep 
+bin_size = 4     # um, Binning for final force v. pos
+lpf = 150        # Hz, acausal top-hat filter at this freq
+
 fig_title = 'Force vs. Cantilever Position:'
-#xlab = 'Distance from Cantilever [um]'
 xlab = 'Distance along Cantilever [um]'
 
 # Locate Calibration files
 tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
 step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
-load_charge_cal = True
-cal_drive_freq = 41.
+
+
+##########################################################
+# Don't edit below this unless you know what you're doing
+
+init_data = [0., 0., -40]  # Separation data to initialize empy directories
+
+cal_drive_freq = 41  # Hz
+
 
 ################
-
-# Use fitting functions
-
-def ffn(x, a, b, c):
-    return a * (1. / x)**2 + b * (1. / x) + c
-
-def ffn2(x, a, b, c):
-    return a * (x - b)**2 + c
-
 
 
 def proc_dir(d):
@@ -81,7 +66,7 @@ pos_dict = {}
 for obj in dir_objs:
     dirlabel = obj.label
     for fobj in obj.fobjs:
-        cpos = fobj.get_stage_settings(axis=step_axis)[0]
+        cpos = fobj.get_stage_settings(axis=STEP_AX)[0]
         cpos = cpos * 80. / 10.   # 80um travel per 10V control
         if cpos not in pos_dict:
             pos_dict[cpos] = []
@@ -91,7 +76,7 @@ if subtract_background:
     bpos_dict = {}
     for obj in bdir_objs:
         for fobj in obj.fobjs:
-            cpos = fobj.get_stage_settings(axis=step_axis)[0]
+            cpos = fobj.get_stage_settings(axis=STEP_AX)[0]
             cpos = cpos * 80. / 10.   # 80um travel per 10V control
             if cpos not in bpos_dict:
                 bpos_dict[cpos] = []
@@ -104,10 +89,6 @@ colors = bu.get_color_map(len(pos_dict.keys()))
 pos_keys = pos_dict.keys()
 pos_keys.sort()
 
-# initialize some dictionaries that will be updated in a for-loop
-force_at_closest = {}
-fits = {}
-diag_fits = {}
 
 f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(7,8),dpi=100)
 if subtract_background:
@@ -119,40 +100,31 @@ for i, pos in enumerate(pos_keys):
     newobj = cu.Data_dir(0, init_data, pos)
     newobj.files = pos_dict[pos]
     newobj.load_dir(cu.diag_loader, maxfiles=maxfiles)
-    newobj.get_avg_force_v_pos(cant_axis=cant_axis, bin_size = bin_size)
+    newobj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size)
 
     # Load the calibrations
     newobj.load_H(tf_path)
-    if load_charge_cal:
-        newobj.load_step_cal(step_cal_path)
-    else:
-        newobj.charge_step_calibration = step_calibration
+    newobj.load_step_cal(step_cal_path)
     newobj.calibrate_H()
 
     newobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
                              build_conv_facs=True, drive_freq=cal_drive_freq)
-    newobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
+    newobj.get_avg_diag_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size)
 
     # Load background files
     if subtract_background:
         bobj = cu.Data_dir(0, init_data, pos)
         bobj.files = bpos_dict[pos]
         bobj.load_dir(cu.diag_loader, maxfiles=maxfiles)
-        bobj.get_avg_force_v_pos(cant_axis=cant_axis, bin_size = bin_size)
-
+        bobj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size)
 
         bobj.load_H(tf_path)
-
-        if load_charge_cal:
-            bobj.load_step_cal(step_cal_path)
-        else:
-            bobj.charge_step_calibration = step_calibration
-
+        bobj.load_step_cal(step_cal_path)
         bobj.calibrate_H()
 
         bobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200.,# plot_Happ=True, \
                                  build_conv_facs=True, drive_freq=18.)
-        bobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
+        bobj.get_avg_diag_force_v_pos(cant_axis = SWEEP_AX, bin_size = bin_size)
 
 
 
@@ -205,19 +177,6 @@ for i, pos in enumerate(pos_keys):
                                    diagdat[resp,0][2]*1e15, \
                                    fmt='.-', ms=10, color = color, label=lab)
 
-        if fit_height:
-            offset = -dat[respaxis,0][1][-1]
-            diagoffset = -diagdat[respaxis,0][1][-1]
-            popt, pcov = curve_fit(ffn, dat[respaxis,0][0], \
-                                           (dat[respaxis,0][1]+offset)*cal_facs[respaxis]*1e15, \
-                                           p0=[1.,0.1,0])
-            diagpopt, diagpcov = curve_fit(ffn, diagdat[respaxis,0][0], \
-                                           (diagdat[respaxis,0][1]+diagoffset)*1e15, \
-                                           p0=[1.,0.1,0])
-
-            fits[pos] = (popt, pcov)
-            diag_fits[pos] = (diagpopt, diagpcov)
-
 
 axarr[0,0].set_title('Raw Imaging Response')
 axarr[0,1].set_title('Diagonalized Forces')
@@ -235,43 +194,6 @@ if len(fig_title):
     f.suptitle(fig_title + ' ' + dirlabel, fontsize=18)
 
 
-# Analyze the fits (if fits were performed) and find the maximal
-# response at the location specified in the preamble
-if fit_height:
-    keys = fits.keys()
-    keys.sort()
-    keys = map(float, keys)
-    arr1 = []
-    arr2 = []
-    for key in keys:
-        # compute response at the specified location
-        arr1.append(ffn(fit_dist, fits[key][0][0], fits[key][0][1], 0 )) 
-        arr2.append(ffn(fit_dist, diag_fits[key][0][0], diag_fits[key][0][1], 0 )) 
-
-    p0_1 = [1, 10, 1]
-    p0_2 = [1, 10, 1]
-
-    fit1, err1 = curve_fit(ffn2, keys, arr1, p0 = p0_1, maxfev=10000)
-    fit2, err2 = curve_fit(ffn2, keys, arr2, p0 = p0_2, maxfev=10000)
-    xx = np.linspace(keys[0], keys[-1], 100)
-    fxx1 = ffn2(xx, fit1[0], fit1[1], fit1[2]) 
-    fxx2 = ffn2(xx, fit2[0], fit2[1], fit2[2]) 
-
-    plt.figure()
-    plt.suptitle("Fit of Raw Data")
-    plt.plot(keys, arr1)
-    plt.plot(xx, fxx1)
-    plt.xlabel('Cantilever Height [um]')
-    plt.ylabel('Force [fN]')
-    plt.figure()
-    plt.suptitle("Fit of Diagonalized Data")
-    plt.plot(keys, arr2)
-    plt.plot(xx, fxx2)
-    plt.xlabel('Cantilever Height [um]')
-    plt.ylabel('Force [fN]')
-
-    print "Best fit positions: ", fit1[1], fit2[1]
-    
 plt.show()
     
         
