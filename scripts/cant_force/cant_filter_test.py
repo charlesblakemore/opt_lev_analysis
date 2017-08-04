@@ -10,18 +10,16 @@ from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize 
 
-dirs = [33,]
+dirs = [1,]
 ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 #print ddict
 
 cant_axis = 2
 step_axis = 1
-respaxis = 1
-bin_size = 4  # um
+bin_size = 1  # um
 lpf = 150 # Hz
 
-init_data = [0., 0., 0]
-load_charge_cal = True
+init_data = [0., 0., -40]
 cal_drive_freq = 41.
 
 maxfiles = 1000
@@ -32,7 +30,9 @@ xlab = 'Distance along Cantilever [um]'
 tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
 step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
 
-################
+
+
+#####################################################
 
 
 def proc_dir(d):
@@ -45,8 +45,6 @@ def proc_dir(d):
     return dir_obj
 
 dir_objs = map(proc_dir, dirs)
-if subtract_background:
-    bdir_objs = map(proc_dir, bdirs)
 
 pos_dict = {}
 for obj in dir_objs:
@@ -73,18 +71,14 @@ for i, pos in enumerate(pos_keys):
 
     
     newobj.load_H(tf_path)
-
-    if load_charge_cal:
-        newobj.load_step_cal(step_cal_path)
-    else:
-        newobj.charge_step_calibration = step_calibration
-
+    newobj.load_step_cal(step_cal_path)
     newobj.calibrate_H()
 
-    newobj.filter_files_by_cantdrive(cant_axis=2, nharmonics=1, noise=True)
+    newobj.filter_files_by_cantdrive(cant_axis=cant_axis, nharmonics=10, noise=True, width=1.)
 
     newobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=cal_drive_freq)
+                             build_conv_facs=True, drive_freq=cal_drive_freq, cantfilt=True,\
+                             close_dat=False)
 
     newobj.get_avg_force_v_pos(cant_axis=cant_axis, bin_size = bin_size, cantfilt=True)
     newobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size, cantfilt=True)
@@ -93,33 +87,56 @@ for i, pos in enumerate(pos_keys):
 
     keys = newobj.avg_diag_force_v_pos.keys()
     cal_facs = newobj.conv_facs
-    #cal_facs = [1.,1.,1.]
     color = colors[i]
-    #newpos = 90.4 - pos
-    #posshort = '%g' % cu.round_sig(float(newpos),sig=2)
-    if float(pos) != 0:
-        posshort = '%g' % cu.round_sig(float(pos),sig=2)
-    else:
-        posshort = '0'
+
+    lab = "Filtered"
 
     for key in keys:
         diagdat = newobj.avg_diag_force_v_pos[key]
         dat = newobj.avg_force_v_pos[key]
 
-
-        #offset = 0
-        lab = posshort + ' um'
         for resp in [0,1,2]:
-            offset = - dat[resp,0][1][-1]
-            diagoffset = - diagdat[resp,0][1][-1]
+            #offset = - dat[resp,0][1][-1]
+            offset = - np.mean(dat[resp,0][1])
+            #diagoffset = - diagdat[resp,0][1][-1]
+            diagoffset = - np.mean(diagdat[resp,0][1])
             axarr[resp,0].errorbar(dat[resp,0][0], \
                                    (dat[resp,0][1]+offset)*cal_facs[resp]*1e15, \
                                    dat[resp,0][2]*cal_facs[resp]*1e15, \
-                                   fmt='.-', ms=10, color = color, label=lab)
+                                   fmt='.-', ms=20, color = color, label=lab)
             axarr[resp,1].errorbar(diagdat[resp,0][0], \
                                    (diagdat[resp,0][1]+diagoffset)*1e15, \
                                    diagdat[resp,0][2]*1e15, \
-                                   fmt='.-', ms=10, color = color, label=lab)
+                                   fmt='.-', ms=20, color = color, label=lab)
+
+
+
+
+    newobj.get_avg_force_v_pos(cant_axis=cant_axis, bin_size = bin_size, cantfilt=False)
+    newobj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size, cantfilt=False)
+
+    lab = "Un-Filtered"
+
+    for key in keys:
+        diagdat = newobj.avg_diag_force_v_pos[key]
+        dat = newobj.avg_force_v_pos[key]
+
+        for resp in [0,1,2]:
+            #offset = - dat[resp,0][1][-1]
+            offset = - np.mean(dat[resp,0][1])
+            #diagoffset = - diagdat[resp,0][1][-1]
+            diagoffset = - np.mean(diagdat[resp,0][1])
+
+            axarr[resp,0].errorbar(dat[resp,0][0], \
+                                   (dat[resp,0][1]+offset)*cal_facs[resp]*1e15, \
+                                   dat[resp,0][2]*cal_facs[resp]*1e15, \
+                                   fmt='.-', ms=10, color = 'r', label=lab)
+            axarr[resp,1].errorbar(diagdat[resp,0][0], \
+                                   (diagdat[resp,0][1]+diagoffset)*1e15, \
+                                   diagdat[resp,0][2]*1e15, \
+                                   fmt='.-', ms=10, color = 'r', label=lab)
+
+
 
 
 axarr[0,0].set_title('Raw Imaging Response')
@@ -137,3 +154,4 @@ axarr[0,1].legend(loc=0, numpoints=1, ncol=2, fontsize=9)
 if len(fig_title):
     f.suptitle(fig_title + ' ' + dirlabel, fontsize=18)
 
+plt.show()

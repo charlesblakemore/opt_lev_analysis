@@ -99,9 +99,9 @@ def emap2(drive):
     # Map from data axis back to electrode number, using nominal elecs
     # 1, 3 and 5, as TF data was taken with these electrodes
     if drive == 0:
-        return 5
-    elif drive == 1:
         return 3
+    elif drive == 1:
+        return 5
     elif drive == 2:
         return 1
 
@@ -298,14 +298,15 @@ class Data_file:
         self.fname = "Filename not assigned."
         #self.path = "Directory not assigned." #Assuming directory in filename
         self.pos_data = "bead position data not loaded"
+        self.binned_pos_data = "Binned data not computed"
         self.diag_pos_data = "Position Data not diagonalized"
         self.pos_data_cantfilt = "bead position data not filtered by cantilever"
         self.diag_pos_data_cantfilt = "diag position data not filtered by cantilever"
+        self.cantfilt = "Cantilever notch filter not generated"
         self.image_pow_data = "Imaging power data not loaded"
         self.binned_image_pow_data = "Binned imaging power not computed"
         self.binned_image_pow_errs = "Binned imaging power errors not computed"
         self.dc_pos = "DC positions not computed"
-        self.binned_pos_data = "Binned data not computed"
         self.binned_data_errors = "binded data errors not computed"
         self.cant_data = "cantilever position data no loaded"
         self.binned_cant_data = "Binned cantilever data not computed"
@@ -403,13 +404,19 @@ class Data_file:
         self.pos_data  = map(ms, self.pos_data)
 
 
-    def spatial_bin(self, bin_sizes = [1., 1., 1.], diag=False):
+    def spatial_bin(self, bin_sizes = [1., 1., 1.], diag=False, cantfilt=False):
         #Method for spatially binning data based on stage z  position.
         
         if diag:
-            dat = self.diag_pos_data
+            if cantfilt:
+                dat = self.diag_pos_data_cantfilt
+            else:
+                dat = self.diag_pos_data
         else:
-            dat = self.pos_data
+            if cantfilt:
+                dat = self.pos_data_cantfilt
+            else:
+                dat = self.pos_data
 
         binned_image_pow_data = [[[], [], []], [[], [], []], [[], [], []]]
         binned_image_pow_errs = [[[], [], []], [[], [], []], [[], [], []]]
@@ -445,14 +452,24 @@ class Data_file:
         self.binned_image_pow_errs = np.array(binned_image_pow_errs)
 
         if diag:
-            self.diag_binned_cant_data = np.array(binned_cant_data)
-            self.diag_binned_pos_data = np.array(binned_pos_data)
-            self.diag_binned_data_errors = np.array(binned_data_errors)
+            if cantfilt:
+                self.diag_cantfilt_binned_cant_data = np.array(binned_cant_data)
+                self.diag_cantfilt_binned_pos_data = np.array(binned_pos_data)
+                self.diag_cantfilt_binned_data_errors = np.array(binned_data_errors)
+            else:
+                self.diag_binned_cant_data = np.array(binned_cant_data)
+                self.diag_binned_pos_data = np.array(binned_pos_data)
+                self.diag_binned_data_errors = np.array(binned_data_errors)
 
         else:
-            self.binned_cant_data = np.array(binned_cant_data)
-            self.binned_pos_data = np.array(binned_pos_data)
-            self.binned_data_errors = np.array(binned_data_errors)
+            if cantfilt:
+                self.cantfilt_binned_cant_data = np.array(binned_cant_data)
+                self.cantfilt_binned_pos_data = np.array(binned_pos_data)
+                self.cantfilt_binned_data_errors = np.array(binned_data_errors)
+            else:
+                self.binned_cant_data = np.array(binned_cant_data)
+                self.binned_pos_data = np.array(binned_pos_data)
+                self.binned_data_errors = np.array(binned_data_errors)
 
 
     def psd(self, NFFT = 2**16):
@@ -569,26 +586,26 @@ class Data_file:
 
     
     def find_H(self, dpsd_thresh = 6e-2, mfreq = 1.):
-        #Finds the phase lag between the electrode drive and the respose at a given frequency.
-        #check to see if fft has been computed. Comput if not
+        # Finds the phase lag between the electrode drive and the respose at a given frequency.
+        # check to see if fft has been computed. Compute if not
         if type(self.data_fft) == str:
             self.get_fft()        
         
         edat = np.roll(self.electrode_data,0,axis=-1)
 
-        dfft = np.fft.rfft(edat) #fft of electrode drive in daxis. 
+        dfft = np.fft.rfft(edat) # fft of electrode drive in daxis. 
         
-        N = np.shape(self.pos_data)[1]#number of samples
-        dpsd = np.abs(dfft)**2*2./(N*self.Fsamp) #psd for all electrode drives
+        N = np.shape(self.pos_data)[1]  # number of samples
+        dpsd = np.abs(dfft)**2*2./(N*self.Fsamp) # psd for all electrode drives
         
         inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
         Hmatst = np.einsum('ij, kj->ikj', self.data_fft, 1./dfft) #transfer matrix between electrodes and bead motion for all frequencies
-        finds = inds[1] #frequency index with significant drive
-        cinds = inds[0] #colun index with significant drive
+        finds = inds[1] # frequency index with significant drive
+        cinds = inds[0] # colun index with significant drive
 
-        b = finds>np.argmin(np.abs(self.fft_freqs - mfreq))
+        b = finds > np.argmin(np.abs(self.fft_freqs - mfreq))
 
-        # Find and correct for arbitrary pi phase shift if each channel's self response
+        # Find and correct for arbitrary pi phase shift in each channel's self response
         # This is equivalent to retaking transfer function data, adding appropriate
         # minus signs in the elctrode to keep the response in phase with the drive
         init_phases = np.mean(np.angle(Hmatst[:,:,finds[b]])[:,:,:2],axis=-1)
@@ -693,32 +710,68 @@ class Data_file:
         self.step_cal_response = sign * response_amp2 / drive_amp
 
 
-    def filter_by_cantdrive(cant_axis=2, nharmonics=1, noise=False):
+    def filter_by_cantdrive(self, cant_axis=2, nharmonics=1, noise=False, width=0.):
 
         cantfft = np.fft.rfft( self.cant_data[cant_axis] )
-        fftsq = cantfft.conj() * cantfft
-        fundind = np.argmax( fftsq )
-        drive_freq = freqs[fundind]
-        cantfilt = (fftsq) / (fftsq[fundind])
+        fftsq = cantfft.conj() * cantfft          # Discard phase (acausal filter)
+        fund_ind = np.argmax( fftsq[1:] ) + 1     # Find the index with maximal response
+        drive_freq = self.fft_freqs[fund_ind]
 
-        for n in range(nharmonics):
-            harmind = np.argmin( np.abs(n * drive_freq - freqs))
-        
+        if noise:
+            cantfilt = (fftsq) / (fftsq[fund_ind])    # Normalize filter to 1 at fundamental
+        elif not noise:
+            cantfilt = np.zeros(len(fftsq))
+            cantfilt[fund_ind] = 1.0
 
+        if width:
+            lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - self.fft_freqs))
+            upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - self.fft_freqs))
+            cantfilt[lower_ind:upper_ind+1] = cantfilt[fund_ind]
 
-    def diagonalize(self, mat):
+        #plt.figure()
+        #plt.loglog(self.fft_freqs, cantfilt)
+
+        harms = range(nharmonics)    # Make a list of the harmonics to include and
+        harms = np.array(harms) + 2  # remove the fundamental 
+        for n in harms:
+            harm_ind = np.argmin( np.abs(n * drive_freq - self.fft_freqs))
+            cantfilt[harm_ind] = cantfilt[fund_ind]
+            if width:
+                h_lower_ind = harm_ind - (fund_ind - lower_ind)
+                h_upper_ind = harm_ind + (upper_ind - fund_ind)
+                cantfilt[h_lower_ind:h_upper_ind+1] = cantfilt[harm_ind]
+
+        #plt.figure()
+        #plt.loglog(self.fft_freqs, cantfilt, linewidth = 1.5)
+        #plt.xlabel('Frequency [Hz]')
+        #plt.show()
+
+        if type(self.data_fft) == str:
+            self.get_fft()
+
+        self.pos_data_cantfilt = np.fft.irfft(cantfilt * self.data_fft)
+        self.cantfilt = cantfilt
+
+    def diagonalize(self, mat, cantfilt=False):
         #print "Transfer Matrix"
         #print np.abs(mat)
         diag_ffts = np.einsum('ij, jk -> ik', mat, self.data_fft)
         self.diag_data_fft = diag_ffts
         self.diag_pos_data = np.fft.irfft(diag_ffts)
+        if cantfilt:
+            if type(self.cantfilt) == str:
+                print self.cantfilt
+                return
+            diag_ffts2 = np.einsum('ij, jk -> ik', mat, self.cantfilt * self.data_fft)
+            self.diag_pos_data_cantfilt = np.fft.irfft(diag_ffts2)
 
-        N = np.shape(self.pos_data)[1] # number of samples
-        norm_fac = 2./(N*self.Fsamp) # psd normalization
 
         ######################
         #### SANITY CHECK ####
         ######################
+
+        #N = np.shape(self.pos_data)[1] # number of samples
+        #norm_fac = 2./(N*self.Fsamp) # psd normalization
 
         #plt.figure()
         #for i in [0,1,2]:
@@ -799,8 +852,8 @@ class Data_dir:
         self.conv_facs = "Final calibration factors not computed"
         self.avg_force_v_pos = "Average force vs position not computed"
         self.avg_force_v_pos_cantfilt = "Average force vs position not computed"
-        self.avg_diag_force_v_pos = "Average diagonalized force vs position not computed"
-        self.avg_diag_force_v_pos_cantfilt = "Average diagonalized force vs position not computed"
+        self.avg_diag_force_v_pos = "Avg diag force vs position not computed"
+        self.avg_diag_force_v_pos_cantfilt = "Avg diag force vs position not filtered"
         self.avg_pos_data = "Average response not computed"
         self.ave_dc_pos = "Mean positions not computed"
         self.avg_pressure = 'pressures not loaded'
@@ -871,32 +924,32 @@ class Data_dir:
 
     def get_avg_force_v_pos(self, cant_axis = 2, bin_size = 0.5, \
                                  cant_indx = 24, bias = False, \
-                                 baratron_indx = 2, pressures = False):
+                                 baratron_indx = 2, pressures = False, \
+                                 cantfilt = False):
 
         if type(self.fobjs) == str:
             self.load_dir(pos_loader)
-        if bias:
-            def extractor(fobj):
+        def extractor(fobj):
+            if cantfilt:
+                cant_dat = fobj.cantfilt_binned_cant_data
+                pos_dat = fobj.cantfilt_binned_pos_data
+            elif not cantfilt:
                 cant_dat = fobj.binned_cant_data
                 pos_dat = fobj.binned_pos_data
-                cantV = fobj.electrode_settings[cant_indx]
-                return [cant_dat, pos_dat, cantV]
-            
-        elif pressures:
-            def extractor(fobj):
-                #extracts [cant data, pos data, baratron pressure]
-                cant_dat = fobj.binned_cant_data
-                pos_dat = fobj.binned_pos_data
+            cantV = fobj.electrode_settings[cant_indx]
+            try:
                 pressure = round_sig(fobj.pressures[baratron_indx],1)
                 if pressure < 5e-5:
                     pressure = 'Base ~ 1e-6'
                 else:
-                    pressure = '%.1e' % pressure
+                    diagpressure = '%.1e' % pressure
+            except:
+                pressure = 'Baratron not rec.'
+            if bias:
+                return [cant_dat, pos_dat, cantV]
+            elif pressures:
                 return [cant_dat, pos_dat, pressure]
-        else:
-            def extractor(fobj):
-                cant_dat = fobj.binned_cant_data
-                pos_dat = fobj.binned_pos_data
+            else:
                 return [cant_dat, pos_dat, 1]
         
         extracted = np.array(map(extractor, self.fobjs))
@@ -931,32 +984,33 @@ class Data_dir:
 
     def get_avg_diag_force_v_pos(self, cant_axis = 2, bin_size = 0.5, \
                                  cant_indx = 24, bias = False, \
-                                 baratron_indx = 2, pressures = False):
+                                 baratron_indx = 2, pressures = False, \
+                                 cantfilt = False):
 
         if type(self.fobjs) == str:
             self.load_dir(pos_loader)
-        if bias:
-            def extractor(fobj):
+
+        def extractor(fobj):
+            if cantfilt:
+                cant_dat = fobj.diag_cantfilt_binned_cant_data
+                pos_dat = fobj.diag_cantfilt_binned_pos_data
+            elif not cantfilt:
                 cant_dat = fobj.diag_binned_cant_data
                 pos_dat = fobj.diag_binned_pos_data
-                cantV = fobj.electrode_settings[cant_indx]
-                return [cant_dat, pos_dat, cantV]
-            
-        elif pressures:
-            def extractor(fobj):
-                #extracts [cant data, pos data, baratron pressure]
-                cant_dat = fobj.diag_binned_cant_data
-                pos_dat = fobj.diag_binned_pos_data
+            cantV = fobj.electrode_settings[cant_indx]
+            try:
                 pressure = round_sig(fobj.pressures[baratron_indx],1)
                 if pressure < 5e-5:
                     pressure = 'Base ~ 1e-6'
                 else:
                     pressure = '%.1e' % pressure
+            except:
+                pressure = 'Baratron not rec.'
+            if bias:
+                return [cant_dat, pos_dat, cantV]
+            elif pressures:
                 return [cant_dat, pos_dat, pressure]
-        else:
-            def extractor(fobj):
-                cant_dat = fobj.diag_binned_cant_data
-                pos_dat = fobj.diag_binned_pos_data
+            else:
                 return [cant_dat, pos_dat, 1]
         
         extracted = np.array(map(extractor, self.fobjs))
@@ -1299,7 +1353,7 @@ class Data_dir:
 
 
 
-    def filter_files_by_cantdrive(self, cant_axis=2, nharmonics=1, noise=True):
+    def filter_files_by_cantdrive(self, cant_axis=2, nharmonics=1, noise=True, width=0.):
         # Apply to each file a filter constructed from the FFT of the 
         # cantilever drive
 
@@ -1307,8 +1361,9 @@ class Data_dir:
         sys.stdout.flush()
 
         for fobj in self.fobjs:
-            fobj.filter_by_cantdrive(cant_axis=cant_axis, nharmonics=nharmonics, \
-                                     noise=noise)
+            fobj.filter_by_cantdrive(cant_axis=cant_axis,\
+                                     nharmonics=nharmonics, noise=noise, width=width)
+            fobj.spatial_bin(cantfilt=True)
 
 
 
@@ -1317,7 +1372,8 @@ class Data_dir:
 
     def diagonalize_files(self, fthresh = 40., simpleDCmat=False, plot_Happ=False, \
                           reconstruct_lowf=False, lowf_thresh=100., \
-                          build_conv_facs=False, drive_freq=41., close_dat=True):
+                          build_conv_facs=False, drive_freq=41., close_dat=True,
+                          cantfilt=False):
         if type(self.Hs_cal) == str:
             try:
                 self.calibrate_H()
@@ -1334,8 +1390,8 @@ class Data_dir:
             mat = np.linalg.inv(self.Havg_cal)
 
             for fobj in self.fobjs:
-                fobj.diagonalize(mat)
-                fobj.spatial_bin(diag=True)
+                fobj.diagonalize(mat, cantfilt=cantfilt)
+                fobj.spatial_bin(diag=True, cantfilt=cantfilt)
                 fobj.close_dat(ft=False, elecs=False)
             
             return
@@ -1420,18 +1476,21 @@ class Data_dir:
             diag_fft = np.einsum('ikj,ki->ji', Harr, fobj.data_fft)
             fobj.diag_pos_data = np.fft.irfft(diag_fft)
             fobj.diag_data_fft = diag_fft
-            
-            #for ind in [0,1,2]:
-            #    plt.subplot(3,1,ind+1)
-            #    plt.loglog(freqs, np.abs(fobj.data_fft[ind]))
+            if cantfilt:
+                diag_fft2 = np.einsum('ikj,ki->ji', Harr, fobj.cantfilt * fobj.data_fft)
+                fobj.diag_pos_data_cantfilt = np.fft.irfft(diag_fft2) # * fobj.cantfilt)
 
             #plt.figure()
-            #for ind in [0,1,2]:
-            #    plt.subplot(3,1,ind+1)
-            #    plt.loglog(freqs, np.abs(diag_fft[ind]))
+            #for i in [0,1,2]:
+            #    plt.subplot(3,1,i+1)
+            #    plt.loglog(fobj.fft_freqs, diag_fft2[i].conj() * diag_fft2[i], linewidth=2)
+            #    tempfft = diag_fft * fobj.cantfilt
+            #    plt.loglog(fobj.fft_freqs, tempfft[i].conj() * tempfft[i])
             #plt.show()
 
             fobj.spatial_bin(diag=True)
+            if cantfilt:
+                fobj.spatial_bin(diag=True, cantfilt=cantfilt)
             if close_dat:
                 fobj.close_dat(ft=False, elecs=False)
         # All previous print statements have had commas so print a newline
