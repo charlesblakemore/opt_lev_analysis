@@ -15,7 +15,6 @@ import time
 ####################################################
 ####### Input parameters for data processing #######
 
-TESTING = True
 
 ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 #print ddict

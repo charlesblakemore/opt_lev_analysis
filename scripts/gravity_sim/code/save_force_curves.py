@@ -28,10 +28,6 @@ dz = np.abs(zz[1] - zz[0])
 cell_volume = dx * dy * dz
 m = rho * cell_volume
 
-
-BACKGROUND = 1.0e-18    # Blocked light background in N
-SCALE = 1.0 / BACKGROUND
-
 lambdas = np.logspace(-6.3, -3, 50)
 lambdas = lambdas[::-1]
 alphas = np.zeros(len(lambdas))
@@ -39,19 +35,20 @@ alphas = np.zeros(len(lambdas))
 G = 6.67e-11     # m^3 / (kg s^2)
 rhobead = 2200.
 
-travel = 200.0e-6
+travel = 500.0e-6
 cent = 0.0e-6
-Npoints = 201.
+Npoints = 501.
 beadposvec = np.linspace(cent - 0.5*travel, cent + 0.5*travel, Npoints)
 
 
 rbeads = [2.43e-6, 4.8e-6]
-seps = [5.0e-6, 6.0e-6, 7.0e-6, 8.0e-6, 9.0e-6, 10.0e-6]
+seps = [3.0e-6, 4.0e-6, 5.0e-6, 6.0e-6, 7.0e-6, 8.0e-6, \
+        9.0e-6, 10.0e-6, 11.0e-6, 12.0e-6, 13.0e-6, 14.0e-6, 15.0e-6]
 
 #rbeads = [5.0e-6]
 #seps = [7.5e-6]
 
-respath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/5-10um_seps_200um_throw'
+respath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/attractorv2_1um_manysep_fullthrow'
 results_dir = pickle.load( open(respath + '_force_curves.p', 'rb') )
 results_dir['order'] = 'Rbead, Sep, Yuklambda'
 

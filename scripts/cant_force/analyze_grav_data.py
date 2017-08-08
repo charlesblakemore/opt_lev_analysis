@@ -8,7 +8,8 @@ import tkFileDialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
-from scipy.optimize import minimize_scalar as minimize 
+from scipy.optimize import minimize_scalar as minimize
+import cPickle as pickle
 
 ###########################
 # Script to analyze "gravity" data in which the cantilever is
@@ -16,14 +17,19 @@ from scipy.optimize import minimize_scalar as minimize
 # which the cantilever is driven.
 ###########################
 
-dirs = [32,]
+tempdata = pickle.load( open('./temp_data.p', 'rb') )
+tempkey = 'new'
+tempresp = 1
+
+
+dirs = [1,]
 bdirs = [1,]
 subtract_background = False
 
 ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
 maxfiles = 1000   # Maximum number of files to load from a directory
 
-SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
+SWEEP_AX = 2     # Cantilever sweep axis, 1 for Y, 2 for Z
 STEP_AX = 0      # Axis with differnt DC pos., 0 for height, 2 for sep 
 bin_size = 4     # um, Binning for final force v. pos
 lpf = 150        # Hz, acausal top-hat filter at this freq
@@ -32,8 +38,8 @@ fig_title = 'Force vs. Cantilever Position:'
 xlab = 'Distance along Cantilever [um]'
 
 # Locate Calibration files
-tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
 
 
 ##########################################################
@@ -155,8 +161,16 @@ for i, pos in enumerate(pos_keys):
         #offset = 0
         lab = posshort + ' um'
         for resp in [0,1,2]:
-            offset = - dat[resp,0][1][-1]
-            diagoffset = - diagdat[resp,0][1][-1]
+            #offset = - dat[resp,0][1][-1]
+            offset = - np.mean(dat[resp,0][1])
+            #diagoffset = - diagdat[resp,0][1][-1]
+            diagoffset = - np.mean(diagdat[resp,0][1])
+
+            if resp == tempresp:
+                tempdata[tempkey] = (dat[resp,0][0], (dat[resp,0][1]+offset)*cal_facs[resp], \
+                                     diagdat[resp,0][1]+diagoffset, \
+                                     (dat[resp,0][2])*cal_facs[resp], diagdat[resp,0][2])
+
             # refer to indexing eplanation above if this is confusing!
             axarr[resp,0].errorbar(dat[resp,0][0], \
                                    (dat[resp,0][1]+offset)*cal_facs[resp]*1e15, \
@@ -193,6 +207,7 @@ axarr[0,1].legend(loc=0, numpoints=1, ncol=2, fontsize=9)
 if len(fig_title):
     f.suptitle(fig_title + ' ' + dirlabel, fontsize=18)
 
+pickle.dump(tempdata, open('./temp_data.p', 'wb') )
 
 plt.show()
     
