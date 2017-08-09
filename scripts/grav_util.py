@@ -118,14 +118,18 @@ class Grav_force_curve:
             yuklambda = new_lambda
             print "Couldn't find scale you wanted... Using lambda = %0.2g" % new_lambda
 
+        # Identify splines for given rbead and yuklambda
         Gfunc = self.splines[0][rbead][yuklambda]
         yukfunc = self.splines[1][rbead][yuklambda]
         
+        # Compute newtownian gravity and yukawa modification with alpha = 1
         Gcurve = Gfunc(sep, xarr)
         yukcurve = yukfunc(sep, xarr)
 
+        # Compute the total force with given alpha
         totforce = Gcurve + alpha * yukcurve
 
+        # Reshape the output to match standard 1D numpy array shape
         totforce_shaped = totforce.reshape( (len(xarr),) )
         return totforce_shaped
 
@@ -155,12 +159,15 @@ class Grav_force_curve:
             yuklambda = new_lambda
             print "Couldn't find scale you wanted... Using lambda = %0.2g" % new_lambda
             
+        # Identify splines for given rbead and yuklambda
         Gfunc = self.splines[0][rbead][yuklambda]
         yukfunc = self.splines[1][rbead][yuklambda]
         
+        # Compute newtownian gravity and yukawa modification with alpha = 1
         Gforce = Gfunc(sep, pos)
         yukforce = yukfunc(sep, pos)
         
+        # Compute the total force with given alpha
         totforce = Gforce + alpha * yukforce
 
         return totforce
