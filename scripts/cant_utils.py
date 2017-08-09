@@ -731,8 +731,9 @@ class Data_file:
         #plt.figure()
         #plt.loglog(self.fft_freqs, cantfilt)
 
-        harms = range(nharmonics)    # Make a list of the harmonics to include and
-        harms = np.array(harms) + 2  # remove the fundamental 
+        # Make a list of the harmonics to include and remove the fundamental 
+        harms = np.array([x+2 for x in range(nharmonics)])    
+
         for n in harms:
             harm_ind = np.argmin( np.abs(n * drive_freq - self.fft_freqs))
             cantfilt[harm_ind] = cantfilt[fund_ind]
