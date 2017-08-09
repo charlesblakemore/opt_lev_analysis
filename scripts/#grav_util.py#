@@ -33,6 +33,8 @@ class Grav_force_curve:
         self.lambdas.sort()
 
     def make_splines(self):
+        '''Fuction to generate interpolating splines from loaded force curves
+           Takes no inputs..'''
         Gsplines = {}
         yuksplines = {}
         for rbead in self.rbeads:
@@ -50,13 +52,20 @@ class Grav_force_curve:
                         Ggrid = Gcurve
                         yukgrid = yukcurve
 
-                Ginterpfunc = interpolate.RectBivariateSpline(self.posvec, self.seps, Ggrid)
-                yukinterpfunc = interpolate.RectBivariateSpline(self.posvec, self.seps, yukgrid)
+                Ginterpfunc = interpolate.RectBivariateSpline(self.seps, self.posvec, Ggrid)
+                yukinterpfunc = interpolate.RectBivariateSpline(self.seps, self.posvec, yukgrid)
 
                 Gsplines[rbead][yuklambda] = Ginterpfunc
                 yuksplines[rbead][yuklambda] = yukinterpfunc
                 
         self.splines = (Gsplines, yuksplines)
+
+
+    def mod_grav_force(pos=0., 
+
+
+
+    def mod_grav_force_point(pos
 
 
     
