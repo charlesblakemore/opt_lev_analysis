@@ -622,8 +622,10 @@ class Data_file:
         N = np.shape(self.pos_data)[1]  # number of samples
         dpsd = np.abs(dfft)**2*2./(N*self.Fsamp) # psd for all electrode drives
         
-        inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
-        Hmatst = np.einsum('ij, kj->ikj', self.data_fft, 1./dfft) #transfer matrix between electrodes and bead motion for all frequencies
+        # Where the dpsd is over the threshold for being used.
+        inds = np.where(dpsd>dpsd_thresh)
+        # transfer matrix between electrodes and bead motion for all frequencies
+        Hmatst = np.einsum('ij, kj->ikj', self.data_fft, 1./dfft) 
         finds = inds[1] # frequency index with significant drive
         cinds = inds[0] # colun index with significant drive
 
@@ -695,7 +697,8 @@ class Data_file:
         t = np.linspace(0,(N+cut_samp-1)*dt, N+cut_samp)
         t = t[cut_samp:]
 
-        b, a = sig.butter(3, [2.*(drive_freq-band_width/2.)/self.Fsamp, 2.*(drive_freq+band_width/2.)/self.Fsamp ], btype = 'bandpass')
+        b, a = sig.butter(3, [2.*(drive_freq-band_width/2.)/self.Fsamp, \
+                              2.*(drive_freq+band_width/2.)/self.Fsamp ], btype = 'bandpass')
         responsefilt = sig.filtfilt(b, a, response)
 
         ### CORR_FUNC TESTING ###
@@ -777,6 +780,8 @@ class Data_file:
         self.pos_data_cantfilt = np.fft.irfft(cantfilt * self.data_fft)
         self.cantfilt = cantfilt
 
+
+
     def diagonalize(self, mat, cantfilt=False):
         #print "Transfer Matrix"
         #print np.abs(mat)
@@ -826,11 +831,6 @@ class Data_file:
         if p:
             self.cant_data = 'cantilever position data cleared'
             self.pos_data = 'bead position data cleared'
-
-
-
-
-
 
 
 
@@ -1207,48 +1207,6 @@ class Data_dir:
                 # And thus we sum over these closely spaced matrices and take the average of 
                 # frequencies as a new key
 
-                if fix_HF:
-                    keys = Hout.keys()
-                    keys.sort()
-
-                    freqsep = keys[1] - keys[0]
-                    freqsep = freqsep * 0.9
-
-                    curr_sum = np.zeros((3,3), dtype=np.complex128)
-                    curr_freqs = []
-                    count = 0
-                    fixing = False
-
-                    for i, key in enumerate(keys):
-
-                        if key == keys[0]:
-                            continue
-
-                        if ((keys[i] - keys[i-1]) < freqsep) and not fixing:
-                            fixing = True
-                            curr_freqs.append(keys[i-1])
-                            curr_sum += Hout[keys[i-1]]
-                            count += 1
-
-                        if fixing:
-                            curr_freqs.append(keys[i])
-                            curr_sum += Hout[keys[i]]
-                            count += 1
-                            if i == len(keys) - 1:
-                                continue
-                            else:
-                                if keys[i+1] - keys[i] >= freqsep:
-                                    fixing = False
-
-                                    for freq in curr_freqs:
-                                        del Hout[freq]
-
-                                    newfreq = np.mean(curr_freqs)
-                                    Hout[newfreq] = curr_sum
-                                    curr_freqs = []
-                                    curr_sum = np.zeros((3,3), dtype=np.complex128)
-                                
-
 
         if not average_first:
             for obj in self.fobjs:
@@ -1273,6 +1231,50 @@ class Data_dir:
                     Hout[key][:,i] = Hout[key][:,i] / Hout_counts[key][i]
                     Hout_noise[key][:,i] = Hout_noise[key][:,i] / Hout_counts[key][i]
         
+
+            if fix_HF:
+                keys = Hout.keys()
+                keys.sort()
+
+                freqsep = keys[1] - keys[0]
+                freqsep = freqsep * 0.9
+
+                curr_sum = np.zeros((3,3), dtype=np.complex128)
+                curr_freqs = []
+                count = 0
+                fixing = False
+
+                for i, key in enumerate(keys):
+
+                    if key == keys[0]:
+                        continue
+
+                    if ((keys[i] - keys[i-1]) < freqsep) and not fixing:
+                        fixing = True
+                        curr_freqs.append(keys[i-1])
+                        curr_sum += Hout[keys[i-1]]
+                        count += 1
+
+                    if fixing:
+                        curr_freqs.append(keys[i])
+                        curr_sum += Hout[keys[i]]
+                        count += 1
+                        if i == len(keys) - 1:
+                            continue
+                        else:
+                            if keys[i+1] - keys[i] >= freqsep:
+                                fixing = False
+
+                                for freq in curr_freqs:
+                                    del Hout[freq]
+
+                                newfreq = np.mean(curr_freqs)
+                                Hout[newfreq] = curr_sum
+                                curr_freqs = []
+                                curr_sum = np.zeros((3,3), dtype=np.complex128)
+
+
+
         first_mats = []
         freqs = Hout.keys()
         freqs.sort()
@@ -1293,8 +1295,10 @@ class Data_dir:
         self.noiseHs = Hout_noise
 
 
+
     def calibrate_H(self, step_cal_drive_channel = 0, drive_freq = 41.,\
                     plate_sep = 0.004, bins_to_avg = 2):
+
         if type(self.charge_step_calibration) == str:
             print self.charge_step_calibration
             return
@@ -1360,7 +1364,7 @@ class Data_dir:
     def diagonalize_files(self, fthresh = 40., simpleDCmat=False, plot_Happ=False, \
                           reconstruct_lowf=False, lowf_thresh=100., \
                           build_conv_facs=False, drive_freq=41., close_dat=True,
-                          cantfilt=False):
+                          cantfilt=False, use_fits=True):
         if type(self.Hs_cal) == str:
             try:
                 self.calibrate_H()
@@ -1392,20 +1396,46 @@ class Data_dir:
 
         Harr = np.zeros((Nfreqs,3,3),dtype=np.complex128)
 
-        for drive in [0,1,2]:
-            for resp in [0,1,2]:
-                #print ("(%i, %i)" % (drive,resp)),
-                sys.stdout.flush()
-                magparams = self.Hfuncs[resp][drive][0]
-                phaseparams = self.Hfuncs[resp][drive][1]
-                phase0 = self.Hfuncs[resp][drive][2]
-                    
-                mag = bu.damped_osc_amp(freqs, magparams[0], magparams[1], magparams[2])
-                phase = bu.damped_osc_phase(freqs, phaseparams[0], phaseparams[1], \
-                                             phaseparams[2], phase0=phase0)
-                Harr[:,drive,resp] = mag * np.exp(1.0j*phase)
+        # Generate transfer function from HO fits
+        if use_fits:
+            for drive in [0,1,2]:
+                for resp in [0,1,2]:
+                    #print ("(%i, %i)" % (drive,resp)),
+                    sys.stdout.flush()
+                    magparams = self.Hfuncs[resp][drive][0]
+                    phaseparams = self.Hfuncs[resp][drive][1]
+                    phase0 = self.Hfuncs[resp][drive][2]
+                    mag = bu.damped_osc_amp(freqs, magparams[0], magparams[1], magparams[2])
+                    phase = bu.damped_osc_phase(freqs, phaseparams[0], phaseparams[1], \
+                                                 phaseparams[2], phase0=phase0)
+                    Harr[:,drive,resp] = mag * np.exp(1.0j*phase)
+    
+        # Apply measured tranfer function directly (will maybe add smoothing?)
+        elif not use_fits:
+            keys = self.Hs_cal.keys()
+            keys.sort()
+            keys = np.array(keys)
+            mats = []
+            for freq in keys:
+                mat = self.Hs_cal[freq]
+                mats.append(mat)
+            mats = np.array(mats)
 
+            for drive in [0,1,2]:
+                for resp in [0,1,2]:
+                    comp_tf = mats[:,resp,drive]
+                    maginterp = interpolate.interp1d(keys, np.abs(comp_tf), kind='cubic',\
+                                                     fill_value='extrapolate')
+                    phaseinterp = interpolate.interp1d(keys, np.angle(comp_tf), kind='cubic', \
+                                                       fill_value='extrapolate')
+                    mag = maginterp(freqs)
+                    phase = phaseinterp(freqs)
+    
+                    Harr[:,drive,resp] = mag * np.exp(1.0j*phase)
+    
+        # Compute the inverse so it can be applied directly to data
         Harr = np.linalg.inv(Harr)
+        
 
         if build_conv_facs:
             convind = np.argmin(np.abs(freqs-drive_freq)) 
@@ -1636,8 +1666,8 @@ class Data_dir:
                     
                     # Save the fits and the residuals
                     phase_fits[pmult] = np.copy(popt)
-                    phase_resids[pmult] = np.sum( np.abs(bu.damped_osc_phase(keys[b], popt[0], \
-                                                                popt[1], popt[2], phase0=np.pi*pmult) \
+                    phase_resids[pmult] = np.sum( np.abs( \
+                                            bu.damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
                                                          - unphase[b]) )
 
                 #print drive, resp, phase_resids
@@ -1759,10 +1789,6 @@ class Data_dir:
 
                         axarr4[resp,drive].semilogx(keys, unphase)
                         axarr4[resp,drive].semilogx(keys[b], fitphase, color='r', linewidth=3)
-
-
-
-
 
         self.Hfuncs = fits
 
@@ -2106,9 +2132,6 @@ class Data_dir:
                 print fobj.pos_data
                 return
             
-
-
-
 
         
     def save_dir(self):
