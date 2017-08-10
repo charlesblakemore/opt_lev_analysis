@@ -12,69 +12,21 @@ import scipy.signal as sig
 from multiprocessing import Pool
 
 
-## Helper functions
+#######################################################
+# Core module for loading data files. Has classes for
+# individual files, directories containing multiple files,
+# fit objects, transfer functions and finally a class
+# to hold force v pos data stitched together from 
+# many directory objects
+#
+# Force calibration and such is performed here, as the 
+# calibrations usually require multiple files, sometimes
+# multiple directories
+#######################################################
 
 
-def round_sig(x, sig=2):
-    # round a number to a certain number of sig figs
-    if x == 0:
-        return 0
-    else:
-        return round(x, sig-int(math.floor(math.log10(x)))-1)
+### Some helper functions
 
-def trend_fun(x, a, b):
-    # Define a simple linear function to de-trend datasets
-    return a*x + b
-
-def damped_osc_amp(f, A, f0, g):
-    # Fitting function for the AMPLITUDE of a damped harmonic
-    # oscillator potential.
-    w = 2. * np.pi * f
-    w0 = 2. * np.pi * f0
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * g**2)
-    return A / denom
-
-def damped_osc_phase(f, A, f0, g, phase0 = 0.):
-    # Fitting function for the PHASE of a damped harmonic
-    # oscillator potential
-    w = 2. * np.pi * f
-    w0 = 2. * np.pi * f0
-    return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
-
-
-def sum_3osc_amp(f, A1, f1, g1, A2, f2, g2, A3, f3, g3):
-    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
-           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
-           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
-    return np.abs(csum)
-
-def sum_3osc_phase(f, A1, f1, g1, A2, f2, g2, A3, f3, g3, phase0=0.):
-    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
-           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
-           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
-    return np.angle(csum) + phase0
-
-    
-def thermal_psd_spec(f, A, f0, g):
-    #The position power spectrum of a microsphere normalized so that A = (volts/meter)^2*2kb*t/M
-    w = 2.*np.pi*f #Convert to angular frequency.
-    w0 = 2.*np.pi*f0
-    num = g * w0**2
-    denom = ((w0**2 - w**2)**2 + w**2*g**2)
-    return 2 * (A * num / denom) # Extra factor of 2 from single-sided PSD
-
-def step_fun(x, q, x0):
-    #decreasing step function at x0 with step size q.
-    xs = np.array(x)
-    return q*(xs<=x0)
-
-def multi_step_fun(x, qs, x0s):
-    #Sum of step functions for fitting charge step calibration to.
-    rfun = 0.
-    for i, x0 in enumerate(x0s):
-        rfun += step_fun(x, qs[i], x0)
-    return rfun
-    
 
 sf = lambda tup: tup[0] #Sort key for sort_pts.
 
@@ -85,7 +37,13 @@ def sort_pts(xvec, yvec):
     xvec, yvec = zip(*zl)
     return np.array(xvec), np.array(yvec)
 
+
 def emap(eind):
+    '''Map from electrode index to corresponding data axis.
+       The sign convention is set by the transfer function
+           INPUTS: eind, index of electrode
+
+           OUTPUTS: data axis 0,1 or 2'''
     # Map from electrode number to data axis
     # Sign convention set from transfer function phase
     if eind == 1 or eind == 2:
@@ -96,8 +54,11 @@ def emap(eind):
         return 1
 
 def emap2(drive):
-    # Map from data axis back to electrode number, using nominal elecs
-    # 1, 3 and 5, as TF data was taken with these electrodes
+    '''Map from data channel back to electrode index. Use electrode
+       indices assuming transfer function data was taken as usual
+           INPUTS: drive, index of drive/data
+
+           OUTPUTS: electrode ind 1,3 or 5'''
     if drive == 0:
         return 3
     elif drive == 1:
@@ -107,13 +68,206 @@ def emap2(drive):
 
 
 
+        
+
+def thermal_fit(psd, freqs, fit_freqs = [1., 500.], temp = 300., fudge_fact = 1e-6, p0=[]):
+    ## Function to fit the thermal spectra of a bead's motion
+    ## First need good intitial guesses for fit parameters.
+
+    # Boolian vector of frequencies over which the fit is performed
+    fit_bool = bu.inrange(freqs, fit_freqs[0], fit_freqs[1]) 
+
+    # guess resonant frequency from hightest part of spectrum
+    f0 = freqs[np.argmax(psd[fit_bool])] 
+    df = freqs[1] - freqs[0] #Frequency increment.
+    
+    # Guess at volts per meter using equipartition
+    vpmsq = bu.bead_mass/(bu.kb*temp)*np.sum(psd[fit_bool])*df*len(psd)/np.sum(fit_bool) 
+    g0 = 1./2.*f0 # Guess at damping assuming critical damping
+    A0 = vpmsq*2.*bu.kb*temp/(bu.bead_mass*fudge_fact)
+    if len(p0) == 0:
+        p0 = [A0, f0, g0] #Initial parameter vectors 
+
+    psd = psd.reshape((len(psd),))
+    popt, pcov = curve_fit(bu.thermal_psd_spec, freqs[fit_bool], psd[fit_bool], \
+                           p0 = p0)#, sigma=weights)#, bounds = bounds)
+    #print popt
+    #popt[0] = popt[0]
+    if not np.shape(pcov):
+        print 'Warning: Bad fit'
+    f = Fit(popt, pcov, bu.thermal_psd_spec)
+    return f
+
+def sbin(xvec, yvec, bin_size):
+    #Bins yvec based on binning xvec into bin_size
+    fac = 1./bin_size
+    bins_vals = np.around(fac*xvec)
+    bins_vals /= fac
+    bins = np.unique(bins_vals)
+    y_binned = np.zeros_like(bins)
+    y_errors = np.zeros_like(bins)
+    for i, b in enumerate(bins):
+        idx = bins_vals == b
+        y_binned[i] = np.mean(yvec[idx])
+        y_errors[i] = scipy.stats.sem(yvec[idx])
+    return bins, y_binned, y_errors
+
+def sbin_pn_old(xvec, yvec, bin_size, vel_mult = 0.):
+    #Bins yvec based on binning xvec into bin_size for velocities*vel_mult>0.
+    fac = 1./bin_size
+    bins_vals = np.around(fac*xvec)
+    bins_vals /= fac
+    bins = np.unique(bins_vals)
+    y_binned = np.zeros_like(bins)
+    y_errors = np.zeros_like(bins)
+    if vel_mult:
+        vb = np.gradient(xvec)*vel_mult>0.
+        yvec2 = yvec[vb]
+    else:
+        vb = yvec == yvec
+        yvec2 = yvec
+
+    for i, b in enumerate(bins):
+        idx = bins_vals[vb] == b
+        y_binned[i] = np.mean(yvec2[idx])
+        y_errors[i] = scipy.stats.sem(yvec2[idx])
+    return bins, y_binned, y_errors
+
+def sbin_pn(xvec, yvec, bin_size=1., numbins=0., vel_mult = 0.):
+    #Bins yvec based on binning xvec into bin_size for velocities*vel_mult>0
+
+    minval = np.min(xvec)
+    maxval = np.max(xvec)
+
+    if numbins == 0:
+        numbins = int( (maxval - minval) / bin_size )
+
+    dx = (maxval - minval) / float(numbins)
+    bins = np.linspace(minval+0.5*dx, maxval-0.5*dx, numbins)
+
+    y_binned = np.zeros_like(bins)
+    y_errors = np.zeros_like(bins)
+    if vel_mult:
+        vb = np.gradient(xvec)*vel_mult>0.
+        yvec2 = yvec[vb]
+    else:
+        vb = yvec == yvec
+        yvec2 = yvec
+
+    for i, b in enumerate(bins):
+        idx = bins_vals[vb] == b
+        y_binned[i] = np.mean(yvec2[idx])
+        y_errors[i] = scipy.stats.sem(yvec2[idx])
+
+    return bins, y_binned, y_errors
+
+
+
+def rebin(xvec, yvec, y_errs, numbins):
+    '''Use a cubic interpolating spline to rebin data
+
+           INPUTS: xvec, x-axis vector to bin against
+                   yvec, response to binned vector
+                   y_errs, error in response
+                   numbins, number of bins to divide xvec into
+                       
+           OUTPUTS: xarr, rebinned x-axis
+                    yarr, rebinned response
+                    err, errors on rebinned response'''
+
+    interpfunc = interpolate.interp1d(xvec, yvec, kind='cubic')
+    dx = np.abs(xvec[1] - xvec[0])
+    minval = np.min(xvec)
+    maxval = np.max(xvec)
+    throw = maxval - minval + dx
+
+    new_dx = throw / numbins
+    new_minval = minval - 0.5*dx + 0.5*new_dx
+    new_maxval = maxval + 0.5*dx - 0.5*new_dx
+
+    xarr = np.linspace(new_minval, new_maxval, numbins)
+    yarr = interpfunc(xarr)
+
+    err = np.zeros_like(yarr)
+
+    # Generate new error bars
+    for i, x in enumerate(xarr):
+        inds = np.abs(xvec - x) <= new_dx
+        err[i] = np.sqrt( np.sum(y_errs[inds]**2) / float(np.sum(inds)) )
+    
+    return xarr, yarr, err
+
+
+def get_h5files(dir):
+    files = glob.glob(dir + '/*.h5') 
+    files = sorted(files, key = bu.find_str)
+    return files
+
+
+def simple_loader(fname, sep):
+    #print "Processing: ", fname
+    fobj = Data_file()
+    fobj.load(fname, sep)
+    return fobj
+
+def diag_loader(fname, sep):
+    # Generate all of the position attibutes of interest 
+    # for a single file. Returns a Data_file object.
+    #print "Processing: ", fname
+    fobj = Data_file()
+    fobj.load(fname, sep)
+    fobj.detrend()
+    fobj.get_fft()
+    fobj.spatial_bin()
+    return fobj
+
+def pos_loader(fname, sep):
+    #Generate all of the position attibutes of interest 
+    # for a single file. Returns a Data_file object.
+    #print "Processing: ", fname
+    fobj = Data_file()
+    fobj.load(fname, sep)
+    #fobj.ms()
+    fobj.detrend()
+    fobj.spatial_bin()
+    fobj.close_dat(ft=False)
+    return fobj
+
+def ft_loader(fname, sep):
+    # Load files and computer FFTs. For testing out diagonalization
+    #print "Processing: ", fname
+    fobj = Data_file()
+    fobj.load(fname, sep)
+    fobj.detrend()
+    fobj.get_fft()
+    return fobj
+
+def H_loader(fname, sep):
+    #Generates transfer func data for a single file. Returns a Data_file object.
+    #print "Processing: ", fname
+    fobj = Data_file()
+    fobj.load(fname, sep)
+    fobj.find_H()
+    fobj.detrend()
+    #fobj.close_dat(p=False,ft=False,elecs=False)
+    return fobj
+
+
+    
+
+class Hmat:
+    #this class holds transfer matrices between electrode drives and bead response.
+    def __init__(self, finds, electrodes, Hmats):
+        # Indices of frequences where there is an electrode being driven above threshold 
+        self.finds = finds 
+        # the electrodes where there is statistically significant signal
+        self.electrodes = electrodes 
+        self.Hmats = Hmats # Transfer matrix at the frequencies 
 
 
 
 
 ## Class for Fit Objects
-
-
 
 class Fit:
     # Holds the optimal parameters and errors from a fit. 
@@ -160,134 +314,7 @@ class Fit:
     def css(self, xdata, ydata, yerrs, p):
         #returns the chi square score at a point in fit parameters.
         return np.sum((ydata))
-        
 
-def thermal_fit(psd, freqs, fit_freqs = [1., 500.], temp = 300., fudge_fact = 1e-6, p0=[]):
-    ## Function to fit the thermal spectra of a bead's motion
-    ## First need good intitial guesses for fit parameters.
-
-    # Boolian vector of frequencies over which the fit is performed
-    fit_bool = bu.inrange(freqs, fit_freqs[0], fit_freqs[1]) 
-
-    # guess resonant frequency from hightest part of spectrum
-    f0 = freqs[np.argmax(psd[fit_bool])] 
-    df = freqs[1] - freqs[0] #Frequency increment.
-    
-    # Guess at volts per meter using equipartition
-    vpmsq = bu.bead_mass/(bu.kb*temp)*np.sum(psd[fit_bool])*df*len(psd)/np.sum(fit_bool) 
-    g0 = 1./2.*f0 # Guess at damping assuming critical damping
-    A0 = vpmsq*2.*bu.kb*temp/(bu.bead_mass*fudge_fact)
-    if len(p0) == 0:
-        p0 = [A0, f0, g0] #Initial parameter vectors 
-
-    psd = psd.reshape((len(psd),))
-    popt, pcov = curve_fit(thermal_psd_spec, freqs[fit_bool], psd[fit_bool], \
-                           p0 = p0)#, sigma=weights)#, bounds = bounds)
-    #print popt
-    #popt[0] = popt[0]
-    if not np.shape(pcov):
-        print 'Warning: Bad fit'
-    f = Fit(popt, pcov, thermal_psd_spec)
-    return f
-
-def sbin(xvec, yvec, bin_size):
-    #Bins yvec based on binning xvec into bin_size
-    fac = 1./bin_size
-    bins_vals = np.around(fac*xvec)
-    bins_vals /= fac
-    bins = np.unique(bins_vals)
-    y_binned = np.zeros_like(bins)
-    y_errors = np.zeros_like(bins)
-    for i, b in enumerate(bins):
-        idx = bins_vals == b
-        y_binned[i] = np.mean(yvec[idx])
-        y_errors[i] = scipy.stats.sem(yvec[idx])
-    return bins, y_binned, y_errors
-
-def sbin_pn(xvec, yvec, bin_size, vel_mult = 0.):
-    #Bins yvec based on binning xvec into bin_size for velocities*vel_mult>0.
-    fac = 1./bin_size
-    bins_vals = np.around(fac*xvec)
-    bins_vals /= fac
-    bins = np.unique(bins_vals)
-    y_binned = np.zeros_like(bins)
-    y_errors = np.zeros_like(bins)
-    if vel_mult:
-        vb = np.gradient(xvec)*vel_mult>0.
-        yvec2 = yvec[vb]
-    else:
-        vb = yvec == yvec
-        yvec2 = yvec
-
-    for i, b in enumerate(bins):
-        idx = bins_vals[vb] == b
-        y_binned[i] = np.mean(yvec2[idx])
-        y_errors[i] = scipy.stats.sem(yvec2[idx])
-    return bins, y_binned, y_errors
-
-
-def get_h5files(dir):
-    files = glob.glob(dir + '/*.h5') 
-    files = sorted(files, key = bu.find_str)
-    return files
-
-
-def simple_loader(fname, sep):
-    #print "Processing: ", fname
-    fobj = Data_file()
-    fobj.load(fname, sep)
-    return fobj
-
-def diag_loader(fname, sep):
-    #Generate all of the position attibutes of interest for a single file. Returns a Data_file object.
-    #print "Processing: ", fname
-    fobj = Data_file()
-    fobj.load(fname, sep)
-    fobj.detrend()
-    fobj.get_fft()
-    fobj.spatial_bin()
-    return fobj
-
-def pos_loader(fname, sep):
-    #Generate all of the position attibutes of interest for a single file. Returns a Data_file object.
-    #print "Processing: ", fname
-    fobj = Data_file()
-    fobj.load(fname, sep)
-    #fobj.ms()
-    fobj.detrend()
-    fobj.spatial_bin()
-    fobj.close_dat(ft=False)
-    return fobj
-
-def ft_loader(fname, sep):
-    # Load files and computer FFTs. For testing out diagonalization
-    #print "Processing: ", fname
-    fobj = Data_file()
-    fobj.load(fname, sep)
-    fobj.detrend()
-    fobj.get_fft()
-    return fobj
-
-def H_loader(fname, sep):
-    #Generates transfer func data for a single file. Returns a Data_file object.
-    #print "Processing: ", fname
-    fobj = Data_file()
-    fobj.load(fname, sep)
-    fobj.find_H()
-    fobj.detrend()
-    #fobj.close_dat(p=False,ft=False,elecs=False)
-    return fobj
-
-
-#define a class with all of the attributes and methods necessary for processing a single data file to 
-    
-
-class Hmat:
-    #this class holds transfer matricies between electrode drives and bead response.
-    def __init__(self, finds, electrodes, Hmats):
-        self.finds = finds #Indicies of frequences where there is an electrode being driven above threshold 
-        self.electrodes = electrodes #the electrodes where there is statistically significant signal
-        self.Hmats = Hmats #Transfer matrix at the frequencies 
 
 
 
@@ -394,7 +421,7 @@ class Data_file:
         for i in [0,1,2]:
             dat = self.pos_data[i]
             x = np.array(range(len(dat)))
-            popt, pcov = curve_fit(trend_fun, x, dat)
+            popt, pcov = curve_fit(bu.trend_fun, x, dat)
             self.pos_data[i] = dat - (popt[0]*x + popt[1])
             
 
@@ -434,17 +461,16 @@ class Data_file:
         for i, v in enumerate(dat):
             for j, pv in enumerate(self.cant_data):
                 for si in np.arange(-1, 2, 1):
-                    bins, y_binned, y_errors = \
-                            sbin_pn(pv, v, bin_sizes[j], vel_mult = si)
-                            #sbin_pn(self.cant_data[j], v, bin_sizes[j], vel_mult = si)
+                    bins, y_binned, y_errors = sbin_pn(pv, v, \
+                                                       bin_size=bin_sizes[j], vel_mult = si)
                     binned_cant_data[si][i][j] = bins
                     binned_pos_data[si][i][j] = y_binned 
                     binned_data_errors[si][i][j] = y_errors 
 
         for j, pv in enumerate(self.cant_data):
             for si in np.arange(-1, 2, 1):
-                bins, ybinned, y_errors = \
-                            sbin_pn(pv, self.image_pow_data, bin_sizes[j], vel_mult=si)
+                bins, ybinned, y_errors = sbin_pn(pv, self.image_pow_data, \
+                                                  bin_size=bin_sizes[j], vel_mult=si)
                 binned_image_pow_data[si][j] = y_binned
                 binned_image_pow_errs[si][j] = y_errors
     
@@ -926,20 +952,34 @@ class Data_dir:
     def get_avg_force_v_pos(self, cant_axis = 2, bin_size = 0.5, \
                                  cant_indx = 24, bias = False, \
                                  baratron_indx = 2, pressures = False, \
-                                 cantfilt = False):
+                                 cantfilt = False, diag = False):
 
         if type(self.fobjs) == str:
             self.load_dir(pos_loader)
+
         def extractor(fobj):
             if cantfilt:
-                cant_dat = fobj.cantfilt_binned_cant_data
-                pos_dat = fobj.cantfilt_binned_pos_data
+                if diag:
+                    cant_dat = fobj.diag_cantfilt_binned_cant_data
+                    pos_dat = fobj.diag_cantfilt_binned_pos_data
+                    err_dat = fobj.diag_cantfilt_binned_data_errors
+                else:
+                    cant_dat = fobj.cantfilt_binned_cant_data
+                    pos_dat = fobj.cantfilt_binned_pos_data
+                    err_dat = fobj.cantfilt_binned_data_errors
             elif not cantfilt:
-                cant_dat = fobj.binned_cant_data
-                pos_dat = fobj.binned_pos_data
+                if diag:
+                    cant_dat = fobj.diag_binned_cant_data
+                    pos_dat = fobj.diag_binned_pos_data
+                    err_dat = fobj.diag_binned_data_errors
+                else:
+                    cant_dat = fobj.binned_cant_data
+                    pos_dat = fobj.binned_pos_data
+                    err_dat = fobj.binned_data_errors
+                    
             cantV = fobj.electrode_settings[cant_indx]
             try:
-                pressure = round_sig(fobj.pressures[baratron_indx],1)
+                pressure = bu.round_sig(fobj.pressures[baratron_indx],1)
                 if pressure < 5e-5:
                     pressure = 'Base ~ 1e-6'
                 else:
@@ -947,23 +987,23 @@ class Data_dir:
             except:
                 pressure = 'Baratron not rec.'
             if bias:
-                return [cant_dat, pos_dat, cantV]
+                return [cant_dat, pos_dat, err_dat, cantV]
             elif pressures:
-                return [cant_dat, pos_dat, pressure]
+                return [cant_dat, pos_dat, err_dat, pressure]
             else:
-                return [cant_dat, pos_dat, 1]
+                return [cant_dat, pos_dat, err_dat, 1]
         
         extracted = np.array(map(extractor, self.fobjs))
         
         self.avg_force_v_pos = {}
-        for v in np.unique(extracted[:, 2]):
+        for v in np.unique(extracted[:, 3]):
             new_arr = [[[], [], []], \
 		       [[], [], []], \
 		       [[], [], []]]
             
             for axis in [0,1,2]:
                 for vel_mult in [-1,0,1]:
-                    boolv = extracted[:, 2] == v
+                    boolv = extracted[:, 3] == v
 
                     cant_dat_curr = []
                     for fil in extracted[boolv,0]:
@@ -975,72 +1015,20 @@ class Data_dir:
                         pos_dat_curr.append(fil[vel_mult][axis,cant_axis])
                     pos_dat_curr = np.concatenate(pos_dat_curr, axis=0)
 
-                    xout, yout, yerrs = sbin_pn(cant_dat_curr, pos_dat_curr, bin_size=bin_size)
+                    err_curr = []
+                    for fil in extracted[boolv,2]:
+                        err_curr.append(fil[vel_mult][axis,cant_axis])
+                    err_curr = np.concatenate(pos_dat_curr, axis=0)
+
+                    xout, yout, yerrs = rebin(cant_dat_curr, pos_dat_curr, \
+                                              err_curr, bin_size=bin_size)
 
                     new_arr[axis][vel_mult] = [xout, yout, yerrs]
 
-            self.avg_force_v_pos[str(v)] =  np.array(new_arr)
-
-
-
-    def get_avg_diag_force_v_pos(self, cant_axis = 2, bin_size = 0.5, \
-                                 cant_indx = 24, bias = False, \
-                                 baratron_indx = 2, pressures = False, \
-                                 cantfilt = False):
-
-        if type(self.fobjs) == str:
-            self.load_dir(pos_loader)
-
-        def extractor(fobj):
-            if cantfilt:
-                cant_dat = fobj.diag_cantfilt_binned_cant_data
-                pos_dat = fobj.diag_cantfilt_binned_pos_data
-            elif not cantfilt:
-                cant_dat = fobj.diag_binned_cant_data
-                pos_dat = fobj.diag_binned_pos_data
-            cantV = fobj.electrode_settings[cant_indx]
-            try:
-                pressure = round_sig(fobj.pressures[baratron_indx],1)
-                if pressure < 5e-5:
-                    pressure = 'Base ~ 1e-6'
-                else:
-                    pressure = '%.1e' % pressure
-            except:
-                pressure = 'Baratron not rec.'
-            if bias:
-                return [cant_dat, pos_dat, cantV]
-            elif pressures:
-                return [cant_dat, pos_dat, pressure]
+            if diag:
+                self.avg_diag_force_v_pos[str(v)] =  np.array(new_arr)
             else:
-                return [cant_dat, pos_dat, 1]
-        
-        extracted = np.array(map(extractor, self.fobjs))
-        
-        self.avg_diag_force_v_pos = {}
-        for v in np.unique(extracted[:, 2]):
-            new_arr = [[[], [], []], \
-		       [[], [], []], \
-		       [[], [], []]]
-            
-            for axis in [0,1,2]:
-                for vel_mult in [-1,0,1]:
-                    boolv = extracted[:, 2] == v
-
-                    cant_dat_curr = []
-                    for fil in extracted[boolv,0]:
-                        cant_dat_curr.append(fil[vel_mult][axis,cant_axis])
-                    cant_dat_curr = np.concatenate(cant_dat_curr, axis=0)
-
-                    pos_dat_curr = []
-                    for fil in extracted[boolv,1]:
-                        pos_dat_curr.append(fil[vel_mult][axis,cant_axis])
-                    pos_dat_curr = np.concatenate(pos_dat_curr, axis=0)
-
-                    xout, yout, yerrs = sbin_pn(cant_dat_curr, pos_dat_curr, bin_size=bin_size)
-                    new_arr[axis][vel_mult] = [xout, yout, yerrs]
-
-
-            self.avg_diag_force_v_pos[str(v)] =  np.array(new_arr)
+                self.avg_force_v_pos[str(v)] =  np.array(new_arr)
 
 
 
@@ -1414,8 +1402,8 @@ class Data_dir:
                 phaseparams = self.Hfuncs[resp][drive][1]
                 phase0 = self.Hfuncs[resp][drive][2]
                     
-                mag = damped_osc_amp(freqs, magparams[0], magparams[1], magparams[2])
-                phase = damped_osc_phase(freqs, phaseparams[0], phaseparams[1], \
+                mag = bu.damped_osc_amp(freqs, magparams[0], magparams[1], magparams[2])
+                phase = bu.damped_osc_phase(freqs, phaseparams[0], phaseparams[1], \
                                              phaseparams[2], phase0=phase0)
                 Harr[:,drive,resp] = mag * np.exp(1.0j*phase)
 
@@ -1626,7 +1614,7 @@ class Data_dir:
 
                 # Fit the TF magnitude
                 try:
-                    popt_mag, pcov_mag = curve_fit(damped_osc_amp, keys[b], mag[b], \
+                    popt_mag, pcov_mag = curve_fit(bu.damped_osc_amp, keys[b], mag[b], \
                                                    sigma=weights[b], p0=p0_mag, maxfev=1000000)
                 except:
                     popt_mag = p0_mag
@@ -1640,7 +1628,7 @@ class Data_dir:
                     # Wrap fitting in a try/except block since trying all 3
                     # phi(DC) will inevitably lead to some bad fits
                     try:
-                        fitfun = lambda x,a,b,c:damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
+                        fitfun = lambda x,a,b,c:bu.damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
                         popt, pcov = curve_fit(fitfun, keys[b], unphase[b], \
                                                p0=p0_phase, bounds=bounds,
                                                sigma=phase_weights[b])
@@ -1650,7 +1638,7 @@ class Data_dir:
                     
                     # Save the fits and the residuals
                     phase_fits[pmult] = np.copy(popt)
-                    phase_resids[pmult] = np.sum( np.abs(damped_osc_phase(keys[b], popt[0], \
+                    phase_resids[pmult] = np.sum( np.abs(bu.damped_osc_phase(keys[b], popt[0], \
                                                                 popt[1], popt[2], phase0=np.pi*pmult) \
                                                          - unphase[b]) )
 
@@ -1666,14 +1654,14 @@ class Data_dir:
 
                 if plot_fits:
 
-                    fitmag = damped_osc_amp(keys[b], popt_mag[0], \
+                    fitmag = bu.damped_osc_amp(keys[b], popt_mag[0], \
                                         popt_mag[1], popt_mag[2])
-                    fitphase = damped_osc_phase(keys[b], popt_phase[0], \
+                    fitphase = bu.damped_osc_phase(keys[b], popt_phase[0], \
                                             popt_phase[1], popt_phase[2], phase0=phase0)
 
                     if plot_inits:
-                        maginit = damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
-                        phaseinit = damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
+                        maginit = bu.damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
+                        phaseinit = bu.damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
                                              p0_phase[2], phase0=phase0)
 
                     if grid:
@@ -1964,7 +1952,7 @@ class Data_dir:
                     offarr = offset
                 else:
                     offarr = 0
-            return multi_step_fun(x, qqs, nstep[1]) + offarr
+            return bu.multi_step_fun(x, qqs, nstep[1]) + offarr
 
         xfit = np.arange(len(self.step_cal_vec))
         xfit = xfit[bvec]
@@ -1995,7 +1983,7 @@ class Data_dir:
     def load_step_cal(self, fname):
         def ffun(x, vpq):
             qqs = vpq*np.array(nstep[0])
-            return multi_step_fun(x, qqs, nstep[1]) + offset
+            return bu.multi_step_fun(x, qqs, nstep[1]) + offset
 
         step_cal_in = pickle.load( open(fname, "rb"))
         new_fitobj = Fit(step_cal_in[0], step_cal_in[1], ffun)
@@ -2026,6 +2014,7 @@ class Data_dir:
             self.conv_facs = [fac, fac, fac]
         
 
+
     def generate_alpha_lambda_limit(self, rbead=2.5e-06, sep=10.0e-06, offset=0., \
                                     least_squares=True, opt_filt=False, \
                                     resp_axis=1, cant_axis=1, rebin=False, bin_size=5., \
@@ -2044,7 +2033,7 @@ class Data_dir:
         if least_squares:
             if (type(self.avg_force_v_pos) == str) or rebin:
                 self.get_avg_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
-                self.get_avg_diag_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
+                self.get_avg_force_v_pos(cant_axis=cant_axis, bin_size=bin_size, diag=True)
 
             if diag:
                 keys = self.avg_diag_force_v_pos.keys()
@@ -2141,3 +2130,109 @@ class Data_dir:
         self.charge_step_calibration = temp_obj.charge_step_calibration
         self.avg_force_v_pos = temp_obj.avg_force_v_pos
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Force_v_pos:
+    '''Stitches together force vs. position curves from many dir objects,
+       using the cantilever image processing to locate the picomotor or
+       rough stage position.'''
+
+    def __init__(self):
+        self.dir_objs = 'dir_objs not loaded'
+        self.rough_pos = 'rough stage positions not loaded'
+        self.bins = 'No data loaded yet'
+        self.force = 'No data loaded yet'
+        self.errs = 'No data loaded yet'
+        
+
+    def load_dir_objs(self, dir_objs):
+        '''Simple function to load a list of directory objects, store said
+           list as a class attribute and extract the rough stage position
+           from image analysis.
+               INPUTS: dir_objs, list of dir_objs to stitch together
+                       
+               OUTPUTS: none, generates class attributes'''
+
+        rough_pos = []
+        for dir_obj in dir_objs:
+            rough_pos.append(dir_obj.cant_corner_im)
+        
+        self.dir_objs = dir_objs
+        self.rough_pos = rough_pos
+
+    
+
+    def stitch_data(self, numbins, cant_axis=1, vel_mult=0.):
+        '''Loops over directory objects and stitches together force vs.
+           position for a variety of rough stage positions.
+
+               INPUTS: cant_axis, stitching direction, either 0 or 1
+                       
+               OUTPUTS: none, generates class attributes'''
+
+        if cant_axis == 0:
+            resp_axis = 1
+        elif cant_axis == 1:
+            resp_axis = 0
+
+        cantax_rough_pos = []
+        for pos in self.rough_pos:
+            cantax_rough_pos.append( pos[cant_axis] )
+
+        # Loop over all the directory objects to extract the data
+        for objind, obj in enumerate(dir_objs):
+            # Get the current rough stage position along the stitching axis
+            rpos = cantax_rough_pos[objind]
+
+            # Get object's avg_force_v_pos and keys associated with them
+            dat = obj.avg_force_v_pos
+            diagdat = obj.avg_diag_force_v_pos
+            keys = dat.keys()
+            keys.sort()
+            diagkeys = diagdat.keys()
+            diagkeys.sort()
+            assert keys == diagkeys, "Crazy key error!"
+            
+            # Loop over keys, for now, this code assumes only one key
+            for key in keys:
+                # Extract position vector, force, and errors
+                posvec = dat[resp_axis][vel_mult][0]
+                diagposvec = diagdat[resp_axis][vel_mult][0]
+                force = dat[resp_axis][vel_mult][1]
+                diagforce = diagdat[resp_axis][vel_mult][1]
+                errs = dat[resp_axis][vel_mult][2]
+                diagerrs = diagdat[resp_axis][vel_mult][2]
+
+                # Stack the data together 
+                try:
+                    totposvec = np.hstack( (totposvec, posvec) )
+                    totdiagposvec = np.hstack( (totdiagposvec, diagposvec) )
+                    totforce = np.hstack( (totforce, force) )
+                    totdiagforce = np.hstack( (totdiagforce, diagforce) )
+                    toterrs = np.hstack( (toterrs, errs) )
+                    totdiagerrs = np.hstack( (totdiagerrs, diagerrs) )
+                except:
+                    totposvec = posvec
+                    totdiagposvec = diagposvec
+                    totforce = force
+                    totdiagforce = diagforce
+                    toterrs = errs
+                    totdiagerrs = diagerrs
+
+        # Rebin all of the stitched data. interp1d does not require monotonic inputs
+        totposvec2, totforce2, toterrs2 = \
+                            rebin(totposvec, totforce, toterrs, numbins)
+        totdiagposvec2, totdiagforce2, totdiagerrs2 = \
+                            rebin(totdiagposvec, totdiagforce, totdiagerrs, numbins)

@@ -5,6 +5,8 @@ import matplotlib.colors as colors
 import scipy.interpolate as interpolate
 import scipy.optimize as optimize
 import sys, time
+import cant_utils as cu
+import scipy.signal as signal
 
 
 #######################################################
@@ -19,6 +21,11 @@ import sys, time
 
 
 class Grav_force_curve:
+    '''Class to hold the expected force curves for a yukawa modification to gravity.
+       Instances of this class take pickled data from ../gravity_sim/save_force_curves.py
+       and interpolate over separation and position along cantilever face. Class 
+       methods allow one to access and call these interpolating functions in a somewhat
+       sensible manner.'''
 
     def __init__(self, fcurve_path):
         self.path = fcurve_path
@@ -175,3 +182,6 @@ class Grav_force_curve:
 
     
         
+
+
+
