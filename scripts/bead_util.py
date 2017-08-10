@@ -223,6 +223,43 @@ def rotate_data(x, y, ang):
 
 
 
+def good_corr(drive, response, fsamp, fdrive):
+    corr = np.zeros(fsamp/fdrive)
+    response = np.append(response, np.zeros( fsamp/fdrive-1 ))
+    n_corr = len(drive)
+    for i in range(len(corr)):
+        #Correct for loss of points at end
+        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical tests
+        #correct_fac = 1.0*n_corr/(n_corr-i) # 
+        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
+    return corr
+
+def corr_func(drive, response, fsamp, fdrive, good_pts = [], filt = False, band_width = 1):
+    #gives the correlation over a cycle of drive between drive and response.
+
+    #First subtract of mean of signals to avoid correlating dc
+    drive = drive-np.mean(drive)
+    response  = response-np.mean(response)
+
+    #bandpass filter around drive frequency if desired.
+    if filt:
+        b, a = sp.butter(3, [2.*(fdrive-band_width/2.)/fsamp, 2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
+        drive = sp.filtfilt(b, a, drive)
+        response = sp.filtfilt(b, a, response)
+    
+    #Compute the number of points and drive amplitude to normalize correlation
+    lentrace = len(drive)
+    drive_amp = np.sqrt(2)*np.std(drive)
+      
+    #Throw out bad points if desired
+    if len(good_pts):
+        response[-good_pts] = 0.
+        lentrace = np.sum(good_pts)    
+
+
+    #corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp**2)
+    corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp)
+    return corr_full
 
 
 

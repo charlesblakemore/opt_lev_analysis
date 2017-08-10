@@ -66,8 +66,6 @@ def emap2(drive):
     elif drive == 2:
         return 1
 
-
-
         
 
 def thermal_fit(psd, freqs, fit_freqs = [1., 500.], temp = 300., fudge_fact = 1e-6, p0=[]):
