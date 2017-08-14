@@ -44,11 +44,33 @@ class ColFFT(object):
     def __call__(self, idx):
         return np.fft.rfft( self.vid[idx[0], idx[1], :] )
 
-    
 
-def getdata(fname, gain_error=1.0):
+
+def find_str(str):
+    idx_offset = 1e10 # Large number to ensure sorting by index first
+
+    fname, _ = os.path.splitext(str)
+    
+    endstr = re.findall("\d+mV_[\d+Hz_]*[a-zA-Z]*[\d+]*", fname)
+    if( len(endstr) != 1 ):
+        # Couldn't find expected pattern, so return the 
+        # second to last number in the string
+        return int(re.findall('\d+', fname)[-1])
+
+    # Check for an index number
+    sparts = endstr[0].split("_")
+    if ( len(sparts) >= 3 ):
+        return idx_offset*int(sparts[2]) + int(sparts[0][:-2])
+    else:
+        return int(sparts[0][:-2])
+
+
+def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
     ### Get bead data from a file.  Guesses whether it's a text file
     ### or a HDF5 file by the file extension
+
+    ## Hard coded scaling from DAQ
+    adc_fac = (adc_res - 1) / (2. * adc_max_voltage)
 
     _, fext = os.path.splitext( fname )
     if( fext == ".h5"):
@@ -56,7 +78,7 @@ def getdata(fname, gain_error=1.0):
             f = h5py.File(fname,'r')
             dset = f['beads/data/pos_data']
             dat = np.transpose(dset)
-            dat = dat / 3276.7 ## hard coded scaling from DAQ
+            dat = dat / adc_fac
             attribs = dset.attrs
 
         except (KeyError, IOError):

@@ -27,13 +27,25 @@ class Grav_force_curve:
        methods allow one to access and call these interpolating functions in a somewhat
        sensible manner.'''
 
-    def __init__(self, fcurve_path):
-        self.path = fcurve_path
+    def __init__(self, path='', make_splines=False, spline_order=2):
+
+        if( path != ''):
+            self.path = path
+            self.load_fcurves(path, make_splines=make_splines, \
+                              spline_order=spline_order)
+
+
+    def load_fcurves(self, path='', make_splines=False, spline_order=2):
+        if( path == ''):
+            print "ERROR: No file to load..."
+            return
+
         try:
-            self.dic = pickle.load( open(fcurve_path, 'rb') )
+            self.path = path
+            self.dic = pickle.load( open(path, 'rb') )
             assert self.dic['order'] == 'Rbead, Sep, Yuklambda', 'Key ordering unexpected'
             self.posvec = np.array(self.dic['posvec'])
-    
+
             rbeads = [rbead for rbead in self.dic.keys() \
                            if isinstance(rbead, (int, float, long))]
             rbeads.sort()
@@ -42,15 +54,19 @@ class Grav_force_curve:
             seps = self.dic[self.rbeads[0]].keys()
             seps.sort()
             self.seps = np.array(seps)
-    
+
             lambdas = self.dic[self.rbeads[0]][self.seps[0]].keys()
             lambdas.sort()
             self.lambdas = np.array(lambdas)
+
+            if make_splines:
+                self.make_splines(spline_order=spline_order)
+
         except:
             self.dic = 'No data loaded!'
             print "ERROR: Bad File! Couldn't load..."
 
-    def make_splines(self, order=3):
+    def make_splines(self, spline_order=2):
         '''Fuction to generate interpolating splines from loaded force curves
                INPUTS: order, polynomial order of interpolating spline
 
@@ -58,6 +74,8 @@ class Grav_force_curve:
         if type(self.dic) == str:
             print "ERROR: No Data Loaded!"
             return
+
+        print "Making splines!"
 
         Gsplines = {}
         yuksplines = {}
@@ -91,9 +109,9 @@ class Grav_force_curve:
                 # regular spacing of both the separation and the position
                 # along the cantilever
                 Ginterpfunc = interpolate.RectBivariateSpline(self.seps, self.posvec, Ggrid, \
-                                                              kx=order, ky=order)
+                                                              kx=spline_order, ky=spline_order)
                 yukinterpfunc = interpolate.RectBivariateSpline(self.seps, self.posvec, yukgrid, \
-                                                                kx=order, ky=order)
+                                                                kx=spline_order, ky=spline_order)
 
                 Gsplines[rbead][yuklambda] = Ginterpfunc
                 yuksplines[rbead][yuklambda] = yukinterpfunc
@@ -101,7 +119,8 @@ class Grav_force_curve:
         self.splines = (Gsplines, yuksplines)
 
 
-    def mod_grav_force(self, xarr, sep=10.0e-6, alpha=1., yuklambda=1.0e-6, rbead=2.43e-6):
+    def mod_grav_force(self, xarr, sep=10.0e-6, alpha=1., yuklambda=1.0e-6, rbead=2.43e-6, \
+                       verbose=False, nograv=False):
         '''Returns a modified gravity force curve for a given separation,
            alpha and lambda. Includes regular gravity
                INPUTS: xarr [m], array of x points to compute force, x=0 center of cant.
@@ -111,19 +130,21 @@ class Grav_force_curve:
                        rbead [m], bead radius
                        
                OUTPUTS: numpy array [N], force along points in xarr.'''
-        
+
         # make sure rbead and yuklambda exist as keys
         if rbead not in self.rbeads:
             close_ind = np.argmin( np.abs(rbead - self.rbeads) )
             new_rbead = self.rbeads[close_ind]
             rbead = new_rbead
-            print "Couldn't find bead you wanted... Using rbead = %0.2g" % new_rbead
+            if verbose:
+                print "Couldn't find bead you wanted... Using rbead = %0.3g" % new_rbead
 
         if yuklambda not in self.lambdas:
             close_ind = np.argmin( np.abs(yuklambda - self.lambdas) )
             new_lambda = self.lambdas[close_ind]
             yuklambda = new_lambda
-            print "Couldn't find scale you wanted... Using lambda = %0.2g" % new_lambda
+            if verbose:
+                print "Couldn't find scale you wanted... Using lambda = %0.3g" % new_lambda
 
         # Identify splines for given rbead and yuklambda
         Gfunc = self.splines[0][rbead][yuklambda]
@@ -134,7 +155,10 @@ class Grav_force_curve:
         yukcurve = yukfunc(sep, xarr)
 
         # Compute the total force with given alpha
-        totforce = Gcurve + alpha * yukcurve
+        if nograv:
+            totforce = alpha * yukcurve
+        else:
+            totforce = Gcurve + alpha * yukcurve
 
         # Reshape the output to match standard 1D numpy array shape
         totforce_shaped = totforce.reshape( (len(xarr),) )
@@ -142,7 +166,8 @@ class Grav_force_curve:
 
 
 
-    def mod_grav_force_point(self, pos, sep=10., alpha=1., yuklambda=1.0e-6, rbead=2.43e-6):
+    def mod_grav_force_point(self, pos, sep=10., alpha=1., yuklambda=1.0e-6, rbead=2.43e-6, \
+                             verbose=False, nograv=False):
         '''Returns the force at a particular point for a given separation, alpha,
            lambda and bead radius. Includes regular gravity.
                INPUTS: pos [m], position along cantilever to compute force, x=0 center
@@ -158,13 +183,15 @@ class Grav_force_curve:
             close_ind = np.argmin( np.abs(rbead - self.rbeads) )
             new_rbead = self.rbeads[close_ind]
             rbead = new_rbead
-            print "Couldn't find bead you wanted... Using rbead = %0.2g" % new_rbead
+            if verbose:
+                print "Couldn't find bead you wanted... Using rbead = %0.3g" % new_rbead
 
         if yuklambda not in self.lambdas:
             close_ind = np.argmin( np.abs(yuklambda - self.lambdas) )
             new_lambda = self.lambdas[close_ind]
             yuklambda = new_lambda
-            print "Couldn't find scale you wanted... Using lambda = %0.2g" % new_lambda
+            if verbose:
+                print "Couldn't find scale you wanted... Using lambda = %0.3g" % new_lambda
             
         # Identify splines for given rbead and yuklambda
         Gfunc = self.splines[0][rbead][yuklambda]
@@ -175,7 +202,11 @@ class Grav_force_curve:
         yukforce = yukfunc(sep, pos)
         
         # Compute the total force with given alpha
-        totforce = Gforce + alpha * yukforce
+        if nograv:
+            totforce = alpha * yukforce
+        else:
+            totforce = Gforce + alpha * yukforce
+
 
         return totforce
 

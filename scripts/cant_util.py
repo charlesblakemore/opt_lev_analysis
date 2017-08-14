@@ -5,6 +5,7 @@ import scipy
 import glob, os, sys, copy, time, math, pprocess
 from scipy.optimize import curve_fit
 import scipy.optimize as optimize
+import scipy.signal as signal
 import scipy.interpolate as interpolate
 import matplotlib.pyplot as plt
 import cPickle as pickle
@@ -110,7 +111,7 @@ def sbin(xvec, yvec, bin_size):
         y_errors[i] = scipy.stats.sem(yvec[idx])
     return bins, y_binned, y_errors
 
-def sbin_pn_old(xvec, yvec, bin_size, vel_mult = 0.):
+def sbin_pn(xvec, yvec, bin_size=1., vel_mult = 0.):
     #Bins yvec based on binning xvec into bin_size for velocities*vel_mult>0.
     fac = 1./bin_size
     bins_vals = np.around(fac*xvec)
@@ -131,37 +132,46 @@ def sbin_pn_old(xvec, yvec, bin_size, vel_mult = 0.):
         y_errors[i] = scipy.stats.sem(yvec2[idx])
     return bins, y_binned, y_errors
 
-def sbin_pn(xvec, yvec, bin_size=1., numbins=0., vel_mult = 0.):
+def sbin_pn_new(xvec, yvec, bin_size=1., numbins=0., vel_mult = 0.):
     #Bins yvec based on binning xvec into bin_size for velocities*vel_mult>0
 
     minval = np.min(xvec)
     maxval = np.max(xvec)
+    dx = np.abs(xvec[1] - xvec[0])
+
+    xvec2 = np.hstack( (xvec[0] - 2.*dx, np.hstack( (xvec, xvec[-1] + 2.*dx) ) ) )
+    yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
+
+    interpfunc = interpolate.interp1d(xvec2, yvec2, kind='cubic')
 
     if numbins == 0:
-        numbins = int( (maxval - minval) / bin_size )
+        numbins = int( (maxval - minval + dx) / bin_size )
 
-    dx = (maxval - minval) / float(numbins)
-    bins = np.linspace(minval+0.5*dx, maxval-0.5*dx, numbins)
+    dx2 = (maxval - minval + dx) / float(numbins)
+    new_minval = minval - 0.5*dx + 0.5*dx2
+    new_maxval = maxval + 0.5*dx - 0.5*dx2
+    xarr = np.linspace(new_minval, new_maxval, numbins)
 
-    y_binned = np.zeros_like(bins)
-    y_errors = np.zeros_like(bins)
+    yarr = np.zeros_like(xarr)
+    err = np.zeros_like(xarr)
+    
     if vel_mult:
         vb = np.gradient(xvec)*vel_mult>0.
-        yvec2 = yvec[vb]
     else:
-        vb = yvec == yvec
-        yvec2 = yvec
+        vb = (np.zeros_like(xvec) + 1) > 0.
 
-    for i, b in enumerate(bins):
-        idx = bins_vals[vb] == b
-        y_binned[i] = np.mean(yvec2[idx])
-        y_errors[i] = scipy.stats.sem(yvec2[idx])
+    # Generate new yvals and new error bars
+    for i, x in enumerate(xarr):
+        inds = np.abs(xvec - x) < 0.5*dx2
+        inds2 = inds == vb
+        yarr[i] = np.mean( yvec[inds2] )
+        err[i] = np.sqrt( np.sum(y_errs[inds2]**2) / float(np.sum(inds2)) )
+    
+    return xarr, yarr, err
 
-    return bins, y_binned, y_errors
 
 
-
-def rebin(xvec, yvec, y_errs, numbins):
+def rebin(xvec, yvec, y_errs, numbins=0, bin_size=1.):
     '''Use a cubic interpolating spline to rebin data
 
            INPUTS: xvec, x-axis vector to bin against
@@ -173,24 +183,32 @@ def rebin(xvec, yvec, y_errs, numbins):
                     yarr, rebinned response
                     err, errors on rebinned response'''
 
-    interpfunc = interpolate.interp1d(xvec, yvec, kind='cubic')
-    dx = np.abs(xvec[1] - xvec[0])
+    #print numbins
+
     minval = np.min(xvec)
     maxval = np.max(xvec)
-    throw = maxval - minval + dx
+    dx = np.abs(xvec[1] - xvec[0])
 
-    new_dx = throw / numbins
-    new_minval = minval - 0.5*dx + 0.5*new_dx
-    new_maxval = maxval + 0.5*dx - 0.5*new_dx
+    xvec2 = np.hstack( (xvec[0] - 2.*dx, np.hstack( (xvec, xvec[-1] + 2.*dx) ) ) )
+    yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
 
+    interpfunc = interpolate.interp1d(xvec2, yvec2, kind='cubic')
+
+    if numbins == 0:
+        numbins = int( (maxval - minval + dx) / bin_size )
+
+    dx2 = (maxval - minval + dx) / float(numbins)
+    new_minval = minval - 0.5*dx + 0.5*dx2
+    new_maxval = maxval + 0.5*dx - 0.5*dx2
     xarr = np.linspace(new_minval, new_maxval, numbins)
-    yarr = interpfunc(xarr)
 
-    err = np.zeros_like(yarr)
+    yarr = np.zeros_like(xarr)
+    err = np.zeros_like(xarr)
 
-    # Generate new error bars
+    # Generate new yvals and new error bars
     for i, x in enumerate(xarr):
-        inds = np.abs(xvec - x) <= new_dx
+        inds = np.abs(xvec - x) < 0.5*dx2
+        yarr[i] = np.mean( yvec[inds] )
         err[i] = np.sqrt( np.sum(y_errs[inds]**2) / float(np.sum(inds)) )
     
     return xarr, yarr, err
@@ -461,6 +479,7 @@ class Data_file:
                 for si in np.arange(-1, 2, 1):
                     bins, y_binned, y_errors = sbin_pn(pv, v, \
                                                        bin_size=bin_sizes[j], vel_mult = si)
+
                     binned_cant_data[si][i][j] = bins
                     binned_pos_data[si][i][j] = y_binned 
                     binned_data_errors[si][i][j] = y_errors 
@@ -975,6 +994,8 @@ class Data_dir:
                     pos_dat = fobj.binned_pos_data
                     err_dat = fobj.binned_data_errors
                     
+            #print pos_dat
+
             cantV = fobj.electrode_settings[cant_indx]
             try:
                 pressure = bu.round_sig(fobj.pressures[baratron_indx],1)
@@ -993,7 +1014,12 @@ class Data_dir:
         
         extracted = np.array(map(extractor, self.fobjs))
         
-        self.avg_force_v_pos = {}
+        
+        if diag:
+            self.avg_diag_force_v_pos = {}
+        else:
+            self.avg_force_v_pos = {}
+
         for v in np.unique(extracted[:, 3]):
             new_arr = [[[], [], []], \
 		       [[], [], []], \
@@ -1016,7 +1042,7 @@ class Data_dir:
                     err_curr = []
                     for fil in extracted[boolv,2]:
                         err_curr.append(fil[vel_mult][axis,cant_axis])
-                    err_curr = np.concatenate(pos_dat_curr, axis=0)
+                    err_curr = np.concatenate(err_curr, axis=0)
 
                     xout, yout, yerrs = rebin(cant_dat_curr, pos_dat_curr, \
                                               err_curr, bin_size=bin_size)
@@ -1398,6 +1424,7 @@ class Data_dir:
 
         # Generate transfer function from HO fits
         if use_fits:
+            print "USING FITS",
             for drive in [0,1,2]:
                 for resp in [0,1,2]:
                     #print ("(%i, %i)" % (drive,resp)),
@@ -1412,6 +1439,7 @@ class Data_dir:
     
         # Apply measured tranfer function directly (will maybe add smoothing?)
         elif not use_fits:
+            print "USING ACTUAL DATA",
             keys = self.Hs_cal.keys()
             keys.sort()
             keys = np.array(keys)
@@ -1484,10 +1512,11 @@ class Data_dir:
         Nfobjs = len(self.fobjs)
         percent = 0
         for fobjind, fobj in enumerate(self.fobjs):
-            if (100. * float(fobjind) / float(Nfobjs)) > percent:
-                print percent,
+            newper = int((100. * float(fobjind) / float(Nfobjs)))
+            if newper > percent + 10:
+                print newper,
                 sys.stdout.flush()
-                percent += 10
+                percent = newper
             assert np.array_equal(fobj.fft_freqs, freqs)
 
             diag_fft = np.einsum('ikj,ki->ji', Harr, fobj.data_fft)
@@ -2172,10 +2201,14 @@ class Force_v_pos:
 
     def __init__(self):
         self.dir_objs = 'dir_objs not loaded'
+        self.dir_paths = 'path not loaded'
         self.rough_pos = 'rough stage positions not loaded'
         self.bins = 'No data loaded yet'
+        self.diagbins = 'No data loaded yet'
         self.force = 'No data loaded yet'
+        self.diagforce = 'No data loaded yet'
         self.errs = 'No data loaded yet'
+        self.diagerrs = 'No data loaded yet'
         
 
     def load_dir_objs(self, dir_objs):
@@ -2185,17 +2218,20 @@ class Force_v_pos:
                INPUTS: dir_objs, list of dir_objs to stitch together
                        
                OUTPUTS: none, generates class attributes'''
-
+        paths = []
         rough_pos = []
         for dir_obj in dir_objs:
-            rough_pos.append(dir_obj.cant_corner_im)
+            paths.append(dir_obj.paths)
+            rough_pos.append(dir_obj.cant_corner_img)
         
+        self.paths = paths
         self.dir_objs = dir_objs
         self.rough_pos = rough_pos
 
     
 
-    def stitch_data(self, numbins, cant_axis=1, vel_mult=0.):
+    def stitch_data(self, bin_size=1., numbins=0, cant_axis=1, resp_axis=0, vel_mult=0.,\
+                    showstitch=False, matchmeans=False, detrend=False, minmsq=False):
         '''Loops over directory objects and stitches together force vs.
            position for a variety of rough stage positions.
 
@@ -2203,17 +2239,19 @@ class Force_v_pos:
                        
                OUTPUTS: none, generates class attributes'''
 
-        if cant_axis == 0:
-            resp_axis = 1
-        elif cant_axis == 1:
-            resp_axis = 0
+        cal_facs = self.dir_objs[0].conv_facs
+
+        #if cant_axis == 0:
+        #    resp_axis = 1
+        #elif cant_axis == 1:
+        #    resp_axis = 0
 
         cantax_rough_pos = []
         for pos in self.rough_pos:
             cantax_rough_pos.append( pos[cant_axis] )
 
         # Loop over all the directory objects to extract the data
-        for objind, obj in enumerate(dir_objs):
+        for objind, obj in enumerate(self.dir_objs):
             # Get the current rough stage position along the stitching axis
             rpos = cantax_rough_pos[objind]
 
@@ -2225,26 +2263,107 @@ class Force_v_pos:
             diagkeys = diagdat.keys()
             diagkeys.sort()
             assert keys == diagkeys, "Crazy key error!"
-            
+        
             # Loop over keys, for now, this code assumes only one key
-            for key in keys:
+            for keyind, key in enumerate(keys):
+                datarr = dat[key]
+                diagdatarr = diagdat[key]
                 # Extract position vector, force, and errors
-                posvec = dat[resp_axis][vel_mult][0]
-                diagposvec = diagdat[resp_axis][vel_mult][0]
-                force = dat[resp_axis][vel_mult][1]
-                diagforce = diagdat[resp_axis][vel_mult][1]
-                errs = dat[resp_axis][vel_mult][2]
-                diagerrs = diagdat[resp_axis][vel_mult][2]
+                posvec = datarr[resp_axis][vel_mult][0] + rpos
+                diagposvec = diagdatarr[resp_axis][vel_mult][0] + rpos
+                force = datarr[resp_axis][vel_mult][1]
+                diagforce = diagdatarr[resp_axis][vel_mult][1]
+                errs = datarr[resp_axis][vel_mult][2]
+                diagerrs = diagdatarr[resp_axis][vel_mult][2]
 
-                # Stack the data together 
-                try:
+                    
+                # Stack the data together
+                if (matchmeans or minmsq) and objind != 0:
+                    # Match the means in the overlapping region
+
+                    # Find overlapping region
+                    inds1 = posvec > np.min(totposvec)
+                    inds1 = inds1 == (posvec < np.max(totposvec))
+                    inds2 = totposvec > np.min(posvec)
+                    inds2 = inds2 == (totposvec < np.max(posvec))
+
+                    # Compute mean
+                    mean1 = np.mean(force[inds1])
+                    mean2 = np.mean(totforce[inds2])
+
+                    if minmsq:
+                        fitbins = np.linspace( np.min(posvec[inds1]), np.max(posvec[inds1]), 20 )
+                        fitbins = fitbins[2:-2]
+                        forceinterp1 = interpolate.interp1d(posvec[inds1], force[inds1])
+                        forceinterp2 = interpolate.interp1d(totposvec[inds2], totforce[inds2])
+
+                        force1 = forceinterp1(fitbins)
+                        force2 = forceinterp2(fitbins)
+
+                        fitfun = lambda c: np.mean( (force2 - force1 - c)**2 )
+                        fitres = optimize.minimize(fitfun, 0)
+                        const = fitres.x[0]
+
+                    # offset new data to be added
+                    if minmsq:
+                        force = force + const
+                    else:
+                        force = force + (mean2 - mean1)
+
+
+
+                    # Find overlapping region in diag data
+                    diaginds1 = diagposvec > np.min(totdiagposvec)
+                    diaginds1 = diaginds1 == (diagposvec < np.max(totdiagposvec))
+                    diaginds2 = totdiagposvec > np.min(diagposvec)
+                    diaginds2 = diaginds2 == (totdiagposvec < np.max(diagposvec))
+
+                    # Compute mean in diag data
+                    diagmean1 = np.mean(diagforce[diaginds1])
+                    diagmean2 = np.mean(totdiagforce[diaginds2])
+
+                    if minmsq:
+                        diagfitbins = np.linspace( np.min(diagposvec[diaginds1]), \
+                                                   np.max(diagposvec[diaginds1]), 20 )
+                        diagfitbins = diagfitbins[2:-2]
+                        diagforceinterp1 = interpolate.interp1d(diagposvec[diaginds1], \
+                                                                diagforce[diaginds1])
+                        diagforceinterp2 = interpolate.interp1d(totdiagposvec[diaginds2], \
+                                                                totdiagforce[diaginds2])
+
+                        diagforce1 = diagforceinterp1(diagfitbins)
+                        diagforce2 = diagforceinterp2(diagfitbins)
+
+                        diagfitfun = lambda c: np.mean( (diagforce2 - diagforce1 - c)**2 )
+                        diagfitres = optimize.minimize(diagfitfun,0)
+                        diagconst = diagfitres.x[0]
+
+                    derpfig, derparr = plt.subplots(1,2,sharex='all', \
+                                                    sharey='all',figsize=(10,5),dpi=100)
+                    derparr[0].plot(diagposvec, diagforce, 'o')
+                    derparr[0].plot(totdiagposvec, totdiagforce, 'o')
+                    
+                    derparr[1].plot(diagposvec[inds1], diagforce[inds1]+diagconst, 'o')
+                    derparr[1].plot(totdiagposvec[inds2], totdiagforce[inds2], 'o')
+                    plt.show()
+
+                    # Offset new data to be added
+                    if minmsq:
+                        diagforce = diagforce + diagconst
+                    else:
+                        diagforce = diagforce + (diagmean2 - diagmean1)
+
+
+                # Stack the data or make a new vector if this is first directory
+                if objind != 0:
+                    # Add the new data for eventual rebinning
                     totposvec = np.hstack( (totposvec, posvec) )
                     totdiagposvec = np.hstack( (totdiagposvec, diagposvec) )
                     totforce = np.hstack( (totforce, force) )
                     totdiagforce = np.hstack( (totdiagforce, diagforce) )
                     toterrs = np.hstack( (toterrs, errs) )
                     totdiagerrs = np.hstack( (totdiagerrs, diagerrs) )
-                except:
+                elif objind == 0:
                     totposvec = posvec
                     totdiagposvec = diagposvec
                     totforce = force
@@ -2252,8 +2371,55 @@ class Force_v_pos:
                     toterrs = errs
                     totdiagerrs = diagerrs
 
-        # Rebin all of the stitched data. interp1d does not require monotonic inputs
+        if detrend:
+            totforce = signal.detrend(totforce)
+            totdiagforce = signal.detrend(totdiagforce)
+
+        # Stack the data into one array and sort by positions
+        final_tot = np.vstack( (totposvec, np.vstack( (totforce, toterrs) ) ) )
+        final_trans = np.transpose(final_tot)
+        final_tot = np.transpose(final_trans[final_trans[:,0].argsort()])
+
+        # Do the same for diagonal data
+        final_diagtot = np.vstack( (totdiagposvec, np.vstack( (totdiagforce, totdiagerrs) ) ) )
+        final_diagtrans = np.transpose(final_diagtot)
+        final_diagtot = np.transpose(final_diagtrans[final_diagtrans[:,0].argsort()])
+
+
+        # Rebin all of the stitched and sorted data.
         totposvec2, totforce2, toterrs2 = \
-                            rebin(totposvec, totforce, toterrs, numbins)
+                            rebin(final_tot[0], final_tot[1], final_tot[2], bin_size=bin_size)
         totdiagposvec2, totdiagforce2, totdiagerrs2 = \
-                            rebin(totdiagposvec, totdiagforce, totdiagerrs, numbins)
+                            rebin(totdiagposvec, totdiagforce, totdiagerrs, bin_size=bin_size)
+
+        if showstitch:
+            f, axarr = plt.subplots(1,2,sharex='all')
+            axarr[0].plot(final_tot[0], final_tot[1])
+            axarr[0].plot(totposvec2, totforce2)
+            axarr[1].plot(final_diagtot[0], final_diagtot[1])
+            axarr[1].plot(totdiagposvec2, totdiagforce2)
+            plt.show()
+            
+
+        self.bins = totposvec2
+        self.diagbins = totdiagposvec2
+        self.force = totforce2 * cal_facs[resp_axis]
+        self.diagforce = totdiagforce2
+        self.errs = toterrs2 * cal_facs[resp_axis]
+        self.diagerrs = totdiagerrs2
+
+    def save(self, path):
+        #Method to save object.
+        self.dir_objs = 'Directory objects discarded upon saving'
+        pickle.dump(self, open(path, "wb"))
+
+    def load(self, path):
+        #Method to load object from a file.     
+        temp_obj = pickle.load(open(fname, 'rb'))
+        self.paths = temp_obj.paths
+        self.bins = temp_obj.bins
+        self.force = temp_obj.force
+        self.errs = temp_obj.errs
+        self.diagbins = temp_obj.diagbins
+        self.diagforce = temp_obj.diagforce
+        self.diagerrs = temp_obj.diagerrs
