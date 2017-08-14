@@ -39,21 +39,17 @@ def edge_in_range(edges, l_ind, h_ind):
     return l_edge
 
 
-def find_l_edge(edges, edge_width = 10.):
+def find_l_edge(edges, edge_width = 6.):
     #finds the coordinates of the left edge of a cantilever given a set of canny edges
-    plt.imshow(edges)
-    #plt.show()
     shape = np.shape(edges)
     l_ind0 = 0.
     h_ind0 = shape[0]
     l_edge = edge_in_range(edges, l_ind0, h_ind0) 
-    ed = np.median(l_edge[l_edge>-1.])
+    ed = np.median(l_edge)
     l_edge = edge_in_range(edges, ed-edge_width/2., ed+edge_width/2.) 
     b = l_edge>0.
     x_edges = l_edge[b]
     y_edges = np.arange(shape[0])[b]
-    plt.plot(x_edges, y_edges)
-    plt.show()
     return x_edges, y_edges
 
 def parab(x, a, b, c):
@@ -97,7 +93,7 @@ def parab_int(pz, py):
     return np.array([zs[minr], ys[minr]])
     
 
-def measure_cantilever(fpath, fun = parab, make_plot = True, plot_edges = False, thresh1 = 300, thresh2 = 400, app_width = 5):
+def measure_cantilever(fpath, fun = parab, make_plot = True, plot_edges = False, thresh1 = 550, thresh2 = 650, app_width = 5):
     #measures the position of the cantilever with respect to the beam by fitting the edges of the cantilever to fun
     #import
     img = cv2.imread(fpath, 0)
@@ -126,7 +122,7 @@ def measure_cantilever(fpath, fun = parab, make_plot = True, plot_edges = False,
         plt.plot(x_edges_z, y_edges_z, 'w')
         plt.plot(x_edges_y, y_edges_y, 'w')
         plt.plot([corn_coords[0]], [corn_coords[1]], 'xy', ms = 20, mew = 2)
-        plt.xlabel("x[pixels]")
+        plt.xlabel("z[pixels]")
         plt.ylabel("y[pixels]")
         plt.imshow(img)
         plt.show()
