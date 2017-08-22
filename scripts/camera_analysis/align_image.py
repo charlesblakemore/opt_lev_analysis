@@ -8,16 +8,16 @@ import glob
 from scipy.optimize import curve_fit
     
 
-data_dir1 = "/data/20170704/profiling/zsweep5"
-data_dir2 = "/data/20170704/profiling/ysweep5"
-out_dir = "/calibrations/20170704"
+data_dir1 = "/data/20170814/image_cal/p0/x_intercept_prof_cal"
+data_dir2 = "/data/20170814/image_cal/p0/y_intercept_prof_cal"
+out_dir = "/calibrations/20170814"
 
 
 #stage x = col 17, stage y = 18, stage z = 19
-stage_column_z = 19
+stage_column_z = 17
 stage_column_y = 18
 
-data_column = 4
+data_column = 5
 cant_cal = 8. #um/volt
 
 ROI = [0., 80.]

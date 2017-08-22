@@ -11,9 +11,9 @@ import re
 from scipy import stats
 
 
-path  = "/data/20170704/profiling/images"
+path  = "/data/20170814/image_cal/p0"
 align_file = "/calibrations/20170704/stage_position.npy"
-cal_file = "/calibrations/20170704/stage_polynomial.npy"
+cal_file = "/calibrations/20170814/stage_polynomial.npy"
 
 imfile =  "/data/20170712/background_test/position_2.bmp"
 
@@ -39,9 +39,9 @@ def edge_in_range(edges, l_ind, h_ind):
     return l_edge
 
 
-def find_l_edge(edges, edge_width = 10.):
+def find_l_edge(edges, edge_width = 10., make_plt = False):
     #finds the coordinates of the left edge of a cantilever given a set of canny edges
-    plt.imshow(edges)
+    #plt.imshow(edges)
     #plt.show()
     shape = np.shape(edges)
     l_ind0 = 0.
@@ -52,8 +52,10 @@ def find_l_edge(edges, edge_width = 10.):
     b = l_edge>0.
     x_edges = l_edge[b]
     y_edges = np.arange(shape[0])[b]
-    plt.plot(x_edges, y_edges)
-    plt.show()
+    if make_plt:
+        plt.imshow(edges)
+        plt.plot(x_edges, y_edges)
+        plt.show()
     return x_edges, y_edges
 
 def parab(x, a, b, c):
@@ -100,7 +102,11 @@ def parab_int(pz, py):
 def measure_cantilever(fpath, fun = parab, make_plot = True, plot_edges = False, thresh1 = 300, thresh2 = 400, app_width = 5):
     #measures the position of the cantilever with respect to the beam by fitting the edges of the cantilever to fun
     #import
-    img = cv2.imread(fpath, 0)
+    f, f_ext = os.path.splitext(fpath)
+    if f_ext == '.bmp':
+    	img = cv2.imread(fpath, 0)
+    if f_ext == '.npy':
+        img = np.load(fpath)
     shape = np.array(np.shape(img))
     #canny edge detect
     edges = np.zeros_like(img)

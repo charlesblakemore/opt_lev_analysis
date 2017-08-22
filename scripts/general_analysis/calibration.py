@@ -32,7 +32,11 @@ maxfiles = 1000
 # [[1,1,1,1,1],[51,225,291,303,330],0.0003]
 
 if not load_charge_cal:
+<<<<<<< HEAD
     cal = [[cal_dir], 'Cal', 15]
+=======
+    cal = [[step_data_path], 'Cal', 15]
+>>>>>>> made measure cantilever take .npy arrays as well
 
     cal_dir_obj = cu.Data_dir(cal[0], [0,0,cal[2]], cal[1])
     cal_dir_obj.load_dir(cu.simple_loader)

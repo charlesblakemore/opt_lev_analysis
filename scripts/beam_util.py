@@ -10,114 +10,123 @@ import scipy
 import glob
 from scipy.optimize import curve_fit
 import bead_util as bu
-
-def spatial_bin(xvec, yvec, bin_size = .13):
-    fac = 1./bin_size
-    bins_vals = np.around(fac*xvec)
-    bins_vals/=fac
-    bins = np.unique(bins_vals)
-    y_binned = np.zeros_like(bins)
-    y_errors = np.zeros_like(bins)
-    for i, b in enumerate(bins):
-        idx = bins_vals == b
-        y_binned[i] =  np.mean(yvec[idx])
-        y_errors[i] = scipy.stats.sem(yvec[idx])
-    return bins, y_binned, y_errors
+from scipy import interpolate
     
+
+def copy_attribs(attribs):
+    '''copies attribs from hdf5 objects so they can be accessed after file is closed'''
+    out_dict = {}
+    for k in attribs.keys():
+        out_dict[k] = attribs[k]
+    return out_dict
+
+def make_stage_dict(stage_settings):
+    '''makes dictionary from stage settings for easier interpretation. organized into dictionary with format stage_dict['drive'] = [xdrive?, ydrive?, zdrive?], stage_dict['dc'] = [dcx, dcy, dcz], stage_dict['amplitude'] = [xamp, yamp, zamp], stage_dict['freq'] = [fx, fy, fz]'''
+    stage_dict = {}
+    stage_dict['drive'] = np.array([stage_settings[3], stage_settings[6], stage_settings[9]])
+    stage_dict['dc'] = np.array([stage_settings[0], stage_settings[1], stage_settings[2]])
+    stage_dict['amplitude'] = np.array([stage_settings[4], stage_settings[7], stage_settings[10]])
+    stage_dict['freq'] = np.array([stage_settings[5], stage_settings[8], stage_settings[11]])
+    return stage_dict
+
+def gauss_wconst(x, A, x0, w0, C):
+    return A * np.exp( -2 * (x-x0)**2 / (w0**2) ) + C
+        
+def gauss(x, A, x0, w0):
+    return A * np.exp( -2 * (x-x0)**2 / (w0**2) )
+
+def mask(arr, ind, n_harmonic):
+    '''sets all values not at an integer multiple of ind to 0'''
+    hars = np.arange(1, n_harmonic)*ind
+    for i in range(len(arr)):
+        if i in hars:
+            arr[i] = arr[i]
+        else:
+            arr[i] = 0
+    return arr
+
+def generate_profile(intensity_dat, stage_dat, drive_freq, Fs, n_harmonic = 1000, vmult = -1.0, n_out = 5000):
+    '''given intensity and stage data returns stage position vector and interpoating function of the derivative of the blocked light'''
+    dc  = np.mean(stage_dat)
+    freqs = np.fft.rfftfreq(len(intensity_dat), 1./Fs)
+    drive_ind = np.argmin(np.abs(drive_freq-freqs))
+    i_fft = np.fft.rfft(intensity_dat)
+    i_dat = np.fft.irfft(mask(i_fft, drive_ind, n_harmonic))
+    s_fft = np.fft.rfft(stage_dat)
+    s_dat = np.fft.irfft(mask(s_fft, drive_ind, n_harmonic))
+    if vmult == -1.:
+        v_bool = np.gradient(s_dat)<0.
+    elif vmult == 0.:
+        v_bool = np.ones(len(s_dat))
+    elif vmult == 1.:
+        v_bool = np.gradient(s_dat)>0.
+    #sort for interpolating 
+    dat_arr = np.transpose(np.vstack((s_dat[v_bool], i_dat[v_bool])))
+    dat_arr = np.transpose(dat_arr[dat_arr[:, 0].argsort()])
+    #interpolate to resample
+    f = interpolate.interp1d(dat_arr[0] + dc, np.abs(np.gradient(dat_arr[1])))
+    s_out = np.linspace(np.min(dat_arr[0]), np.max(dat_arr[0]), n_out) + dc
+    return s_out, f
+     
 
 class Profile:
-    'class representing a beam profile'
+    'class representing a beam profile  derived from a file'
        
-    def __init__(self, fname, stage_column, ends = 100, stage_cal = 8.):
-        dat, attribs, f = bu.getdata(fname)
-        dat = dat[ends:-ends, :]
-        stage_column = 18
-        dat[:,stage_column]*=stage_cal
-        h = attribs["stage_settings"][2]*cant_cal
-    f.close()
-    b, a = sig.butter(1, 1)
-    int_filt = sig.filtfilt(b, a, dat[:, data_column])
-    proft = np.gradient(int_filt)- OFFSET
-    if 'zsweep' in fname:
-        stage_filt = sig.filtfilt(b, a, dat[:, 19])
-        #stage_column = 19
-    elif 'ysweep' in fname:
-        stage_filt = sig.filtfilt(b, a, dat[:, 18])
-        #stage_column = 18
-    dir_sign = np.sign(np.gradient(stage_filt))
-    b, y, e = spatial_bin(dat[dir_sign<0, stage_column], proft[dir_sign<0])
-    return b, y, e, h
-
-class File_prof:
-    "Class storing information from a single file"
-    
-    def __init__(self, b, y, e, h):
-        self.bins = b
-        self.dxs = np.append(np.diff(b), 0)#0 pad left trapizoid rule
-        self.y = y
-        self.errors = e
-        self.cant_height = h
+    def __init__(self, fname, data_column = 5, ends = 100, stage_cal = 8., stage_cols = [17, 18, 19]):
+        dat, i_attribs, f = bu.getdata(fname)
+        self.attribs = copy_attribs(i_attribs)
+        self.dat = dat[ends:-ends, :]
+        self.stage_dict = make_stage_dict(self.attribs['stage_settings'])
+        driven = self.stage_dict['drive']>0.
+        self.drive_column = np.array(stage_cols)[driven][0] #be careful if multi drive
+        self.fdrive = self.stage_dict['freq'][driven][0]
+        dat[:,self.drive_column]*=stage_cal
+        f.close()
+        stage, f = generate_profile(dat[:, data_column], dat[:, self.drive_column], self.fdrive, self.attribs['Fsamp'])
+        self.stage = stage
+	self.prof_f = f        
         self.mean = "mean not computed"
         self.sigmasq = "std dev not computed"
         self.date = "date not entered"
+        self.dxs = np.gradient(self.stage)
         
-    def dist_mean(self):
+    def dist_mean(self, ROI = [5., 75.]):
         #Finds the cnetroid of intensity distribution. subtracts centroid from bins
-        norm = np.sum(self.y*self.dxs)
-        self.mean = np.sum(self.dxs*self.y*self.bins)/norm
-        self.bins -= self.mean
+        ROIb = (self.stage>ROI[0])*(self.stage<ROI[1])
+        norm = np.sum(self.prof_f(self.stage[ROIb])*self.dxs[ROIb])
+        self.mean = np.sum(self.dxs[ROIb]*self.prof_f(self.stage[ROIb])*self.stage[ROIb])/norm
+        self.stage -= self.mean
 
-    def sigsq(self):
+    def sigsq(self, ROI = [0., 80.]):
         #finds second moment of intensity distribution.
         if type(self.mean) == str:
             self.dist_mean()
-        derp1 = self.bins > ROI[0]
-        derp2 = self.bins < ROI[1]
+        derp1 = self.stage > ROI[0]
+        derp2 = self.stage < ROI[1]
         ROIbool = np.array([a and b for a, b in zip(derp1, derp2)])
-        norm = np.sum(self.y[ROIbool]*self.dxs[ROIbool])
+        norm = np.sum(self.prof_f(self.stage[ROIbool])*self.dxs[ROIbool])
         #norm = np.sum(self.y*self.dxs)
-        self.sigmasq = np.sum(self.bins[ROIbool]**2*self.y[ROIbool])/norm
-        #self.sigmasq = np.sum(self.bins**2*self.y)/norm
+        self.sigmasq = np.sum(self.stage[ROIbool]**2*self.prof_f(self.stage[ROIbool]))/norm
          
 
 def proc_dir(dir):
-    files = glob.glob(dir + '\*.h5')
+    files = glob.glob(dir + '/*.h5')
     #print files
-    file_profs = []
-    hs = []
+    profs = []
     for fi in files:
-        b, y, e, h = profile(fi)
-        if h not in hs:
-            #if new height then create new profile object
-            hs.append(h)
-            f = File_prof(b, y, e, h)
-            f.date = dir[8:16]
-            file_profs.append(f)
-        else:
-            #if height repeated then append data to object for that height
-            for fi in file_profs:
-                if fi.cant_height == h:
-                    fi.bins = np.append(fi.bins, b)
-                    fi.y = np.append(fi.y, y)
-                    fi.errors = np.append(fi.errors, e)
-            
-    #now rebin all profiles
-    for fp in file_profs:
-        b, y, e = spatial_bin(fp.bins, fp.y)
-        fp.bins = b
-        fp.y = y
-        fp.errors = e
-        fp.dxs = np.append(np.diff(fp.bins), 0)#0 pad left trapizoid rule
+        p = Profile(fi)
+        p.sigsq()
+        profs += [p]
+    return profs
 
-    sigmasqs = []
-    hs = []
-
-    for f in file_profs:
-        f.sigsq()
-        sigmasqs.append(f.sigmasq)
-        hs.append(f.cant_height)
-        
-    return file_profs, np.array(hs), np.array(sigmasqs)
+def mean_vs_dcp(profs):
+    '''extracts mean and cantilever mean position from Profile object'''
+    ms = []
+    dc = []
+    for p in profs:
+        ms += [p.mean]
+        dc += [p.stage_dict['dc']]
+    return np.array(ms), np.array(dc)
  
 def plot_profs(fp_arr):
     #plots average profile from different heights
@@ -149,6 +158,28 @@ def Szsq(z, s0, M, z0, lam = 1.064):
     W0 = 2.*s0
     Wzsq = W0**2 + M**4*(lam/(np.pi*W0))**2*(z-z0)**2
     return Wzsq/4.
+
+def line(x, m, b):
+    '''a line function for fitting.'''
+    return m*x + b
+
+def find_angle(pos, cent, make_plot = True, disp_digits = 3):
+    '''fits centroid positiion vs cantilever step position to determine cantilever angle'''
+    popt, pcov = curve_fit(line, pos, cent)
+    var = pcov[0, 0] 
+    Q = np.arctan(popt[0])
+    sq = np.sqrt(var/(1. + popt[0]**2)**2)
+    if make_plot:
+        plot_x = np.linspace(np.min(pos), np.max(pos), 100)
+        plt.plot(pos, cent, 'o')
+        label_str =  "angle =" + str(Q)[:disp_digits + 3] +'$\pm$'+ str(sq)[:disp_digits + 2] + 'rad ' + 'os:'+ str(popt[1])[:disp_digits + 1]
+        plt.plot(plot_x, line(plot_x, *popt), 'r', label =label_str)
+        plt.xlabel('Step position[um]')
+        plt.ylabel('centroid position [um]')
+        plt.legend()
+        plt.show()
+    return Q  
+    
     
 
 #def compute_msquared(hs, sigmasqs):
