@@ -147,6 +147,9 @@ def sbin_pn_new(xvec, yvec, bin_size=1., numbins=0., vel_mult = 0.):
     if numbins == 0:
         numbins = int( (maxval - minval + dx) / bin_size )
 
+    if numbins % 2:
+        numbins += 1
+
     dx2 = (maxval - minval + dx) / float(numbins)
     new_minval = minval - 0.5*dx + 0.5*dx2
     new_maxval = maxval + 0.5*dx - 0.5*dx2
@@ -196,6 +199,9 @@ def rebin(xvec, yvec, y_errs, numbins=0, bin_size=1.):
 
     if numbins == 0:
         numbins = int( (maxval - minval + dx) / bin_size )
+
+    if numbins % 2:
+        numbins += 1
 
     dx2 = (maxval - minval + dx) / float(numbins)
     new_minval = minval - 0.5*dx + 0.5*dx2
@@ -2292,8 +2298,8 @@ class Force_v_pos:
                     mean2 = np.mean(totforce[inds2])
 
                     if minmsq:
-                        fitbins = np.linspace( np.min(posvec[inds1]), np.max(posvec[inds1]), 20 )
-                        fitbins = fitbins[2:-2]
+                        fitbins = np.linspace( np.min(posvec[inds1]), np.max(posvec[inds1]), 10 )
+                        fitbins = fitbins[1:-1]
                         forceinterp1 = interpolate.interp1d(posvec[inds1], force[inds1])
                         forceinterp2 = interpolate.interp1d(totposvec[inds2], totforce[inds2])
 
@@ -2324,28 +2330,35 @@ class Force_v_pos:
 
                     if minmsq:
                         diagfitbins = np.linspace( np.min(diagposvec[diaginds1]), \
-                                                   np.max(diagposvec[diaginds1]), 20 )
-                        diagfitbins = diagfitbins[2:-2]
+                                                   np.max(diagposvec[diaginds1]), 10 )
+                        diagfitbins = diagfitbins[1:-1]
                         diagforceinterp1 = interpolate.interp1d(diagposvec[diaginds1], \
                                                                 diagforce[diaginds1])
                         diagforceinterp2 = interpolate.interp1d(totdiagposvec[diaginds2], \
                                                                 totdiagforce[diaginds2])
 
-                        diagforce1 = diagforceinterp1(diagfitbins)
-                        diagforce2 = diagforceinterp2(diagfitbins)
-
+                        diagforce1 = diagforceinterp1(diagfitbins) * 1e15
+                        diagforce2 = diagforceinterp2(diagfitbins) * 1e15
+    
                         diagfitfun = lambda c: np.mean( (diagforce2 - diagforce1 - c)**2 )
-                        diagfitres = optimize.minimize(diagfitfun,0)
-                        diagconst = diagfitres.x[0]
+                        diagfitres = optimize.minimize(diagfitfun, 0, \
+                                                       options = {'maxiter': 10000, 'disp': False})
+                        diagconst = diagfitres.x[0] * 1.0e-15
 
-                    derpfig, derparr = plt.subplots(1,2,sharex='all', \
-                                                    sharey='all',figsize=(10,5),dpi=100)
-                    derparr[0].plot(diagposvec, diagforce, 'o')
-                    derparr[0].plot(totdiagposvec, totdiagforce, 'o')
-                    
-                    derparr[1].plot(diagposvec[inds1], diagforce[inds1]+diagconst, 'o')
-                    derparr[1].plot(totdiagposvec[inds2], totdiagforce[inds2], 'o')
-                    plt.show()
+                    #derpfig, derparr = plt.subplots(1,2,sharex='all', \
+                    #                                sharey='all',figsize=(10,5),dpi=100)
+                    #derparr[0].plot(diagposvec, diagforce, 'o')
+                    #derparr[0].plot(totdiagposvec, totdiagforce, 'o')
+                    #
+                    #derparr[1].plot(diagposvec[inds1], diagforce[inds1], 'o', \
+                    #                label='Without Constant')
+                    #derparr[1].plot(totdiagposvec[inds2], totdiagforce[inds2], 'o')
+                    #
+                    #derparr[1].plot(diagposvec[inds1], diagforce[inds1]+diagconst, 'o', \
+                    #                label='With Constant')
+                    #
+                    #plt.legend()
+                    #plt.show()
 
                     # Offset new data to be added
                     if minmsq:
@@ -2388,9 +2401,11 @@ class Force_v_pos:
 
         # Rebin all of the stitched and sorted data.
         totposvec2, totforce2, toterrs2 = \
-                            rebin(final_tot[0], final_tot[1], final_tot[2], bin_size=bin_size)
+                            rebin(final_tot[0], final_tot[1], \
+                                  final_tot[2], bin_size=bin_size)
         totdiagposvec2, totdiagforce2, totdiagerrs2 = \
-                            rebin(totdiagposvec, totdiagforce, totdiagerrs, bin_size=bin_size)
+                            rebin(final_diagtot[0], final_diagtot[1], \
+                                  final_diagtot[2], bin_size=bin_size)
 
         if showstitch:
             f, axarr = plt.subplots(1,2,sharex='all')
@@ -2415,7 +2430,7 @@ class Force_v_pos:
 
     def load(self, path):
         #Method to load object from a file.     
-        temp_obj = pickle.load(open(fname, 'rb'))
+        temp_obj = pickle.load(open(path, 'rb'))
         self.paths = temp_obj.paths
         self.bins = temp_obj.bins
         self.force = temp_obj.force

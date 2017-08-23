@@ -1,4 +1,4 @@
-import cant_utils as cu
+import cant_util as cu
 import numpy as np
 import matplotlib.pyplot as plt
 import glob 
@@ -17,29 +17,26 @@ import cPickle as pickle
 # which the cantilever is driven.
 ###########################
 
-tempdata = pickle.load( open('./temp_data.p', 'rb') )
-tempkey = 'new'
-tempresp = 1
 
-
-dirs = [1,]
+dirs = [15,]
 bdirs = [1,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/dirfiles/dir_file_july2017.txt" )
+ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
 maxfiles = 1000   # Maximum number of files to load from a directory
 
-SWEEP_AX = 2     # Cantilever sweep axis, 1 for Y, 2 for Z
+SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
 STEP_AX = 0      # Axis with differnt DC pos., 0 for height, 2 for sep 
 bin_size = 4     # um, Binning for final force v. pos
 lpf = 150        # Hz, acausal top-hat filter at this freq
+cantfilt = True
 
 fig_title = 'Force vs. Cantilever Position:'
 xlab = 'Distance along Cantilever [um]'
 
 # Locate Calibration files
-tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170707.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170822.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170822.p'
 
 
 ##########################################################
@@ -106,7 +103,10 @@ for i, pos in enumerate(pos_keys):
     newobj = cu.Data_dir(0, init_data, pos)
     newobj.files = pos_dict[pos]
     newobj.load_dir(cu.diag_loader, maxfiles=maxfiles)
-    newobj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size)
+
+    newobj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
+
+    newobj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, cantfilt=cantfilt)
 
     # Load the calibrations
     newobj.load_H(tf_path)
@@ -114,8 +114,8 @@ for i, pos in enumerate(pos_keys):
     newobj.calibrate_H()
 
     newobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=cal_drive_freq)
-    newobj.get_avg_diag_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size)
+                             build_conv_facs=True, drive_freq=cal_drive_freq, cantfilt=cantfilt)
+    newobj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, diag=True, cantfilt=cantfilt)
 
     # Load background files
     if subtract_background:
@@ -141,7 +141,7 @@ for i, pos in enumerate(pos_keys):
     #newpos = 90.4 - pos
     #posshort = '%g' % cu.round_sig(float(newpos),sig=2)
     if float(pos) != 0:
-        posshort = '%g' % cu.round_sig(float(pos),sig=2)
+        posshort = '%g' % bu.round_sig(float(pos),sig=2)
     else:
         posshort = '0'
 
@@ -165,11 +165,6 @@ for i, pos in enumerate(pos_keys):
             offset = - np.mean(dat[resp,0][1])
             #diagoffset = - diagdat[resp,0][1][-1]
             diagoffset = - np.mean(diagdat[resp,0][1])
-
-            if resp == tempresp:
-                tempdata[tempkey] = (dat[resp,0][0], (dat[resp,0][1]+offset)*cal_facs[resp], \
-                                     diagdat[resp,0][1]+diagoffset, \
-                                     (dat[resp,0][2])*cal_facs[resp], diagdat[resp,0][2])
 
             # refer to indexing eplanation above if this is confusing!
             axarr[resp,0].errorbar(dat[resp,0][0], \
@@ -206,8 +201,6 @@ axarr[0,1].legend(loc=0, numpoints=1, ncol=2, fontsize=9)
 
 if len(fig_title):
     f.suptitle(fig_title + ' ' + dirlabel, fontsize=18)
-
-pickle.dump(tempdata, open('./temp_data.p', 'wb') )
 
 plt.show()
     

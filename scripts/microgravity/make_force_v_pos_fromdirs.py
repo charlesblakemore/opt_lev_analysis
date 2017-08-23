@@ -14,11 +14,11 @@ detrend = True
 init_data = [0,0,0]
 
 derp_ind = 0
-minval = -170.
+minval = -200.
 stepval = 40.
 
 
-save = True #False
+save = True
 savepath = '/force_v_pos/20170718_grav_background.p'
 
 plot = True
@@ -29,14 +29,14 @@ plot = True
 dirs = [2,3,4,5,6,7,8,9]
 
 ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
-maxfiles = 1   # Maximum number of files to load from a directory
+maxfiles = 3   # Maximum number of files to load from a directory
 
 SWEEP_AX = 2     # Cantilever sweep axis, 1 for Y, 2 for Z
 RESP_AX = 1      # Response Axis
 bin_size = 1     # um, Binning for final force v. pos
 
 lpf = 150        # Hz, acausal top-hat filter at this freq
-cantfilt = False # Notch filter at cantilever drive
+cantfilt = True # Notch filter at cantilever drive
 
 # Locate Calibration files
 tf_path = '/calibrations/transfer_funcs/Hout_20170707.p'

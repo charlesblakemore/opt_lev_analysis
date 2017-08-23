@@ -37,7 +37,7 @@ limitlab2 = 'With Decca 2'
 init_data = [0,0,0]
 
 derp_ind = 0
-minval = -170.
+minval = -200.
 stepval = 40.
 
 
