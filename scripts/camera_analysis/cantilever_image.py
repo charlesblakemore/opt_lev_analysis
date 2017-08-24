@@ -10,13 +10,14 @@ import glob
 import re
 from scipy import stats
 import bead_util as bu
+from mpl_toolkits.mplot3d import Axes3D
+import itertools
 
-
-path  = "/data/20170814/image_cal/p0"
+calib_image_path  = "/data/20170822/image_calibration/image_grid"
 align_file = "/calibrations/20170704/stage_position.npy"
-cal_file = "/calibrations/20170814/stage_polynomial.npy"
+cal_out_file = "/calibrations/20170814/stage_polynomial.npy"
+imfile =  "/data/20170822/image_calibration/image_grid/trap_40um_40um_corner_stage-X9um-Y80um-Z0um.h5.npy"
 
-imfile =  "/data/20170712/background_test/position_2.bmp"
 
 def get_first_edge(row, l_ind, h_ind):
     #gets index of first non zero element in a vector
@@ -80,7 +81,7 @@ def parab_int(pz, py):
 
     
 
-def measure_cantilever(fpath, fun = line, make_plot = True, plot_edges = False, thresh1 = 600, thresh2 = 700, app_width = 5, auto_thresh = True, nfit = 100, filt_size = 3):
+def measure_cantilever(fpath, fun = line, make_plot = False, plot_edges = False, thresh1 = 600, thresh2 = 700, app_width = 5, auto_thresh = True, nfit = 100, filt_size = 3):
     #measures pixel coordinates of the corner of the cantilever by fitting the edges of the cantilever to fun
     #import
     f, f_ext = os.path.splitext(fpath)
@@ -142,11 +143,11 @@ def get_xydistance(im_fname, cols = {'x_stage':17, 'y_stage':18}, dat_ext = '.h5
     return np.array([x, y])
 
 
-def get_distances(files, align_file, ext = '.npy'):
+def get_distances(files, align_file, cant_cal = 8.0, ext = '.npy'):
     #gets all of the distances associated with a list of image files from the associated data file.
     cal = np.load(align_file)
-    ds = map(get_xydistance, files)
-    ds = -1.*(np.array(ds) + cal)
+    ds = np.array(map(get_xydistance, files))*cant_cal
+    ds = -1.*(np.array(ds) + cal)#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     return np.array(ds)
 
 def ignore_point(vec, p):
@@ -208,24 +209,65 @@ def stage_pos_fun(can_pos, ds, cal_file, make_plot = True):
         plt.legend()
         plt.show()
  
-def calibration_data(path, align_file, cal_file, image_ext = '.npy'):
-    #Does all of the steps to get the calibration of cantilever images and saves the result.
-    fs = glob.glob(path + '/*' + image_ext)
-    #print fs
+
+
+def polyfit2d(x, y, z, order = 2):
+    '''fits 2d surfaces to polynomial of order order'''
+    ncols = (order + 1)**2
+    G = np.zeros((x.size, ncols))
+    ij = itertools.product(range(order + 1), range(order + 1))
+    for k, (i, j) in enumerate(ij):
+        G[:, k] = x**i*y**j
+    m, _, _, _ = np.linalg.lstsq(G, z)
+    return m
+
+def polyval2d(x, y, m):
+    '''generates z vector from x, y and polynomial vector m'''
+    order = int(np.sqrt(len(m))) - 1
+    ij = itertools.product(range(order + 1), range(order + 1))
+    z = np.zeros_like(x)
+    for a, (i,j) in zip(m, ij):
+        z += a * x**i * y**j
+    return z
+
+def plot_3d_calib(can_pos, ds, axis, polyfit, stage_cal = 8.0):
+    '''plots the pixel corner coordinates as a function of stage xy position'''
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(can_pos[:, 0], can_pos[:, 1], ds[:, axis], marker = 'o')  
+    ax.set_xlabel('x pixel')
+    ax.set_ylabel('y pixel')
+    if axis==0:
+        lab = 'stage x [um]'
+    if axis==1:
+        lab = 'stage y [um]'
+    ax.set_zlabel(lab)
+    ax.scatter(can_pos[:, 0], can_pos[:, 1], polyval2d(can_pos[:, 0], can_pos[:, 1], polyfit), marker = '^')
+         
+
+def get_calibration(img_cal_path, align_file, cal_out_file, image_ext = '.npy', cant_cal = 8.0):
+    '''Does all of the steps to get the calibration of cantilever images and saves the result.'''
+    fs = glob.glob(img_cal_path + '/*' + image_ext)
     ds = get_distances(fs, align_file)
     can_pos = np.array(map(measure_cantilever, fs))
-    #stage_pos_fun(can_pos, ds, cal_file)
+    align = np.load(align_file)
+    ds[:, 0] += align[0]
+    ds[:, 1] += align[1]
+    mx = polyfit2d(can_pos[:, 0], can_pos[:, 1], ds[:, 0])
+    my = polyfit2d(can_pos[:, 0], can_pos[:, 1], ds[:, 1])
+    cal_arr = np.array([mx, my])
+    directory = os.path.dirname(cal_out_file)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    np.save(cal_out_file, cal_arr)
     return ds, can_pos
-   
 
-
-def measure_image(im_file, align_file):
+def measure_image(im_file, cal_out_file, make_plot = True):
     #given an image file returns the calibrated coordinates of the cantileve edge
-    pos = measure_cantilever(im_file, make_plot = True)
-    cal = np.load(align_file)
-    popt_z = cal[0]
-    popt_y = cal[1]
-    pz = parab(pos[0], *popt_z)
-    py = parab(pos[1], *popt_y)
-    return np.array([pz, py])
+    pixels = measure_cantilever(im_file, make_plot = make_plot)
+    cal = np.load(cal_out_file)
+    
+    px = polyval2d(pixels[0], pixels[1], cal[0])
+    py = polyval2d(pixels[0], pixels[1], cal[1])
+    return np.array([px, py])
     
