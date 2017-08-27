@@ -11,10 +11,17 @@ import scipy.stats as stats
 
 import sys
 
-band = 10   # um
+plot_simp = False
+
+setmin_chisq = True
+noise_fac = 1.
+
+band = 1   # um
 bandwidth = 1. / band
 show_data_at_modulation = True
 dispfit = True
+
+extra_lab = ': 10um Sep'
 
 ### Load theoretical modified gravity curves
 
@@ -23,7 +30,7 @@ filname = 'attractorv2_1um_manysep_fullthrow_force_curves.p'
 
 fcurve_obj = gu.Grav_force_curve(path=gpath+filname, make_splines=True, spline_order=3)
 
-SEP = 5.0e-6
+SEP = 10.0e-6
 RBEAD = 2.43e-6
 
 confidence_level = 0.95
@@ -33,7 +40,7 @@ confidence_level = 0.95
 ### Load backgrounds
 
 background_data = cu.Force_v_pos()
-background_data.load('/force_v_pos/20170718_grav_background.p')
+background_data.load('/force_v_pos/20170822_grav_background_sep10um_h15um.p')
 
 bins = background_data.bins
 force = background_data.force
@@ -128,13 +135,13 @@ diagalphas = np.zeros_like(lambdas)
 simp_diagalphas = np.zeros_like(lambdas)
 
 lambdas = lambdas[::-1]
-testalphas = np.linspace(0, 10, 10000)
+testalphas = np.linspace(0, 12, 10000)
 
 # For the confidence interval, compute the inverse CDF of a 
 # chi^2 distribution at 0.95 and compare to liklihood ratio
 # via a goodness of fit parameter
 chi2dist = stats.chi2(1)
-# factor of 0.5 from Wilke's theorem: -2 log (Liklihood) ~ chi^2(1)
+# factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
 con_val = 0.5 * chi2dist.ppf(confidence_level) 
 
 colors = bu.get_color_map(len(lambdas))
@@ -153,9 +160,9 @@ for ind, yuklambda in enumerate(lambdas):
     diagfft = np.fft.rfft(diagfcurve)
     diagasd = np.sqrt(diagfft.conj() * diagfft)
 
-    scale = 0.7
+    scale = noise_fac
     #scale = np.abs( np.max(datasd) )
-    dscale = 0.7
+    dscale = noise_fac
     #dscale = np.abs( np.max(diagdatasd) )
 
     datfft_s = datfft / scale
@@ -175,6 +182,13 @@ for ind, yuklambda in enumerate(lambdas):
         diag_red_chi_sq = diag_chi_sq / (len(diagdatfft) - 1)
         chi_sqs.append(red_chi_sq)
         diag_chi_sqs.append(diag_red_chi_sq)
+
+    chi_sqs = np.array(chi_sqs)
+    diag_chi_sqs = np.array(diag_chi_sqs)
+
+    if setmin_chisq:
+        chi_sqs = chi_sqs / np.min(chi_sqs)
+        diag_chi_sqs = diag_chi_sqs / np.min(diag_chi_sqs)
 
     #plt.plot(10**testalphas, chi_sqs)
     #plt.show()
@@ -242,7 +256,7 @@ for ind, yuklambda in enumerate(lambdas):
 
     
 
-plt.title('Goodness of Fit for Various Lambda', fontsize=16)
+plt.title('Goodness of Fit for Various Lambda' + extra_lab, fontsize=16)
 plt.xlabel('Alpha Parameter [arb]', fontsize=14)
 plt.ylabel('$\chi^2$', fontsize=18)
 
@@ -252,7 +266,7 @@ plt.show()
 
 
 f, axarr = plt.subplots(1,2,sharex='all',sharey='all',figsize=(10,5),dpi=100)
-
+plt.suptitle('Stitched Background' + extra_lab, fontsize=18)
 axarr[0].set_title('Raw Data', fontsize=16)
 axarr[0].errorbar(bins, force*1e15, errs*1e15, fmt='.-', ms=10, color = 'r')
 axarr[0].set_ylabel('Force [fN]')
@@ -268,9 +282,10 @@ axarr[1].set_xlabel('Position along cantilever [um]')
 
 
 f3, axarr3 = plt.subplots(1,2,sharex='all',sharey='all',figsize=(10,5),dpi=100)
-
+plt.suptitle('Sensitivity' + extra_lab, fontsize=18)
 axarr3[0].set_title('Raw Data', fontsize=16)
-axarr3[0].loglog(lambdas, simp_alphas, label='Naive: Sig = Noise')
+if plot_simp:
+    axarr3[0].loglog(lambdas, simp_alphas, label='Naive: Sig = Noise')
 axarr3[0].loglog(lambdas, alphas, linewidth=2, label='95% CL')
 axarr3[0].loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
 axarr3[0].loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
@@ -280,7 +295,8 @@ axarr3[0].set_ylabel('alpha [arb]')
 axarr3[0].set_xlabel('lambda [m]')
 
 axarr3[1].set_title('Diagonalized Data', fontsize=16)
-axarr3[1].loglog(lambdas, simp_diagalphas, label='Naive: Sig = Noise')
+if plot_simp:
+    axarr3[1].loglog(lambdas, simp_diagalphas, label='Naive: Sig = Noise')
 axarr3[1].loglog(lambdas, diagalphas, linewidth=2, label='95% CL')
 axarr3[1].loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
 axarr3[1].loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
