@@ -10,8 +10,8 @@ import cant_util as cu
 
 data_dir1 = "/data/20170822/image_calibration/align_profiles_x_3"
 data_dir2 = "/data/20170822/image_calibration/align_profiles_y"
-out_dir = "/calibrations/20170814"
-
+out_dir = "/calibrations/image_alignments"
+date = '20170822'
 
 def get_stage_column(attribs, stage_cols = [17, 18, 19], attrib_inds = [3, 6, 9], ortho_columns = [18, 17, 19]):
     '''gets the first driven stage axis from data attribs'''
@@ -72,16 +72,16 @@ def find_edge(xsweep_dir, ysweep_dir, over_plot = 10.):
     xint, yint = line_intersection(poptx, popty)
     plt.plot([xint], [yint], 'o')   
     plt.show()
-    return np.array(xint, yint)
+    return np.array([xint, yint])
 
-def save_cal(p_arr, path):
+def save_cal(p_arr, path, date):
     #Makes path if it does not exist and saves parr to path/stage_position.npy
     if not os.path.exists(path):
         os.makedirs(path)
-    outfile = os.path.join(path, 'stage_position')
+    outfile = os.path.join(path, 'stage_position_' + date)
     np.save(outfile, p_arr)
 
 p_arr = find_edge(data_dir1, data_dir2)
-save_cal(parr, out_dir)
+save_cal(p_arr, out_dir, date)
 
 

@@ -14,8 +14,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import itertools
 
 calib_image_path  = "/data/20170822/image_calibration/image_grid"
-align_file = "/calibrations/20170704/stage_position.npy"
-cal_out_file = "/calibrations/20170814/stage_polynomial.npy"
+align_file = "/calibrations/image_alignments/stage_position_20170822.npy"
+cal_out_file = "/calibrations/image_calibrations/stage_polynomial_20170822.npy"
 imfile =  "/data/20170822/image_calibration/image_grid/trap_40um_40um_corner_stage-X9um-Y80um-Z0um.h5.npy"
 
 
@@ -251,6 +251,8 @@ def get_calibration(img_cal_path, align_file, cal_out_file, image_ext = '.npy', 
     ds = get_distances(fs, align_file)
     can_pos = np.array(map(measure_cantilever, fs))
     align = np.load(align_file)
+    print ds
+    print align
     ds[:, 0] += align[0]
     ds[:, 1] += align[1]
     mx = polyfit2d(can_pos[:, 0], can_pos[:, 1], ds[:, 0])
@@ -270,4 +272,5 @@ def measure_image(im_file, cal_out_file, make_plot = True):
     px = polyval2d(pixels[0], pixels[1], cal[0])
     py = polyval2d(pixels[0], pixels[1], cal[1])
     return np.array([px, py])
-    
+
+get_calibration(calib_image_path, align_file, cal_out_file)    
