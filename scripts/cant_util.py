@@ -422,7 +422,7 @@ class Data_file:
         self.image_pow_data = np.transpose(dat[:, 6])
 
         #self.pos_data = np.transpose(dat[:,[elec_inds[1],elec_inds[3],elec_inds[5]]])
-        self.cant_data = np.transpose(np.resize(sep, np.shape(np.transpose(self.pos_data)))) + stage_travel - np.transpose(dat[:, 17:20])*cant_cal
+        self.cant_data = np.transpose(dat[:, 17:20])*cant_cal
         self.electrode_data = np.transpose(dat[:, elec_inds]) #Record of voltages on the electrodes
 
         f.close()
@@ -856,6 +856,13 @@ class Data_file:
         if p:
             self.cant_data = 'cantilever position data cleared'
             self.pos_data = 'bead position data cleared'
+            self.diag_pos_data = 'bead position data cleared'
+            self.pos_data_cantfilt = 'bead position data cleared'
+            self.diag_pos_data_cantfilt = 'bead position data cleared'
+            self.cantfilt = 'cantfilt cleared'
+
+
+
 
 
 
@@ -948,15 +955,23 @@ class Data_dir:
         self.avg_pressure = np.mean(map(per, self.fobjs), axis = 0)
         self.sigma_p = np.std(map(per, self.fobjs), axis = 0)
 
-        
+        count = 0.0
         self.ave_dc_pos = np.zeros(3)
-        count = 0
-        for obj in self.fobjs:
-            if type(obj.dc_pos) != str:
-                self.ave_dc_pos += obj.dc_pos
-                count += 1
+        self.maxvals = np.zeros(3)
+        self.seps = np.zeros(3)
+        for objind, obj in enumerate(self.fobjs):
+            try:
+                self.seps += obj.separation
+                self.maxvals += obj.cant_data.max(axis=-1)
+                if type(obj.dc_pos) != str:
+                    self.ave_dc_pos += obj.dc_pos
+                    count += 1.0
+            except:
+                print 'Failed at file:', self.files[objind]
         if count:
             self.ave_dc_pos = self.ave_dc_pos / count
+            self.maxvals = self.maxvals / count
+            self.seps = self.seps / count
 
     def thermal_calibration(self, temp=293.):
         if 'not computed' in self.thermal_cal_file_path:
@@ -972,10 +987,11 @@ class Data_dir:
 
 
 
-    def get_avg_force_v_pos(self, cant_axis = 2, bin_size = 0.5, \
-                                 cant_indx = 24, bias = False, \
-                                 baratron_indx = 2, pressures = False, \
-                                 cantfilt = False, diag = False):
+    def get_avg_force_v_pos(self, cant_axis = 2, bin_size = 0.5, cant_indx = 0, \
+                            bias = False, baratron_indx = 2, pressures = False, \
+                            cantfilt = False, diag = False, stagestep = False, \
+                            stepind=0, multistep = False, stepind2=2, \
+                            close_dat = False):
 
         if type(self.fobjs) == str:
             self.load_dir(pos_loader)
@@ -1002,15 +1018,31 @@ class Data_dir:
                     
             #print pos_dat
 
-            cantV = fobj.electrode_settings[cant_indx]
-            try:
-                pressure = bu.round_sig(fobj.pressures[baratron_indx],1)
-                if pressure < 5e-5:
-                    pressure = 'Base ~ 1e-6'
+            if stagestep:
+                stepDCval = fobj.get_stage_settings(axis=stepind)[0]
+                if multistep:
+                    stepDCval2 = fobj.get_stage_settings(axis=stepind2)[0]
+                #stepDCval = np.mean(fobj.cant_data[stepind])
+                #stepDCval = bu.round_sig(stepDCval, 2)
+            elif bias:
+                cantV = fobj.electrode_settings[24]
+                #cantV = np.mean(fobj.electrode_data[cant_indx])
+                #cantV = bu.round_sig(cantV, 3)
+            elif pressures:
+                try:
+                    pressure = bu.round_sig(fobj.pressures[baratron_indx],1)
+                    if pressure < 5e-5:
+                        pressure = 'Base ~ 1e-6'
+                    else:
+                        diagpressure = '%.1e' % pressure
+                except:
+                    pressure = 'Baratron not rec.'
+    
+            if stagestep:
+                if multistep:
+                    return [cant_dat, pos_dat, err_dat, (stepDCval, stepDCval2)]
                 else:
-                    diagpressure = '%.1e' % pressure
-            except:
-                pressure = 'Baratron not rec.'
+                    return [cant_dat, pos_dat, err_dat, stepDCval]
             if bias:
                 return [cant_dat, pos_dat, err_dat, cantV]
             elif pressures:
@@ -1019,22 +1051,28 @@ class Data_dir:
                 return [cant_dat, pos_dat, err_dat, 1]
         
         extracted = np.array(map(extractor, self.fobjs))
-        
-        
+            
         if diag:
             self.avg_diag_force_v_pos = {}
         else:
             self.avg_force_v_pos = {}
 
-        for v in np.unique(extracted[:, 3]):
+        keyvec = []
+        for i in range(10):
+            keyvec.append(str(extracted[:,3][i]))
+        keyvec = np.array(keyvec)
+
+        keyvec_real = extracted[:,3]
+
+        for keyind, v in enumerate(np.unique(keyvec)):
             new_arr = [[[], [], []], \
 		       [[], [], []], \
 		       [[], [], []]]
             
             for axis in [0,1,2]:
                 for vel_mult in [-1,0,1]:
-                    boolv = extracted[:, 3] == v
-
+                    boolv = keyvec == v
+                    
                     cant_dat_curr = []
                     for fil in extracted[boolv,0]:
                         cant_dat_curr.append(fil[vel_mult][axis,cant_axis])
@@ -1056,10 +1094,13 @@ class Data_dir:
                     new_arr[axis][vel_mult] = [xout, yout, yerrs]
 
             if diag:
-                self.avg_diag_force_v_pos[str(v)] =  np.array(new_arr)
+                self.avg_diag_force_v_pos[keyvec_real[keyind]] =  np.array(new_arr)
             else:
-                self.avg_force_v_pos[str(v)] =  np.array(new_arr)
+                self.avg_force_v_pos[keyvec_real[keyind]] =  np.array(new_arr)
 
+        if close_dat:
+            for fil in self.fobjs:
+                fil.close_dat()
 
 
     def get_avg_pos_data(self):
@@ -1380,13 +1421,22 @@ class Data_dir:
         # Apply to each file a filter constructed from the FFT of the 
         # cantilever drive
 
-        print "Filtering files by cantilever drive"
-        sys.stdout.flush()
+        print "FILTERING FILES BY CANTILEVER DRIVE:"
+        print "  Notch Filtering...",
 
-        for fobj in self.fobjs:
-            fobj.filter_by_cantdrive(cant_axis=cant_axis,\
+        sys.stdout.flush()
+        Nfobjs = len(self.fobjs)
+        percent = 0
+        for fobjind, fobj in enumerate(self.fobjs):
+            newper = int((100. * float(fobjind) / float(Nfobjs)))
+            if newper > percent + 10:
+                print newper,
+                sys.stdout.flush()
+                percent = newper
+            fobj.filter_by_cantdrive(cant_axis=cant_axis, \
                                      nharmonics=nharmonics, noise=noise, width=width)
             fobj.spatial_bin(cantfilt=True)
+        print 
 
 
 
@@ -1395,7 +1445,7 @@ class Data_dir:
 
     def diagonalize_files(self, fthresh = 40., simpleDCmat=False, plot_Happ=False, \
                           reconstruct_lowf=False, lowf_thresh=100., \
-                          build_conv_facs=False, drive_freq=41., close_dat=True,
+                          build_conv_facs=False, drive_freq=41., close_dat=False,
                           cantfilt=False, use_fits=True):
         if type(self.Hs_cal) == str:
             try:
@@ -1403,7 +1453,7 @@ class Data_dir:
             except:
                 print self.Hs_cal
 
-        print "Diagonalizing Data:"
+        print "DIAGONALIZING DATA:"
         sys.stdout.flush()
         
         if simpleDCmat:
@@ -2246,12 +2296,6 @@ class Force_v_pos:
                OUTPUTS: none, generates class attributes'''
 
         cal_facs = self.dir_objs[0].conv_facs
-
-        #if cant_axis == 0:
-        #    resp_axis = 1
-        #elif cant_axis == 1:
-        #    resp_axis = 0
-
         cantax_rough_pos = []
         for pos in self.rough_pos:
             cantax_rough_pos.append( pos[cant_axis] )
@@ -2384,6 +2428,7 @@ class Force_v_pos:
                     toterrs = errs
                     totdiagerrs = diagerrs
 
+
         if detrend:
             totforce = signal.detrend(totforce)
             totdiagforce = signal.detrend(totdiagforce)
@@ -2409,9 +2454,9 @@ class Force_v_pos:
 
         if showstitch:
             f, axarr = plt.subplots(1,2,sharex='all')
-            axarr[0].plot(final_tot[0], final_tot[1])
+            axarr[0].plot(final_tot[0], final_tot[1], 'o')
             axarr[0].plot(totposvec2, totforce2)
-            axarr[1].plot(final_diagtot[0], final_diagtot[1])
+            axarr[1].plot(final_diagtot[0], final_diagtot[1], 'o')
             axarr[1].plot(totdiagposvec2, totdiagforce2)
             plt.show()
             

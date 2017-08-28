@@ -120,10 +120,18 @@ def round_sig(x, sig=2):
                    sig, number of sig figs
 
            OUTPUTS: num, rounded number'''
+    neg = False
     if x == 0:
         return 0
     else:
-        return round(x, sig-int(math.floor(math.log10(x)))-1)
+        if x < 0:
+            neg = True
+            x = -1.0 * x
+        num = round(x, sig-int(math.floor(math.log10(x)))-1)
+        if neg:
+            return -1.0 * num
+        else:
+            return num
 
 def trend_fun(x, a, b):
     '''Two paramater linear function to de-trend datasets
