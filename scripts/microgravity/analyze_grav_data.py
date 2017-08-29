@@ -22,7 +22,7 @@ bias = False
 stagestep = True
 stepind = 0
 
-dirs = [57,]
+dirs = [59,]
 bdirs = [1,]
 subtract_background = False
 
