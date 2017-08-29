@@ -22,7 +22,7 @@ bias = False
 stagestep = True
 stepind = 0
 
-dirs = [57,]
+dirs = [58,]
 bdirs = [1,]
 subtract_background = False
 
@@ -42,7 +42,8 @@ tf_path = '/calibrations/transfer_funcs/Hout_20170822.p'
 step_cal_path = '/calibrations/step_cals/step_cal_20170822.p'
 
 legend = True
-leginds = [1,1]
+leginds = [2,1]
+ncol = 2
 ##########################################################
 # Don't edit below this unless you know what you're doing
 
@@ -60,6 +61,13 @@ def proc_dir(d):
     dv = ddict[d]
     init_data = [dv[0], [0,0,dv[-1]], dv[1]]
     dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
+
+    newfils = []
+    for fil in dir_obj.files:
+        if 'Z13um' in fil:
+            newfils.append(fil)
+    dir_obj.files = newfils
+
     dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles)
     
     dir_obj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
@@ -158,7 +166,7 @@ axarr[1,0].set_ylabel('Y-direction Force [fN]')
 axarr[2,0].set_ylabel('Z-direction Force [fN]')
 
 if legend:
-    axarr[leginds[0]][leginds[1]].legend(loc=0, numpoints=1, ncol=3, fontsize=9)
+    axarr[leginds[0]][leginds[1]].legend(loc=0, numpoints=1, ncol=ncol, fontsize=9)
 
 dirlabel = dir_objs[0].label
 

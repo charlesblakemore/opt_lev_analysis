@@ -273,8 +273,6 @@ def H_loader(fname, sep):
     fobj.detrend()
     #fobj.close_dat(p=False,ft=False,elecs=False)
     return fobj
-
-
     
 
 class Hmat:
@@ -925,7 +923,8 @@ class Data_dir:
             print "Warning: empty directory"
 
 
-    def load_dir(self, loadfun, maxfiles=10000, save_dc=False):
+    def load_dir(self, loadfun, maxfiles=10000, save_dc=False, prebin=False, cantfilt=False, \
+                 diag=False, cant_axis=0., nharmonics=1, noise=False, width=1.0):
         #Extracts information from the files using the function loadfun which return a Data_file object given a separation and a filename.
         nfiles = len(self.files[:maxfiles])
         print "#########################################"
@@ -946,7 +945,16 @@ class Data_dir:
         for i in range(nfiles):
             print i,
             sys.stdout.flush()
-            self.fobjs.append(loadfun(self.files[i], self.sep))
+
+            obj = loadfun(self.files[i], self.sep)
+
+            if prebin:
+                if cantfilt:
+                    obj.filter_by_cantdrive(cant_axis=cant_axis, \
+                                            nharmonics=nharmonics, noise=noise, width=width)
+                
+            self.fobjs.append(obj)
+
         print
 
         #l = lambda fname: loadfun(fname, self.sep)
@@ -1417,7 +1425,7 @@ class Data_dir:
 
 
 
-    def filter_files_by_cantdrive(self, cant_axis=2, nharmonics=1, noise=True, width=0.):
+    def filter_files_by_cantdrive(self, cant_axis=0, nharmonics=1, noise=True, width=0.):
         # Apply to each file a filter constructed from the FFT of the 
         # cantilever drive
 
