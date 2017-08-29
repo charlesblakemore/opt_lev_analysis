@@ -194,9 +194,12 @@ def rebin(xvec, yvec, y_errs, numbins=0, bin_size=1.):
 
     xvec2 = np.hstack( (xvec[0] - 2.*dx, np.hstack( (xvec, xvec[-1] + 2.*dx) ) ) )
     yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
-
-    interpfunc = interpolate.interp1d(xvec2, yvec2, kind='cubic')
-
+    try:
+        interpfunc = interpolate.interp1d(xvec2, yvec2, kind='cubic')
+    except:
+        plt.plot(xvec, yvec)
+        plt.plot(xvec2, yvec2)
+        plt.show()
     if numbins == 0:
         numbins = int( (maxval - minval + dx) / bin_size )
 
@@ -412,7 +415,7 @@ class Data_file:
 
         # Front pannel settings for the stage for this particular file.
         self.stage_settings = attribs['stage_settings'] 
-        
+        self.stage_settings[:3]*=cant_cal #calibrate stage_settings
         #Data vectors and their transforms
         self.pos_data = np.transpose(dat[:, 0:3]) #x, y, z bead position
         self.other_data = np.transpose(dat[:,3:7])
@@ -425,7 +428,7 @@ class Data_file:
 
         f.close()
 
-    def get_stage_settings(self, axis=2):
+    def get_stage_settings(self, axis=0):
         # Function to intelligently extract the stage settings data for a given axis
         if axis == 0:
             mask = np.array([1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=bool)
@@ -433,7 +436,7 @@ class Data_file:
             mask = np.array([0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], dtype=bool)
         elif axis == 2:
             mask = np.array([0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
-
+        print self.stage_settings[mask]
         return self.stage_settings[mask]
 
     def detrend(self):
@@ -995,10 +998,10 @@ class Data_dir:
 
 
 
-    def get_avg_force_v_pos(self, cant_axis = 2, bin_size = 0.5, cant_indx = 0, \
+    def get_avg_force_v_pos(self, cant_axis = 0, bin_size = 0.5, cant_indx = 0, \
                             bias = False, baratron_indx = 2, pressures = False, \
                             cantfilt = False, diag = False, stagestep = False, \
-                            stepind=0, multistep = False, stepind2=2, \
+                            stepind=0, multistep = False, stepind2=0, \
                             close_dat = False):
 
         if type(self.fobjs) == str:
@@ -2222,7 +2225,6 @@ class Data_dir:
 
         if opt_filt:
             if type(fobj.pos_data) == str:
-                print fobj.pos_data
                 return
             
 
