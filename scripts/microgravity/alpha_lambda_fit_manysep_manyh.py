@@ -28,7 +28,8 @@ extra_lab = ': 10um Sep'
 gpath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/'
 filname = 'attractorv2_1um_manysep_fullthrow_force_curves.p'
 
-fcurve_obj = gu.Grav_force_curve(path=gpath+filname, make_splines=True, spline_order=3)
+fcurve_obj = gu.Grav_force_curve(path=gpath+filname, make_splines=True, \
+                                 spline_order=3)
 
 SEP = 10.0e-6
 RBEAD = 2.43e-6
@@ -40,7 +41,8 @@ confidence_level = 0.95
 ### Load backgrounds
 
 background_data = cu.Force_v_pos()
-background_data.load('/force_v_pos/20170822_grav_background_sep10um_h15um.p')
+background_data.load('/force_v_pos/20170822_grav_background_sep10um_h15um.p', \
+                     sep=10.0e-6, h=15.0e-6)
 
 bins = background_data.bins
 force = background_data.force

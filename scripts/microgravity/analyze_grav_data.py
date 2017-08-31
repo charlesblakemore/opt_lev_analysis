@@ -11,11 +11,16 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 
+import warnings
+warnings.filterwarnings("ignore")
+
 ###########################
 # Script to analyze "gravity" data in which the cantilever is
 # driven alongside the bead. The user can select the axis along 
 # which the cantilever is driven.
 ###########################
+
+filstring = ''
 
 # CHOOSE WHETHER TO LOOK AT VARIOUS BIAS OR VARIOUS CANT POS
 bias = False
@@ -64,26 +69,30 @@ def proc_dir(d):
 
     newfils = []
     for fil in dir_obj.files:
-        if 'Z13um' in fil:
+        if filstring in fil:
             newfils.append(fil)
     dir_obj.files = newfils
-
-    dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles)
-    
-    dir_obj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
-
-    dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, cantfilt=cantfilt, \
-                               stagestep=stagestep, stepind=stepind, bias=bias)
 
     # Load the calibrations
     dir_obj.load_H(tf_path)
     dir_obj.load_step_cal(step_cal_path)
     dir_obj.calibrate_H()
 
-    dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=cal_drive_freq, cantfilt=cantfilt)
+    dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles, prebin=True, nharmonics=10, noise=False, width=1., \
+                     cant_axis=SWEEP_AX, reconstruct_lowf=True, lowf_thresh=lpf, drive_freq=cal_drive_freq, \
+                     init_bin_sizes=[1.0, 1.0, 1.0])
+    
+    #dir_obj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
+
+    dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, cantfilt=cantfilt, \
+                                stagestep=stagestep, stepind=stepind, bias=bias, maxfiles=maxfiles)
+
+   
+
+    #dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
+    #                         build_conv_facs=True, drive_freq=cal_drive_freq, cantfilt=cantfilt)
     dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, diag=True, cantfilt=cantfilt, \
-                               stagestep=stagestep, stepind=stepind, bias=bias)
+                                stagestep=stagestep, stepind=stepind, bias=bias, maxfiles=maxfiles)
 
     return dir_obj
 

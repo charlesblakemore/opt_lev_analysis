@@ -436,7 +436,7 @@ class Data_file:
             mask = np.array([0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], dtype=bool)
         elif axis == 2:
             mask = np.array([0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
-        print self.stage_settings[mask]
+        #print self.stage_settings[mask]
         return self.stage_settings[mask]
 
     def detrend(self):
@@ -491,15 +491,15 @@ class Data_file:
                     binned_pos_data[si][i][j] = y_binned 
                     binned_data_errors[si][i][j] = y_errors 
 
-        for j, pv in enumerate(self.cant_data):
-            for si in np.arange(-1, 2, 1):
-                bins, ybinned, y_errors = sbin_pn(pv, self.image_pow_data, \
-                                                  bin_size=bin_sizes[j], vel_mult=si)
-                binned_image_pow_data[si][j] = y_binned
-                binned_image_pow_errs[si][j] = y_errors
-    
-        self.binned_image_pow_data = np.array(binned_image_pow_data)
-        self.binned_image_pow_errs = np.array(binned_image_pow_errs)
+        #for j, pv in enumerate(self.cant_data):
+        #    for si in np.arange(-1, 2, 1):
+        #        bins, ybinned, y_errors = sbin_pn(pv, self.image_pow_data, \
+        #                                          bin_size=bin_sizes[j], vel_mult=si)
+        #        binned_image_pow_data[si][j] = y_binned
+        #        binned_image_pow_errs[si][j] = y_errors
+        #
+        #self.binned_image_pow_data = np.array(binned_image_pow_data)
+        #self.binned_image_pow_errs = np.array(binned_image_pow_errs)
 
         if diag:
             if cantfilt:
@@ -808,9 +808,11 @@ class Data_file:
 
 
 
-    def diagonalize(self, mat, cantfilt=False):
+
+    def diagonalize_simp(self, mat, cantfilt=False):
         #print "Transfer Matrix"
         #print np.abs(mat)
+
         diag_ffts = np.einsum('ij, jk -> ik', mat, self.data_fft)
         self.diag_data_fft = diag_ffts
         self.diag_pos_data = np.fft.irfft(diag_ffts)
@@ -822,21 +824,21 @@ class Data_file:
             self.diag_pos_data_cantfilt = np.fft.irfft(diag_ffts2)
 
 
-        ######################
-        #### SANITY CHECK ####
-        ######################
+    def diagonalize(self, Harr, cantfilt=False):
 
-        #N = np.shape(self.pos_data)[1] # number of samples
-        #norm_fac = 2./(N*self.Fsamp) # psd normalization
+        diag_fft = np.einsum('ikj,ki->ji', Harr, self.data_fft)
+        self.diag_pos_data = np.fft.irfft(diag_fft)
+        self.diag_data_fft = diag_fft
+        if cantfilt:
+            diag_fft2 = np.einsum('ikj,ki->ji', Harr, self.cantfilt * self.data_fft)
+            self.diag_pos_data_cantfilt = np.fft.irfft(diag_fft2) 
 
         #plt.figure()
         #for i in [0,1,2]:
         #    plt.subplot(3,1,i+1)
-        #    plt.loglog(self.fft_freqs, np.abs(self.data_fft[i])*np.sqrt(norm_fac))
-        #plt.figure()
-        #for i in [0,1,2]:
-        #    plt.subplot(3,1,i+1)
-        #    plt.loglog(self.fft_freqs, np.abs(diag_ffts[i])*np.sqrt(norm_fac))
+        #    plt.loglog(fobj.fft_freqs, diag_fft2[i].conj() * diag_fft2[i], linewidth=2)
+        #    tempfft = diag_fft * fobj.cantfilt
+        #    plt.loglog(fobj.fft_freqs, tempfft[i].conj() * tempfft[i])
         #plt.show()
 
 
@@ -845,6 +847,7 @@ class Data_file:
         #Method to reinitialize the values of some lage attributes to avoid running out of memory.
         if ft:
             self.data_fft = 'fft cleared'
+            self.diag_data_fft = 'fft cleared'
             self.fft_freqs = 'fft freqs cleared'
 
         if psd:
@@ -926,10 +929,13 @@ class Data_dir:
             print "Warning: empty directory"
 
 
-    def load_dir(self, loadfun, maxfiles=10000, save_dc=False, prebin=False, cantfilt=False, \
-                 diag=False, cant_axis=0., nharmonics=1, noise=False, width=1.0):
+    def load_dir(self, loadfun, maxfiles=10000, save_dc=False, prebin=False, \
+                 cant_axis=0., nharmonics=1, noise=False, width=1.0, init_bin_sizes=[0.5, 0.5, 0.5], \
+                 fthresh=40., plot_Happ=False, reconstruct_lowf=False, \
+                 lowf_thresh=150., drive_freq=41., use_fits=True):
         #Extracts information from the files using the function loadfun which return a Data_file object given a separation and a filename.
         nfiles = len(self.files[:maxfiles])
+        self.files = self.files[:maxfiles]
         print "#########################################"
         print "Entering Directories: ", self.paths
         print "Processing %i files:" % nfiles
@@ -944,17 +950,62 @@ class Data_dir:
 
         #sys.stdout.flush()
 
+        if prebin:
+            self.fobjs = []
+            self.fobjs.append( loadfun(self.files[0], self.sep) )
+
+            Harr = self.make_tf_array(fthresh=fthresh, plot_Happ=False,\
+                                      reconstruct_lowf=reconstruct_lowf, lowf_thresh=lowf_thresh, \
+                                      drive_freq=41., use_fits=use_fits, verbose=True)
+
+        count = 0.0
+        self.ave_dc_pos = np.zeros(3)
+        self.maxvals = np.zeros(3)
+        self.seps = np.zeros(3)
+
         self.fobjs = []
         for i in range(nfiles):
+            if (prebin and i == 0):
+                print
+                print "Filtering, diagonalizing and binning each file... ",
             print i,
             sys.stdout.flush()
 
+            #start = time.time()
             obj = loadfun(self.files[i], self.sep)
+            #stop = time.time()
+            #print 'loading time:', stop-start
+
+            self.seps += obj.separation
+            self.maxvals += obj.cant_data.max(axis=-1)
+            if type(obj.dc_pos) != str:
+                self.ave_dc_pos += obj.dc_pos
+                count += 1.0
 
             if prebin:
-                if cantfilt:
-                    obj.filter_by_cantdrive(cant_axis=cant_axis, \
-                                            nharmonics=nharmonics, noise=noise, width=width)
+                #start = time.time()
+                obj.filter_by_cantdrive(cant_axis=cant_axis, \
+                                        nharmonics=nharmonics, noise=noise, width=width)
+                #stop = time.time()
+                #print 'filtering time:', stop-start
+
+                #start = time.time()
+                obj.diagonalize(Harr, cantfilt=True)
+                #stop = time.time()
+                #print 'diagonalizing time:', stop-start
+                
+                #start = time.time()
+                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=False, cantfilt=False)
+                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=False, cantfilt=True)
+                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=True, cantfilt=False)
+                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=True, cantfilt=True)
+                #stop = time.time()
+                #print 'binning time:', stop-start
+
+                #start = time.time()
+                obj.close_dat()
+                #stop = time.time()
+                #print 'closing time:', stop-start
                 
             self.fobjs.append(obj)
 
@@ -966,19 +1017,12 @@ class Data_dir:
         self.avg_pressure = np.mean(map(per, self.fobjs), axis = 0)
         self.sigma_p = np.std(map(per, self.fobjs), axis = 0)
 
-        count = 0.0
-        self.ave_dc_pos = np.zeros(3)
-        self.maxvals = np.zeros(3)
-        self.seps = np.zeros(3)
-        for objind, obj in enumerate(self.fobjs):
-            try:
-                self.seps += obj.separation
-                self.maxvals += obj.cant_data.max(axis=-1)
-                if type(obj.dc_pos) != str:
-                    self.ave_dc_pos += obj.dc_pos
-                    count += 1.0
-            except:
-                print 'Failed at file:', self.files[objind]
+        #for objind, obj in enumerate(self.fobjs):
+            #try:
+            #except:
+            #    print 'Failed at file:', self.files[objind]
+
+
         if count:
             self.ave_dc_pos = self.ave_dc_pos / count
             self.maxvals = self.maxvals / count
@@ -1002,7 +1046,7 @@ class Data_dir:
                             bias = False, baratron_indx = 2, pressures = False, \
                             cantfilt = False, diag = False, stagestep = False, \
                             stepind=0, multistep = False, stepind2=0, \
-                            close_dat = False):
+                            close_dat = False, maxfiles=10000):
 
         if type(self.fobjs) == str:
             self.load_dir(pos_loader)
@@ -1061,15 +1105,15 @@ class Data_dir:
             else:
                 return [cant_dat, pos_dat, err_dat, 1]
         
-        extracted = np.array(map(extractor, self.fobjs))
-            
+        extracted = np.array(map(extractor, self.fobjs[:maxfiles]))
+
         if diag:
             self.avg_diag_force_v_pos = {}
         else:
             self.avg_force_v_pos = {}
 
         keyvec = []
-        for i in range(10):
+        for i in range(len(self.fobjs)):
             keyvec.append(str(extracted[:,3][i]))
         keyvec = np.array(keyvec)
 
@@ -1452,38 +1496,24 @@ class Data_dir:
 
 
 
+    def make_tf_array(self, fthresh = 40., plot_Happ=False, reconstruct_lowf=False, \
+                      lowf_thresh=100., drive_freq=41., use_fits=True, verbose=False):
 
-
-    def diagonalize_files(self, fthresh = 40., simpleDCmat=False, plot_Happ=False, \
-                          reconstruct_lowf=False, lowf_thresh=100., \
-                          build_conv_facs=False, drive_freq=41., close_dat=False,
-                          cantfilt=False, use_fits=True):
         if type(self.Hs_cal) == str:
             try:
                 self.calibrate_H()
             except:
                 print self.Hs_cal
 
-        print "DIAGONALIZING DATA:"
-        sys.stdout.flush()
-        
-        if simpleDCmat:
-            # Use the average of the low frequency response to 
-            # diagonalize the data
-            self.build_Havg(fthresh = fthresh)
-            mat = np.linalg.inv(self.Havg_cal)
-
-            for fobj in self.fobjs:
-                fobj.diagonalize(mat, cantfilt=cantfilt)
-                fobj.spatial_bin(diag=True, cantfilt=cantfilt)
-                fobj.close_dat(ft=False, elecs=False)
-            
-            return
+        if verbose:
+            print "DIAGONALIZING DATA:"
+            sys.stdout.flush()
         
         # If not using the low-frequency average, compute the full
         # TF array, sampled at the fft_frequencies of the data
-        print "  Building TF array...",
-        sys.stdout.flush()
+        if verbose:
+            print "  Building TF array...",
+            sys.stdout.flush()
         freqs = self.fobjs[0].fft_freqs
         Nfreqs = len(freqs)
 
@@ -1491,7 +1521,8 @@ class Data_dir:
 
         # Generate transfer function from HO fits
         if use_fits:
-            print "USING FITS",
+            if verbose:
+                print "USING FITS",
             for drive in [0,1,2]:
                 for resp in [0,1,2]:
                     #print ("(%i, %i)" % (drive,resp)),
@@ -1506,7 +1537,8 @@ class Data_dir:
     
         # Apply measured tranfer function directly (will maybe add smoothing?)
         elif not use_fits:
-            print "USING ACTUAL DATA",
+            if verbose:
+                print "USING ACTUAL DATA",
             keys = self.Hs_cal.keys()
             keys.sort()
             keys = np.array(keys)
@@ -1532,46 +1564,78 @@ class Data_dir:
         Harr = np.linalg.inv(Harr)
         
 
-        if build_conv_facs:
-            convind = np.argmin(np.abs(freqs-drive_freq)) 
+        convind = np.argmin(np.abs(freqs-drive_freq)) 
+        convmat = Harr[convind,:,:]
+        self.conv_facs = np.abs(np.array([convmat[0,0], convmat[1,1], convmat[2,2]]))
 
-            convmat = Harr[convind,:,:]
-            self.conv_facs = np.abs(np.array([convmat[0,0], convmat[1,1], convmat[2,2]]))
-            #print self.conv_facs, type(self.conv_facs)
 
         if reconstruct_lowf:
             ind = np.argmin(np.abs(freqs - lowf_thresh))
             Harr[ind:,:,:] = 0.+0.j
 
         if plot_Happ:
-            f1, axarr1 = plt.subplots(3,3,sharex='all',sharey='all')
-            f2, axarr2 = plt.subplots(3,3,sharex='all',sharey='all')
-            for resp in [0,1,2]:
-                for drive in [0,1,2]:
-                    TF = Harr[:,resp,drive]
-                    mag = np.abs(TF)
-                    phase = np.angle(TF)
-                    unphase = np.unwrap(phase, discont=1.4*np.pi)
+            self.plot_H(Harr)
 
-                    #if type(self.conv_facs) != str:
-                    #    conv_vec = np.zeros(len(freqs)) + self.conv_facs[resp]
-                    #    axarr1[resp,drive].loglog(freqs, conv_vec)
-                    axarr1[resp,drive].loglog(freqs, mag)
-                    axarr1[resp,drive].grid()
-                    axarr2[resp,drive].semilogx(freqs, unphase)
-                    axarr2[resp,drive].grid()
+        return Harr
+
+
+
+    def plot_H(self, Happ):
+        f1, axarr1 = plt.subplots(3,3,sharex='all',sharey='all')
+        f2, axarr2 = plt.subplots(3,3,sharex='all',sharey='all')
+        for resp in [0,1,2]:
             for drive in [0,1,2]:
-                axarr1[0,drive].set_title("Drive in direction \'%i\'"%drive)
-                axarr2[0,drive].set_title("Drive in direction \'%i\'"%drive)
-                axarr1[2,drive].set_xlabel('Frequency [Hz]')
-                axarr2[2,drive].set_xlabel('Frequency [Hz]')
-            for resp in [0,1,2]:
-                axarr1[resp,0].set_ylabel('Mag [Newton/Volt]')
-                axarr2[resp,0].set_ylabel('Phase [rad]')
-            axarr1[0,0].set_ylim(1e-17,1e-10)
-            f1.suptitle("Magnitude of Transfer Function", fontsize=18)
-            f2.suptitle("Phase of Transfer Function", fontsize=18)
-            plt.show()
+                TF = Harr[:,resp,drive]
+                mag = np.abs(TF)
+                phase = np.angle(TF)
+                unphase = np.unwrap(phase, discont=1.4*np.pi)
+
+                #if type(self.conv_facs) != str:
+                #    conv_vec = np.zeros(len(freqs)) + self.conv_facs[resp]
+                #    axarr1[resp,drive].loglog(freqs, conv_vec)
+                axarr1[resp,drive].loglog(freqs, mag)
+                axarr1[resp,drive].grid()
+                axarr2[resp,drive].semilogx(freqs, unphase)
+                axarr2[resp,drive].grid()
+        for drive in [0,1,2]:
+            axarr1[0,drive].set_title("Drive in direction \'%i\'"%drive)
+            axarr2[0,drive].set_title("Drive in direction \'%i\'"%drive)
+            axarr1[2,drive].set_xlabel('Frequency [Hz]')
+            axarr2[2,drive].set_xlabel('Frequency [Hz]')
+        for resp in [0,1,2]:
+            axarr1[resp,0].set_ylabel('Mag [Newton/Volt]')
+            axarr2[resp,0].set_ylabel('Phase [rad]')
+        axarr1[0,0].set_ylim(1e-17,1e-10)
+        f1.suptitle("Magnitude of Transfer Function", fontsize=18)
+        f2.suptitle("Phase of Transfer Function", fontsize=18)
+        plt.show()
+
+
+
+
+    def diagonalize_files(self, fthresh = 40., simpleDCmat=False, plot_Happ=False, \
+                          reconstruct_lowf=False, lowf_thresh=100., \
+                          drive_freq=41., close_dat=False, cantfilt=False, use_fits=True):
+
+        Harr = self.make_tf_array(fthresh=40., plot_Happ=False, \
+                                  reconstruct_lowf=reconstruct_lowf, lowf_thresh=lowf_thresh, \
+                                  drive_freq=41., use_fits=use_fits, verbose=True)
+
+        if simpleDCmat:
+            # Use the average of the low frequency response to 
+            # diagonalize the data
+            self.build_Havg(fthresh = fthresh)
+            mat = np.linalg.inv(self.Havg_cal)
+
+            for fobj in self.fobjs:
+                fobj.diagonalize_simp(mat, cantfilt=cantfilt)
+                fobj.spatial_bin(diag=True, cantfilt=cantfilt)
+                fobj.close_dat(ft=False, elecs=False)
+            
+            return
+
+        if plot_Happ:
+            self.plot_H(Harr)
 
         print
         print "  Applying TF to files...",
@@ -2262,7 +2326,7 @@ class Data_dir:
 
 class Force_v_pos:
     '''Stitches together force vs. position curves from many dir objects,
-       using the cantilever image processing to locate the picomotor or
+       using the cantilever image processing to locate the picomotor and
        rough stage position.'''
 
     def __init__(self):
@@ -2280,7 +2344,7 @@ class Force_v_pos:
     def load_dir_objs(self, dir_objs):
         '''Simple function to load a list of directory objects, store said
            list as a class attribute and extract the rough stage position
-           from image analysis.
+           from image analysis, including position along cantilever, and sep.
                INPUTS: dir_objs, list of dir_objs to stitch together
                        
                OUTPUTS: none, generates class attributes'''
