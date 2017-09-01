@@ -1046,7 +1046,7 @@ class Data_dir:
                             bias = False, baratron_indx = 2, pressures = False, \
                             cantfilt = False, diag = False, stagestep = False, \
                             stepind=0, multistep = False, stepind2=0, \
-                            close_dat = False, maxfiles=10000):
+                            close_dat = False, maxfiles=10000, real_dat=False):
 
         if type(self.fobjs) == str:
             self.load_dir(pos_loader)
@@ -1074,15 +1074,27 @@ class Data_dir:
             #print pos_dat
 
             if stagestep:
-                stepDCval = fobj.get_stage_settings(axis=stepind)[0]
+                if real_dat:
+                    stepDCval = np.mean(fobj.cant_data[stepind])
+                else:
+                    stepDCval = fobj.get_stage_settings(axis=stepind)[0]
                 if multistep:
-                    stepDCval2 = fobj.get_stage_settings(axis=stepind2)[0]
-                #stepDCval = np.mean(fobj.cant_data[stepind])
-                #stepDCval = bu.round_sig(stepDCval, 2)
+                    if real_dat:
+                        stepDCval2 = np.mean(fobj.cant_data[stepind2])
+                    else:
+                        stepDCval2 = fobj.get_stage_settings(axis=stepind2)[0]
+                
+                stepDCval = bu.round_sig(stepDCval, 4)
+                stepDCval2 = bu.round_sig(stepDCval2, 4)
+
             elif bias:
-                cantV = fobj.electrode_settings[24]
-                #cantV = np.mean(fobj.electrode_data[cant_indx])
-                #cantV = bu.round_sig(cantV, 3)
+                if real_dat:
+                    cantV = np.mean(fobj.electrode_data[cant_indx])
+                else:
+                    cantV = fobj.electrode_settings[24]
+
+                cantV = bu.round_sig(cantV, 4)
+
             elif pressures:
                 try:
                     pressure = bu.round_sig(fobj.pressures[baratron_indx],1)
@@ -2333,6 +2345,13 @@ class Force_v_pos:
         self.dir_objs = 'dir_objs not loaded'
         self.dir_paths = 'path not loaded'
         self.rough_pos = 'rough stage positions not loaded'
+        self.dat = 'No data loaded yet'
+        self.seps = 'No data loaded yet'
+        self.heights = 'No data loaded yet'
+
+        # These attributes were for the first implementation where we were
+        # stitching only one height and sep together. Keeping them for 
+        # backward compatibility but they will most likely not be here later
         self.bins = 'No data loaded yet'
         self.diagbins = 'No data loaded yet'
         self.force = 'No data loaded yet'
@@ -2357,6 +2376,71 @@ class Force_v_pos:
         self.paths = paths
         self.dir_objs = dir_objs
         self.rough_pos = rough_pos
+
+
+
+    def organize_by_pos(self):
+        '''Organize directory objects by height and separation for an 
+           eventual 3d fit.
+               INPUTS: none, although it does check that various class
+                       attributes exist
+                       
+               OUTPUTS: none, generates class attributes'''
+        if type(self.dir_objs) == str:
+            print self.dir_objs
+            return
+
+        self.dat = {}
+        self.seps = []
+        self.heights = []
+
+        for obj in self.dir_objs:
+            dat = obj.avg_force_v_pos
+            diagdat = obj.avg_diag_force_v_pos
+
+            keys = dat.keys()
+            diagkeys = diagdat.keys()
+            assert keys == diagkeys, "Crazy key error! Not sure what's happening..."
+
+            # the next part assumes that the keys are (xpos, zpos)
+            # so that the separation is determined from the first part
+            # of the key
+
+            if type(obj.closest_sep_and_pos) == str:
+                print obj.closest_sep_and_pos
+                return
+            if type(obj.bead_height) == str:
+                print obj.bead_height
+                return
+
+            bzpos = obj.bead_height
+            
+            csep = obj.closest_sep_and_pos[0]
+            cxpos = obj.closest_sep_and_pos[1]
+
+            for key in keys:
+                xpos = key[0]
+                sep = csep + (cxpos - xpos)  # inherently inverts xpos
+
+                zpos = key[1]
+                height = zpos - bzpos
+                
+                self.seps.append(sep)
+                self.heights.append(height)
+            
+                if sep not in self.dat:
+                    self.dat[sep] = {}
+                # assumes keys are unique and thus no need to check if this
+                # current combination of sep/height exists
+                self.dat[sep][height] = (dat[key], diagdat[key])
+
+                # this ends up putting the data in a similar format to what is 
+                # exported by the save_force_curve.py script in the 
+                # opt_lev_analysis/scripts/gravity_sim/code directory
+                # or at least the save_force_curve_farmshare.py script which
+                # only takes a single sep and height and whose results are
+                # meant to be collected in post-processing after batch submission            
+        
 
     
 
@@ -2550,7 +2634,13 @@ class Force_v_pos:
     def load(self, path):
         #Method to load object from a file.     
         temp_obj = pickle.load(open(path, 'rb'))
+        self.dir_objs = 'Directory objects discarded upon saving/loading'
         self.paths = temp_obj.paths
+        self.dat = temp_obj.dat
+        self.seps = temp_obj.seps
+        self.heights = temp_obj.heights
+        
+        # Again, these are only here for backward compatibility
         self.bins = temp_obj.bins
         self.force = temp_obj.force
         self.errs = temp_obj.errs

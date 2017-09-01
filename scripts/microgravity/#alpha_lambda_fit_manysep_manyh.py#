@@ -200,7 +200,6 @@ for ind, yuklambda in enumerate(lambdas):
     p0_old = popt
     dp0_old = diagpopt
     
-
     # Select the positive root for the non-diagonalized data
     soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - 4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
     soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - 4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
