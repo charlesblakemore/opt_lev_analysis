@@ -8,10 +8,10 @@ import glob
 from scipy.optimize import curve_fit
 import cant_util as cu    
 
-data_dir1 = "/data/20170822/image_calibration/align_profiles_x_3"
-data_dir2 = "/data/20170822/image_calibration/align_profiles_y"
+data_dir1 = "/data/20170831/image_calibration2/align_profs"
+data_dir2 = "/data/20170831/image_calibration2/align_profs"
 out_dir = "/calibrations/image_alignments"
-date = '20170822'
+date = '20170831'
 
 def get_stage_column(attribs, stage_cols = [17, 18, 19], attrib_inds = [3, 6, 9], ortho_columns = [18, 17, 19]):
     '''gets the first driven stage axis from data attribs'''
@@ -33,7 +33,7 @@ def line_intersection(popt0, popt1):
     return x_int, line(x_int, *popt0)
 
 
-def profile(fname, ends = 100, stage_cal = 8., data_column = 5, make_plot = False, p0 = [30, 30, .001], ortho_column = [18, 17, 19]):
+def profile(fname, ends = 100, stage_cal = 8., data_column = 5, make_plot = True, p0 = [30, 30, .001], ortho_column = [18, 17, 19]):
     '''takes raw data makes profile and fits to gaussian to determine beam center. returns beam center and position on orthogonal beam axis'''
     dat, attribs, f = bu.getdata(fname)
     dat = dat[ends:-ends, :]
