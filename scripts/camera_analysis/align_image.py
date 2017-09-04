@@ -6,173 +6,82 @@ import scipy.signal as sig
 import scipy
 import glob
 from scipy.optimize import curve_fit
-    
+import cant_util as cu    
 
-data_dir1 = "/data/20170704/profiling/zsweep5"
-data_dir2 = "/data/20170704/profiling/ysweep5"
-out_dir = "/calibrations/20170704"
+data_dir1 = "/data/20170822/image_calibration/align_profiles_x_3"
+data_dir2 = "/data/20170822/image_calibration/align_profiles_y"
+out_dir = "/calibrations/image_alignments"
+date = '20170822'
+
+def get_stage_column(attribs, stage_cols = [17, 18, 19], attrib_inds = [3, 6, 9], ortho_columns = [18, 17, 19]):
+    '''gets the first driven stage axis from data attribs'''
+    stage_settings = attribs['stage_settings']
+    driven = np.array(map(bool, stage_settings[attrib_inds]))
+    return (np.array(stage_cols)[driven])[0], (np.array(ortho_columns)[driven])[0]
+
+def gauss_beam(r, mu, w, A):
+    '''gaussian beam function for fitting'''
+    return A*np.exp(-2.*(r-mu)**2/w**2)
+
+def line(x, m, b):
+    '''line function for fitting'''
+    return m*x + b
+
+def line_intersection(popt0, popt1):
+    '''the intersection of 2 lines where y=mx+b and popt = [m, b]'''
+    x_int = (popt1[1]-popt0[1])/(popt0[0]-popt1[0])
+    return x_int, line(x_int, *popt0)
 
 
-#stage x = col 17, stage y = 18, stage z = 19
-stage_column_z = 19
-stage_column_y = 18
-
-data_column = 4
-cant_cal = 8. #um/volt
-
-ROI = [0., 80.]
-
-def spatial_bin(xvec, yvec, bin_size = .13):
-    fac = 1./bin_size
-    bins_vals = np.around(fac*xvec)
-    bins_vals/=fac
-    bins = np.unique(bins_vals)
-    y_binned = np.zeros_like(bins)
-    y_errors = np.zeros_like(bins)
-    for i, b in enumerate(bins):
-        idx = bins_vals == b
-        y_binned[i] =  np.mean(yvec[idx])
-        y_errors[i] = scipy.stats.sem(yvec[idx])
-    return bins, y_binned, y_errors
-    
-        
-    
-
-def profile(fname, ends = 100, stage_cal = 8.):
+def profile(fname, ends = 100, stage_cal = 8., data_column = 5, make_plot = False, p0 = [30, 30, .001], ortho_column = [18, 17, 19]):
+    '''takes raw data makes profile and fits to gaussian to determine beam center. returns beam center and position on orthogonal beam axis'''
     dat, attribs, f = bu.getdata(fname)
     dat = dat[ends:-ends, :]
-    if 'zsweep' in fname:
-        stage_column = 19
-    elif 'ysweep' in fname:
-        stage_column = 18
+    stage_column, ortho_column = get_stage_column(attribs)
     dat[:,stage_column]*=stage_cal
-    h = attribs["stage_settings"][0]*cant_cal
+    dat[:, ortho_column]*=stage_cal
     f.close()
-    b, a = sig.butter(1, 1)
-    int_filt = sig.filtfilt(b, a, dat[:, data_column])
-    proft = np.gradient(int_filt)
-    if 'zsweep' in fname:
-        stage_filt = sig.filtfilt(b, a, dat[:, stage_column_z])
-       
-    elif 'ysweep' in fname:
-        stage_filt = sig.filtfilt(b, a, dat[:, stage_column_y])
-       
-    dir_sign = np.sign(np.gradient(stage_filt))
-    b, y, e = spatial_bin(dat[dir_sign<0, stage_column], proft[dir_sign<0])
-    return b, y, e, h
-
-class File_prof:
-    "Class storing information from a single file"
-    
-    def __init__(self, b, y, e, h):
-        self.bins = b
-        self.dxs = np.append(np.diff(b), 0)#0 pad left trapizoid rule
-        self.y = y
-        self.errors = e
-        self.cant_height = h
-        self.mean = "mean not computed"
-        self.sigmasq = "std dev not computed"
-        self.date = "date not entered"
-        
-    def dist_mean(self):
-        #Finds the cnetroid of intensity distribution. subtracts centroid from bins
-        norm = np.sum(self.y*self.dxs)
-        self.mean = np.sum(self.dxs*self.y*self.bins)/norm
-        self.bins -= self.mean
-
-    def sigsq(self):
-        #finds second moment of intensity distribution.
-        if type(self.mean) == str:
-            self.dist_mean()
-        derp1 = self.bins > ROI[0]
-        derp2 = self.bins < ROI[1]
-        ROIbool = np.array([a and b for a, b in zip(derp1, derp2)])
-        norm = np.sum(self.y[ROIbool]*self.dxs[ROIbool])
-        #norm = np.sum(self.y*self.dxs)
-        self.sigmasq = np.sum(self.bins[ROIbool]**2*self.y[ROIbool])/norm
-        #self.sigmasq = np.sum(self.bins**2*self.y)/norm
-         
-
-def proc_dir(dir):
-    files = glob.glob(dir + '/*.h5')
-    file_profs = []
-    hs = []
-    for fi in files:
-        b, y, e, h = profile(fi)
-        if h not in hs:
-            #if new height then create new profile object
-            hs.append(h)
-            f = File_prof(b, y, e, h)
-            f.date = dir[8:16]
-            file_profs.append(f)
-        else:
-            #if height repeated then append data to object for that height
-            for fi in file_profs:
-                if fi.cant_height == h:
-                    fi.bins = np.append(fi.bins, b)
-                    fi.y = np.append(fi.y, y)
-                    fi.errors = np.append(fi.errors, e)
-            
-    #now rebin all profiles
-    for fp in file_profs:
-        b, y, e = spatial_bin(fp.bins, fp.y)
-        fp.bins = b
-        fp.y = y
-        fp.errors = e
-        fp.dxs = np.append(np.diff(fp.bins), 0)#0 pad left trapizoid rule
-
-    sigmasqs = []
-    hs = []
-
-    for f in file_profs:
-        f.sigsq()
-        sigmasqs.append(f.sigmasq)
-        hs.append(f.cant_height)
-        
-    return file_profs, np.array(hs), np.array(sigmasqs)
- 
-def plot_profs(fp_arr, log_profs = True, show = False, other_label = ''):
-    #plots average profile from different heights
-    i = 1
-    for fp in fp_arr:
-        if not other_label:
-            lab = str(np.round(fp.cant_height)) + 'um'
-        else:
-            lab = other_label
-        i += 1
-        plt.plot(fp.bins, fp.y, 'o', label = lab)
-    plt.xlabel("position [um]")
-    plt.ylabel("margenalized irradiance ~[W/m]")
-    if log_profs:
-        plt.gca().set_yscale('log')
-    else:
-        plt.gca().set_yscale('linear')
-    plt.legend()
-    if show:
+    bp, yp, ep = cu.sbin_pn(dat[:, stage_column], dat[:, data_column], bin_size = .1, vel_mult = 1.)
+    bn, yn, en = cu.sbin_pn(dat[:, stage_column], dat[:, data_column], bin_size = .1, vel_mult = -1.)
+    profp = np.abs(np.gradient(yp, bp))
+    profn = np.abs(np.gradient(yn, bn))
+    poptp, pcovp = curve_fit(gauss_beam, bp[10:-10], profp[10:-10], p0 = p0)
+    poptn, pcovn = curve_fit(gauss_beam, bn[10:-10], profn[10:-10], p0 = p0)
+    if make_plot:
+        plt.semilogy(bp, profp, 'o')
+        plt.semilogy(bp, gauss_beam(bp, *poptp), 'r')
+        plt.semilogy(bn, profn, 'o')
+        plt.semilogy(bn, gauss_beam(bn, *poptn), 'k')
         plt.show()
+    return np.mean([poptn[0], poptp[0]]), np.mean(dat[:, ortho_column])
 
 
-def Szsq(z, s0, M, z0, lam = 1.064):
-    #function giving propigation of W=2sig parameter. See Seegman
-    W0 = 2.*s0
-    Wzsq = W0**2 + M**4*(lam/(np.pi*W0))**2*(z-z0)**2
-    return Wzsq/4.
+def find_edge(xsweep_dir, ysweep_dir, over_plot = 10.):
+    xfs = glob.glob(xsweep_dir + '/*.h5')
+    yfs = glob.glob(ysweep_dir + '/*.h5')
+    xdata = np.array(map(profile, xfs))
+    ydata = np.array(map(profile, yfs))
+    plt.plot(xdata[:, 0], xdata[:, 1], 'x')
+    plt.plot(ydata[:, 1], ydata[:, 0], 'x')
+    poptx, pcovx = curve_fit(line, xdata[:, 0], xdata[:, 1])
+    popty, pctheovy = curve_fit(line, ydata[:, 1], ydata[:, 0])
+    xplt = np.linspace(np.min(xdata[:, 0])-over_plot, np.max(xdata[:, 0])+over_plot, 1000)
+    yplt = np.linspace(np.min(ydata[:, 1])-over_plot, np.max(ydata[:, 1])+over_plot, 1000) 
+    plt.plot(xplt, line(xplt, *poptx))
+    plt.plot(yplt, line(yplt, *popty))
+    xint, yint = line_intersection(poptx, popty)
+    plt.plot([xint], [yint], 'o')   
+    plt.show()
+    return np.array([xint, yint])
 
-def save_cal(p_arr, path):
+def save_cal(p_arr, path, date):
     #Makes path if it does not exist and saves parr to path/stage_position.npy
     if not os.path.exists(path):
         os.makedirs(path)
-    outfile = os.path.join(path, 'stage_position')
+    outfile = os.path.join(path, 'stage_position_' + date)
     np.save(outfile, p_arr)
 
-file_profs_z, hs, sigmasqs = proc_dir(data_dir1)
-file_profs_y, hs, sigmasqs = proc_dir(data_dir2)
+p_arr = find_edge(data_dir1, data_dir2)
+save_cal(p_arr, out_dir, date)
 
-p_arr = np.array([file_profs_z[0].bins[0], file_profs_y[0].bins[0]])
-save_cal(p_arr, out_dir)
-
-
-plot_profs(file_profs_z, other_label = "z profile")
-plot_profs(file_profs_y, other_label = "y profile")
-plt.show()
 
