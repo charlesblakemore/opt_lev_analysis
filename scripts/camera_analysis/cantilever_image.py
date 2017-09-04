@@ -16,7 +16,7 @@ import itertools
 calib_image_path  = "/data/20170831/image_calibration2"
 align_file = "/calibrations/image_alignments/stage_position_20170831.npy"
 cal_out_file = "/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy"
-imfile =  "/data/20170831/image_calibration2/images_stage-X0um-Y53um-Z0um.h5.npy"
+imfile =  "/data/20170901/bead3/grav_data_z12um_close/urmbar_yo_elec0_0mV41Hz0mVdc_stage-X80um-Y40um-Z12um_Ydrive40umAC-13Hz.h5.npy"
 
 
 def get_first_edge(row, l_ind, h_ind):
@@ -356,5 +356,5 @@ def measure_image1d(im_file, trapx, cal_out_file, make_plot = True):
     return parab(pixel, *cal)
 
 #get_calibration(calib_image_path, align_file, cal_out_file)  
-measure_image1d(imfile, 340, cal_out_file)
+#measure_image1d(imfile, 340, cal_out_file)
   
