@@ -31,7 +31,7 @@ dirs = [59,]
 bdirs = [1,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
+ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
 maxfiles = 1000   # Maximum number of files to load from a directory
 
 SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
