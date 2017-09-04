@@ -8,10 +8,10 @@ import glob
 from scipy.optimize import curve_fit
 import cant_util as cu    
 
-data_dir1 = "/data/20170822/image_calibration/align_profiles_x_3"
-data_dir2 = "/data/20170822/image_calibration/align_profiles_y"
+data_dir1 = "/data/20170831/image_calibration2/align_profs"
+data_dir2 = "/data/20170831/image_calibration2/align_profs"
 out_dir = "/calibrations/image_alignments"
-date = '20170822'
+date = '20170831'
 
 def get_stage_column(attribs, stage_cols = [17, 18, 19], attrib_inds = [3, 6, 9], ortho_columns = [18, 17, 19]):
     '''gets the first driven stage axis from data attribs'''
@@ -63,8 +63,10 @@ def find_edge(xsweep_dir, ysweep_dir, over_plot = 10.):
     ydata = np.array(map(profile, yfs))
     plt.plot(xdata[:, 0], xdata[:, 1], 'x')
     plt.plot(ydata[:, 1], ydata[:, 0], 'x')
-    poptx, pcovx = curve_fit(line, xdata[:, 0], xdata[:, 1])
-    popty, pctheovy = curve_fit(line, ydata[:, 1], ydata[:, 0])
+    p0x = [xdata[-1, 0]-xdata[0, 0]/(xdata[-1, 1]-xdata[0, 1]), 0]
+    p0y = [ydata[-1, 0]-ydata[0, 0]/(ydata[-1, 1]-ydata[0, 1]), 0]
+    poptx, pcovx = curve_fit(line, xdata[:, 0], xdata[:, 1], p0 = p0x)
+    popty, pcovy = curve_fit(line, ydata[:, 1], ydata[:, 0], p0 = p0y)
     xplt = np.linspace(np.min(xdata[:, 0])-over_plot, np.max(xdata[:, 0])+over_plot, 1000)
     yplt = np.linspace(np.min(ydata[:, 1])-over_plot, np.max(ydata[:, 1])+over_plot, 1000) 
     plt.plot(xplt, line(xplt, *poptx))
