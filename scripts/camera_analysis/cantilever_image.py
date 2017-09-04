@@ -14,8 +14,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import itertools
 
 calib_image_path  = "/data/20170831/image_calibration2"
-align_file = "/calibrations/image_alignments/stage_position_20170822.npy"
-cal_out_file = "/calibrations/image_calibrations/stage_polynomial_20170831.npy"
+align_file = "/calibrations/image_alignments/stage_position_20170831.npy"
+cal_out_file = "/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy"
 imfile =  "/data/20170831/image_calibration2/images_stage-X0um-Y53um-Z0um.h5.npy"
 
 
@@ -169,6 +169,8 @@ def measure_cantilever1d(fpath, trapx, fun = line, make_plot = False, plot_edges
     if make_plot:
         #plt.plot(parab(xplt, *popt_z), xplt, 'r')
         plt.plot(yplt, parab(yplt, *popt_y), 'k')
+        yarg = np.argmin((yplt-trapx)**2)
+        plt.plot(trapx, parab(trapx, *popt_y), 'o')
         #plt.plot(x_edges_z, y_edges_z, 'w')
         plt.plot(x_edges_y, y_edges_y, 'w')
         #plt.plot([corn_coords[0]], [corn_coords[1]], 'xy', ms = 20, mew = 2)
@@ -177,7 +179,7 @@ def measure_cantilever1d(fpath, trapx, fun = line, make_plot = False, plot_edges
         plt.imshow(img_f)
         plt.show()
     
-    return np.array(np.real(corn_coords))
+    return parab(trapx, *popt_y)
 
 
     
@@ -195,8 +197,9 @@ def get_xydistance(im_fname, cols = {'x_stage':17, 'y_stage':18}, dat_ext = '.h5
 def get_distances(files, align_file, cant_cal = 8.0, ext = '.npy'):
     #gets all of the distances associated with a list of image files from the associated data file.
     cal = np.load(align_file)
+    cal2 = cal[::-1]
     ds = np.array(map(get_xydistance, files))*cant_cal
-    ds = -1.*(np.array(ds) + cal)#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ds = np.array(ds) - cal2
     return np.array(ds)
 
 def ignore_point(vec, p):
@@ -313,6 +316,30 @@ def get_calibration(img_cal_path, align_file, cal_out_file, image_ext = '.npy', 
     np.save(cal_out_file, cal_arr)
     return ds, can_pos
 
+def get_calibration1d(img_cal_path, align_file, cal_out_file, cantx, image_ext = '.npy', cant_cal = 8.0, make_plot = True):
+    '''Does all of the steps to get the calibration of cantilever images and saves the result.'''
+    fs = glob.glob(img_cal_path + '/*' + image_ext)
+    ds = get_distances(fs, align_file)
+    measure = lambda f: measure_cantilever1d(f, cantx)
+    can_pos = np.array(map(measure, fs))
+    align = np.load(align_file)
+    print ds
+    print align
+    #ds[:, 0] -= align[1]
+    popt, pcov = curve_fit(parab,can_pos, ds[:, 0])
+    if make_plot:
+        xplt = np.linspace(np.min(can_pos), np.max(can_pos), 100)
+        plt.plot(can_pos, ds[:, 0], 'x')
+        plt.plot(xplt, parab(xplt, *popt))
+        plt.xlabel('cantilever pixel')
+        plt.ylabel('stage position [um]')
+        plt.show()
+    directory = os.path.dirname(cal_out_file)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    np.save(cal_out_file, popt)
+    return ds[:, 0], can_pos
+
 def measure_image(im_file, cal_out_file, make_plot = True):
     #given an image file returns the calibrated coordinates of the cantileve edge
     pixels = measure_cantilever(im_file, make_plot = make_plot)
@@ -322,4 +349,12 @@ def measure_image(im_file, cal_out_file, make_plot = True):
     py = polyval2d(pixels[0], pixels[1], cal[1])
     return np.array([px, py])
 
-#get_calibration(calib_image_path, align_file, cal_out_file)    
+def measure_image1d(im_file, trapx, cal_out_file, make_plot = True):
+    #given an image file returns the calibrated coordinates of the cantileve edge
+    pixel = measure_cantilever1d(im_file, trapx, make_plot = make_plot)
+    cal = np.load(cal_out_file) 
+    return parab(pixel, *cal)
+
+#get_calibration(calib_image_path, align_file, cal_out_file)  
+measure_image1d(imfile, 340, cal_out_file)
+  
