@@ -1,4 +1,4 @@
-import cant_utils as cu
+import cant_util as cu
 import numpy as np
 import matplotlib.pyplot as plt
 import glob 
@@ -13,16 +13,16 @@ from scipy.optimize import minimize_scalar as minimize
 
 
 
-dirs = [11,]
-ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
+dirs = [8,]
+ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
 
 load_charge_cal = False
-step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
-cal_dir = '/data/20170822/bead6/discharge_fine2'
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
+cal_dir = '/data/20170903/bead1/discharge_fine'
 
-thermal_path = '/data/20170822/bead6/1_5mbar_zcool.h5'
+thermal_path = '/data/20170903/bead1/1_5mbar_zcool.h5'
 
-date = '20170822'
+date = '20170903'
 save = True
 
 maxfiles = 1000
@@ -71,8 +71,9 @@ def proc_dir(d):
     dir_obj.thermal_cal_file_path = thermal_path
     dir_obj.thermal_calibration()
 
-    dir_obj.build_Hfuncs(fpeaks=[400, 400, 50], weight_peak=False, weight_lowf=False,\
-                         plot_fits=True, plot_inits=False, weight_phase=True, grid=True)#, fit_osc_sum=True)
+    dir_obj.build_Hfuncs(fpeaks=[400, 400, 50], weight_peak=False, weight_lowf=True,\
+                         plot_fits=True, plot_inits=False, weight_phase=True, grid=True,\
+                         deweight_peak=True)#, fit_osc_sum=True)
     
     return dir_obj
 

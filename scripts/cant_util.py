@@ -932,7 +932,7 @@ class Data_dir:
     def load_dir(self, loadfun, maxfiles=10000, save_dc=False, prebin=False, \
                  cant_axis=0., nharmonics=1, noise=False, width=1.0, init_bin_sizes=[0.5, 0.5, 0.5], \
                  fthresh=40., plot_Happ=False, reconstruct_lowf=False, \
-                 lowf_thresh=150., drive_freq=41., use_fits=True):
+                 lowf_thresh=150., drive_freq=41., use_fits=True, cantfilt=False):
         #Extracts information from the files using the function loadfun which return a Data_file object given a separation and a filename.
         nfiles = len(self.files[:maxfiles])
         self.files = self.files[:maxfiles]
@@ -984,21 +984,20 @@ class Data_dir:
 
             if prebin:
                 #start = time.time()
-                obj.filter_by_cantdrive(cant_axis=cant_axis, \
-                                        nharmonics=nharmonics, noise=noise, width=width)
+                if cantfilt:
+                    obj.filter_by_cantdrive(cant_axis=cant_axis, \
+                                            nharmonics=nharmonics, noise=noise, width=width)
                 #stop = time.time()
                 #print 'filtering time:', stop-start
 
                 #start = time.time()
-                obj.diagonalize(Harr, cantfilt=True)
+                obj.diagonalize(Harr, cantfilt=cantfilt)
                 #stop = time.time()
                 #print 'diagonalizing time:', stop-start
                 
                 #start = time.time()
-                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=False, cantfilt=False)
-                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=False, cantfilt=True)
-                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=True, cantfilt=False)
-                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=True, cantfilt=True)
+                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=False, cantfilt=cantfilt)
+                obj.spatial_bin(bin_sizes=init_bin_sizes, diag=True, cantfilt=cantfilt)
                 #stop = time.time()
                 #print 'binning time:', stop-start
 
@@ -1085,7 +1084,8 @@ class Data_dir:
                         stepDCval2 = fobj.get_stage_settings(axis=stepind2)[0]
                 
                 stepDCval = bu.round_sig(stepDCval, 4)
-                stepDCval2 = bu.round_sig(stepDCval2, 4)
+                if multistep:
+                    stepDCval2 = bu.round_sig(stepDCval2, 4)
 
             elif bias:
                 if real_dat:
@@ -1660,7 +1660,7 @@ class Data_dir:
                 print newper,
                 sys.stdout.flush()
                 percent = newper
-            assert np.array_equal(fobj.fft_freqs, freqs)
+            #assert np.array_equal(fobj.fft_freqs, freqs)
 
             diag_fft = np.einsum('ikj,ki->ji', Harr, fobj.data_fft)
             fobj.diag_pos_data = np.fft.irfft(diag_fft)
@@ -1724,7 +1724,7 @@ class Data_dir:
     def build_Hfuncs(self, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
                      weight_peak=False, weight_lowf=False, lowf_thresh=60., \
                      weight_phase=False, plot_fits=False, plot_inits=False, \
-                     grid = False, fit_osc_sum=False):
+                     grid = False, fit_osc_sum=False, deweight_peak=False):
         # Build the calibrated transfer function array
         # i.e. transfer matrices at each frequency and fit functions to each component
 
@@ -1802,11 +1802,15 @@ class Data_dir:
                 # Construct weights if desired
                 npkeys = np.array(keys)
                 weights = np.zeros(len(npkeys)) + 1.
-                if weight_peak:
-                    weights = weights - 0.7 * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
+                if (weight_peak or deweight_peak):
+                    if weight_peak:
+                        fac = -0.7
+                    else:
+                        fac = 1.0
+                    weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
                 if weight_lowf:
                     ind = np.argmin(np.abs(npkeys - lowf_thresh))
-                    weights[:ind] *= 0.2
+                    weights[:ind] *= 0.1
                 phase_weights = np.zeros(len(npkeys)) + 1.
                 if weight_phase and (drive != 2 and resp != 2):
                     ind = np.argmin(np.abs(npkeys - 50.))
@@ -2404,7 +2408,8 @@ class Force_v_pos:
 
             # the next part assumes that the keys are (xpos, zpos)
             # so that the separation is determined from the first part
-            # of the key
+            # of the key and the height relative to the bead form the
+            # second part of the key
 
             if type(obj.closest_sep_and_pos) == str:
                 print obj.closest_sep_and_pos
@@ -2432,6 +2437,8 @@ class Force_v_pos:
                     self.dat[sep] = {}
                 # assumes keys are unique and thus no need to check if this
                 # current combination of sep/height exists
+                # This WILL NOT be true with different picomotor positions
+                # and will thus need to be changed prior to stitching
                 self.dat[sep][height] = (dat[key], diagdat[key])
 
                 # this ends up putting the data in a similar format to what is 
@@ -2439,8 +2446,10 @@ class Force_v_pos:
                 # opt_lev_analysis/scripts/gravity_sim/code directory
                 # or at least the save_force_curve_farmshare.py script which
                 # only takes a single sep and height and whose results are
-                # meant to be collected in post-processing after batch submission            
-        
+                # meant to be collected in post-processing after batch submission     
+       
+        self.seps.sort()
+        self.heights.sort()
 
     
 

@@ -21,16 +21,19 @@ bias = False
 stagestep = True
 stepind = 2
 
-dirs = [41,]
+dirs = [9,]
 bdirs = [1,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
+ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
 maxfiles = 10000   # Maximum number of files to load from a directory
+
+get_h_from_z = True
+show_fits = True
 
 fit_height = True
 fit_dist = 70.     # um, distance to compute force from fit to locate cantilever
-init_data = [10., 0., 0]  # Separation data to initialize directories
+init_data = [15., 0., 0]  # Separation data to initialize directories
 
 bin_size = 4     # um, Binning for final force v. pos
 lpf = 150        # Hz, acausal top-hat filter at this freq
@@ -40,8 +43,8 @@ fig_title = 'Force vs. Cantilever Position: Dipole vs. Height'
 include_dirlab = False
 
 # Locate Calibration files
-tf_path = '/calibrations/transfer_funcs/Hout_20170822.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170822.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
 
 legend = True
 leginds = [1,1]
@@ -80,8 +83,7 @@ def proc_dir(d):
     # simple directory processing function to load data and find
     # different cantilever positions
     dv = ddict[d]
-    init_data = [dv[0], [0,0,dv[-1]], dv[1]]
-    dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
+    dir_obj = cu.Data_dir(dv[0], init_data, dv[1])
     dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles)
     
     dir_obj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
@@ -95,7 +97,7 @@ def proc_dir(d):
     dir_obj.calibrate_H()
 
     dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=cal_drive_freq, cantfilt=cantfilt)
+                             drive_freq=cal_drive_freq, cantfilt=cantfilt)
 
     dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, diag=True, cantfilt=cantfilt, \
                                stagestep=stagestep, stepind=stepind, bias=bias)
@@ -117,10 +119,16 @@ f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(7,8),dpi=100)
 if subtract_background:
     f2, axarr2 = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
 
+if show_fits:
+    f3, fitax = plt.subplots(1,2)
+
 for objind, obj in enumerate(dir_objs):
 
     sep = obj.seps[SWEEP_AX]
     maxval = obj.maxvals[SWEEP_AX]
+
+    print sep
+    print maxval
 
     def fitfunc(x, a, b, c):
         return ffn(x, a, b, c, sep=sep, maxval=maxval)
@@ -150,7 +158,7 @@ for objind, obj in enumerate(dir_objs):
             bdat = bobj.avg_force_v_pos[key]
 
         #offset = 0
-        lab = key + ' um'
+        lab = str(key) + ' um'
         for resp in [0,1,2]:
             offset = - dat[resp,0][1][0]
             diagoffset = - diagdat[resp,0][1][0]
@@ -183,6 +191,12 @@ for objind, obj in enumerate(dir_objs):
             diagpopt, diagpcov = curve_fit(fitfunc, diagdat[RESP_AX,0][0], \
                                            (diagdat[RESP_AX,0][1]+diagoffset)*1e15, \
                                            p0=[1.,0.1,0])
+
+            if show_fits:
+                fitax[0].plot(dat[RESP_AX,0][0], fitfunc(dat[RESP_AX,0][0], *popt), color = color)
+                fitax[0].plot(dat[RESP_AX,0][0], (dat[RESP_AX,0][1]+offset)*cal_facs[RESP_AX]*1e15, 'o', color = color)
+                fitax[1].plot(diagdat[RESP_AX,0][0], (diagdat[RESP_AX,0][1]+diagoffset)*1e15, 'o', color = color)
+                fitax[1].plot(diagdat[RESP_AX,0][0], fitfunc(diagdat[RESP_AX,0][0], *diagpopt), color = color)
 
             fits[key] = (popt, pcov)
             diag_fits[key] = (diagpopt, diagpcov)

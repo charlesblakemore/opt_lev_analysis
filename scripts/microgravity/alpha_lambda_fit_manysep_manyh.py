@@ -11,7 +11,14 @@ import scipy.stats as stats
 
 import sys
 
-plot_simp = False
+
+### NOTE: RESPONSE AXIS AND CANTILEVER SWEEP AXIS ARE CURRENTLY
+### HARD-CODED IN THE ANALYSIS BELOW. EVENTUALLY, WE MIGHT WANT
+### TO FIT THE RESPONSE IN MULTIPLE DIRECTIONS, ESPECIALLY IF 
+### THE DOMINANT BACKGROUND IS INDEED PATCH POTENTIALS AS THE 
+### DIPOLE MAY HAVE A PREFERRED ORIENTATION
+
+
 
 # Choose whether to force the min_chisq to 1 or divide the noise
 # by an arbitrary factor to accomplish the same thing.
@@ -37,9 +44,17 @@ fcurve_obj = gu.Grav_force_curve(path=gpath+filname, make_splines=True, \
                                  spline_order=3)
 
 # Choice of bead radius for theoretical curves
-RBEAD = 2.43e-6
+RBEAD = 2.37e-6
 
 confidence_level = 0.95
+
+# For the confidence interval, compute the inverse CDF of a 
+# chi^2 distribution at given confidence level and compare to 
+# liklihood ratio via a goodness of fit parameter.
+# Refer to scipy.stats documentation to understand chi2
+chi2dist = stats.chi2(1)
+# factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
+con_val = 0.5 * chi2dist.ppf(confidence_level) 
 
 
 
@@ -71,6 +86,7 @@ limitlab2 = 'With Decca 2'
 
 ### Construct a noise model
 
+# Various fitting functions
 def parabola(x, a, b, c):
     return a * x**2 + b * x + c
 
@@ -84,29 +100,6 @@ wvnum_upp = 1. / 20.   # um^-1, define an upper limit for noise model fit
 wvnum_low = 1. / 100.  # um^-1, define an lower limit for noise model fit
 wvnum_sig = 1. / 50.   # um^-1, expected signal (to remove from noise model estimate)
 
-sigarg = np.argmin( np.abs( wvnum - wvnum_sig ) )
-dsigarg = np.argmin( np.abs( diagwvnum - wvnum_sig ) )
-
-# Select only the wavenumbers we want in our noise model
-inds = wvnum < wvnum_upp
-inds = wvnum[inds] > wvnum_low
-inds[sigarg-1:sigarg+2] = False
-
-dinds = diagwvnum < wvnum_upp
-dinds = diagwvnum[dinds] > wvnum_low
-dinds[dsigarg-1:dsigarg+2] = False
-
-# Estimate a noise model by fitting the ASD to a line
-popt, pcov = optimize.curve_fit(const, wvnum[inds], datasd[inds], p0 = [1e-15])
-diagpopt, diagpcov = optimize.curve_fit(const, diagwvnum[dinds], diagdatasd[dinds], p0 = [1e-15])
-
-noise_asd = np.zeros_like(wvnum) + popt[0]
-#noise_asd = wvnum * popt[0] + popt[1]
-
-diagnoise_asd = np.zeros_like(diagwvnum) + diagpopt[0]
-#diagnoise_asd = diagwvnum * diagpopt[0] + diagpopt[1]
-
-
 
 lambdas = fcurve_obj.lambdas
 alphas = np.zeros_like(lambdas)
@@ -115,54 +108,88 @@ diagalphas = np.zeros_like(lambdas)
 lambdas = lambdas[::-1]
 testalphas = np.linspace(0, 12, 10000)
 
-# For the confidence interval, compute the inverse CDF of a 
-# chi^2 distribution at 0.95 and compare to liklihood ratio
-# via a goodness of fit parameter
-chi2dist = stats.chi2(1)
-# factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
-con_val = 0.5 * chi2dist.ppf(confidence_level) 
-
 colors = bu.get_color_map(len(lambdas))
 
+
 for ind, yuklambda in enumerate(lambdas):
-    fcurve = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \
+    gforce = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \
                                        yuklambda=yuklambda, rbead=RBEAD, nograv=True)
-    diagfcurve = fcurve_obj.mod_grav_force(diagbins*1e-6, sep=SEP, alpha=1., \
+    diaggforce = fcurve_obj.mod_grav_force(diagbins*1e-6, sep=SEP, alpha=1., \
                                            yuklambda=yuklambda, rbead=RBEAD, nograv=True)
 
-    fcurve = signal.detrend(fcurve)
-    diagfcurve = signal.detrend(diagfcurve)
+    gforce = signal.detrend(gforce)
+    diaggforce = signal.detrend(diaggforce)
 
-    fft = np.fft.rfft(fcurve)
-    asd = np.sqrt(fft.conj() * fft)
-    diagfft = np.fft.rfft(diagfcurve)
-    diagasd = np.sqrt(diagfft.conj() * diagfft)
+    gfft = np.fft.rfft(gforce)
+    gasd = np.abs(gfft)
+    diaggfft = np.fft.rfft(diaggforce)
+    diaggasd = np.abs(diaggfft)
 
-    scale = noise_fac
-    #scale = np.abs( np.max(datasd) )
-    dscale = noise_fac
-    #dscale = np.abs( np.max(diagdatasd) )
+    chi_sqs = np.zeros(len(testalphas))
+    diag_chi_sqs = np.zeros(len(testalphas))
 
-    datfft_s = datfft / scale
-    fft_s = fft / scale
-    noise_asd_s = noise_asd / scale
+    for alphaind, testalpha in enumerate(testalphas):
 
-    diagdatfft_s = diagdatfft / dscale
-    diagfft_s = diagfft / dscale
-    diagnoise_asd_s = diagnoise_asd / dscale
+        N = 0
+        diagN = 0
+        chi_sq = 0
+        diag_chi_sq = 0
+    
+        for sep in seps:
+            for height in heights:
 
-    chi_sqs = []
-    diag_chi_sqs = []
-    for derpalpha in testalphas:
-        chi_sq = np.sum( np.abs(datfft - 10**derpalpha * fft)**2 / noise_asd_s**2 )
-        diag_chi_sq = np.sum( np.abs(diagdatfft - 10**derpalpha * diagfft)**2 / diagnoise_asd_s**2 )
-        red_chi_sq = chi_sq / (len(datfft) - 1)
-        diag_red_chi_sq = diag_chi_sq / (len(diagdatfft) - 1)
-        chi_sqs.append(red_chi_sq)
-        diag_chi_sqs.append(diag_red_chi_sq)
+                bins = dat[sep][height][resp_ax,vel_mult][0]
+                force = dat[sep][height][resp_ax,vel_mult][1]
 
-    chi_sqs = np.array(chi_sqs)
-    diag_chi_sqs = np.array(diag_chi_sqs)
+                diagbins = diagdat[sep][height][resp_ax,vel_mult][0]
+                diagforce = diagdat[sep][height][resp_ax,vel_mult][1]
+
+                fft = np.fft.rfft(force)
+                wvnum = np.fft.rfftfreq( len(force), d=(bins[1]-bins[0]) )
+                asd = np.abs(fft)
+
+                diagfft = np.fft.rfft(diagforce)
+                diagwvnum = np.fft.rfft( len(diagforce), d=(diagbins[1]-diaggins[0]) )
+                diagasd = np.abs(diagfft)
+
+                sigarg = np.argmin( np.abs( wvnum - wvnum_sig ) )
+                dsigarg = np.argmin( np.abs( diagwvnum - wvnum_sig ) )
+
+                # Select only the wavenumbers we want in our noise model
+                inds = wvnum < wvnum_upp
+                inds = wvnum[inds] > wvnum_low
+                inds[sigarg-1:sigarg+2] = False
+
+                dinds = diagwvnum < wvnum_upp
+                dinds = diagwvnum[dinds] > wvnum_low
+                dinds[dsigarg-1:dsigarg+2] = False
+
+                # Estimate a noise model by fitting the ASD to a line
+                popt, pcov = optimize.curve_fit(const, wvnum[inds], asd[inds], p0 = [1e-15])
+                diagpopt, diagpcov = optimize.curve_fit(const, diagwvnum[dinds], diagasd[dinds], p0 = [1e-15])
+
+                noise_asd = np.zeros_like(wvnum) + popt[0]
+                #noise_asd = wvnum * popt[0] + popt[1]
+
+                diagnoise_asd = np.zeros_like(diagwvnum) + diagpopt[0]
+                #diagnoise_asd = diagwvnum * diagpopt[0] + diagpopt[1]
+
+                # Scale the noise by the arbitraily defined noise fac
+                noise_asd_s = noise_asd / noise_fac
+                diagnoise_asd_s = diagnoise_asd / noise_fac
+            
+                chi_sq += np.sum( np.abs(fft - 10**derpalpha * gfft)**2 / noise_asd_s**2 )
+                diag_chi_sq += np.sum( np.abs(diagfft - 10**derpalpha * diaggfft)**2 / diagnoise_asd_s**2 )
+
+                N += len(fft)
+                diagN += len(diagfft)
+        
+        red_chi_sq = chi_sq / (N - 1)
+        diag_red_chi_sq = diag_chi_sq / (diagN - 1)
+        chi_sqs[alphaind] = red_chi_sq
+        diag_chi_sqs[alphaind] = diag_red_chi_sq
+
+
 
     if setmin_chisq:
         chi_sqs = chi_sqs / np.min(chi_sqs)
@@ -200,7 +227,6 @@ for ind, yuklambda in enumerate(lambdas):
     p0_old = popt
     dp0_old = diagpopt
     
-
     # Select the positive root for the non-diagonalized data
     soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - 4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
     soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - 4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
@@ -223,12 +249,6 @@ for ind, yuklambda in enumerate(lambdas):
     alphas[ind] = alpha_con
     diagalphas[ind] = diag_alpha_con 
 
-    #print (alpha_95con, alpha_95con * 1e9),
-    #sys.stdout.flush()
-
-    maxind = np.argmax(asd)
-    diagmaxind = np.argmax(diagasd)
-    
     
 plt.title('Goodness of Fit for Various Lambda', fontsize=16)
 plt.xlabel('Alpha Parameter [arb]', fontsize=14)
