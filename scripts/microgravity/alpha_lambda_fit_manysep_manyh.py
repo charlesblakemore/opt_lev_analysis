@@ -60,8 +60,15 @@ con_val = 0.5 * chi2dist.ppf(confidence_level)
 
 ### Load backgrounds
 
+procd_data = '/processed_data/grav_data/manyh_manysep_20170903.p'
+procd_dirs = pickle.load( open(procd_data, 'rb') )
+for objind, obj in procd_dirs:
+    obj.get_closest_sep_and_pos()
+    obj.bead_height = 10.0    # height from dipole measurements
+
 background_data = cu.Force_v_pos()
-background_data.load('/force_v_pos/20170822_grav_background_sep10um_h15um.p')
+background_data.load_dir_objs(procd_dirs, organize=True)
+
 assert type(background_data.dat) != str
 
 dat = background_data.dat
@@ -112,18 +119,6 @@ colors = bu.get_color_map(len(lambdas))
 
 
 for ind, yuklambda in enumerate(lambdas):
-    gforce = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \
-                                       yuklambda=yuklambda, rbead=RBEAD, nograv=True)
-    diaggforce = fcurve_obj.mod_grav_force(diagbins*1e-6, sep=SEP, alpha=1., \
-                                           yuklambda=yuklambda, rbead=RBEAD, nograv=True)
-
-    gforce = signal.detrend(gforce)
-    diaggforce = signal.detrend(diaggforce)
-
-    gfft = np.fft.rfft(gforce)
-    gasd = np.abs(gfft)
-    diaggfft = np.fft.rfft(diaggforce)
-    diaggasd = np.abs(diaggfft)
 
     chi_sqs = np.zeros(len(testalphas))
     diag_chi_sqs = np.zeros(len(testalphas))
@@ -137,6 +132,22 @@ for ind, yuklambda in enumerate(lambdas):
     
         for sep in seps:
             for height in heights:
+                
+                SEP = np.sqrt(sep**2 + height**2)
+                
+                gforce = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \
+                                       yuklambda=yuklambda, rbead=RBEAD, nograv=True)
+                diaggforce = fcurve_obj.mod_grav_force(diagbins*1e-6, sep=SEP, alpha=1., \
+                                           yuklambda=yuklambda, rbead=RBEAD, nograv=True)
+
+                gforce = signal.detrend(gforce)
+                diaggforce = signal.detrend(diaggforce)
+
+                gfft = np.fft.rfft(gforce)
+                gasd = np.abs(gfft)
+                diaggfft = np.fft.rfft(diaggforce)
+                diaggasd = np.abs(diaggfft)
+
 
                 bins = dat[sep][height][resp_ax,vel_mult][0]
                 force = dat[sep][height][resp_ax,vel_mult][1]

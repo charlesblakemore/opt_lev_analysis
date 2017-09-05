@@ -11,6 +11,8 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 
+import image_util as imu
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -20,14 +22,17 @@ warnings.filterwarnings("ignore")
 # which the cantilever is driven.
 ###########################
 
-filstring = ''
+out_fvpos = cu.Force_v_pos()
+
+
+filstring = 'Z9um'
 
 # CHOOSE WHETHER TO LOOK AT VARIOUS BIAS OR VARIOUS CANT POS
 bias = False
 stagestep = True
 stepind = 0
 
-dirs = [59,]
+dirs = [11,]
 bdirs = [1,]
 subtract_background = False
 
@@ -43,8 +48,10 @@ fig_title = 'Force vs. Cantilever Position:'
 xlab = 'Distance along Cantilever [um]'
 
 # Locate Calibration files
-tf_path = '/calibrations/transfer_funcs/Hout_20170822.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170822.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
+im_cal_path = '/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy'
+trap_ypix = 340
 
 legend = True
 leginds = [2,1]
@@ -52,7 +59,7 @@ ncol = 2
 ##########################################################
 # Don't edit below this unless you know what you're doing
 
-init_data = [0., 0., -40]  # Separation data to initialize empy directories
+init_data = [0., 0., 0.]  # Separation data to initialize empy directories
 
 cal_drive_freq = 41  # Hz
 
@@ -80,7 +87,7 @@ def proc_dir(d):
 
     dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles, prebin=True, nharmonics=10, noise=False, width=1., \
                      cant_axis=SWEEP_AX, reconstruct_lowf=True, lowf_thresh=lpf, drive_freq=cal_drive_freq, \
-                     init_bin_sizes=[1.0, 1.0, 1.0])
+                     init_bin_sizes=[1.0, 1.0, 1.0], analyze_image=True, cantfilt=cantfilt)
     
     #dir_obj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
 
@@ -162,7 +169,21 @@ for objind, obj in enumerate(dir_objs):
                                    (diagdat[resp,0][1]-diagbdat[resp,0][1]+diagoffset)*1e15, \
                                    diagdat[resp,0][2]*1e15, \
                                    fmt='.-', ms=10, color = color, label=lab)
+        if key == keys[-1]:
+            print key
+            out_fvpos.bins = dat[0,0][0]
+            out_fvpos.force = dat[0,0][1]*cal_facs[0]
+            out_fvpos.diagbins = diagdat[0,0][0]
+            out_fvpos.diagforce = diagdat[0,0][1]
 
+            out_fvpos.paths = []
+            out_fvpos.dat = []
+            out_fvpos.seps = []
+            out_fvpos.heights = []
+            out_fvpos.errs = []
+            out_fvpos.diagerrs = []
+
+out_fvpos.save('/force_v_pos/20170903_grav_background_sep15um_h10um.p')
 
 axarr[0,0].set_title('Raw Imaging Response')
 axarr[0,1].set_title('Diagonalized Forces')

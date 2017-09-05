@@ -137,7 +137,7 @@ class Grav_force_curve:
             new_rbead = self.rbeads[close_ind]
             rbead = new_rbead
             if verbose:
-                print "Couldn't find bead you wanted... Using rbead = %0.3g" % new_rbead
+                print "Couldn't find rbead you wanted... Using rbead = %0.3g" % new_rbead
 
         if yuklambda not in self.lambdas:
             close_ind = np.argmin( np.abs(yuklambda - self.lambdas) )

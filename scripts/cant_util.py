@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib
 import bead_util as bu
+import image_util as imu
 import scipy
 import glob, os, sys, copy, time, math, pprocess
 from scipy.optimize import curve_fit
@@ -361,6 +362,7 @@ class Data_file:
         self.cant_data = "cantilever position data no loaded"
         self.binned_cant_data = "Binned cantilever data not computed"
         self.separation = "separation not entered"
+        self.image_data = "Picture not loaded"
         self.Fsamp = "Fsamp not loaded"
         self.Time = "Time not loaded"
         self.temps = "temps not loaded"
@@ -395,15 +397,15 @@ class Data_file:
         dat = dat[cut_samp:, :]
         
         # Attributes coming from Labview Front pannel settings
-        self.separation = sep #Manually entreed distance of closest approach
-        self.Fsamp = attribs["Fsamp"] #Sampling frequency of the data
-        self.Time = bu.labview_time_to_datetime(attribs["Time"]) #Time of end of file
-        self.temps = attribs["temps"] #Vector of thermocouple temperatures 
+        self.separation = sep         # Manually entered distance of closest approach
+        self.Fsamp = attribs["Fsamp"] # Sampling frequency of the data
+        self.Time = bu.labview_time_to_datetime(attribs["Time"]) # Time of end of file
+        self.temps = attribs["temps"] # Vector of thermocouple temperatures 
 
         # Vector of chamber pressure readings [pirani, cold cathode, baratron]
         self.pressures = attribs["pressures"] 
-        self.synth_settings = attribs["synth_settings"] #Synthesizer fron pannel settings
-        self.dc_supply_settings = attribs["dc_supply_settings"] #DC power supply front pannel testings.
+        self.synth_settings = attribs["synth_settings"] # Synthesizer fron pannel settings
+        self.dc_supply_settings = attribs["dc_supply_settings"] # DC power supply front pannel testings.
 
         # Electrode front pannel settings for all files in the directory.
         # first 8 are ac amps, second 8 are frequencies, 3rd 8 are dc vals 
@@ -416,7 +418,7 @@ class Data_file:
         # Front pannel settings for the stage for this particular file.
         self.stage_settings = attribs['stage_settings'] 
         self.stage_settings[:3]*=cant_cal #calibrate stage_settings
-        #Data vectors and their transforms
+        # Data vectors and their transforms
         self.pos_data = np.transpose(dat[:, 0:3]) #x, y, z bead position
         self.other_data = np.transpose(dat[:,3:7])
         self.dc_pos =  np.mean(self.pos_data, axis = -1)
@@ -427,6 +429,12 @@ class Data_file:
         self.electrode_data = np.transpose(dat[:, elec_inds]) #Record of voltages on the electrodes
 
         f.close()
+
+    def get_image_data(self, trapx_pixel, img_cal_path, make_plot=False):
+        imfile = self.fname + '.npy'
+        val = imu.measure_image1d(imfile, trapx_pixel, img_cal_path, make_plot=make_plot)
+        self.image_data = np.abs(val)
+        
 
     def get_stage_settings(self, axis=0):
         # Function to intelligently extract the stage settings data for a given axis
@@ -843,8 +851,8 @@ class Data_file:
 
 
 
-    def close_dat(self, p = True, psd = True, ft = True, elecs = True):
-        #Method to reinitialize the values of some lage attributes to avoid running out of memory.
+    def close_dat(self, p = True, psd = True, ft = True, elecs = True, other=True):
+        # Method to reinitialize the values of some lage attributes to avoid running out of memory.
         if ft:
             self.data_fft = 'fft cleared'
             self.diag_data_fft = 'fft cleared'
@@ -864,6 +872,10 @@ class Data_file:
             self.pos_data_cantfilt = 'bead position data cleared'
             self.diag_pos_data_cantfilt = 'bead position data cleared'
             self.cantfilt = 'cantfilt cleared'
+
+        if other:
+            self.other_data = 'other data cleared'
+            self.image_pow_data = 'image power cleared'
 
 
 
@@ -910,6 +922,8 @@ class Data_dir:
         self.thermal_cal_file_path = "No thermal calibration file set"
         self.thermal_cal_fobj = "No thermal calibration"
         self.charge_step_calibration = "No charge step calibration"
+        self.image_calibration = "No image calibration loaded"
+        self.trapx_pixel = "Trap position in pixels"
         self.conv_facs = "Final calibration factors not computed"
         self.avg_force_v_pos = "Average force vs position not computed"
         self.avg_force_v_pos_cantfilt = "Average force vs position not computed"
@@ -932,7 +946,8 @@ class Data_dir:
     def load_dir(self, loadfun, maxfiles=10000, save_dc=False, prebin=False, \
                  cant_axis=0., nharmonics=1, noise=False, width=1.0, init_bin_sizes=[0.5, 0.5, 0.5], \
                  fthresh=40., plot_Happ=False, reconstruct_lowf=False, \
-                 lowf_thresh=150., drive_freq=41., use_fits=True, cantfilt=False):
+                 lowf_thresh=150., drive_freq=41., use_fits=True, cantfilt=False,\
+                 analyze_image=False):
         #Extracts information from the files using the function loadfun which return a Data_file object given a separation and a filename.
         nfiles = len(self.files[:maxfiles])
         self.files = self.files[:maxfiles]
@@ -952,6 +967,9 @@ class Data_dir:
 
         if prebin:
             self.fobjs = []
+
+            # Load the first file so the make_tf_array knows what fft freqs to 
+            # use when it generates a transfer function
             self.fobjs.append( loadfun(self.files[0], self.sep) )
 
             Harr = self.make_tf_array(fthresh=fthresh, plot_Happ=False,\
@@ -975,6 +993,9 @@ class Data_dir:
             obj = loadfun(self.files[i], self.sep)
             #stop = time.time()
             #print 'loading time:', stop-start
+
+            if analyze_image:
+                obj.get_image_data(self.trapx_pixel, self.image_calibration)
 
             self.seps += obj.separation
             self.maxvals += obj.cant_data.max(axis=-1)
@@ -1027,6 +1048,7 @@ class Data_dir:
             self.maxvals = self.maxvals / count
             self.seps = self.seps / count
 
+
     def thermal_calibration(self, temp=293.):
         if 'not computed' in self.thermal_cal_file_path:
             print self.thermal_cal_file_path
@@ -1039,6 +1061,21 @@ class Data_dir:
 
 
 
+    def get_closest_sep_and_pos(self):
+        '''Loops over file objects and determines the closest separation
+           and the cantilever position at that separation.
+
+               INPUTS: none, loops over file objects
+                       
+               OUTPUTS: none, generates class attributes'''
+        
+        closest_sep = 100.0
+        closest_pos = 0.0
+        for fobj in self.fobjs:
+            if fobj.image_data < closest_sep:
+                closest_sep = fobj.image_data
+                closest_pos = fobj.get_stage_settings(axis=0)[0]
+        self.closest_sep_and_pos = (closest_sep, closest_pos)
 
 
     def get_avg_force_v_pos(self, cant_axis = 0, bin_size = 0.5, cant_indx = 0, \
@@ -2215,97 +2252,6 @@ class Data_dir:
         
 
 
-    def generate_alpha_lambda_limit(self, rbead=2.5e-06, sep=10.0e-06, offset=0., \
-                                    least_squares=True, opt_filt=False, \
-                                    resp_axis=1, cant_axis=1, rebin=False, bin_size=5., \
-                                    diag=False, scale=1.0e18):
-        if type(self.gravity_signals) == str:
-            print self.gravity_signals
-            return
-        
-        fcurves = self.gravity_signals[rbead][sep]
-        simposdat = self.gravity_signals['posvec'] * 1e6
-        lambdas = fcurves.keys()
-        lambdas.sort()
-
-        fac = self.conv_facs[resp_axis]
-
-        if least_squares:
-            if (type(self.avg_force_v_pos) == str) or rebin:
-                self.get_avg_force_v_pos(cant_axis=cant_axis, bin_size=bin_size)
-                self.get_avg_force_v_pos(cant_axis=cant_axis, bin_size=bin_size, diag=True)
-
-            if diag:
-                keys = self.avg_diag_force_v_pos.keys()
-                if len(keys) > 1:
-                    print "STUPIDITYError: Multiple Keys"
-                key = keys[0]
-                dat = self.avg_diag_force_v_pos[key][resp_axis,0]
-            else:
-                keys = self.avg_force_v_pos.keys()
-                if len(keys) > 1:
-                    print "STUPIDITYError: Multiple Keys"
-                key = keys[0]
-                dat = self.avg_force_v_pos[key][resp_axis,0]
-
-            posdat = dat[0] + offset
-            forcedat = dat[1]
-            errs = dat[2]
-
-            if not diag:
-                forcedat = forcedat * fac
-                errs = errs * fac
-
-            alphas = []
-            print "Fitting different alpha values..."
-            sys.stdout.flush()
-
-            poffsets = []
-            for yukind, yuklambda in enumerate(lambdas):
-                #per = int(100. * float(yukind) / float(len(lambdas)))
-                #if not per % 1:
-                #    print str(per) + ',',
-                #sys.stdout.flush()
-
-                fcurve = fcurves[yuklambda]
-
-                fmax = np.max(forcedat) - np.min(forcedat)
-                yukmax = np.max(fcurve[1]) - np.min(fcurve[1])
-                alphaguess = fmax / yukmax
-
-                Gforcefunc = interpolate.interp1d(simposdat, fcurve[0])
-                yukforcefunc = interpolate.interp1d(simposdat, fcurve[1])
-
-                #plt.figure()
-                #plt.plot(pos)
-                #plt.plot(posdat)
-                #plt.show()
-                #raw_input()
-
-                #Gforcefunc = interpolate.interp1d(fcurve[0]*1e6, fcurve[1])
-                #yukforcefunc = interpolate.interp1d(fcurve[0]*1e6, fcurve[2])
-
-                def fitfun(x, alpha):
-                    return Gforcefunc(x) + alpha * yukforcefunc(x)
-
-                popt, pcov = optimize.curve_fit(fitfun, posdat, forcedat, p0 = alphaguess)
-
-                #plt.plot(posdat, forcedat*1e15, 'o')
-                #plt.plot(posdat, fitfun(posdat, popt[0])*1e15)
-                #plt.show()
-
-                alpha = popt[0]
-                if alpha < 0:
-                    alpha *= -1.
-
-                alphas.append(alpha)
-
-            return np.array(lambdas), np.array(alphas)
-
-
-        if opt_filt:
-            if type(fobj.pos_data) == str:
-                return
             
 
         
@@ -2364,7 +2310,7 @@ class Force_v_pos:
         self.diagerrs = 'No data loaded yet'
         
 
-    def load_dir_objs(self, dir_objs):
+    def load_dir_objs(self, dir_objs, organize=False):
         '''Simple function to load a list of directory objects, store said
            list as a class attribute and extract the rough stage position
            from image analysis, including position along cantilever, and sep.
@@ -2375,11 +2321,17 @@ class Force_v_pos:
         rough_pos = []
         for dir_obj in dir_objs:
             paths.append(dir_obj.paths)
-            rough_pos.append(dir_obj.cant_corner_img)
+            try:
+                rough_pos.append(dir_obj.cant_corner_img)
+            except:
+                rough_pos.append( (0.0, 0.0, 0.0) )
         
         self.paths = paths
         self.dir_objs = dir_objs
         self.rough_pos = rough_pos
+
+        if organize:
+            self.organize_by_pos()
 
 
 

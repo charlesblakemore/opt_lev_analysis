@@ -21,7 +21,7 @@ bandwidth = 1. / band
 show_data_at_modulation = True
 dispfit = True
 
-extra_lab = ': 10um Sep'
+extra_lab = ': 15um Sep'
 
 ### Load theoretical modified gravity curves
 
@@ -30,7 +30,7 @@ filname = 'attractorv2_1um_manysep_fullthrow_force_curves.p'
 
 fcurve_obj = gu.Grav_force_curve(path=gpath+filname, make_splines=True, spline_order=3)
 
-SEP = 10.0e-6
+SEP = 15.0e-6
 RBEAD = 2.43e-6
 
 confidence_level = 0.95
@@ -40,15 +40,17 @@ confidence_level = 0.95
 ### Load backgrounds
 
 background_data = cu.Force_v_pos()
-background_data.load('/force_v_pos/20170822_grav_background_sep10um_h15um.p')
+background_data.load('/force_v_pos/20170903_grav_background_sep15um_h10um.p')
 
 bins = background_data.bins
 force = background_data.force
-errs = background_data.errs
+errs = np.zeros_like(force)
+#errs = background_data.errs
 
 diagbins = background_data.diagbins
 diagforce = background_data.diagforce
-diagerrs = background_data.diagerrs
+diagerrs = np.zeros_like(diagforce)
+#diagerrs = background_data.diagerrs
 
 wvnum = np.fft.rfftfreq(len(force), d=(bins[1]-bins[0]))
 datfft = np.fft.rfft(force)
@@ -63,8 +65,8 @@ diagdatasd = np.abs(diagdatfft)
 
 ### Load limits to plot against
 
-#limitdata_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/limitdata_20160928_datathief_nodecca2.txt'
-limitdata_path = '/home/charles/limit_nodecca2.txt'
+limitdata_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/limitdata_20160928_datathief_nodecca2.txt'
+#limitdata_path = '/home/charles/limit_nodecca2.txt'
 limitdata = np.loadtxt(limitdata_path, delimiter=',')
 limitlab = 'No Decca 2'
 
@@ -86,8 +88,8 @@ def line(x, a, b):
 def const(x, a):
     return a
 
-wvnum_upp = 1. / 20.   # um^-1, define an upper limit for noise model fit
-wvnum_low = 1. / 100.  # um^-1, define an lower limit for noise model fit
+wvnum_upp = 1. / 10.   # um^-1, define an upper limit for noise model fit
+wvnum_low = 1. / 200.  # um^-1, define an lower limit for noise model fit
 wvnum_sig = 1. / 50.   # um^-1, expected signal (to remove from noise model estimate)
 
 sigarg = np.argmin( np.abs( wvnum - wvnum_sig ) )
@@ -136,7 +138,7 @@ diagalphas = np.zeros_like(lambdas)
 simp_diagalphas = np.zeros_like(lambdas)
 
 lambdas = lambdas[::-1]
-testalphas = np.linspace(0, 12, 10000)
+testalphas = np.linspace(0, 14, 10000)
 
 # For the confidence interval, compute the inverse CDF of a 
 # chi^2 distribution at 0.95 and compare to liklihood ratio
@@ -160,6 +162,10 @@ for ind, yuklambda in enumerate(lambdas):
     asd = np.sqrt(fft.conj() * fft)
     diagfft = np.fft.rfft(diagfcurve)
     diagasd = np.sqrt(diagfft.conj() * diagfft)
+
+    #plt.loglog(wvnum, np.abs(datfft))
+    #plt.loglog(wvnum, np.abs(fft))
+    #plt.show()
 
     scale = noise_fac
     #scale = np.abs( np.max(datasd) )

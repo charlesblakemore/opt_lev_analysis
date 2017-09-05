@@ -11,6 +11,7 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 
+filstring = ''
 
 filnames = []
 #filnames = ["/data/20170707/bead5/1_5mbar_zcool.h5"] #, \
@@ -19,8 +20,8 @@ filnames = []
 #labs = ['Charged', 'Discharged']
 use_labs = False #True
 
-ddict = bu.load_dir_file( '/dirfiles/dir_file_july2017.txt' )
-dirs = [11]
+ddict = bu.load_dir_file( '/dirfiles/dir_file_sept2017.txt' )
+dirs = [11,12]
 
 chan_to_plot = [0, 1, 2]
 chan_labs = ['X', 'Y', 'Z']
@@ -29,11 +30,11 @@ NFFT = 2**12
 xlim = [1, 2500]
 ylim = [6e-18,1.5e-14]
 
-maxfiles = 140
+maxfiles = 10000
 
 calibrate = True
-tf_path = '/calibrations/transfer_funcs/Hout_20170718.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170718.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
 
 charge_cal = [[''], 'Cal', 0]
 
@@ -54,6 +55,20 @@ def proc_dir(d):
 
     init_data = [dv[0], [0,0,dv[-1]], dv[1]]
     dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
+    files = []
+    for path in dir_obj.paths:
+        entries = [os.path.join(path, fn) for fn in os.listdir(path)]
+        entries = [(os.stat(path), path) for path in entries]
+        entries = [(stat.st_ctime, path) for stat, path in entries]
+    entries.sort(key = lambda x: (x[0]))
+    for thing in entries[-10:]:
+        print thing
+    for thing in entries:
+        if '.npy' in thing[1]:
+            continue
+        files.append(thing[1])
+    dir_obj.files = files[-200:]
+
     dir_obj.load_dir(cu.simple_loader, maxfiles=maxfiles)
     #dir_obj.diagonalize_files
 
@@ -75,6 +90,8 @@ for fil in filnames:
 time_dict = {}
 for obj in dir_objs:
     for fobj in obj.fobjs:
+        if filstring not in fobj.fname:
+            continue
         fobj.detrend()
         fobj.psd(NFFT = NFFT)
         pressures.append(fobj.pressures[0])
@@ -82,6 +99,8 @@ for obj in dir_objs:
         time_dict[time] = fobj
 
 for fobj in fil_objs:
+    if filstring not in fobj.fname:
+        continue
     fobj.detrend()
     fobj.psd(NFFT = NFFT)
     pressures.append(fobj.pressures[0])

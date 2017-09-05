@@ -13,17 +13,17 @@ from scipy.optimize import minimize_scalar as minimize
 
 
 
-dirs = [8,]
+dirs = [9,]
 ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
 
-load_charge_cal = False
+load_charge_cal = True
 step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
 cal_dir = '/data/20170903/bead1/discharge_fine'
 
 thermal_path = '/data/20170903/bead1/1_5mbar_zcool.h5'
 
 date = '20170903'
-save = True
+save = False
 
 maxfiles = 1000
 

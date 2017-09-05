@@ -9,7 +9,8 @@ import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+#import cPickle as pickle
+import dill as pickle
 from mpl_toolkits.mplot3d import Axes3D
 import grav_util as gu
 from matplotlib import cm
@@ -33,25 +34,31 @@ height_to_plot = 0.0
 plot_vs_heights = False
 sep_to_plot = 10.
 
-dirs = [56,]
+dirs = [11,]
 bdirs = [1,]
 subtract_background = False
 
-ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
-maxfiles = 1000   # Maximum number of files to load from a directory
+filstring = ''
+ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
+maxfiles = 10000   # Maximum number of files to load from a directory
+
+load_dir_objs = False
+save_dir_objs = True
+dir_obj_save_path = '/processed_data/grav_data/manysep_20170903.p'
 
 resp = 0
 SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
-bin_size = 2     # um, Binning for final force v. pos
-lpf = 150        # Hz, acausal top-hat filter at this freq
+bin_size = 1.2     # um, Binning for final force v. pos
+lpf = 120        # Hz, acausal top-hat filter at this freq
 cantfilt = True
 
 #fig_title = 'Force vs. Cantilever Position:'
 #xlab = 'Distance along Cantilever [um]'
 
 # Locate Calibration files
-tf_path = '/calibrations/transfer_funcs/Hout_20170822.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170822.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
+im_cal_path = '/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy'
 
 legend = True
 #leginds = [1,1]
@@ -71,36 +78,50 @@ def proc_dir(d):
     # different cantilever positions
     dv = ddict[d]
     dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
-    dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles)
-    
-    dir_obj.filter_files_by_cantdrive(cant_axis=SWEEP_AX, nharmonics=10, noise=True, width=1.)
 
-    dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, cantfilt=cantfilt, \
-                               stagestep=stagestep, stepind=stepind, multistep=multistep, stepind2=stepind2)
+    newfils = []
+    for fil in dir_obj.files:
+        if filstring in fil:
+            newfils.append(fil)
+    dir_obj.files = newfils
 
     # Load the calibrations
     dir_obj.load_H(tf_path)
     dir_obj.load_step_cal(step_cal_path)
+    dir_obj.image_calibration = im_cal_path
+    dir_obj.trapx_pixel = 340.0
+
     dir_obj.calibrate_H()
 
-    dir_obj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=lpf, #plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=cal_drive_freq, cantfilt=cantfilt)
+    dir_obj.load_dir(cu.diag_loader, maxfiles=maxfiles, prebin=True, nharmonics=10, \
+                     noise=False, width=1., cant_axis=SWEEP_AX, reconstruct_lowf=True, \
+                     lowf_thresh=lpf, drive_freq=cal_drive_freq, \
+                     init_bin_sizes=[1.0, 1.0, 1.0], analyze_image=True, cantfilt=cantfilt)
+
+
+    dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, cantfilt=cantfilt, \
+                               stagestep=stagestep, stepind=stepind, \
+                                multistep=multistep, stepind2=stepind2)
+
     dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, diag=True, cantfilt=cantfilt, \
-                                stagestep=stagestep, stepind=stepind, multistep=multistep, stepind2=stepind2,
-                                close_dat=True)
+                                stagestep=stagestep, stepind=stepind, multistep=multistep, stepind2=stepind2)
 
     return dir_obj
 
-# Do intial processing
-dir_objs = map(proc_dir, dirs)
-if subtract_background:
-    bdir_objs = map(proc_dir, bdirs)
+# Do intial processing or load processed dir_objs
+if not load_dir_objs:
+    dir_objs = map(proc_dir, dirs)
+    if subtract_background:
+        bdir_objs = map(proc_dir, bdirs)
+    if save_dir_objs:
+        pickle.dump(dir_objs, open(dir_obj_save_path, 'wb') )
+elif load_dir_objs:
+    dir_objs = pickle.load( open(dir_obj_save_path, 'rb') )
 
 
-
-f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(7,8),dpi=100)
-if subtract_background:
-    f2, axarr2 = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
+#f, axarr = plt.subplots(3,2,sharex='all',sharey='all',figsize=(7,8),dpi=100)
+#if subtract_background:
+#    f2, axarr2 = plt.subplots(3,2,sharex='all',sharey='all',figsize=(10,12),dpi=100)
 
 
 
@@ -187,10 +208,10 @@ ax = fig.add_subplot(111, projection='3d')
 
 #ax.plot_wireframe(sepgrid, xgrid, out)
 if plot_vs_seps:
-    surf = ax.plot_surface(sepgrid, xgrid, fgrid, rstride=2, cstride=2,\
+    surf = ax.plot_surface(sepgrid, posgrid, fgrid, rstride=2, cstride=2,\
                            cmap=cm.coolwarm, linewidth=0, antialiased=False)
 elif plot_vs_heights:
-    surf = ax.plot_surface(heightgrid, xgrid, fgrid, rstride=2, cstride=2,\
+    surf = ax.plot_surface(heightgrid, posgrid, fgrid, rstride=2, cstride=2,\
                            cmap=cm.coolwarm, linewidth=0, antialiased=False)
     
 
