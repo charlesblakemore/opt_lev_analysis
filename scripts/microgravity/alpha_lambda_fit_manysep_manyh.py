@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import dill as pickle
 
 import bead_util as bu
 import cant_util as cu
@@ -9,7 +10,7 @@ import scipy.signal as signal
 import scipy.optimize as optimize 
 import scipy.stats as stats
 
-import sys
+import sys, time
 
 
 ### NOTE: RESPONSE AXIS AND CANTILEVER SWEEP AXIS ARE CURRENTLY
@@ -18,7 +19,8 @@ import sys
 ### THE DOMINANT BACKGROUND IS INDEED PATCH POTENTIALS AS THE 
 ### DIPOLE MAY HAVE A PREFERRED ORIENTATION
 
-
+save_path = '/sensitivities/alpha_lambda_sens95cl_20170903_flickernoise_minchi1.p'
+extra_lab = ' Many Sep, Many Height'
 
 # Choose whether to force the min_chisq to 1 or divide the noise
 # by an arbitrary factor to accomplish the same thing.
@@ -34,6 +36,8 @@ bandwidth = 1. / band
 show_data_at_modulation = True
 dispfit = True
 
+resp_ax = 0
+vel_mult = 0
 
 ### Load theoretical modified gravity curves
 
@@ -60,11 +64,13 @@ con_val = 0.5 * chi2dist.ppf(confidence_level)
 
 ### Load backgrounds
 
-procd_data = '/processed_data/grav_data/manyh_manysep_20170903.p'
+procd_data = '/processed_data/grav_data/manysep_20170903.p'
 procd_dirs = pickle.load( open(procd_data, 'rb') )
-for objind, obj in procd_dirs:
+for objind, obj in enumerate(procd_dirs):
     obj.get_closest_sep_and_pos()
     obj.bead_height = 10.0    # height from dipole measurements
+
+cal_facs = procd_dirs[0].conv_facs
 
 background_data = cu.Force_v_pos()
 background_data.load_dir_objs(procd_dirs, organize=True)
@@ -75,6 +81,11 @@ dat = background_data.dat
 seps = background_data.seps
 heights = background_data.heights
 
+print "looping over %i seps" % len(seps)
+print "looping over %i heights" % len(heights)
+
+#seps = seps[:5]
+#heights = heights[:5]
 
 
 ### Load limits to plot against
@@ -103,25 +114,36 @@ def line(x, a, b):
 def const(x, a):
     return a
 
-wvnum_upp = 1. / 20.   # um^-1, define an upper limit for noise model fit
-wvnum_low = 1. / 100.  # um^-1, define an lower limit for noise model fit
-wvnum_sig = 1. / 50.   # um^-1, expected signal (to remove from noise model estimate)
+def flicker(x, a):
+    return a * (1. / x)
 
+wvnum_upp = 1. / 5.   # um^-1, define an upper limit for noise model fit
+wvnum_low = 1. / 800.  # um^-1, define an lower limit for noise model fit
+wvnum_sig = 1. / 50.   # um^-1, expected signal (to remove from noise model estimate)
 
 lambdas = fcurve_obj.lambdas
 alphas = np.zeros_like(lambdas)
 diagalphas = np.zeros_like(lambdas)
 
+min_chisq = []
+diagmin_chisq = []
+
 lambdas = lambdas[::-1]
-testalphas = np.linspace(0, 12, 10000)
+testalphas = np.linspace(0, 12, 1000)
 
 colors = bu.get_color_map(len(lambdas))
 
-
+per = 0.0
 for ind, yuklambda in enumerate(lambdas):
-
+    newper = (float(ind) / float(len(lambdas))) * 100.
+    if newper > per + 1.0:
+        print int(per),
+        sys.stdout.flush()
+        per = newper
     chi_sqs = np.zeros(len(testalphas))
     diag_chi_sqs = np.zeros(len(testalphas))
+
+    start = time.time()
 
     for alphaind, testalpha in enumerate(testalphas):
 
@@ -132,36 +154,36 @@ for ind, yuklambda in enumerate(lambdas):
     
         for sep in seps:
             for height in heights:
-                
-                SEP = np.sqrt(sep**2 + height**2)
-                
-                gforce = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \
-                                       yuklambda=yuklambda, rbead=RBEAD, nograv=True)
-                diaggforce = fcurve_obj.mod_grav_force(diagbins*1e-6, sep=SEP, alpha=1., \
-                                           yuklambda=yuklambda, rbead=RBEAD, nograv=True)
 
-                gforce = signal.detrend(gforce)
-                diaggforce = signal.detrend(diaggforce)
+                bins = dat[sep][height][0][resp_ax,vel_mult][0]
+                force = dat[sep][height][0][resp_ax,vel_mult][1]*cal_facs[resp_ax]
 
-                gfft = np.fft.rfft(gforce)
-                gasd = np.abs(gfft)
-                diaggfft = np.fft.rfft(diaggforce)
-                diaggasd = np.abs(diaggfft)
-
-
-                bins = dat[sep][height][resp_ax,vel_mult][0]
-                force = dat[sep][height][resp_ax,vel_mult][1]
-
-                diagbins = diagdat[sep][height][resp_ax,vel_mult][0]
-                diagforce = diagdat[sep][height][resp_ax,vel_mult][1]
+                diagbins = dat[sep][height][1][resp_ax,vel_mult][0]
+                diagforce = dat[sep][height][1][resp_ax,vel_mult][1]
 
                 fft = np.fft.rfft(force)
                 wvnum = np.fft.rfftfreq( len(force), d=(bins[1]-bins[0]) )
                 asd = np.abs(fft)
 
                 diagfft = np.fft.rfft(diagforce)
-                diagwvnum = np.fft.rfft( len(diagforce), d=(diagbins[1]-diaggins[0]) )
+                diagwvnum = np.fft.rfftfreq( len(diagforce), d=(diagbins[1]-diagbins[0]) )
                 diagasd = np.abs(diagfft)
+
+                
+                SEP = np.sqrt(sep**2 + height**2)
+
+                gforce = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \
+                                       yuklambda=yuklambda, rbead=RBEAD, nograv=True)
+                diaggforce = fcurve_obj.mod_grav_force(diagbins*1e-6, sep=SEP, alpha=1., \
+                                           yuklambda=yuklambda, rbead=RBEAD, nograv=True)
+
+                #gforce = signal.detrend(gforce)
+                #diaggforce = signal.detrend(diaggforce)
+
+                gfft = np.fft.rfft(gforce)
+                gasd = np.abs(gfft)
+                diaggfft = np.fft.rfft(diaggforce)
+                diaggasd = np.abs(diaggfft)
 
                 sigarg = np.argmin( np.abs( wvnum - wvnum_sig ) )
                 dsigarg = np.argmin( np.abs( diagwvnum - wvnum_sig ) )
@@ -176,21 +198,29 @@ for ind, yuklambda in enumerate(lambdas):
                 dinds[dsigarg-1:dsigarg+2] = False
 
                 # Estimate a noise model by fitting the ASD to a line
-                popt, pcov = optimize.curve_fit(const, wvnum[inds], asd[inds], p0 = [1e-15])
-                diagpopt, diagpcov = optimize.curve_fit(const, diagwvnum[dinds], diagasd[dinds], p0 = [1e-15])
+                popt, pcov = optimize.curve_fit(flicker, wvnum[inds], asd[inds], \
+                                                  p0 = [1e-15])
+                diagpopt, diagpcov = optimize.curve_fit(flicker, diagwvnum[dinds], \
+                                                  diagasd[dinds], p0 = [1e-15])
 
-                noise_asd = np.zeros_like(wvnum) + popt[0]
-                #noise_asd = wvnum * popt[0] + popt[1]
+                #noise_asd = np.zeros_like(wvnum) + np.mean(asd[inds])
+                noise_asd = flicker(wvnum, *popt)
+                #noise_asd = asd
 
-                diagnoise_asd = np.zeros_like(diagwvnum) + diagpopt[0]
-                #diagnoise_asd = diagwvnum * diagpopt[0] + diagpopt[1]
+                #diagnoise_asd = np.zeros_like(diagwvnum) + np.mean(diagasd[inds])
+                diagnoise_asd = flicker(diagwvnum, *diagpopt)
+                #diagnoise_asd = diagasd
+
+                #plt.loglog(wvnum, noise_asd)
+                #plt.loglog(wvnum, asd)
+                #plt.show()
 
                 # Scale the noise by the arbitraily defined noise fac
                 noise_asd_s = noise_asd / noise_fac
                 diagnoise_asd_s = diagnoise_asd / noise_fac
             
-                chi_sq += np.sum( np.abs(fft - 10**derpalpha * gfft)**2 / noise_asd_s**2 )
-                diag_chi_sq += np.sum( np.abs(diagfft - 10**derpalpha * diaggfft)**2 / diagnoise_asd_s**2 )
+                chi_sq += np.sum( np.abs(fft - 10**testalpha * gfft)**2 / noise_asd_s**2 )
+                diag_chi_sq += np.sum( np.abs(diagfft - 10**testalpha * diaggfft)**2 / diagnoise_asd_s**2 )
 
                 N += len(fft)
                 diagN += len(diagfft)
@@ -200,9 +230,16 @@ for ind, yuklambda in enumerate(lambdas):
         chi_sqs[alphaind] = red_chi_sq
         diag_chi_sqs[alphaind] = diag_red_chi_sq
 
+    stop = time.time()
+    print "time for single lambda: ", stop-start
 
 
     if setmin_chisq:
+        print np.min(chi_sqs)
+        print np.min(diag_chi_sqs)
+        min_chisq.append(np.min(chi_sqs))
+        diagmin_chisq.append(np.min(diag_chi_sqs))
+
         chi_sqs = chi_sqs / np.min(chi_sqs)
         diag_chi_sqs = diag_chi_sqs / np.min(diag_chi_sqs)
 
@@ -239,8 +276,10 @@ for ind, yuklambda in enumerate(lambdas):
     dp0_old = diagpopt
     
     # Select the positive root for the non-diagonalized data
-    soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - 4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
-    soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - 4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
+    soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - \
+                    4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
+    soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - \
+                    4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
     if soln1 > soln2:
         alpha_con = soln1
     else:
@@ -248,9 +287,9 @@ for ind, yuklambda in enumerate(lambdas):
 
     # Select the positive root for the diagonalized data
     diagsoln1 = ( -1.0 * diagpopt[1] + np.sqrt( diagpopt[1]**2 - \
-                                                4 * diagpopt[0] * (diagpopt[2] - con_val)) ) / (2 * diagpopt[0])
+                        4 * diagpopt[0] * (diagpopt[2] - con_val)) ) / (2 * diagpopt[0])
     diagsoln2 = ( -1.0 * diagpopt[1] - np.sqrt( diagpopt[1]**2 - \
-                                                4 * diagpopt[0] * (diagpopt[2] - con_val)) ) / (2 * diagpopt[0])
+                        4 * diagpopt[0] * (diagpopt[2] - con_val)) ) / (2 * diagpopt[0])
     if diagsoln1 > diagsoln2:
         diag_alpha_con = diagsoln1
     else:
@@ -261,6 +300,16 @@ for ind, yuklambda in enumerate(lambdas):
     diagalphas[ind] = diag_alpha_con 
 
     
+
+outdic = {}
+outdic['min_chisq'] = min_chisq
+outdic['diagmin_chisq'] = diagmin_chisq
+outdic['lambdas'] = lambdas
+outdic['alphas'] = alphas
+outdic['diagalphas'] = diagalphas
+pickle.dump( outdic, open(save_path, 'wb') )
+
+
 plt.title('Goodness of Fit for Various Lambda', fontsize=16)
 plt.xlabel('Alpha Parameter [arb]', fontsize=14)
 plt.ylabel('$\chi^2$', fontsize=18)
@@ -275,8 +324,10 @@ f3, axarr3 = plt.subplots(1,2,sharex='all',sharey='all',figsize=(10,5),dpi=100)
 plt.suptitle('Sensitivity' + extra_lab, fontsize=18)
 axarr3[0].set_title('Raw Data', fontsize=16)
 axarr3[0].loglog(lambdas, alphas, linewidth=2, label='95% CL')
-axarr3[0].loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
-axarr3[0].loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
+axarr3[0].loglog(limitdata[:,0], limitdata[:,1], '--', \
+                 label=limitlab, linewidth=3, color='r')
+axarr3[0].loglog(limitdata2[:,0], limitdata2[:,1], '--', \
+                 label=limitlab2, linewidth=3, color='k')
 axarr3[0].grid()
 
 axarr3[0].set_ylabel('alpha [arb]')

@@ -2347,8 +2347,8 @@ class Force_v_pos:
             return
 
         self.dat = {}
-        self.seps = []
-        self.heights = []
+        seps = []
+        heights = []
 
         for obj in self.dir_objs:
             dat = obj.avg_force_v_pos
@@ -2382,8 +2382,8 @@ class Force_v_pos:
                 zpos = key[1]
                 height = zpos - bzpos
                 
-                self.seps.append(sep)
-                self.heights.append(height)
+                seps.append(sep)
+                heights.append(height)
             
                 if sep not in self.dat:
                     self.dat[sep] = {}
@@ -2400,6 +2400,12 @@ class Force_v_pos:
                 # only takes a single sep and height and whose results are
                 # meant to be collected in post-processing after batch submission     
        
+        self.seps = np.unique(seps)
+        self.heights = np.unique(heights)
+        
+        #print self.seps
+        #print self.heights
+
         self.seps.sort()
         self.heights.sort()
 
