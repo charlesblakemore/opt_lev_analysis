@@ -19,9 +19,9 @@ from scipy.optimize import minimize_scalar as minimize
 
 bias = False
 stagestep = True
-stepind = 2
+stepind = 0
 
-dirs = [9,]
+dirs = [18,]
 bdirs = [1,]
 subtract_background = False
 
@@ -31,9 +31,9 @@ maxfiles = 10000   # Maximum number of files to load from a directory
 get_h_from_z = True
 show_fits = True
 
-fit_height = True
+fit_height = False
 fit_dist = 70.     # um, distance to compute force from fit to locate cantilever
-init_data = [15., 0., 0]  # Separation data to initialize directories
+init_data = [20., 0., 0]  # Separation data to initialize directories
 
 bin_size = 4     # um, Binning for final force v. pos
 lpf = 150        # Hz, acausal top-hat filter at this freq
@@ -44,7 +44,7 @@ include_dirlab = False
 
 # Locate Calibration files
 tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170906_10um_bead.p'
 
 legend = True
 leginds = [1,1]
@@ -53,8 +53,8 @@ leginds = [1,1]
 # Don't edit below this unless you know what you're doing
 
 RESP_AX = 0
-SWEEP_AX = 0     # Cantilever sweep axis, 1 for Y, 2 for Z
-STEP_AX = 2      # Axis with differnt DC pos., 2 for height, 0 for sep 
+SWEEP_AX = 2     # Cantilever sweep axis, 1 for Y, 2 for Z
+STEP_AX = 0      # Axis with differnt DC pos., 2 for height, 0 for sep 
 
 cal_drive_freq = 41  # Hz
 
@@ -69,6 +69,9 @@ def ffn_old(x, a, b, c):
 
 def ffn(x, a, b, c, sep=0., maxval=80.):
     return a * (1. / (x - sep - maxval))**2 + b * (1. / (x - sep - maxval))**2 + c
+
+def ffn_wlin(x, a, b, c, d, sep=0., maxval=80.):
+    return a * (1. / (x - sep - maxval))**2 + b * (1. / (x - sep - maxval))**2 + c + d * x
 
 def ffn2(x, a, b, c):
     return a * x**2 + b * x + c
@@ -127,11 +130,11 @@ for objind, obj in enumerate(dir_objs):
     sep = obj.seps[SWEEP_AX]
     maxval = obj.maxvals[SWEEP_AX]
 
-    print sep
-    print maxval
+    #print sep
+    #print maxval
 
-    def fitfunc(x, a, b, c):
-        return ffn(x, a, b, c, sep=sep, maxval=maxval)
+    def fitfunc(x, a, b, c, d):
+        return ffn_wlin(x, a, b, c, d, sep=sep, maxval=maxval)
 
     if subtract_background:
         bobj = bdir_objs[objind]
@@ -160,8 +163,11 @@ for objind, obj in enumerate(dir_objs):
         #offset = 0
         lab = str(key) + ' um'
         for resp in [0,1,2]:
-            offset = - dat[resp,0][1][0]
-            diagoffset = - diagdat[resp,0][1][0]
+            #offset = - dat[resp,0][1][0]
+            #diagoffset = - diagdat[resp,0][1][0]
+
+            offset = 0
+            diagoffset = 0
             # refer to indexing eplanation above if this is confusing!
             axarr[resp,0].errorbar(dat[resp,0][0], \
                                    (dat[resp,0][1]+offset)*cal_facs[resp]*1e15, \
@@ -187,10 +193,10 @@ for objind, obj in enumerate(dir_objs):
             diagoffset = -diagdat[RESP_AX,0][1][0]
             popt, pcov = curve_fit(fitfunc, dat[RESP_AX,0][0], \
                                            (dat[RESP_AX,0][1]+offset)*cal_facs[RESP_AX]*1e15, \
-                                           p0=[1.,0.1,0])
+                                           p0=[1.,0.1,0, 0])
             diagpopt, diagpcov = curve_fit(fitfunc, diagdat[RESP_AX,0][0], \
                                            (diagdat[RESP_AX,0][1]+diagoffset)*1e15, \
-                                           p0=[1.,0.1,0])
+                                           p0=[1.,0.1,0, 0])
 
             if show_fits:
                 fitax[0].plot(dat[RESP_AX,0][0], fitfunc(dat[RESP_AX,0][0], *popt), color = color)

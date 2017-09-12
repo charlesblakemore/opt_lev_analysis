@@ -2169,44 +2169,61 @@ class Data_dir:
         bvec = [yfit<10.*np.mean(yfit)] #exclude cray outliers
         yfit = yfit[bvec]
 
-        plt.figure(1)
-        plt.ion()
-        plt.plot(yfit, 'o')
-        plt.show()
+        happy_with_fit = False
 
-        print "CHARGE STEP CALIBRATION"
-        print "Enter guess at number of steps and charge at steps [[q1, q2, q3, ...], [x1, x2, x3, ...], vpq]"
-        nstep = input(": ")
-        
-        #function for fit with volts per charge as only arg.
-        def ffun(x, vpq, offset):
-            qqs = vpq*np.array(nstep[0])
-            try:
-                offarr = np.zeros(len(x))
-                offarr[x>nstep[-1]] += offset
-            except TypeError:
-                if x > nstep[-1]:
-                    offarr = offset
-                else:
-                    offarr = 0
-            return bu.multi_step_fun(x, qqs, nstep[1]) + offarr
+        while not happy_with_fit:
+            plt.figure(1)
+            plt.ion()
+            plt.plot(yfit, 'o')
+            plt.show()
 
-        xfit = np.arange(len(self.step_cal_vec))
-        xfit = xfit[bvec]
+            print "CHARGE STEP CALIBRATION"
+            print "Enter guess at number of steps and charge at steps [[q1, q2, q3, ...], [x1, x2, x3, ...], vpq]"
+            nstep = input(": ")
 
-        #fit
-        p0 = [nstep[2],0.02]#Initial guess for the fit
-        popt, pcov = curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
+            #function for fit with volts per charge as only arg.
+            def ffun(x, vpq, offset):
+                qqs = vpq*np.array(nstep[0])
+                try:
+                    offarr = np.zeros(len(x))
+                    offarr[x>nstep[-1]] += offset
+                except TypeError:
+                    if x > nstep[-1]:
+                        offarr = offset
+                    else:
+                        offarr = 0
+                return bu.multi_step_fun(x, qqs, nstep[1]) + offarr
 
-        fitobj = Fit(popt, pcov, ffun)#Store fit in object.
+            xfit = np.arange(len(self.step_cal_vec))
+            xfit = xfit[bvec]
 
-        plt.close(1)
+            #fit
+            p0 = [nstep[2],0.02]#Initial guess for the fit
+            popt, pcov = curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
+
+            fitobj = Fit(popt, pcov, ffun)#Store fit in object.
+
+            plt.close(1)
+            f, axarr = plt.subplots(2, sharex = True)#Plot fit
+            fitobj.plt_fit(xfit, yfit, axarr[0])
+            fitobj.plt_residuals(xfit, yfit, axarr[1])
+            plt.show()
+            
+            happy = raw_input("does the fit look good? (y/n): ")
+            if happy == 'y':
+                happy_with_fit = True
+            elif happy == 'n':
+                f.clf()
+                continue
+            else:
+                f.clf()
+                print 'that was a yes or no question... assuming you are unhappy'
+                sys.stdout.flush()
+                time.sleep(5)
+                continue
+
         plt.ioff()
-        f, axarr = plt.subplots(2, sharex = True)#Plot fit
-        fitobj.plt_fit(xfit, yfit, axarr[0])
-        fitobj.plt_residuals(xfit, yfit, axarr[1])
-        plt.show()
-        
+
         #Determine force calibration.
         fitobj.popt = fitobj.popt * 1./(amp_gain*bu.e_charge/plate_sep)
         fitobj.errs = fitobj.errs * 1./(amp_gain*bu.e_charge/plate_sep)
