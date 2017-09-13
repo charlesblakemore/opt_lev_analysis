@@ -20,7 +20,7 @@ cal_dir_obj = cu.Data_dir('', [0,0,0], 'Therm Cal')
 ######################
 
 
-therm_path = '/data/20170720/bead3/1_5mbar_nocool.h5'
+therm_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
 
 
 cal_dir_obj.thermal_cal_file_path = therm_path

@@ -254,8 +254,8 @@ def rotate_data(x, y, ang):
 
 
 def good_corr(drive, response, fsamp, fdrive):
-    corr = np.zeros(fsamp/fdrive)
-    response = np.append(response, np.zeros( fsamp/fdrive-1 ))
+    corr = np.zeros(int(fsamp/fdrive))
+    response = np.append(response, np.zeros( int(fsamp/fdrive)-1 ))
     n_corr = len(drive)
     for i in range(len(corr)):
         #Correct for loss of points at end

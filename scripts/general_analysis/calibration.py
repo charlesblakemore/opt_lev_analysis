@@ -16,14 +16,14 @@ from scipy.optimize import minimize_scalar as minimize
 dirs = [9,]
 ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
 
-load_charge_cal = False
-step_cal_path = '/calibrations/step_cals/step_cal_20170906_10um_bead.p'
-cal_dir = '/data/20170906/bead6/redischarge3'
+load_charge_cal = True
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
+cal_dir = '/data/20170903/bead1/discharge_fine'
 
 thermal_path = '/data/20170906/bead6/1_5mbar_zcool.h5'
 
-date = '20170906_10um_bead'
-save = True
+date = '20170903'
+save = False
 
 maxfiles = 141
 
@@ -36,8 +36,8 @@ if not load_charge_cal:
 
     cal_dir_obj = cu.Data_dir(cal[0], [0,0,cal[2]], cal[1])
     cal_dir_obj.load_dir(cu.simple_loader, maxfiles=maxfiles)
-    cal_dir_obj.build_step_cal_vec(files=[70,140])
-    cal_dir_obj.step_cal(amp_gain = 200.)
+    cal_dir_obj.build_step_cal_vec()#files=[70,140])
+    cal_dir_obj.step_cal(amp_gain = 1.)
     if save:
         cal_dir_obj.save_step_cal('/calibrations/step_cals/step_cal_'+date+'.p')
 

@@ -5,32 +5,33 @@ import glob
 import bead_util as bu
 import Tkinter
 import tkFileDialog
-import os, sys
+import os, sys, re
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 
+plot_vs_time = False
+plot_vs_sep = True
+
 filstring = ''
 
 filnames = []
-#filnames = ["/data/20170707/bead5/1_5mbar_zcool.h5"] #, \
-            #"/data/20170707/bead5/turbombar_xyzcool_discharged_50kHz_later2.h5"] #, \
-            #"/data/20170707/bead5/nextday/turbobase_xyzcool.h5", ]
+
 #labs = ['Charged', 'Discharged']
 use_labs = False #True
 
 ddict = bu.load_dir_file( '/dirfiles/dir_file_sept2017.txt' )
-dirs = [11,12]
+dirs = [12]
 
 chan_to_plot = [0, 1, 2]
 chan_labs = ['X', 'Y', 'Z']
 
 NFFT = 2**12
 xlim = [1, 2500]
-ylim = [6e-18,1.5e-14]
+ylim = [6e-19,1.5e-15]
 
-maxfiles = 10000
+maxfiles = 100
 
 calibrate = True
 tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
@@ -56,6 +57,7 @@ def proc_dir(d):
     init_data = [dv[0], [0,0,dv[-1]], dv[1]]
     dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
     files = []
+    # initially sort by time
     for path in dir_obj.paths:
         entries = [os.path.join(path, fn) for fn in os.listdir(path)]
         entries = [(os.stat(path), path) for path in entries]
@@ -67,7 +69,7 @@ def proc_dir(d):
         if '.npy' in thing[1]:
             continue
         files.append(thing[1])
-    dir_obj.files = files[-200:]
+    dir_obj.files = files[:]
 
     dir_obj.load_dir(cu.simple_loader, maxfiles=maxfiles)
     #dir_obj.diagonalize_files
@@ -86,53 +88,85 @@ for fil in filnames:
 
 #print fil_objs
 
-
+sep_dict = {}
 time_dict = {}
 for obj in dir_objs:
     for fobj in obj.fobjs:
         if filstring not in fobj.fname:
             continue
+        sep = re.findall('[0-9]*X([0-9]+)*\u', fobj.fname)
+        sep = float(sep[0])
         fobj.detrend()
         fobj.psd(NFFT = NFFT)
         pressures.append(fobj.pressures[0])
         time = fobj.Time
         time_dict[time] = fobj
 
+        if sep not in sep_dict:
+            sep_dict[sep] = []
+        sep_dict[sep].append(fobj)
+
 for fobj in fil_objs:
     if filstring not in fobj.fname:
         continue
+    sep = re.findall('[0-9]*X([0-9]+)*\u', fobj.fname)
+    sep = float(sep[0])
     fobj.detrend()
     fobj.psd(NFFT = NFFT)
     pressures.append(fobj.pressures[0])
     time = fobj.Time
     time_dict[time] = fobj
 
+    if sep not in sep_dict:
+        sep_dict[sep] = []
+    sep_dict[sep].append(fobj)
+
+seps = sep_dict.keys()
+seps.sort()
 
 times = time_dict.keys()
 times.sort()
 
-colors_yeay = bu.get_color_map( len(times) )
-#colors_yeay = ['b', 'r', 'g']
+if plot_vs_time:
+    colors_yeay = bu.get_color_map( len(times) )
+    iterlist = times
+
+if plot_vs_sep:
+    colors_yeay = bu.get_color_map( len(seps) )
+    iterlist = seps
+
 
 lab = ''
 plots = len(chan_to_plot)
 f, axarr = plt.subplots(plots,1,sharex='all')
-for i, time in enumerate(times):
+
+
+for i, iterobj in enumerate(iterlist):
     col = colors_yeay[i]
-    cfobj = time_dict[time]
-    #lab = str(cu.round_sig(cfobj.pressures[0],2)) + ' mbar'
-    if use_labs:
-        lab = labs[i]
-    
-    for ax in chan_to_plot:
-        if calibrate:
-            axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]) * charge_step_facs[ax], \
-                             color=col, label=lab )
-        else:
-            axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]), \
-                             color=col, label=lab )
-        axarr[ax].set_ylim(*ylim)
-        axarr[ax].set_xlim(*xlim)
+    if plot_vs_time:
+        cfobj = time_dict[time]
+        for ax in chan_to_plot:
+            if calibrate:
+                axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]) * charge_step_facs[ax], \
+                                 color=col, label=lab )
+            else:
+                axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]), \
+                                 color=col, label=lab )
+            axarr[ax].set_ylim(*ylim)
+            axarr[ax].set_xlim(*xlim)
+
+    if plot_vs_sep:
+        for cfobj in sep_dict[iterobj]:
+            for ax in chan_to_plot:
+                if calibrate:
+                    axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]) * charge_step_facs[ax], \
+                                     color=col, label=lab )
+                else:
+                    axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]), \
+                                     color=col, label=lab )
+                axarr[ax].set_ylim(*ylim)
+                axarr[ax].set_xlim(*xlim)
+            
 
 for ax in chan_to_plot:
     if calibrate:

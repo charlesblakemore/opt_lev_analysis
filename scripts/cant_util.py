@@ -112,6 +112,7 @@ def sbin(xvec, yvec, bin_size):
         y_errors[i] = scipy.stats.sem(yvec[idx])
     return bins, y_binned, y_errors
 
+
 def sbin_pn(xvec, yvec, bin_size=1., vel_mult = 0.):
     #Bins yvec based on binning xvec into bin_size for velocities*vel_mult>0.
     fac = 1./bin_size
@@ -426,7 +427,11 @@ class Data_file:
 
         #self.pos_data = np.transpose(dat[:,[elec_inds[1],elec_inds[3],elec_inds[5]]])
         self.cant_data = np.transpose(dat[:, 17:20])*cant_cal
-        self.electrode_data = np.transpose(dat[:, elec_inds]) #Record of voltages on the electrodes
+        # Record of voltages on the electrodes
+        try:
+            self.electrode_data = np.transpose(dat[:, elec_inds]) 
+        except:
+            print "No electrode data for %s" % self.fname
 
         f.close()
 
@@ -657,18 +662,25 @@ class Data_file:
         dpsd = np.abs(dfft)**2*2./(N*self.Fsamp) # psd for all electrode drives
         
         # Where the dpsd is over the threshold for being used.
-        inds = np.where(dpsd>dpsd_thresh)
+        inds = dpsd > dpsd_thresh 
+
         # transfer matrix between electrodes and bead motion for all frequencies
         Hmatst = np.einsum('ij, kj->ikj', self.data_fft, 1./dfft) 
-        finds = inds[1] # frequency index with significant drive
-        cinds = inds[0] # colun index with significant drive
+        
+        cind = np.argmax(np.sum(inds,-1)) # column with drive
 
-        b = finds > np.argmin(np.abs(self.fft_freqs - mfreq))
+        fbool = inds[cind,:] # frequency indices with significant drive
+
+        minind = np.argmin( np.abs(self.fft_freqs - mfreq) )
+
+        fbool[:minind] = False
+        # Convert the boolean array to an array of indices
+        finds = np.linspace(0, len(fbool)-1, len(fbool), dtype=int)[fbool] 
 
         # Find and correct for arbitrary pi phase shift in each channel's self response
         # This is equivalent to retaking transfer function data, adding appropriate
         # minus signs in the elctrode to keep the response in phase with the drive
-        init_phases = np.mean(np.angle(Hmatst[:,:,finds[b]])[:,:,:2],axis=-1)
+        init_phases = np.mean(np.angle(Hmatst[:,:,finds])[:,:,:2],axis=-1)
         #print init_phases
         for drive in [0,1,2]:
             j = emap2(drive)
@@ -679,7 +691,7 @@ class Data_file:
             #for resp in [0,1,2]:
         data_psd = np.abs(self.data_fft)**2*2./(N*self.Fsamp)
 
-        dat_ind = emap(cinds[b][0])
+        dat_ind = emap(cind)
 
         ######################
         #### Sanity Check ####
@@ -696,7 +708,7 @@ class Data_file:
         ######################
 
         # roll the response fft to compute a noise H
-        shift = int(0.5 * (finds[b][1]-finds[b][0])) 
+        shift = int(0.5 * (finds[1]-finds[0])) 
         randadd = np.random.choice(np.arange(-int(0.1*shift), int(0.1*shift)+1, 1))
         shift = shift+randadd
 
@@ -708,10 +720,10 @@ class Data_file:
 
         Hmatst_noise = np.einsum('ij, kj->ikj', rolled_data_fft, 1./dfft)
 
-        self.H = Hmat(finds[b], cinds[b], Hmatst[:, :, finds[b]])
-        self.noiseH = Hmat(finds[b], cinds[b], Hmatst_noise[:, :, finds[b]])
+        self.H = Hmat(finds, cind, Hmatst[:, :, finds])
+        self.noiseH = Hmat(finds, cind, Hmatst_noise[:, :, finds])
 
-        self.Hcomponents = (self.data_fft[:,b], dfft[:,b])
+        self.Hcomponents = (self.data_fft[:,fbool], dfft[:,fbool])
 
 
 
@@ -2167,7 +2179,7 @@ class Data_dir:
 
         yfit = np.abs(self.step_cal_vec)
         bvec = [yfit<10.*np.mean(yfit)] #exclude cray outliers
-        yfit = yfit[bvec]
+        yfit = yfit[bvec] 
 
         happy_with_fit = False
 
@@ -2184,14 +2196,15 @@ class Data_dir:
             #function for fit with volts per charge as only arg.
             def ffun(x, vpq, offset):
                 qqs = vpq*np.array(nstep[0])
-                try:
-                    offarr = np.zeros(len(x))
-                    offarr[x>nstep[-1]] += offset
-                except TypeError:
-                    if x > nstep[-1]:
-                        offarr = offset
-                    else:
-                        offarr = 0
+                offarr = np.zeros(len(x)) + offset
+                #try:
+                #    offarr = np.zeros(len(x))
+                #    offarr[x>nstep[-1]] += offset
+                #except TypeError:
+                #    if x > nstep[-1]:
+                #        offarr = offset
+                #    else:
+                #        offarr = 0
                 return bu.multi_step_fun(x, qqs, nstep[1]) + offarr
 
             xfit = np.arange(len(self.step_cal_vec))
@@ -2202,11 +2215,18 @@ class Data_dir:
             popt, pcov = curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
 
             fitobj = Fit(popt, pcov, ffun)#Store fit in object.
-
+    
+            newpopt = np.copy(popt)
+            newpopt[1] = 0.0
+    
+            normfitobj = Fit(newpopt / popt[0], pcov / popt[0], ffun)
+    
             plt.close(1)
-            f, axarr = plt.subplots(2, sharex = True)#Plot fit
-            fitobj.plt_fit(xfit, yfit, axarr[0])
-            fitobj.plt_residuals(xfit, yfit, axarr[1])
+            f, axarr = plt.subplots(2, sharex = True, \
+                                    gridspec_kw = {'height_ratios':[2,1]})#Plot fit
+            normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
+                               axarr[0], ylabel="Normalized Response [e]")
+            normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1])
             plt.show()
             
             happy = raw_input("does the fit look good? (y/n): ")

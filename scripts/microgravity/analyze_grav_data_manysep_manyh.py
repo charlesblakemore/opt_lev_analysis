@@ -36,18 +36,18 @@ height_to_plot = 0.0
 plot_vs_heights = False
 sep_to_plot = 80
 
-dirs = [57,]
+dirs = [21,]
 bdirs = [1,]
 subtract_background = False
 
 filstring = ''
-ddict = bu.load_dir_file( "/dirfiles/dir_file_aug2017.txt" )
+ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
 maxfiles = 10000   # Maximum number of files to load from a directory
 
 load_dir_objs = True
 save_dir_objs = False
 #dir_obj_save_path = '/processed_data/grav_data/manysep_20170906_10um_bead.p'
-dir_obj_save_path = '/processed_data/grav_data/manysep_20170822.p'
+dir_obj_save_path = '/processed_data/grav_data/0h_20170912_no_bead.p'
 
 resp = 0
 SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
@@ -66,7 +66,7 @@ im_cal_path = '/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy
 
 legend = True
 leginds = [1,1]
-ncol = 1
+ncol = 3
 ##########################################################
 # Don't edit below this unless you know what you're doing
 
@@ -303,8 +303,8 @@ axarr[2,0].set_ylabel('Z-direction Force [fN]')
 if legend:
     axarr[leginds[0]][leginds[1]].legend(loc=0, numpoints=1, ncol=ncol, fontsize=9)
 
-#dirlabel = dir_objs[0].label
-dirlabel = '5 um Beads'
+dirlabel = dir_objs[0].label
+#dirlabel = '5 um Beads'
 
 if len(fig_title):
     f.suptitle(fig_title + ' ' + dirlabel, fontsize=18)
