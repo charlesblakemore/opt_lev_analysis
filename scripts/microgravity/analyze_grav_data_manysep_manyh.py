@@ -36,18 +36,18 @@ height_to_plot = 0.0
 plot_vs_heights = False
 sep_to_plot = 80
 
-dirs = [21,]
+dirs = [11,]
 bdirs = [1,]
 subtract_background = False
 
-filstring = ''
+filstring = 'Z9um'
 ddict = bu.load_dir_file( "/dirfiles/dir_file_sept2017.txt" )
-maxfiles = 10000   # Maximum number of files to load from a directory
+maxfiles = 20000   # Maximum number of files to load from a directory
 
-load_dir_objs = True
-save_dir_objs = False
+load_dir_objs = False
+save_dir_objs = True
 #dir_obj_save_path = '/processed_data/grav_data/manysep_20170906_10um_bead.p'
-dir_obj_save_path = '/processed_data/grav_data/0h_20170912_no_bead.p'
+dir_obj_save_path = '/processed_data/grav_data/manysep_manyh_20170903_5um_bead.p'
 
 resp = 0
 SWEEP_AX = 1     # Cantilever sweep axis, 1 for Y, 2 for Z
@@ -59,9 +59,8 @@ fig_title = 'Force vs. Cantilever Position:'
 #xlab = 'Distance along Cantilever [um]'
 
 # Locate Calibration files
-tf_path = '/calibrations/transfer_funcs/Hout_20170822.p'
-#step_cal_path = '/calibrations/step_cals/step_cal_20170906_10um_bead.p'
-step_cal_path = '/calibrations/step_cals/step_cal_20170822.p'
+tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
+step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
 im_cal_path = '/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy'
 
 legend = True
@@ -102,6 +101,9 @@ def proc_dir(d):
                      noise=False, width=1., cant_axis=SWEEP_AX, reconstruct_lowf=True, \
                      lowf_thresh=lpf, drive_freq=cal_drive_freq, \
                      init_bin_sizes=[1.0, 1.0, 1.0], analyze_image=True, cantfilt=cantfilt)
+
+    
+    dir_obj.get_closest_sep_and_pos()
 
 
     dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, cantfilt=cantfilt, \

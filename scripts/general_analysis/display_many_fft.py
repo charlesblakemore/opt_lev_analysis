@@ -11,23 +11,24 @@ import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
 import cPickle as pickle
 
-plot_vs_time = False
-plot_vs_sep = True
+plot_vs_time = True
+plot_vs_sep = False
 
 filstring = ''
 
-filnames = []
+filnames = ['/data/20170903/bead1/1_5mbar_nocool.h5', \
+            '/data/20170903/bead1/turbombar_xyzcool_discharged.h5']
 
-#labs = ['Charged', 'Discharged']
-use_labs = False #True
+labs = ['1.5 mbar', '1e-6 mbar']
+use_labs = True
 
 ddict = bu.load_dir_file( '/dirfiles/dir_file_sept2017.txt' )
-dirs = [12]
+dirs = []
 
 chan_to_plot = [0, 1, 2]
 chan_labs = ['X', 'Y', 'Z']
 
-NFFT = 2**12
+NFFT = 2**14
 xlim = [1, 2500]
 ylim = [6e-19,1.5e-15]
 
@@ -36,6 +37,11 @@ maxfiles = 100
 calibrate = True
 tf_path = '/calibrations/transfer_funcs/Hout_20170903.p'
 step_cal_path = '/calibrations/step_cals/step_cal_20170903.p'
+
+res_freqs = np.array([223.9, 223.6, 46.6])
+mass = (4. /  3) * np.pi * (2.4e-6)**3 * 2000
+force_pos_cal = mass * (2 * np.pi * res_freqs)**2
+use_force_pos_cal = True
 
 charge_cal = [[''], 'Cal', 0]
 
@@ -107,19 +113,20 @@ for obj in dir_objs:
         sep_dict[sep].append(fobj)
 
 for fobj in fil_objs:
+    #print fobj.fname
     if filstring not in fobj.fname:
         continue
-    sep = re.findall('[0-9]*X([0-9]+)*\u', fobj.fname)
-    sep = float(sep[0])
+    #sep = re.findall('[0-9]*X([0-9]+)*\u', fobj.fname)
+    #sep = float(sep[0])
     fobj.detrend()
     fobj.psd(NFFT = NFFT)
     pressures.append(fobj.pressures[0])
     time = fobj.Time
     time_dict[time] = fobj
 
-    if sep not in sep_dict:
-        sep_dict[sep] = []
-    sep_dict[sep].append(fobj)
+    #if sep not in sep_dict:
+    #    sep_dict[sep] = []
+    #sep_dict[sep].append(fobj)
 
 seps = sep_dict.keys()
 seps.sort()
@@ -140,20 +147,32 @@ lab = ''
 plots = len(chan_to_plot)
 f, axarr = plt.subplots(plots,1,sharex='all')
 
+colors_yeay = ['r', 'k']
+
+print time_dict.keys()
 
 for i, iterobj in enumerate(iterlist):
     col = colors_yeay[i]
+    if use_labs:
+        lab = labs[i]
+    else:
+        lab = ''
     if plot_vs_time:
-        cfobj = time_dict[time]
+        cfobj = time_dict[iterobj]
         for ax in chan_to_plot:
             if calibrate:
-                axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]) * charge_step_facs[ax], \
+                if use_force_pos_cal:
+                    fac = charge_step_facs[ax] / force_pos_cal[ax]
+                else:
+                    fac = charge_step_facs[ax]
+
+                axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]) * fac, \
                                  color=col, label=lab )
             else:
                 axarr[ax].loglog(cfobj.psd_freqs, np.sqrt(cfobj.psds[ax]), \
                                  color=col, label=lab )
-            axarr[ax].set_ylim(*ylim)
-            axarr[ax].set_xlim(*xlim)
+            #axarr[ax].set_ylim(*ylim)
+            #axarr[ax].set_xlim(*xlim)
 
     if plot_vs_sep:
         for cfobj in sep_dict[iterobj]:
@@ -170,7 +189,10 @@ for i, iterobj in enumerate(iterlist):
 
 for ax in chan_to_plot:
     if calibrate:
-        axarr[ax].set_ylabel(chan_labs[ax] + '   [N/rt(Hz)]')
+        if use_force_pos_cal:
+            axarr[ax].set_ylabel(chan_labs[ax] + '   [m/rt(Hz)]')
+        else:
+            axarr[ax].set_ylabel(chan_labs[ax] + '   [N/rt(Hz)]')
     else:
         axarr[ax].set_ylabel(chan_labs[ax] + '   [V/rt(Hz)]')
 

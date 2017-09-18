@@ -30,12 +30,12 @@ from multiprocessing import Pool
 ### Some helper functions
 
 
-sf = lambda tup: tup[0] #Sort key for sort_pts.
+sf = lambda tup: tup[0] # Sort key for sort_pts.
 
 def sort_pts(xvec, yvec):
     #sorts yvec and xvec to put in order of increasing xvec for plotting
     zl = zip(xvec, yvec)
-    zl = sorted(zl, key = sf)
+    zl = sorted(zl, key = lambda x: x[0])
     xvec, yvec = zip(*zl)
     return np.array(xvec), np.array(yvec)
 
@@ -141,6 +141,8 @@ def sbin_pn_new(xvec, yvec, bin_size=1., numbins=0., vel_mult = 0.):
     maxval = np.max(xvec)
     dx = np.abs(xvec[1] - xvec[0])
 
+    xvec, yvec = sort_pts(xvec, yvec)
+
     xvec2 = np.hstack( (xvec[0] - 2.*dx, np.hstack( (xvec, xvec[-1] + 2.*dx) ) ) )
     yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
 
@@ -196,12 +198,14 @@ def rebin(xvec, yvec, y_errs, numbins=0, bin_size=1.):
 
     xvec2 = np.hstack( (xvec[0] - 2.*dx, np.hstack( (xvec, xvec[-1] + 2.*dx) ) ) )
     yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
+
     try:
         interpfunc = interpolate.interp1d(xvec2, yvec2, kind='cubic')
     except:
         plt.plot(xvec, yvec)
         plt.plot(xvec2, yvec2)
         plt.show()
+
     if numbins == 0:
         numbins = int( (maxval - minval + dx) / bin_size )
 
@@ -444,11 +448,11 @@ class Data_file:
     def get_stage_settings(self, axis=0):
         # Function to intelligently extract the stage settings data for a given axis
         if axis == 0:
-            mask = np.array([1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=bool)
+            mask = np.array([0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=bool)
         elif axis == 1:
-            mask = np.array([0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], dtype=bool)
+            mask = np.array([0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], dtype=bool)
         elif axis == 2:
-            mask = np.array([0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
+            mask = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
         #print self.stage_settings[mask]
         return self.stage_settings[mask]
 
