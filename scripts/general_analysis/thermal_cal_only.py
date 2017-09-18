@@ -1,4 +1,4 @@
-import cant_utils as cu
+import cant_util as cu
 import numpy as np
 import matplotlib.pyplot as plt
 import glob 
