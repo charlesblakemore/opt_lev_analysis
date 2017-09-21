@@ -131,7 +131,7 @@ def sbin_pn(xvec, yvec, bin_size=1., vel_mult = 0.):
     for i, b in enumerate(bins):
         idx = bins_vals[vb] == b
         y_binned[i] = np.mean(yvec2[idx])
-        y_errors[i] = scipy.stats.sem(yvec2[idx])
+        y_errors[i] = np.std(yvec2[idx])
     return bins, y_binned, y_errors
 
 def sbin_pn_new(xvec, yvec, bin_size=1., numbins=0., vel_mult = 0.):
