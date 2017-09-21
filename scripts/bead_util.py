@@ -7,7 +7,7 @@ import scipy.signal as sp
 import scipy.interpolate as interp
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
-
+import configuration 
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -22,31 +22,10 @@ import matplotlib.colors as colors
 #######################################################
 
 
-bead_radius = 2.43e-6 ##m
-bead_rho = 2.2e3 ## kg/m^3
-kb = 1.3806488e-23 #J/K
-bead_mass = 4./3*np.pi*bead_radius**3 * bead_rho
-plate_sep = 1e-3 ## m
-e_charge = 1.6e-19 ## C
-
-nucleon_mass = 1.67e-27 ## kg
-num_nucleons = bead_mass/nucleon_mass
-
-## default columns for data files
-data_columns = [0, 1, 2] ## column to calculate the correlation against
-drive_column = -1
-
-
-## work around inability to pickle lambda functions
-class ColFFT(object):
-    def __init__(self, vid):
-        self.vid = vid
-    def __call__(self, idx):
-        return np.fft.rfft( self.vid[idx[0], idx[1], :] )
-
-
+####First define some functions to help with the DataFile object. 
 
 def find_str(str):
+    '''finds the index from the standard file name format'''
     idx_offset = 1e10 # Large number to ensure sorting by index first
 
     fname, _ = os.path.splitext(str)
@@ -64,38 +43,38 @@ def find_str(str):
     else:
         return int(sparts[0][:-2])
 
+def copy_attribs(attribs):
+    '''copies an hdf5 attributes into a new dictionary so the original file can be closed.'''
+    new_dict = {}
+    for k in attribs.keys():
+        new_dict[k] = attribs[k]
+    return new_dict
+
+
 
 def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
-    ### Get bead data from a file.  Guesses whether it's a text file
-    ### or a HDF5 file by the file extension
+    '''loads a .h5 file from a path into data array and attribs dictionary, converting ADC bits into volatage. The h5 file is closed.'''
 
-    ## Hard coded scaling from DAQ
-    adc_fac = (adc_res - 1) / (2. * adc_max_voltage)
+    #factor to convert between adc bits and voltage 
+    adc_fac = (configuration.adc_params["adc_res"] - 1) / (2. * configuration.adc_params["adc_max_voltage"])
 
-    _, fext = os.path.splitext( fname )
-    if( fext == ".h5"):
-        try:
-            f = h5py.File(fname,'r')
-            dset = f['beads/data/pos_data']
-            dat = np.transpose(dset)
-            dat = dat / adc_fac
-            attribs = dset.attrs
+    try:
+        f = h5py.File(fname,'r')
+        dset = f['beads/data/pos_data']
+        dat = np.transpose(dset)
+        dat = dat / adc_fac
+        attribs = copy_attribs(dset.attrs)
 
-        except (KeyError, IOError):
-            print "Warning, got no keys for: ", fname
-            dat = []
-            attribs = {}
-            f = []
-    else:
-        dat = np.loadtxt(fname, skiprows = 5, usecols = [2, 3, 4, 5])
+    except (KeyError, IOError):
+        print "Warning, got no keys for: ", fname
+        dat = []
         attribs = {}
         f = []
 
     return dat, attribs, f
 
 def labview_time_to_datetime(lt):
-    ### Convert a labview timestamp (i.e. time since 1904) to a 
-    ### more useful format (python datetime object)
+    '''Convert a labview timestamp (i.e. time since 1904) to a  more useful format (python datetime object)'''
     
     ## first get number of seconds between Unix time and Labview's
     ## arbitrary starting time
@@ -107,12 +86,6 @@ def labview_time_to_datetime(lt):
     
     return lab_dt
     
-
-def inrange(x, xmin, xmax):
-    return np.logical_and( x >= xmin, x<=xmax )
-
-
-
 
 def round_sig(x, sig=2):
     '''Round a number to a certain number of sig figs
@@ -132,40 +105,6 @@ def round_sig(x, sig=2):
             return -1.0 * num
         else:
             return num
-
-def trend_fun(x, a, b):
-    '''Two paramater linear function to de-trend datasets
-           INPUTS: x, variable
-                   a, param 1 = slope
-                   b, param 2 = offset
-
-           OUTPUTS: a*x + b'''
-    return a*x + b
-
-
-
-def step_fun(x, q, x0):
-    '''Single, decreasing step function
-           INPUTS: x, variable
-                   q, size of step
-                   x0, location of step
-
-           OUTPUTS: q * (x <= x0)'''
-    xs = np.array(x)
-    return q*(xs<=x0)
-
-def multi_step_fun(x, qs, x0s):
-    '''Sum of many single, decreasing step functions
-           INPUTS: x, variable
-                   qs, sizes of steps
-                   x0s, locations of steps
-
-           OUTPUTS: SUM_i [qi * (x <= x0i)]'''
-    rfun = 0.
-    for i, x0 in enumerate(x0s):
-        rfun += step_fun(x, qs[i], x0)
-    return rfun
-
 
 
 def thermal_psd_spec(f, A, f0, g):
