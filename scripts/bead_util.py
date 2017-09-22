@@ -45,7 +45,8 @@ def find_str(str):
         return int(sparts[0][:-2])
 
 def copy_attribs(attribs):
-    '''copies an hdf5 attributes into a new dictionary so the original file can be closed.'''
+    '''copies an hdf5 attributes into a new dictionary 
+       so the original file can be closed.'''
     new_dict = {}
     for k in attribs.keys():
         new_dict[k] = attribs[k]
@@ -54,10 +55,13 @@ def copy_attribs(attribs):
 
 
 def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
-    '''loads a .h5 file from a path into data array and attribs dictionary, converting ADC bits into volatage. The h5 file is closed.'''
+    '''loads a .h5 file from a path into data array and 
+       attribs dictionary, converting ADC bits into 
+       volatage. The h5 file is closed.'''
 
     #factor to convert between adc bits and voltage 
-    adc_fac = (configuration.adc_params["adc_res"] - 1) / (2. * configuration.adc_params["adc_max_voltage"])
+    adc_fac = (configuration.adc_params["adc_res"] - 1) / \
+               (2. * configuration.adc_params["adc_max_voltage"])
 
     try:
         f = h5py.File(fname,'r')
@@ -76,7 +80,8 @@ def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
     return dat, attribs
 
 def labview_time_to_datetime(lt):
-    '''Convert a labview timestamp (i.e. time since 1904) to a  more useful format (python datetime object)'''
+    '''Convert a labview timestamp (i.e. time since 1904) to a  
+       more useful format (python datetime object)'''
     
     ## first get number of seconds between Unix time and Labview's
     ## arbitrary starting time
@@ -89,7 +94,10 @@ def labview_time_to_datetime(lt):
     return lab_dt
 
 def unpack_config_dict(dic, vec):
-    '''takes vector containing data atributes and puts it into a dictionary with key value pairs specified by dict where the keys of dict give the labels and the values specify the index in vec'''
+    '''takes vector containing data atributes and puts 
+       it into a dictionary with key value pairs specified 
+       by dict where the keys of dict give the labels and 
+       the values specify the index in vec'''
     out_dict = {}
     for k in dic.keys():
         out_dict[k] = vec[dic[k]]
@@ -201,11 +209,16 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
 
 
 class DataFile:
-    '''Class holing all of the data for an individual file. Contains methods to  apply calibrations to the data, including image coordinate correction. Also contains methods to change basis from time data to cantilever position data.
+    '''Class holing all of the data for an individual file. 
+       Contains methods to  apply calibrations to the data, 
+       including image coordinate correction. Also contains 
+       methods to change basis from time data to cantilever 
+       position data.
     '''
 
     def __init__(self):
-        '''Initializes the an empty DataFile object. All of the attributes are filled with strings
+        '''Initializes the an empty DataFile object. 
+           All of the attributes are filled with strings
         '''
         self.fname = "Filename not assigned."
         #Data and data parameters
@@ -216,13 +229,16 @@ class DataFile:
         #Conditions under which data is taken
         self.time = "Time not loaded"#loads time at end of file
         self.temps = []
-        self.pressures = {}#loads to dict with keys different gauges 
-        self.stage_settings = {}#loads to dict. Look at config.py for keys 
-        self.electrode_settings = {}#loads to dict. The key "dc_settings" gives\
-            #the dc value on electrodes 0-6. The key "driven_electrodes" is a list where the electrode index is 1 if the electrode is driven and 0 otherwise
+        self.pressures = {} # loads to dict with keys different gauges 
+        self.stage_settings = {} # loads to dict. Look at config.py for keys 
+        self.electrode_settings = {} # loads to dict. The key "dc_settings" gives\
+            # the dc value on electrodes 0-6. The key "driven_electrodes" 
+            # is a list where the electrode index is 1 if the electrode 
+            # is driven and 0 otherwise
 
     def load(self, fname):
-        '''Loads the data from file with fname into DataFile object. Does not perform any calibrations.  
+        '''Loads the data from file with fname into DataFile object. 
+           Does not perform any calibrations.  
         ''' 
         dat, attribs= getdata(fname)
         self.fname = fname 
@@ -250,7 +266,7 @@ class DataFile:
         self.electrode_settings["driven"] = \
             temp_elec_settings[configuration.electrode_settings['driven']]
         self.electrode_settings["amplitudes"] = \
-            temp_elec_settings[configuration.electrode_settings['driven']]
+            temp_elec_settings[configuration.electrode_settings['amplitudes']]
         self.electrode_settings["frequencies"] = \
             temp_elec_settings[configuration.electrode_settings['frequencies']]
         #reasign driven electrode_dc_vals because it is overwritten
@@ -266,7 +282,11 @@ class DataFile:
 
 
     def calibrate_stage_position(self):
-        '''calibrates voltage in cant_data and into microns. Uses stage position file to put origin of coordinate system at trap in x direction with cantilever centered on trap in y. Looks for stage position file with same path and file name as self.fname '''
+        '''calibrates voltage in cant_data and into microns. 
+           Uses stage position file to put origin of coordinate 
+           system at trap in x direction with cantilever centered 
+           on trap in y. Looks for stage position file with same 
+           path and file name as slef.fname '''
         #First get everything into microns.
         for k in configuration.calibrate_stage_keys:
             self.stage_settings[k] *= configuration.stage_cal    
