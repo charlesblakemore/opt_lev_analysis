@@ -277,9 +277,12 @@ class DataFile:
         # Now get array of frequencies
         self.electrode_settings["frequencies"] = \
             temp_elec_settings[configuration.electrode_settings['frequencies']]
-        # reasign driven electrode_dc_vals because it is overwritten
+        # reassign driven electrode_dc_vals because it is overwritten
         dcval_temp = \
-            temp_elec_settings[configuration.electrode_settings['dc_vals2']]  
+            temp_elec_settings[configuration.electrode_settings['dc_vals2']]
+        # If an electrode is swept the electrode_dc_vals is not used. Make 
+        # sure that if an electrode is drive then the dc_setting comes from 
+        # attribs["electrode_settings"]  
         for i, e in enumerate(self.electrode_settings["driven"]):
             if e == 1.:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
@@ -294,12 +297,21 @@ class DataFile:
            Uses stage position file to put origin of coordinate 
            system at trap in x direction with cantilever centered 
            on trap in y. Looks for stage position file with same 
-           path and file name as slef.fname '''
-        #First get everything into microns.
+           path and file name as self.fname '''
+        # First get everything into microns.
         for k in configuration.calibrate_stage_keys:
             self.stage_settings[k] *= configuration.stage_cal    
         
         self.cant_data*=configuration.stage_cal
+        
+        # Now load the cantilever position file.
+        # First get the path to the position file from the file base name
+        # and get the extension from configuration.extensions["stage_position"].
+        filename, file_extension = os.path.splitext(self.fname)
+        posfname = \
+            os.path.join(filename, configuration.extensions["stage_position"])
+        # Load position of course stage 
+        pos_arr = pickle.load(open("save.p", "rb"))
 
     def diagonalize(self, Harr, cantfilt=False):
 
