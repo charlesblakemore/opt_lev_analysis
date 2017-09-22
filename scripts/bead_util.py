@@ -289,6 +289,7 @@ class DataFile:
                 
 
     def get_force_curve(self):
+        dt = 1. / self.fsamp
         return
 
 
@@ -312,6 +313,8 @@ class DataFile:
             os.path.join(filename, configuration.extensions["stage_position"])
         # Load position of course stage 
         pos_arr = pickle.load(open("save.p", "rb"))
+
+
 
     def diagonalize(self, Harr, cantfilt=False):
 
