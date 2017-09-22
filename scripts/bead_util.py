@@ -1,8 +1,14 @@
-import h5py, os, re, glob
+import h5py, os, re, glob, time, sys
 import numpy as np
 import datetime as dt
-import configuration
 import dill as pickle 
+
+import scipy.interpolate as interp
+import scipy.optimize as optimize
+import scipy.signal as signal
+import scipy
+
+import configuration
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -90,6 +96,110 @@ def unpack_config_dict(dic, vec):
     return out_dict 
 
 
+
+
+def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
+                sg_filter=False, sg_params=[3,1], verbose=True):
+    '''Given two waveforms drive(t) and resp(t), this function generates
+       resp(drive) with a fourier method. drive(t) should be a pure tone,
+       such as a single frequency cantilever drive (although the 
+       existence of harmonics is fine). Ideally, the frequency with
+       the dominant power should lie in a single DTFT bin.
+       Behavior of this function is somewhat indeterminant when there
+       is significant spectral leakage into neighboring bins.
+
+       INPUT:   drive, single frequency drive signal, sampled with some dt
+       	        resp, arbitrary response to be 'binned'
+       	        dt, sample spacing in seconds [s]
+                nbins, number of samples in the final resp(drive)
+       	        nharmonics, number of harmonics to include in filter
+       	        width, filter width in Hertz [Hz]
+                sg_filter, boolean value indicating use of a Savitsky-Golay 
+                            filter for final smoothing
+                sg_params, parameters of the savgol filter 
+                            (see scipy.signal.savgol_filter for explanation)
+
+       OUTPUT:  drivevec, vector of drive values, monotonically increasing
+                respvec, resp as a function of drivevec'''
+
+    def fit_fun(t, A, f, phi, C):
+        return A * np.sin(2 * np.pi * f * t + phi) + C
+
+    Nsamp = len(drive)
+    if len(resp) != Nsamp:
+        if verbose:
+            print "Data Error: x(t) and f(t) don't have the same length"
+            sys.stdout.flush()
+        return
+
+    # Generate t array
+    t = np.linspace(0, len(drive) - 1, len(drive)) * dt
+
+    # Generate FFTs for filtering
+    drivefft = np.fft.rfft(drive)
+    respfft = np.fft.rfft(resp)
+    freqs = np.fft.rfftfreq(len(drive), d=dt)
+
+    # Find the drive frequency
+    fund_ind = np.argmax( np.abs(drivefft[1:]) ) + 1
+    drive_freq = freqs[fund_ind]
+
+    meandrive = np.mean(drive)
+    mindrive = np.min(drive)
+    maxdrive = np.max(drive)
+
+    # Build the notch filter
+    drivefilt = np.zeros(len(drivefft))
+    drivefilt[fund_ind] = 1.0
+
+    if ( np.abs(drivefft[fund_ind-1]) > 0.01 * np.abs(drivefft[fund_ind]) or \
+            np.abs(drivefft[fund_ind+1]) > 0.01 * np.abs(drivefft[fund_ind]) ):
+        if verbose:
+            print "More than 1\% power in neighboring bins: spatial binning may be suboptimal"
+            sys.stdout.flush()
+
+    # Expand the filter to more than a single bin. This can introduce artifacts
+    # that appear like lissajous figures in the resp vs. drive final result
+    if width:
+        lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
+        upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
+        drivefilt[lower_ind:upper_ind+1] = cantfilt[fund_ind]
+
+    # Generate an array of harmonics
+    harms = np.array([x+2 for x in range(nharmonics)])
+
+    # Loop over harmonics and add them to the filter
+    for n in harms:
+        harm_ind = np.argmin( np.abs(n * drive_freq - freqs) )
+        drivefilt[harm_ind] = 1.0 
+        if width:
+            h_lower_ind = harm_ind - (fund_ind - lower_ind)
+            h_upper_ind = harm_ind + (upper_ind - fund_ind)
+            drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
+
+    # Apply the filter to both drive and response
+    drivefft_filt = drivefilt * drivefft
+    respfft_filt = drivefilt * respfft
+
+    # Reconstruct the filtered data
+    drive_r = np.fft.irfft(drivefft_filt) + meandrive
+    resp_r = np.fft.irfft(respfft_filt)
+
+    # Sort reconstructed data, interpolate and resample
+    drivevec = np.linspace(mindrive, maxdrive, nbins)
+
+    sortinds = drive_r.argsort()
+    interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], fill_value='extrapolate')
+
+    respvec = interpfunc(drivevec)
+
+    if sg_filter:
+        respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
+
+    return drivevec, respvec
+
+
+
 class DataFile:
     '''Class holing all of the data for an individual file. Contains methods to  apply calibrations to the data, including image coordinate correction. Also contains methods to change basis from time data to cantilever position data.
     '''
@@ -149,7 +259,11 @@ class DataFile:
             if e == 1.:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
                 
-    
+
+    def get_force_curve(self):
+        return
+
+
     def calibrate_stage_position(self):
         '''calibrates voltage in cant_data and into microns. Uses stage position file to put origin of coordinate system at trap in x direction with cantilever centered on trap in y. Looks for stage position file with same path and file name as slef.fname '''
         #First get everything into microns.
