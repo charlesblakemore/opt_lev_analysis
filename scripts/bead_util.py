@@ -248,28 +248,36 @@ class DataFile:
         self.electrode_data = dat[:, configuration.col_labels["electrodes"]]
         self.fsamp = attribs["Fsamp"]
         self.time = labview_time_to_datetime(attribs["Time"])
-        self.temps = attribs["temps"] 
+        self.temps = attribs["temps"]
+        # Unpacks pressure gauge vector into dict with
+        # labels for pressure gauge specified by configuration.pressure_inds    
         self.pressures = \
 	    unpack_config_dict(configuration.pressure_inds, \
             attribs["pressures"]) 
-
+        # Unpacks stage settings into a dictionay with keys specified by
+        # configuration.stage_inds
         self.stage_settings = \
             unpack_config_dict(configuration.stage_inds, \
             attribs["stage_settings"])
-        #load all of the electrode settings into the correct keys
+        # Load all of the electrode settings into the correct keys
+        # First get DC values from its own .h5 attribute
         self.electrode_settings["dc_settings"] = \
             attribs["electrode_dc_vals"][:configuration.num_electrodes]
         
-        #
+        # Copy "electrode_settings" attribute into numpy array so it can be 
+        # indexed by a list of indicies coming from 
+        # configuration.eloectrode_settings 
         temp_elec_settings = np.array(attribs["electrode_settings"])
-
+        # First get part with 1 if electrode was driven and 0 else 
         self.electrode_settings["driven"] = \
             temp_elec_settings[configuration.electrode_settings['driven']]
+        # Now get array of amplitudes
         self.electrode_settings["amplitudes"] = \
             temp_elec_settings[configuration.electrode_settings['amplitudes']]
+        # Now get array of frequencies
         self.electrode_settings["frequencies"] = \
             temp_elec_settings[configuration.electrode_settings['frequencies']]
-        #reasign driven electrode_dc_vals because it is overwritten
+        # reasign driven electrode_dc_vals because it is overwritten
         dcval_temp = \
             temp_elec_settings[configuration.electrode_settings['dc_vals2']]  
         for i, e in enumerate(self.electrode_settings["driven"]):
