@@ -243,7 +243,8 @@ class DataFile:
         #load all of the electrode settings into the correct keys
         self.electrode_settings["dc_settings"] = \
             attribs["electrode_dc_vals"][:configuration.num_electrodes]
-
+        
+        #
         temp_elec_settings = np.array(attribs["electrode_settings"])
 
         self.electrode_settings["driven"] = \
