@@ -60,7 +60,8 @@ def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
        volatage. The h5 file is closed.'''
 
     #factor to convert between adc bits and voltage 
-    adc_fac = (configuration.adc_params["adc_res"] - 1) / (2. * configuration.adc_params["adc_max_voltage"])
+    adc_fac = (configuration.adc_params["adc_res"] - 1) / \
+               (2. * configuration.adc_params["adc_max_voltage"])
 
     try:
         f = h5py.File(fname,'r')
@@ -93,7 +94,10 @@ def labview_time_to_datetime(lt):
     return lab_dt
 
 def unpack_config_dict(dic, vec):
-    '''takes vector containing data atributes and puts it into a dictionary with key value pairs specified by dict where the keys of dict give the labels and the values specify the index in vec'''
+    '''takes vector containing data atributes and puts 
+       it into a dictionary with key value pairs specified 
+       by dict where the keys of dict give the labels and 
+       the values specify the index in vec'''
     out_dict = {}
     for k in dic.keys():
         out_dict[k] = vec[dic[k]]
@@ -225,10 +229,12 @@ class DataFile:
         #Conditions under which data is taken
         self.time = "Time not loaded"#loads time at end of file
         self.temps = []
-        self.pressures = {}#loads to dict with keys different gauges 
-        self.stage_settings = {}#loads to dict. Look at config.py for keys 
-        self.electrode_settings = {}#loads to dict. The key "dc_settings" gives\
-            #the dc value on electrodes 0-6. The key "driven_electrodes" is a list where the electrode index is 1 if the electrode is driven and 0 otherwise
+        self.pressures = {} # loads to dict with keys different gauges 
+        self.stage_settings = {} # loads to dict. Look at config.py for keys 
+        self.electrode_settings = {} # loads to dict. The key "dc_settings" gives\
+            # the dc value on electrodes 0-6. The key "driven_electrodes" 
+            # is a list where the electrode index is 1 if the electrode 
+            # is driven and 0 otherwise
 
     def load(self, fname):
         '''Loads the data from file with fname into DataFile object. 
