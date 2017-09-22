@@ -1,7 +1,8 @@
 import h5py, os, re, glob
 import numpy as np
 import datetime as dt
-import configuration 
+import configuration
+import dill as pickle 
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -58,6 +59,7 @@ def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
         dat = np.transpose(dset)
         dat = dat / adc_fac
         attribs = copy_attribs(dset.attrs)
+        f.close()
 
     except (KeyError, IOError):
         print "Warning, got no keys for: ", fname
@@ -65,7 +67,7 @@ def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
         attribs = {}
         f = []
 
-    return dat, attribs, f
+    return dat, attribs
 
 def labview_time_to_datetime(lt):
     '''Convert a labview timestamp (i.e. time since 1904) to a  more useful format (python datetime object)'''
@@ -79,4 +81,115 @@ def labview_time_to_datetime(lt):
     lab_dt = dt.datetime.fromtimestamp( lt - delta_seconds)
     
     return lab_dt
+
+
+class DataFile:
+    '''Class holing all of the data for an individual file. Contains methods to  apply calibrations to the data, including image coordinate correction. Also contains methods to change basis from time data to cantilever position data.
+    '''
+
+    def __init__(self):
+        '''Initializes the an empty DataFile object. All of the attributes are filled with strings
+        '''
+        self.fname = "Filename not assigned."
+        #Data and data parameters
+        self.pos_data = "bead position data not loaded"
+        self.cant_data = "cantilever position data no loaded" 
+        self.electrode_data = "electrode data not loaded yet"
+        self.Fsamp = "Fsamp not loaded"
+        #Conditions under which data is taken
+        self.time = "Time not loaded"
+        self.temps = "temps not loaded"
+        self.pressures = "pressures not loaded" 
+        self.stage_settings = "Stage setting not loaded yet"
+        self.electrode_settings = "Electrode settings not loaded"
+
+    def load(self, fname):
+        '''Loads the data from file with fname into DataFile object. Does not perform any calibrations.  
+        ''' 
+        dat, attribs= bu.getdata(fname)
+        self.fname = fname 
+        dat = dat[configuration.adc_params["ignore_pts"]:, :]
+        self.pos_data = dat[:, configuration.col_labels["bead_pos"]]
+        self.cant_data = dat[:, configuration.col_labels["stage_pos"]]
+        self.
+        # Attributes coming from Labview Front pannel settings
+        self.separation = sep         # Manually entered distance of closest approach
+        self.Fsamp = attribs["Fsamp"] # Sampling frequency of the data
+        self.Time = bu.labview_time_to_datetime(attribs["Time"]) # Time of end of file
+        self.temps = attribs["temps"] # Vector of thermocouple temperatures 
+
+        # Vector of chamber pressure readings [pirani, cold cathode, baratron]
+        self.pressures = attribs["pressures"] 
+        self.synth_settings = attribs["synth_settings"] # Synthesizer fron pannel settings
+        self.dc_supply_settings = attribs["dc_supply_settings"] # DC power supply front pannel testings.
+
+        # Electrode front pannel settings for all files in the directory.
+        # first 8 are ac amps, second 8 are frequencies, 3rd 8 are dc vals 
+        self.electrode_settings = attribs["electrode_settings"]
+
+        # Front pannel settings applied to this particular file. 
+        # Top boxes independent of the sweeps
+        self.electrode_dc_vals = attribs["electrode_dc_vals"] 
+
+        # Front pannel settings for the stage for this particular file.
+        self.stage_settings = attribs['stage_settings'] 
+        self.stage_settings[:3]*=cant_cal #calibrate stage_settings
+        # Data vectors and their transforms
+        self.pos_data = np.transpose(dat[:, 0:3]) #x, y, z bead position
+        self.other_data = np.transpose(dat[:,3:7])
+        self.dc_pos =  np.mean(self.pos_data, axis = -1)
+        self.image_pow_data = np.transpose(dat[:, 6])
+
+        #self.pos_data = np.transpose(dat[:,[elec_inds[1],elec_inds[3],elec_inds[5]]])
+        self.cant_data = np.transpose(dat[:, 17:20])*cant_cal
+        # Record of voltages on the electrodes
+        try:
+            self.electrode_data = np.transpose(dat[:, elec_inds]) 
+        except:
+            print "No electrode data for %s" % self.fname
+
+        f.close()
+
+    def get_image_data(self, trapx_pixel, img_cal_path, make_plot=False):
+        imfile = self.fname + '.npy'
+        val = imu.measure_image1d(imfile, trapx_pixel, img_cal_path, make_plot=make_plot)
+        self.image_data = np.abs(val)
+        
+
+    def get_stage_settings(self, axis=0):
+        # Function to intelligently extract the stage settings data for a given axis
+        if axis == 0:
+            mask = np.array([0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=bool)
+        elif axis == 1:
+            mask = np.array([0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], dtype=bool)
+        elif axis == 2:
+            mask = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
+        #print self.stage_settings[mask]
+        return self.stage_settings[mask]
+
+    def detrend(self):
+        # Remove linear drift from data
+        for i in [0,1,2]:
+            dat = self.pos_data[i]
+            x = np.array(range(len(dat)))
+            popt, pcov = curve_fit(bu.trend_fun, x, dat)
+            self.pos_data[i] = dat - (popt[0]*x + popt[1])
+            
+
+    def ms(self):
+        #mean subtracts the position data.
+        ms = lambda vec: vec - np.mean(vec)
+        self.pos_data  = map(ms, self.pos_data)
+
+
+
+    def diagonalize(self, Harr, cantfilt=False):
+
+        diag_fft = np.einsum('ikj,ki->ji', Harr, self.data_fft)
+        self.diag_pos_data = np.fft.irfft(diag_fft)
+        self.diag_data_fft = diag_fft
+        if cantfilt:
+            diag_fft2 = np.einsum('ikj,ki->ji', Harr, self.cantfilt * self.data_fft)
+            self.diag_pos_data_cantfilt = np.fft.irfft(diag_fft2) 
+
 

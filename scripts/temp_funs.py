@@ -1,6 +1,11 @@
 ###############################################################################
 #storing seemingly useful functions that no longer make sense where they are
 
+import matplotlib.cm as cmx
+import matplotlib.colors as colors
+
+
+
 def round_sig(x, sig=2):
     '''Round a number to a certain number of sig figs
            INPUTS: x, number to be rounded
@@ -135,4 +140,32 @@ def get_color_map( n ):
     for i in range(n):
         outmap.append( scalarMap.to_rgba(i) )
     return outmap
+
+
+def load_dir_file( f ):
+
+    lines = [line.rstrip('\n') for line in open(f)]
+
+    out_dict = {}
+    for l in lines:
+
+        lparts = l.split(";")
+
+        if( len( lparts ) < 4 ):
+            continue
+
+        idx = int(lparts[0])
+        dirs = lparts[1].split(',')
+        dirs_list = []
+        for cdir in dirs:
+            dirs_list.append(cdir.strip())
+
+        out_dict[idx] = [dirs_list, lparts[2].strip(), int(lparts[3])]
+
+    return out_dict
+
+
+def data_list_to_dict( d ):
+    out_dict = {"path": d[0], "label": d[1], "drive_idx": d[2]}
+    return out_dict
 
