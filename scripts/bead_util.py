@@ -82,6 +82,13 @@ def labview_time_to_datetime(lt):
     
     return lab_dt
 
+def unpack_config_dict(dic, vec):
+    '''takes vector containing data atributes and puts it into a dictionary with key value pairs specified by dict where the keys of dict give the labels and the values specify the index in vec'''
+    out_dict = {}
+    for k in dic.keys():
+        out_dict[k] = vec[dic[k]]
+    return out_dic 
+
 
 class DataFile:
     '''Class holing all of the data for an individual file. Contains methods to  apply calibrations to the data, including image coordinate correction. Also contains methods to change basis from time data to cantilever position data.
@@ -95,13 +102,14 @@ class DataFile:
         self.pos_data = []
         self.cant_data = [] 
         self.electrode_data = []
-        self.Fsamp = "Fsamp not loaded"
+        self.fsamp = "Fsamp not loaded"
         #Conditions under which data is taken
-        self.time = "Time not loaded"
+        self.time = "Time not loaded"#loads time at end of file
         self.temps = []
-        self.pressures = {} 
-        self.stage_settings = []
-        self.electrode_settings = []
+        self.pressures = {}#loads to dict with keys different gauges 
+        self.stage_settings = {}#loads to dict. Look at config.py for keys 
+        self.electrode_settings = {}#loads to dict. The key "dc_settings" gives\
+            #the dc value on electrodes 0-6. The key "driven_electrodes" is a list where the electrode index is 1 if the electrode is driven and 0 otherwise
 
     def load(self, fname):
         '''Loads the data from file with fname into DataFile object. Does not perform any calibrations.  
@@ -109,78 +117,26 @@ class DataFile:
         dat, attribs= bu.getdata(fname)
         self.fname = fname 
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
-        #data and FSamp
         self.pos_data = dat[:, configuration.col_labels["bead_pos"]]
         self.cant_data = dat[:, configuration.col_labels["stage_pos"]]
         self.electrode_data = dat[:, configuration.col_labels["electrodes"]]
-        self.Fsamp = attribs["Fsamp"] # Sampling frequency of the data
-        #Data conditions
-        self.Time = labview_time_to_datetime(attribs["Time"]) # Time of end of file
-        self.temps = attribs["temps"] # Vector of thermocouple temperatures 
-        ptemp = attribs["pressures"] # temporarlily hold pressures
-        #loop over presssure gauges and get all gauges from right columns.
-        for k in configuration.pressures.keys():
-            self.pressures[k] = ptemp[configuration.pressures[k]]
-         
+        self.fsamp = attribs["Fsamp"]
+        self.time = labview_time_to_datetime(attribs["Time"])
+        self.temps = attribs["temps"] 
+        self.pressures = \
+	    unpack_config_dict(configuration.pressure_inds, \
+            attribs["pressures"]) 
 
-        # Electrode front pannel settings for all files in the directory.
-        # first 8 are ac amps, second 8 are frequencies, 3rd 8 are dc vals 
-        self.electrode_settings = attribs["electrode_settings"]
+        self.stage_settings = \
+            unpack_config_dict(configuration.stage_inds, \
+            attribs["stage_settings"])
+        self.electrode_settings["dc_settings"] = \
+            attribs["electrode_dc_vals"][:configuration.num_electrodes]
+        temp_elec_settings = np.array(attribs["electrode_settings"])
+        #self.electrode_settings["driven_electrodes"] = \
+             
 
-        # Front pannel settings applied to this particular file. 
-        # Top boxes independent of the sweeps
-        self.electrode_dc_vals = attribs["electrode_dc_vals"] 
-
-        # Front pannel settings for the stage for this particular file.
-        self.stage_settings = attribs['stage_settings'] 
-        self.stage_settings[:3]*=cant_cal #calibrate stage_settings
-        # Data vectors and their transforms
-        self.pos_data = np.transpose(dat[:, 0:3]) #x, y, z bead position
-        self.other_data = np.transpose(dat[:,3:7])
-        self.dc_pos =  np.mean(self.pos_data, axis = -1)
-        self.image_pow_data = np.transpose(dat[:, 6])
-
-        #self.pos_data = np.transpose(dat[:,[elec_inds[1],elec_inds[3],elec_inds[5]]])
-        self.cant_data = np.transpose(dat[:, 17:20])*cant_cal
-        # Record of voltages on the electrodes
-        try:
-            self.electrode_data = np.transpose(dat[:, elec_inds]) 
-        except:
-            print "No electrode data for %s" % self.fname
-
-        f.close()
-
-    def get_image_data(self, trapx_pixel, img_cal_path, make_plot=False):
-        imfile = self.fname + '.npy'
-        val = imu.measure_image1d(imfile, trapx_pixel, img_cal_path, make_plot=make_plot)
-        self.image_data = np.abs(val)
         
-
-    def get_stage_settings(self, axis=0):
-        # Function to intelligently extract the stage settings data for a given axis
-        if axis == 0:
-            mask = np.array([0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0], dtype=bool)
-        elif axis == 1:
-            mask = np.array([0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0], dtype=bool)
-        elif axis == 2:
-            mask = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
-        #print self.stage_settings[mask]
-        return self.stage_settings[mask]
-
-    def detrend(self):
-        # Remove linear drift from data
-        for i in [0,1,2]:
-            dat = self.pos_data[i]
-            x = np.array(range(len(dat)))
-            popt, pcov = curve_fit(bu.trend_fun, x, dat)
-            self.pos_data[i] = dat - (popt[0]*x + popt[1])
-            
-
-    def ms(self):
-        #mean subtracts the position data.
-        ms = lambda vec: vec - np.mean(vec)
-        self.pos_data  = map(ms, self.pos_data)
-
 
 
     def diagonalize(self, Harr, cantfilt=False):

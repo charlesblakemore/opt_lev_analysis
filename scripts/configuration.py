@@ -1,4 +1,4 @@
-#################################################################################Configuration file specifying all of the parameters used in the analysis
+#################################################################################Configuration file specifying all of the parameters used in the analysis. Column labels for unpacking data attributes passed as lists are stores in dictionaries with the label and the column(s) as the value(s)
 ###############################################################################
 
 ####Physical parameters in si units
@@ -16,13 +16,27 @@ col_labels = {"bead_pos"  : [0, 1, 2],
 } 
 
 ####electrode column labels in  label: number pairs. cantilever approached from back. Left and right determined looking from side with bead dropper
+
+num_electrodes = 6
 elec_labels = {"cantilever":0, 
-                    "top":1, 
-                    "bottom":2, 
-                    "front":3,
-                    "back":4,
-                    "right":5,
-                    "left":6}
+               "top":1, 
+               "bottom":2, 
+               "front":3,
+               "back":4,
+               "right":5,
+               "left":6}
+
+electrodes = {0: "cantilever", 
+              1: "top", 
+              2: "bottom", 
+              3: "front",
+              4: "back",
+              5: "right",
+              6: "left"}
+
+eletrode_settings = {'driven'   : [0, 1, 2, 3, 4, 5, 6],
+                     'amplitudes': [8, 9, 10, 11, 12, 13, 14]
+                     'frequencies': [16, 17, 18, 19, 20, 21, 22]}  
 
 ####ADC parameters to convert from bits to voltage when loading raw .h5 files
 adc_params = {"adc_res":2**16,
@@ -38,7 +52,7 @@ extensions = {"data": ".h5",
               } 
 
 ####Order of pressures coming from labview
-pressures = {"pirani":0,
+pressure_inds = {"pirani":0,
              "cold_cathode":1,
              "baratron":2}
 
@@ -54,4 +68,6 @@ stage_inds = {"x DC": 0,
               "z DC": 2,
               "z driven": 9,
               "z amp": 10,
-              "z freq":11}   
+              "z freq":11} 
+
+electrode_inds = {}  
