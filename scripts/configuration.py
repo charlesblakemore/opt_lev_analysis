@@ -40,4 +40,18 @@ extensions = {"data": ".h5",
 ####Order of pressures coming from labview
 pressures = {"pirani":0,
              "cold_cathode":1,
-             "baratron":2} 
+             "baratron":2}
+
+####Stage calibration and settings information
+stage_inds = {"x DC": 0,
+              "x driven": 3,
+              "x amp": 4,
+              "x freq": 5, 
+              "y DC": 1,
+              "y driven": 6,
+              "y amp": 7,
+              "y freq": 8,
+              "z DC": 2,
+              "z driven": 9,
+              "z amp": 10,
+              "z freq":11}   
