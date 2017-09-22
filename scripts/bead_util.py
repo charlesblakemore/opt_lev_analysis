@@ -87,7 +87,7 @@ def unpack_config_dict(dic, vec):
     out_dict = {}
     for k in dic.keys():
         out_dict[k] = vec[dic[k]]
-    return out_dic 
+    return out_dict 
 
 
 class DataFile:
@@ -114,7 +114,7 @@ class DataFile:
     def load(self, fname):
         '''Loads the data from file with fname into DataFile object. Does not perform any calibrations.  
         ''' 
-        dat, attribs= bu.getdata(fname)
+        dat, attribs= getdata(fname)
         self.fname = fname 
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
         self.pos_data = dat[:, configuration.col_labels["bead_pos"]]
@@ -130,12 +130,25 @@ class DataFile:
         self.stage_settings = \
             unpack_config_dict(configuration.stage_inds, \
             attribs["stage_settings"])
+        #load all of the electrode settings into the correct keys
         self.electrode_settings["dc_settings"] = \
             attribs["electrode_dc_vals"][:configuration.num_electrodes]
-        temp_elec_settings = np.array(attribs["electrode_settings"])
-        #self.electrode_settings["driven_electrodes"] = \
-             
 
+        temp_elec_settings = np.array(attribs["electrode_settings"])
+
+        self.electrode_settings["driven"] = \
+            temp_elec_settings[configuration.electrode_settings['driven']]
+        self.electrode_settings["amplitudes"] = \
+            temp_elec_settings[configuration.electrode_settings['driven']]
+        self.electrode_settings["frequencies"] = \
+            temp_elec_settings[configuration.electrode_settings['frequencies']]
+        #reasign driven electrode_dc_vals because it is overwritten
+        dcval_temp = \
+            temp_elec_settings[configuration.electrode_settings['dc_vals2']]  
+        for i, e in enumerate(self.electrode_settings["driven"]):
+            if e == 1.:
+                self.electrode_settings["dc_settings"][i] = dcval_temp[i]
+                
         
 
 

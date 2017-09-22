@@ -34,14 +34,15 @@ electrodes = {0: "cantilever",
               5: "right",
               6: "left"}
 
-eletrode_settings = {'driven'   : [0, 1, 2, 3, 4, 5, 6],
-                     'amplitudes': [8, 9, 10, 11, 12, 13, 14]
-                     'frequencies': [16, 17, 18, 19, 20, 21, 22]}  
+electrode_settings = {'driven'   : [0, 1, 2, 3, 4, 5, 6],
+                     'amplitudes': [8, 9, 10, 11, 12, 13, 14],
+                     'frequencies': [16, 17, 18, 19, 20, 21, 22],
+                     'dc_vals2':     [24, 25, 26, 27, 28, 29, 30]}  
 
 ####ADC parameters to convert from bits to voltage when loading raw .h5 files
 adc_params = {"adc_res":2**16,
               "adc_max_voltage":10.,
-              "ignore_pts": 1000}
+              "ignore_pts": 0}
 
 
 ####File extensions used at point throughout the analysis
@@ -70,4 +71,3 @@ stage_inds = {"x DC": 0,
               "z amp": 10,
               "z freq":11} 
 
-electrode_inds = {}  
