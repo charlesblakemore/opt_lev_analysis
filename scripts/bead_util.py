@@ -1,5 +1,3 @@
-# SHIT PISSING FUCK JESUS
-
 import h5py, os, re, glob
 import numpy as np
 import datetime as dt
@@ -94,16 +92,16 @@ class DataFile:
         '''
         self.fname = "Filename not assigned."
         #Data and data parameters
-        self.pos_data = "bead position data not loaded"
-        self.cant_data = "cantilever position data no loaded" 
-        self.electrode_data = "electrode data not loaded yet"
+        self.pos_data = []
+        self.cant_data = [] 
+        self.electrode_data = []
         self.Fsamp = "Fsamp not loaded"
         #Conditions under which data is taken
         self.time = "Time not loaded"
-        self.temps = "temps not loaded"
-        self.pressures = "pressures not loaded" 
-        self.stage_settings = "Stage setting not loaded yet"
-        self.electrode_settings = "Electrode settings not loaded"
+        self.temps = []
+        self.pressures = {} 
+        self.stage_settings = []
+        self.electrode_settings = []
 
     def load(self, fname):
         '''Loads the data from file with fname into DataFile object. Does not perform any calibrations.  
@@ -111,19 +109,19 @@ class DataFile:
         dat, attribs= bu.getdata(fname)
         self.fname = fname 
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
+        #data and FSamp
         self.pos_data = dat[:, configuration.col_labels["bead_pos"]]
         self.cant_data = dat[:, configuration.col_labels["stage_pos"]]
-        self.
-        # Attributes coming from Labview Front pannel settings
-        self.separation = sep         # Manually entered distance of closest approach
+        self.electrode_data = dat[:, configuration.col_labels["electrodes"]]
         self.Fsamp = attribs["Fsamp"] # Sampling frequency of the data
-        self.Time = bu.labview_time_to_datetime(attribs["Time"]) # Time of end of file
+        #Data conditions
+        self.Time = labview_time_to_datetime(attribs["Time"]) # Time of end of file
         self.temps = attribs["temps"] # Vector of thermocouple temperatures 
-
-        # Vector of chamber pressure readings [pirani, cold cathode, baratron]
-        self.pressures = attribs["pressures"] 
-        self.synth_settings = attribs["synth_settings"] # Synthesizer fron pannel settings
-        self.dc_supply_settings = attribs["dc_supply_settings"] # DC power supply front pannel testings.
+        ptemp = attribs["pressures"] # temporarlily hold pressures
+        #loop over presssure gauges and get all gauges from right columns.
+        for k in configuration.pressures.keys():
+            self.pressures[k] = ptemp[configuration.pressures[k]]
+         
 
         # Electrode front pannel settings for all files in the directory.
         # first 8 are ac amps, second 8 are frequencies, 3rd 8 are dc vals 
