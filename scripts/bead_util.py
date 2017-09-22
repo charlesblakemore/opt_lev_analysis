@@ -149,7 +149,12 @@ class DataFile:
             if e == 1.:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
                 
-        
+    
+    def calibrate_stage_position(self):
+        '''calibrates voltage in cant_data and into microns. Uses stage position file to put origin of coordinate system at trap in x direction with cantilever centered on trap in y. Looks for stage position file with same path and file name as slef.fname '''
+        #First get everything into microns.
+        for k in configuration.calibrate_stage_keys:
+            self.stage_settings[k] *= configuration.stage_cal    
 
 
     def diagonalize(self, Harr, cantfilt=False):

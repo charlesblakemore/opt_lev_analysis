@@ -71,3 +71,6 @@ stage_inds = {"x DC": 0,
               "z amp": 10,
               "z freq":11} 
 
+stage_cal = 8.0#um/V
+#Stage keys that get calibrated by the stage_cal:
+calibrate_stage_keys = ["x DC", "x amp", "y DC", "y amp", "z DC","z amp"] 
