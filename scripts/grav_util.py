@@ -5,7 +5,7 @@ import matplotlib.colors as colors
 import scipy.interpolate as interpolate
 import scipy.optimize as optimize
 import sys, time
-import cant_utils as cu
+import cant_util as cu
 import scipy.signal as signal
 
 

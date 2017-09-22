@@ -9,10 +9,9 @@ import scipy.optimize as optimize
 import scipy.signal as signal
 import scipy.interpolate as interpolate
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import dill as pickle
 import scipy.signal as sig
 from multiprocessing import Pool
-
 
 #######################################################
 # Core module for loading data files. Has classes for
@@ -391,7 +390,7 @@ class Data_file:
         self.sb_spacing = "sideband spacing not computed."
 
     def load(self, fstr, sep, cant_cal = 8., stage_travel = 80., \
-             cut_samp = 2000, elec_inds = [8, 9, 10, 11, 12, 13, 14]):
+             cut_samp = 0, elec_inds = [8, 9, 10, 11, 12, 13, 14]):
         # Methods to load the attributes from a single data file. 
         # sep is a vector of the distances of closes approach for 
         # each direction ie. [xsep, ysep, zsep] 
