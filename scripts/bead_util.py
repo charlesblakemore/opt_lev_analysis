@@ -278,6 +278,7 @@ class DataFile:
                 
 
     def get_force_curve(self):
+        dt = 1. / self.fsamp
         return
 
 
@@ -292,6 +293,8 @@ class DataFile:
             self.stage_settings[k] *= configuration.stage_cal    
         
         self.cant_data*=configuration.stage_cal
+
+
 
     def diagonalize(self, Harr, cantfilt=False):
 
