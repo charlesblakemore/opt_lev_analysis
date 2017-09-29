@@ -17,7 +17,7 @@ col_labels = {"bead_pos"  : [0, 1, 2],
 
 ####electrode column labels in  label: number pairs. cantilever approached from back. Left and right determined looking from side with bead dropper
 
-num_electrodes = 6
+num_electrodes = 7
 elec_labels = {"cantilever":0, 
                "top":1, 
                "bottom":2, 
