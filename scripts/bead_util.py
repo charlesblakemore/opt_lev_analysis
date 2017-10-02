@@ -284,7 +284,7 @@ class DataFile:
         # sure that if an electrode is drive then the dc_setting comes from 
         # attribs["electrode_settings"]  
         for i, e in enumerate(self.electrode_settings["driven"]):
-            if e == 1.:
+            if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
                 
 
@@ -311,18 +311,21 @@ class DataFile:
         filename, file_extension = os.path.splitext(self.fname)
         posfname = \
             os.path.join(filename, configuration.extensions["stage_position"])
-        # Load position of course stage 
-        pos_arr = pickle.load(open("save.p", "rb"))
+        # Load position of course stage. If file cant be found 
+        try: 
+            pos_arr = pickle.load(open(posfname, "rb"))
+        except:
+            print "shit is fucked"
 
 
 
-    def diagonalize(self, Harr, cantfilt=False):
-
-        diag_fft = np.einsum('ikj,ki->ji', Harr, self.data_fft)
-        self.diag_pos_data = np.fft.irfft(diag_fft)
-        self.diag_data_fft = diag_fft
-        if cantfilt:
-            diag_fft2 = np.einsum('ikj,ki->ji', Harr, self.cantfilt * self.data_fft)
-            self.diag_pos_data_cantfilt = np.fft.irfft(diag_fft2) 
+#    def diagonalize(self, Harr, cantfilt=False):
+#        '''does the diagonalization on the data'''
+#        diag_fft = np.einsum('ikj,ki->ji', Harr, self.data_fft)
+#        self.diag_pos_data = np.fft.irfft(diag_fft)
+#        self.diag_data_fft = diag_fft
+#        if cantfilt:
+#            diag_fft2 = np.einsum('ikj,ki->ji', Harr, self.cantfilt * self.data_fft)
+#            self.diag_pos_data_cantfilt = np.fft.irfft(diag_fft2) 
 
 
