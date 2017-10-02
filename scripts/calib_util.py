@@ -59,10 +59,6 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 
 
-
-
-
-
 def find_step_cal_response(file_obj, mfreq = 1.):
     '''Analyze a data step-calibraiton data file, find the drive frequency,
        correlate the response to the drive
