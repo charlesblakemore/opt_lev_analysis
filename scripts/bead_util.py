@@ -3,6 +3,10 @@ import numpy as np
 import datetime as dt
 import dill as pickle 
 
+import matplotlib.pyplot as plt
+import matplotlib.cm as cmx
+import matplotlib.colors as colors
+
 import scipy.interpolate as interp
 import scipy.optimize as optimize
 import scipy.signal as signal
@@ -22,6 +26,14 @@ import configuration
 # can be found by reverting opt_lev_analysis
 #######################################################
 
+def get_color_map( n ):
+    jet = plt.get_cmap('jet') 
+    cNorm  = colors.Normalize(vmin=0, vmax=n)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
+    outmap = []
+    for i in range(n):
+        outmap.append( scalarMap.to_rgba(i) )
+    return outmap
 
 ####First define some functions to help with the DataFile object. 
 
