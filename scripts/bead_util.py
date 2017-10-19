@@ -26,6 +26,9 @@ import configuration
 # can be found by reverting opt_lev_analysis
 #######################################################
 
+
+#### Generic Helper functions
+
 def get_color_map( n ):
     jet = plt.get_cmap('jet') 
     cNorm  = colors.Normalize(vmin=0, vmax=n)
@@ -35,7 +38,31 @@ def get_color_map( n ):
         outmap.append( scalarMap.to_rgba(i) )
     return outmap
 
-####First define some functions to help with the DataFile object. 
+def round_sig(x, sig=2):
+    '''Round a number to a certain number of sig figs
+           INPUTS: x, number to be rounded
+                   sig, number of sig figs
+
+           OUTPUTS: num, rounded number'''
+    neg = False
+    if x == 0:
+        return 0
+    else:
+        if x < 0:
+            neg = True
+            x = -1.0 * x
+        num = round(x, sig-int(math.floor(math.log10(x)))-1)
+        if neg:
+            return -1.0 * num
+        else:
+            return num
+
+
+
+
+
+
+#### First define some functions to help with the DataFile object. 
 
 def find_str(str):
     '''finds the index from the standard file name format'''
@@ -135,7 +162,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
        	        nharmonics, number of harmonics to include in filter
        	        width, filter width in Hertz [Hz]
                 sg_filter, boolean value indicating use of a Savitsky-Golay 
-                            filter for final smoothing
+                            filter for final smoothing of resp(drive)
                 sg_params, parameters of the savgol filter 
                             (see scipy.signal.savgol_filter for explanation)
 
@@ -255,9 +282,9 @@ class DataFile:
         dat, attribs= getdata(fname)
         self.fname = fname 
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
-        self.pos_data = dat[:, configuration.col_labels["bead_pos"]]
-        self.cant_data = dat[:, configuration.col_labels["stage_pos"]]
-        self.electrode_data = dat[:, configuration.col_labels["electrodes"]]
+        self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+        self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
+        self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
         self.fsamp = attribs["Fsamp"]
         self.time = labview_time_to_datetime(attribs["Time"])
         self.temps = attribs["temps"]
@@ -299,6 +326,10 @@ class DataFile:
             if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
                 
+    def load_other_data(self):
+        dat, attribs = getdata(self.fname)
+        dat = dat[configuration.adc_params["ignore_pts"]:, :]
+        self.other_data = np.transpose(dat[:, configuration.col_labels["other"]])
 
     def get_force_curve(self):
         dt = 1. / self.fsamp

@@ -8,6 +8,9 @@ from matplotlib.mlab import psd
 import scipy.constants as constants
 import scipy.signal as signal
 
+radial_dat = {}
+z_dat = {}
+
 #define parameters global to the noise analysis
 f0 = 210. #Hz
 dat_column = 0
@@ -49,14 +52,14 @@ def cal_constant(f0, cal_file = cal_file):
 
 def plt_df(ax, df, cf, lab, ls='-', marker='.'):
     '''plots the x position ASD for DataFile with '''
-    psd_dat, freqs = psd(cf*signal.detrend(df.pos_data[:, dat_column]), \
+    psd_dat, freqs = psd(cf*signal.detrend(df.pos_data[dat_column]), \
                          Fs = df.fsamp, NFFT = NFFT)
     ax.loglog(freqs, np.sqrt(psd_dat), label = lab, ls=ls, marker=marker, \
               markersize=0)
 
 def plt_zdf(ax, df, cf, lab, ls='-', marker='.'):
     '''plots the x position ASD for DataFile with '''
-    psd_dat, freqs = psd(cf*signal.detrend(df.pos_data[:, z_dat_column]), \
+    psd_dat, freqs = psd(cf*signal.detrend(df.pos_data[z_dat_column]), \
                          Fs = df.fsamp, NFFT = NFFT)
     ax.loglog(freqs, np.sqrt(psd_dat), label = lab, ls=ls, marker=marker, \
               markersize=0)
