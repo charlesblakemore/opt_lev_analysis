@@ -291,8 +291,7 @@ class DataFile:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
             # labels for pressure gauge specified by configuration.pressure_inds    
-            self.pressures = \
-                             unpack_config_dict(configuration.pressure_inds, \
+            self.pressures = unpack_config_dict(configuration.pressure_inds, \
                                                 attribs["pressures"]) 
         except:
             self.temps = 'Temps not loaded!'
