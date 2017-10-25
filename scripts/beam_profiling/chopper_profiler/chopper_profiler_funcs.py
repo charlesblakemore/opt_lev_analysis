@@ -2,8 +2,12 @@ import os, fnmatch
 
 import numpy as np
 
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+
 import scipy.optimize as opti
 import scipy.special as special
+import scipy.stats as stats
 
 import peakdetect as pdet
 
@@ -127,7 +131,9 @@ def fit_gauss_and_truncate(t, prof, twidth, numbins = 500):
 
 
 def profile(df, raw_dat_col = 4, drum_diam=3.25e-2, return_pos=False, \
-            normalize=True, numbins = 500):
+            numbins = 500, fit_intensity=False, \
+            intensity_func = gauss_intensity, guess = 3.0e-3, \
+            plot_peaks = False):
     ''' Takes a DataFile instance, extacts digitized data from the ThorLabs
     WM100 beam profiler, computes the derivative to find the profile then
     averages many profiles from a single time steam.
@@ -166,15 +172,16 @@ def profile(df, raw_dat_col = 4, drum_diam=3.25e-2, return_pos=False, \
     tot_prof = []
     tot_t = []
 
-    #for peakind, pos_peak in enumerate(pos_peaks):
-    #    try:
-    #        neg_peak = neg_peaks[peakind]
-    #    except:
-    #        continue
-    #    plt.plot(t[pos_peak[0]], pos_peak[1], 'x', color='r')
-    #    plt.plot(t[neg_peak[0]], neg_peak[1], 'x', color='b')
-    #plt.plot(t, grad)
-    #plt.show()
+    if plot_peaks:
+        for peakind, pos_peak in enumerate(pos_peaks):
+            try:
+                neg_peak = neg_peaks[peakind]
+            except:
+                continue
+            plt.plot(t[pos_peak[0]], pos_peak[1], 'x', color='r')
+            plt.plot(t[neg_peak[0]], neg_peak[1], 'x', color='b')
+        plt.plot(t, grad)
+        plt.show()
 
     # since the chopper and ADC aren't triggered together and don't
     # have the same timebase, need to make sure only have nice pairs 
@@ -225,13 +232,30 @@ def profile(df, raw_dat_col = 4, drum_diam=3.25e-2, return_pos=False, \
 
     tot_d = 2 * np.pi * 10.2 * (drum_diam * 0.5) * tot_t
 
-    if normalize:
-        tot_prof = tot_prof / np.max(tot_prof)
+    new_t = tot_t[sort_inds]
+    new_d = tot_d[sort_inds]
+    new_prof = tot_prof[sort_inds]
+
+    if fit_intensity:
+        if return_pos:
+            xvec = new_d
+        else:
+            xvec = new_t
+
+        width = 0.2 * (np.max(xvec) - np.min(xvec))
+        newguess = [np.max(new_prof), 0, width]
+
+        try:
+            popt, pcov = opti.curve_fit(intensity_func, xvec, \
+                                        new_prof, p0 = newguess)
+            return xvec, new_prof, popt
+        except:
+            print "Fit didn't work!"
 
     if return_pos:
-        return tot_d[sort_inds], tot_prof[sort_inds]
+        return new_d, new_prof
     else:
-        return tot_t[sort_inds], tot_prof[sort_inds]
+        return new_t, new_prof
 
 
 
