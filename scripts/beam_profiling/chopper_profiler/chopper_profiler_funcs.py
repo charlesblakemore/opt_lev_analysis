@@ -1,6 +1,7 @@
+import os, fnmatch
+
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
+
 import scipy.optimize as opti
 import scipy.special as special
 
@@ -10,29 +11,8 @@ import bead_util as bu
 import configuration as config
 
 
-fontsize = 16
 
-
-xfile = '/data/20171020/beam_profiling/xprof_notape.h5'
-
-#xfile = '/data/20171018/chopper_profiling/xprof_bright_fast.h5'
-
-yfile = '/data/20171020/beam_profiling/yprof_notape.h5'
-
-#yfile = '/data/20171018/chopper_profiling/yprof_bright_fast.h5'
-
-guess = 3.0e-3    # m, guess to help fit
-
-xfilobj = bu.DataFile()
-xfilobj.load(xfile)
-xfilobj.load_other_data()
-
-yfilobj = bu.DataFile()
-yfilobj.load(yfile)
-yfilobj.load_other_data()
-
-
-def LP01_mode(x, A, u):
+def bessel_intensity(x, A, u):
     return A * special.jv(0, x * u)**2
 
 
@@ -61,7 +41,7 @@ def rebin(xvec, yvec, numbins=100):
     maxval = np.max(xvec)
     dx = np.abs(xvec[1] - xvec[0])
 
-    xvec2 = np.hstack( (xvec[0] - 2.*dx, np.hstack( (xvec, xvec[-1] + 2.*dx) ) ) )
+    xvec2 = np.hstack( (xvec[0] - dx, np.hstack( (xvec, xvec[-1] + dx) ) ) )
     yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
 
     if numbins % 2:
@@ -146,15 +126,17 @@ def fit_gauss_and_truncate(t, prof, twidth, numbins = 500):
 
 
 
-def profile(df, raw_dat_col = 4, low_thresh = -0.05, high_thresh = 0.05):
+def profile(df, raw_dat_col = 4, drum_diam=3.25e-2, return_pos=False, \
+            normalize=True, numbins = 500):
     ''' Takes a DataFile instance, extacts digitized data from the ThorLabs
     WM100 beam profiler, computes the derivative to find the profile then
     averages many profiles from a single time steam.
     
-    INPUTS:  df, DataFile instance with
+    INPUTS:  df, DataFile instance with profiles
              raw_dat_col, column in 'other_data' with raw WM100 monitor
-             low_thresh, lower threshold to find negative going profile
-             high_thresh, higher threshold to find positive going profile
+             drum_diam, diameter of the optical head that rotates
+             return_pos, boolean to specify if return in raw time or calibrated
+                         drum position using the drum_diam argument
 
     OUTPUTS: all_t, all times associated with profiles, overlain/sorted
              all_prof, all profiles overlain and sorted
@@ -176,7 +158,7 @@ def profile(df, raw_dat_col = 4, low_thresh = -0.05, high_thresh = 0.05):
     numchops = int(t[-1] / dt_chop)
     twidth = (guess / (2.0 * np.pi * 10.0e-3)) * dt_chop
 
-    peaks = pdet.peakdetect(grad, lookahead=50, delta=0.1)
+    peaks = pdet.peakdetect(grad, lookahead=50, delta=0.05)
 
     pos_peaks = peaks[0]
     neg_peaks = peaks[1]
@@ -184,8 +166,15 @@ def profile(df, raw_dat_col = 4, low_thresh = -0.05, high_thresh = 0.05):
     tot_prof = []
     tot_t = []
 
-    plt.plot(t, grad)
-    plt.show()
+    #for peakind, pos_peak in enumerate(pos_peaks):
+    #    try:
+    #        neg_peak = neg_peaks[peakind]
+    #    except:
+    #        continue
+    #    plt.plot(t[pos_peak[0]], pos_peak[1], 'x', color='r')
+    #    plt.plot(t[neg_peak[0]], neg_peak[1], 'x', color='b')
+    #plt.plot(t, grad)
+    #plt.show()
 
     # since the chopper and ADC aren't triggered together and don't
     # have the same timebase, need to make sure only have nice pairs 
@@ -198,8 +187,14 @@ def profile(df, raw_dat_col = 4, low_thresh = -0.05, high_thresh = 0.05):
         neg_first = False
     else:
         print "Couldn't figure out positive or negative first..."
+
     if neg_first:
         pos_peaks = pos_peaks[:-1]
+        neg_peaks = neg_peaks[1:]
+
+    if len(pos_peaks) > len(neg_peaks):
+        pos_peaks = pos_peaks[:-1]
+    elif len(neg_peaks) > len(pos_peaks):
         neg_peaks = neg_peaks[1:]
     
 
@@ -214,7 +209,7 @@ def profile(df, raw_dat_col = 4, low_thresh = -0.05, high_thresh = 0.05):
 
         try:
             new_t, new_prof = fit_gauss_and_truncate(fit_t, fit_prof, \
-                                                 twidth, numbins = 500)
+                                                     twidth, numbins = numbins)
 
             if len(tot_t) == 0:
                 tot_t = new_t
@@ -228,86 +223,55 @@ def profile(df, raw_dat_col = 4, low_thresh = -0.05, high_thresh = 0.05):
 
     sort_inds = tot_t.argsort()
 
-    return tot_t[sort_inds], tot_prof[sort_inds]
+    tot_d = 2 * np.pi * 10.2 * (drum_diam * 0.5) * tot_t
 
+    if normalize:
+        tot_prof = tot_prof / np.max(tot_prof)
 
-x_t, x_prof = profile(xfilobj, raw_dat_col = 4)
-y_t, y_prof = profile(yfilobj, raw_dat_col = 4)
-
-x_prof = x_prof / np.max(x_prof)
-y_prof = y_prof / np.max(y_prof)
-
-x_d = 2 * np.pi * 10.2 * (3.25e-2 * 0.5) * x_t
-y_d = 2 * np.pi * 10.2 * (3.25e-2 * 0.5) * y_t
-
-plt.plot(x_d, x_prof)
-plt.show()
-
-binned_x_d, binned_x_prof, x_errs = rebin(x_d, x_prof, numbins=500)
-binned_y_d, binned_y_prof, y_errs = rebin(y_d, y_prof, numbins=500)
-
-final_p0 = [1.0, 0, 0.001]
-final_x_popt, final_x_pcov = opti.curve_fit(gauss_intensity, x_d, x_prof, \
-                                        p0 = final_p0)
-final_y_popt, final_y_pcov = opti.curve_fit(gauss_intensity, y_d, y_prof, \
-                                        p0 = final_p0)
-
-LP_p0 = [1, 0.001]
-final_x_LP_popt, final_x_LP_pcov = \
-        opti.curve_fit(LP01_mode, binned_x_d, binned_x_prof, p0=LP_p0)
-
-
-
-fig1, axarr1 = plt.subplots(2,1,sharex=True,sharey=True)
-axarr1[0].plot(x_d * 1e3, x_prof, label="All Data")
-axarr1[0].plot(binned_x_d * 1e3, binned_x_prof, label="Avg'd Data", color='k')
-axarr1[0].plot(binned_x_d * 1e3, gauss_intensity(binned_x_d, *final_x_popt),\
-                   '--', color = 'r', linewidth=1.5, label="Gaussian Fit")
-axarr1[0].set_xlabel("Displacement [mm]", fontsize=fontsize)
-axarr1[0].set_ylabel("X Intensity [arb]", fontsize=fontsize)
-axarr1[0].legend(fontsize=fontsize-4, loc=1)
-plt.setp(axarr1[0].get_xticklabels(), fontsize=fontsize, visible=True)
-plt.setp(axarr1[0].get_yticklabels(), fontsize=fontsize, visible=True)
-
-axarr1[1].plot(y_d * 1e3, y_prof)
-axarr1[1].plot(binned_y_d * 1e3, binned_y_prof, color='k')
-axarr1[1].plot(binned_y_d * 1e3, gauss_intensity(binned_y_d, *final_y_popt),\
-                   '--', color = 'r', linewidth=1.5)
-axarr1[1].set_xlabel("Displacement [mm]", fontsize=fontsize)
-axarr1[1].set_ylabel("Y Intensity [arb]", fontsize=fontsize)
-plt.setp(axarr1[1].get_xticklabels(), fontsize=fontsize, visible=True)
-plt.setp(axarr1[1].get_yticklabels(), fontsize=fontsize, visible=True)
-
-
-
-fig2, axarr2 = plt.subplots(2,1,sharex=True,sharey=True)
-axarr2[0].semilogy(binned_x_d * 1e3, np.abs(binned_x_prof), \
-                   label="Avg'd Data", color='k')
-axarr2[0].semilogy(binned_x_d * 1e3, gauss_intensity(binned_x_d, *final_x_popt),\
-                   '--', color = 'r', linewidth=1.5, label="Gaussian Fit")
-#axarr2[0].semilogy(binned_x_d * 1e3, LP01_mode(binned_x_d, *final_x_LP_popt),\
-#                   '--', color = 'g', linewidth=1.5, label="LP Fit")
-axarr2[0].set_xlabel("Displacement [mm]", fontsize=fontsize)
-axarr2[0].set_ylabel("X Intensity [arb]", fontsize=fontsize)
-axarr2[0].set_ylim(1e-4,3)
-axarr2[0].legend(fontsize=fontsize-4, loc=1)
-plt.setp(axarr2[0].get_xticklabels(), fontsize=fontsize, visible=True)
-plt.setp(axarr2[0].get_yticklabels(), fontsize=fontsize, visible=True)
-
-axarr2[1].semilogy(binned_y_d * 1e3, np.abs(binned_y_prof), color='k')
-axarr2[1].semilogy(binned_y_d * 1e3, gauss_intensity(binned_y_d, *final_y_popt),\
-                   '--', color = 'r', linewidth=1.5)
-axarr2[1].set_xlabel("Displacement [mm]", fontsize=fontsize)
-axarr2[1].set_ylabel("Y Intensity [arb]", fontsize=fontsize)
-axarr2[0].set_ylim(1e-4,3)
-plt.setp(axarr2[1].get_xticklabels(), fontsize=fontsize, visible=True)
-plt.setp(axarr2[1].get_yticklabels(), fontsize=fontsize, visible=True)
-
-
-
-plt.show()
+    if return_pos:
+        return tot_d[sort_inds], tot_prof[sort_inds]
+    else:
+        return tot_t[sort_inds], tot_prof[sort_inds]
 
 
 
 
+def profile_directory(prof_dir, raw_dat_col = 4, drum_diam=3.25e-2, \
+                      return_pos=False, normalize=True):
+    ''' Takes a directory path and profiles each file, and averages 
+        for a final result
+    
+    INPUTS:  prof_dir, directory path
+             raw_dat_col, column in 'other_data' with raw WM100 monitor
+             drum_diam, diameter of the optical head that rotates
+             return_pos, boolean to specify if return in raw time or calibrated
+                         drum position using the drum_diam argument
 
+    OUTPUTS: tot_x, all t/disp associated with profiles, overlain/sorted
+             tot_prof, all profiles overlain and sorted
+    '''
+    prof_files = [] 
+    for root, dirnames, filenames in os.walk(prof_dir):
+        for filename in fnmatch.filter(filenames, '*' + config.extensions['data']):
+            prof_files.append(os.path.join(root, filename))
+
+    tot_x = []
+    tor_prof = []
+    for fil_path in prof_files:
+        prof_df = bu.DataFile()
+        prof_df.load(fil_path)
+        prof_df.load_other_data()
+
+        x, prof = profile(prof_df, raw_dat_col = raw_dat_col, \
+                          drum_diam = drum_diam, return_pos = return_pos)
+
+        if not len(tot_x):
+            tot_x = x
+            tot_prof = prof
+        else:
+            tot_x = np.hstack((tot_x, x))
+            tot_prof = np.hstack((tot_prof, prof))
+
+    sort_inds = tot_x.argsort()
+
+    return tot_x[sort_inds], tot_prof[sort_inds]
