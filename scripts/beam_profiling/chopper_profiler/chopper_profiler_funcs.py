@@ -130,7 +130,7 @@ def fit_gauss_and_truncate(t, prof, twidth, numbins = 500):
 
 
 
-def profile(df, raw_dat_col = 4, drum_diam=3.25e-2, return_pos=False, \
+def profile(df, raw_dat_col = 4, drum_diam=3.17e-2, return_pos=False, \
             numbins = 500, fit_intensity=False, \
             intensity_func = gauss_intensity, guess = 3.0e-3, \
             plot_peaks = False):
@@ -157,6 +157,9 @@ def profile(df, raw_dat_col = 4, drum_diam=3.25e-2, return_pos=False, \
 
     psd, freqs = mlab.psd(raw_dat, NFFT=len(raw_dat), Fs=fsamp)
     chopfreq = freqs[np.argmax(psd)]
+
+    if chopfreq > 15:
+        chopfreq = 10.2
 
     grad = np.gradient(raw_dat)
 

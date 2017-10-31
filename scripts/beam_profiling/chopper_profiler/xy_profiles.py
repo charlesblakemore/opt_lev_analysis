@@ -15,18 +15,20 @@ import chopper_profiler_funcs as chopfuncs
 
 
 fontsize = 16
-plot_title = ''# 'Far Position'
+plot_title = 'Centered'
 
 
 #xfile = '/data/20171023/alignment/objective_coll/xprof_pos6.h5'
 #yfile = '/data/20171023/alignment/objective_coll/yprof_pos6.h5'
 
+#xfile = '/data/20171024/alignment/lens_tube/xprof_pos8.h5'
+#yfile = '/data/20171024/alignment/lens_tube/yprof_pos8.h5'
 
-#xfile = '/data/20171023/alignment/objective_2/xprof_0_35m_init.h5'
-#yfile = '/data/20171023/alignment/objective_2/yprof_0_35m_init.h5'
+xfile = '/data/20171025/chopper_profiling/xprof_output_centered.h5'
+yfile = '/data/20171025/chopper_profiling/yprof_output_centered.h5'
+#xfile = '/data/20171025/chopper_profiling/45degprof_output.h5'
 
-xfile = '/data/20171024/alignment/lens_tube/xprof_pos8.h5'
-yfile = '/data/20171024/alignment/lens_tube/yprof_pos8.h5'
+
 
 
 
