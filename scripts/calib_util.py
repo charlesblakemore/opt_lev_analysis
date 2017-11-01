@@ -96,7 +96,7 @@ def find_step_cal_response(file_obj, bandwidth=1.):
        INPUTS:   file_obj, input file object
                  bandwidth, bandpass filter bandwidth
 
-       OUTPUTS:  corr_full, full and correctly normalized correlation'''
+       OUTPUTS:  H, (response / drive)'''
 
     ecol = np.argmax(file_obj.electrode_settings['driven'])
     pcol = config.elec_map[ecol]

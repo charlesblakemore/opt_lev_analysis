@@ -187,7 +187,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     respfft = np.fft.rfft(resp)
     freqs = np.fft.rfftfreq(len(drive), d=dt)
 
-    # Find the drive frequency
+    # Find the drive frequency, ignoring the DC bin
     fund_ind = np.argmax( np.abs(drivefft[1:]) ) + 1
     drive_freq = freqs[fund_ind]
 
@@ -262,6 +262,7 @@ class DataFile:
         self.fname = "Filename not assigned."
         #Data and data parameters
         self.pos_data = []
+        self.diag_pos_data = []
         self.cant_data = [] 
         self.electrode_data = []
         self.fsamp = "Fsamp not loaded"
@@ -291,8 +292,7 @@ class DataFile:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
             # labels for pressure gauge specified by configuration.pressure_inds    
-            self.pressures = \
-                             unpack_config_dict(configuration.pressure_inds, \
+            self.pressures = unpack_config_dict(configuration.pressure_inds, \
                                                 attribs["pressures"]) 
         except:
             self.temps = 'Temps not loaded!'
@@ -335,10 +335,6 @@ class DataFile:
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
         self.other_data = np.transpose(dat[:, configuration.col_labels["other"]])
 
-    def get_force_curve(self):
-        dt = 1. / self.fsamp
-        return
-
 
     def calibrate_stage_position(self):
         '''calibrates voltage in cant_data and into microns. 
@@ -365,14 +361,74 @@ class DataFile:
             print "shit is fucked"
 
 
+    def diagonalize(self, Harr):
+        '''Diagonalizes data, adding a new attribute to the DataFile object.
+           INPUTS: Harr, Nfreqx3x3 complex-valued matrix from the
+                         transfer_func_util.make_tf_array() function
 
-#    def diagonalize(self, Harr, cantfilt=False):
-#        '''does the diagonalization on the data'''
-#        diag_fft = np.einsum('ikj,ki->ji', Harr, self.data_fft)
-#        self.diag_pos_data = np.fft.irfft(diag_fft)
-#        self.diag_data_fft = diag_fft
-#        if cantfilt:
-#            diag_fft2 = np.einsum('ikj,ki->ji', Harr, self.cantfilt * self.data_fft)
-#            self.diag_pos_data_cantfilt = np.fft.irfft(diag_fft2) 
+           OUTPUTS: none, generates new class attribute.'''
+        data_fft = np.fft.rfft(self.pos_data)
+        diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
+        self.diag_pos_data = np.fft.irfft(diag_fft)
 
+
+    def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
+                sg_filter=False, sg_params=[3,1], verbose=True):
+        '''Diagonalizes data, adding a new attribute to the DataFile object. 
+           Loops over file and finds the driven cantilever axis then bins 
+           all 3 directions against driven axis
+           INPUTS: nbins, number of output bins
+                   nharmonics, number of harmonics to include in fourier
+                               binning procedure
+                   width, bandwidth, in Hz, of notch filter
+                   sg_filter, boolean specifying use of Savitsky-Golay filter
+                   sg_params, parameters for Savitsky-Golay filter
+                   verbose, boolean for some extra text outputs
+
+           OUTPUTS: none, generates new class attribute'''
+
+        # First, find which axes were driven. If multiple are found,
+        # it takes the axis with the largest amplitude
+        indmap = {0: 'x', 1: 'y', 2: 'z'}
+        driven = [0,0,0]
+        for ind, key in enumerate(['x driven','y driven','z driven']):
+            if self.stage_settings[key]:
+                driven[ind] = 1
+        if np.sum(driven) > 1:
+            amp = [0,0,0]
+            for ind, val in enumerate(driven):
+                if val: 
+                    key = indmap[ind] + ' amp'
+                    amp[ind] = stage_settings[key]
+            cant_ind = np.argmax(np.abs(amp))
+        else:
+            cant_ind = np.argmax(np.abs(driven))
+
+        # Bin responses against the drive. If data has been diagonalized,
+        # it bins the diagonal data as well
+        dt = 1. / self.fsamp
+        drivevec = self.cant_data[cant_ind]
+        binned_data = [[0,0], [0,0], [0,0]]
+        if self.diag_pos_data:
+            diag_binned_data = [[0,0], [0,0], [0,0]]
+        for resp in [0,1,2]:
+            bins, binned_vec = spatial_bin(drivevec, self.pos_data[resp], dt, \
+                                           nbins = nbins, nharmonics = nharmonics, \
+                                           width = width, sg_filter = sg_filter, \
+                                           sg_params = sg_params, verbose = True)
+            binned_data[resp][0] = bins
+            binned_data[resp][1] = binned_vec
+            
+            if self.diag_pos_data:
+                diag_bins, diag_binned_vec = spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
+                                                         nbins = nbins, nharmonics = nharmonics, \
+                                                         width = width, sg_filter = sg_filter, \
+                                                         sg_params = sg_params, verbose = True)
+                diag_binned_data[resp][0] = diag_bins
+                diag_binned_data[resp][1] = diag_binned_vec
+
+        self.binned_data = binned_data
+        if self.diag_pos_data:
+            self.diag_binned_data = diag_binned_data
+                
 

@@ -1,31 +1,101 @@
+import glob, os, sys, copy, time, math, pprocess
+
 import numpy as np
 import matplotlib
+import matplotlib.pyplot as plt
+
+import scipy
+import scipy.optimize as opti
+import scipy.signal as signal
+import scipy.interpolate as interp
+
 import cant_util as cu
 import bead_util as bu
 import image_util as imu
-import scipy
-import glob, os, sys, copy, time, math, pprocess
-from scipy.optimize import curve_fit
-import scipy.optimize as optimize
-import scipy.signal as signal
-import scipy.interpolate as interpolate
-import matplotlib.pyplot as plt
-import cPickle as pickle
-import scipy.signal as sig
-from multiprocessing import Pool
+import configuration as config
+
+import dill as pickle
+
+
+
+
+
+def damped_osc_amp(f, A, f0, g):
+    '''Fitting function for AMPLITUDE of a damped harmonic oscillator
+           INPUTS: f [Hz], frequency 
+                   A, amplitude
+                   f0 [Hz], resonant frequency
+                   g [Hz], damping factor
+
+           OUTPUTS: Lorentzian amplitude'''
+    w = 2. * np.pi * f
+    w0 = 2. * np.pi * f0
+    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * g**2)
+    return A / denom
+
+def damped_osc_phase(f, A, f0, g, phase0 = 0.):
+    '''Fitting function for PHASE of a damped harmonic oscillator.
+       Includes an arbitrary DC phase to fit over out of phase responses
+           INPUTS: f [Hz], frequency 
+                   A, amplitude
+                   f0 [Hz], resonant frequency
+                   g [Hz], damping factor
+
+           OUTPUTS: Lorentzian amplitude'''
+    w = 2. * np.pi * f
+    w0 = 2. * np.pi * f0
+    return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+
+
+
+def sum_3osc_amp(f, A1, f1, g1, A2, f2, g2, A3, f3, g3):
+    '''Fitting function for AMPLITUDE of a sum of 3 damped harmonic oscillators.
+           INPUTS: f [Hz], frequency 
+                   A1,2,3, amplitude of the three oscillators
+                   f1,2,3 [Hz], resonant frequency of the three oscs
+                   g1,2,3 [Hz], damping factors
+
+           OUTPUTS: Lorentzian amplitude of complex sum'''
+    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
+           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
+           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
+    return np.abs(csum)
+
+
+def sum_3osc_phase(f, A1, f1, g1, A2, f2, g2, A3, f3, g3, phase0=0.):
+    '''Fitting function for PHASE of a sum of 3 damped harmonic oscillators.
+       Includes an arbitrary DC phase to fit over out of phase responses
+           INPUTS: f [Hz], frequency 
+                   A1,2,3, amplitude of the three oscillators
+                   f1,2,3 [Hz], resonant frequency of the three oscs
+                   g1,2,3 [Hz], damping factors
+
+           OUTPUTS: Lorentzian amplitude of complex sum'''
+    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
+           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
+           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
+    return np.angle(csum) + phase0
 
 
     
-def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq = 1., \
+
+
+def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-2, mfreq = 1., \
                          fix_HF=False):
-    # Loop over file objects and construct a dictionary with frequencies 
-    # as keys and 3x3 transfer matrices as values
+    '''Generates a transfer function from a list of DataFile objects
+           INPUTS: fobjs, list of file objects
+                   average_first, boolean specifying whether to average responses
+                                  for a given drive before computing H
+                   dpsd_thresh, threshold above which to compute H
+                   mfreq, minimum frequency to consider
+                   fix_HF, boolean to specify whether to try fixing spectral
+                           leakage at high frequency due to drift in a timebase
+
+           OUTPUTS: Hout, dictionary with 3x3 complex valued matrices as values
+                          and frequencies as keys'''
 
     print "BUILDING H..."
     sys.stdout.flush()
-
-    if type(dir_obj.fobjs) == str:
-        dir_obj.load_dir(H_loader)
 
     Hout = {}
     Hout_noise = {}
@@ -37,18 +107,17 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
         avg_data_fft = {}
         counts = {}
 
-        for fobj in dir_obj.fobjs:
-
-            if type(fobj.data_fft) == str:
-                fobj.get_fft()        
+        for fobj in fobjs:
 
             dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis. 
-            data_fft = fobj.data_fft
+            data_fft = np.fft.rfft(fobj.pos_data)
 
             N = np.shape(fobj.pos_data)[1]#number of samples
-            Fsamp = fobj.Fsamp
+            fsamp = fobj.fsamp
 
-            dpsd = np.abs(dfft)**2 * 2./(N*fobj.Fsamp) #psd for all electrode drives   
+            fft_freqs = np.fft.rfftfreq(N, d=1.0/fsamp)
+
+            dpsd = np.abs(dfft)**2 * 2./(N*fobj.fsamp) #psd for all electrode drives   
             inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
             eind = np.unique(inds[0])[0]
 
@@ -67,7 +136,7 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
 
         for eind in avg_drive_fft.keys():
             # First find drive-frequency bins above a fixed threshold
-            dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*Fsamp)
+            dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*fsamp)
             inds = np.where(dpsd > dpsd_thresh)
 
             # Extract the frequency indices
@@ -75,9 +144,9 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
 
             # Ignore DC and super low frequencies
             mfreq = 1.0
-            b = finds > np.argmin(np.abs(dir_obj.fobjs[0].fft_freqs - mfreq))
+            b = finds > np.argmin(np.abs(fft_freqs - mfreq))
 
-            freqs = dir_obj.fobjs[0].fft_freqs[finds[b]]
+            freqs = fft_freqs[finds[b]]
 
             # Compute FFT of each response divided by FFT of each drive.
             # This is way more information than we need for a single drive freq
@@ -104,7 +173,7 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
 
             # Map the 3x7xNfreq arrays to dictionaries with keys given by the drive
             # frequencies and values given by 3x3 complex-values TF matrices
-            outind = emap(eind)
+            outind = config.elec_map[eind]
             for i, freq in enumerate(freqs):
                 if freq not in Hout:
                     if i != 0 and fix_HF:
@@ -161,46 +230,46 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
                 Hout_noise[key][:,i] = Hout_noise[key][:,i] / Hout_counts[key][i]
 
 
-        if fix_HF:
-            keys = Hout.keys()
-            keys.sort()
-
-            freqsep = keys[1] - keys[0]
-            freqsep = freqsep * 0.9
-
-            curr_sum = np.zeros((3,3), dtype=np.complex128)
-            curr_freqs = []
-            count = 0
-            fixing = False
-
-            for i, key in enumerate(keys):
-
-                if key == keys[0]:
-                    continue
-
-                if ((keys[i] - keys[i-1]) < freqsep) and not fixing:
-                    fixing = True
-                    curr_freqs.append(keys[i-1])
-                    curr_sum += Hout[keys[i-1]]
-                    count += 1
-
-                if fixing:
-                    curr_freqs.append(keys[i])
-                    curr_sum += Hout[keys[i]]
-                    count += 1
-                    if i == len(keys) - 1:
-                        continue
-                    else:
-                        if keys[i+1] - keys[i] >= freqsep:
-                            fixing = False
-
-                            for freq in curr_freqs:
-                                del Hout[freq]
-
-                            newfreq = np.mean(curr_freqs)
-                            Hout[newfreq] = curr_sum
-                            curr_freqs = []
-                            curr_sum = np.zeros((3,3), dtype=np.complex128)
+    #if fix_HF:
+    #    keys = Hout.keys()
+    #    keys.sort()
+    #
+    #    freqsep = keys[1] - keys[0]
+    #    freqsep = freqsep * 0.9
+    #
+    #    curr_sum = np.zeros((3,3), dtype=np.complex128)
+    #    curr_freqs = []
+    #    count = 0
+    #    fixing = False
+    #
+    #    for i, key in enumerate(keys):
+    #
+    #        if key == keys[0]:
+    #            continue
+    #
+    #        if ((keys[i] - keys[i-1]) < freqsep) and not fixing:
+    #            fixing = True
+    #            curr_freqs.append(keys[i-1])
+    #            curr_sum += Hout[keys[i-1]]
+    #            count += 1
+    #
+    #        if fixing:
+    #            curr_freqs.append(keys[i])
+    #            curr_sum += Hout[keys[i]]
+    #            count += 1
+    #            if i == len(keys) - 1:
+    #                continue
+    #            else:
+    #                if keys[i+1] - keys[i] >= freqsep:
+    #                    fixing = False
+    #
+    #                for freq in curr_freqs:
+    #                    del Hout[freq]
+    #
+    #                    newfreq = np.mean(curr_freqs)
+    #                    Hout[newfreq] = curr_sum
+    #                    curr_freqs = []
+    #                    curr_sum = np.zeros((3,3), dtype=np.complex128)
 
 
 
@@ -219,11 +288,7 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
             for freq in freqs:
                 Hout[freq][:,drive] = Hout[freq][:,drive] * (-1)
 
-
-    dir_obj.Hs = Hout
-    dir_obj.noiseHs = Hout_noise
-
-    return dir_obj
+    return Hout, Hout_noise
 
 
 
@@ -237,22 +302,26 @@ def build_uncalibrated_H(dir_obj, average_first=False, dpsd_thresh = 8e-2, mfreq
 
 
 
-def calibrate_H(dir_obj, step_cal_drive_channel = 0, drive_freq = 41.,\
-                plate_sep = 0.004, bins_to_avg = 2):
+def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
+                plate_sep = 0.004):
+    '''Calibrates a transfer function with a given charge step calibration.
+       This inherently assumes all the gains are matched between the step response
+       and transfer function measurement
+           INPUTS: Hout, dictionary transfer function to calibrate
+                   vpn, volts per Newton for step cal response channel
+                   drive_freq, drive frequency for step response
+                   plate_sep, face to face electrode separation in meters
+                              to compute amplitude of driving force
 
-    if type(dir_obj.charge_step_calibration) == str:
-        print dir_obj.charge_step_calibration
-        return
-    if type(dir_obj.Hs) == str:
-        self.build_uncalibrated_H()
+           OUTPUTS: Hout_cal, calibrated transfer function'''
+
     print "CALIBRATING H FROM SINGLE-CHARGE STEP..."
     sys.stdout.flush()
-    freqs = np.array(dir_obj.Hs.keys())
+    freqs = np.array(Hout.keys())
     freqs.sort()
     ind = np.argmin(np.abs(freqs-drive_freq))
 
     j = step_cal_drive_channel
-    bins = bins_to_avg
 
     # Compute Vresponse / Vdrive on q = q0:
     npfreqs = np.array(freqs)
@@ -260,32 +329,26 @@ def calibrate_H(dir_obj, step_cal_drive_channel = 0, drive_freq = 41.,\
 
     resps = []
     for freq in freqs_to_avg:
-        resps.append(np.abs(dir_obj.Hs[freq][j,j]))
+        resps.append(np.abs(Hout[freq][j,j]))
 
     qfac = np.mean(resps)  
     qfac = qfac * plate_sep # convert V -> E-field -> Force
 
-    fac = dir_obj.charge_step_calibration.popt[0]  # Vresponse / Ndrive on q=1
-
-    q = qfac / fac
+    q = qfac / vpn
+    e_charge = config.p_param["e_charge"]
     outstr = "Charge-step calibration implies "+\
-             "%0.2f charge during H measurement" % (q / bu.e_charge)
+             "%0.2f charge during H measurement" % (q / e_charge)
     print outstr
 
-    Hs_cal = {}
+    Hout_cal = {}
     for freq in freqs:
         # Normalize transfer functions by charge number
         # and convert to force with capacitor plate separation
         # F = q*E = q*(V/d) so we take
         # (Vresp / Vdrive) * d / q = Vresp / Fdrive
-        Hs_cal[freq] = np.copy(dir_obj.Hs[freq]) * (plate_sep / q)
+        Hout_cal[freq] = np.copy(Hout[freq]) * (plate_sep / q)
 
-    dir_obj.Hs_cal = Hs_cal
-
-    return dir_obj
-
-
-
+    return Hout_cal
 
 
 
@@ -296,28 +359,26 @@ def calibrate_H(dir_obj, step_cal_drive_channel = 0, drive_freq = 41.,\
 
         
 
-def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
+def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                  weight_peak=False, weight_lowf=False, lowf_thresh=60., \
                  weight_phase=False, plot_fits=False, plot_inits=False, \
-                 grid = False, fit_osc_sum=False, deweight_peak=False):
+                 grid = False, fit_osc_sum=False, deweight_peak=False, \
+                 interpolate = False, max_freq=300):
     # Build the calibrated transfer function array
     # i.e. transfer matrices at each frequency and fit functions to each component
 
-    if type(dir_obj.Hs_cal) == str:
-        dir_obj.calibrate_H()
-
-    keys = dir_obj.Hs_cal.keys()
+    keys = Hout_cal.keys()
     keys.sort()
 
     keys = np.array(keys)
 
     mats = []
     for freq in keys:
-        mat = dir_obj.Hs_cal[freq]
+        mat = Hout_cal[freq]
         mats.append(mat)
 
     mats = np.array(mats)
-    fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]   
 
     if plot_fits:
         f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='all')
@@ -350,19 +411,42 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
             # Unwrap the phase
             unphase = np.unwrap(phase, discont=1.4*np.pi)
 
+            if interpolate:
+                b = keys < max_freq
+                magfunc = interp.interp1d(keys[b], mag[b], kind='cubic', \
+                                          fill_value=(mag[b][0],0), bounds_error=False)
+                phasefunc = interp.interp1d(keys[b], unphase[b], kind='cubic', \
+                                            fill_value=(unphase[b][0], 0), bounds_error=False)
+                fits[resp][drive] = (magfunc, phasefunc)
+                if plot_fits:
+                    pts = np.linspace(np.min(keys), np.max(keys), len(keys) * 10)
+                    
+
+                    if grid:
+                        axarr1[resp,drive].grid()
+                        axarr2[resp,drive].grid()
+
+                    axarr1[resp,drive].loglog(keys, mag)
+                    axarr1[resp,drive].loglog(pts, magfunc(pts), color='r', linewidth=3)
+
+                    axarr2[resp,drive].semilogx(keys, unphase)
+                    axarr2[resp,drive].semilogx(pts, phasefunc(pts), color='r', linewidth=3)
+                continue
+
+
             # Make initial guess based on high-pressure thermal spectra fits
-            therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
+            #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
             if (drive == 2) or (resp == 2):
                 # Z-direction is considerably different than X or Y
                 Amp = 1e17
-                f0 = therm_fits[2].popt[1]
-                g = therm_fits[2].popt[2]
+                f0 = 50
+                g = f0 * 5.0
                 fit_freqs = [1.,200.]
                 fpeak = fpeaks[2]
             else:
-                Amp = 1e19
-                f0 = therm_fits[resp].popt[1]
-                g = therm_fits[resp].popt[2]
+                Amp = 1e20
+                f0 = 300
+                g = f0
                 fit_freqs = [1.,600.]
                 fpeak = fpeaks[resp]
 
@@ -393,7 +477,7 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
 
             # Fit the TF magnitude
             try:
-                popt_mag, pcov_mag = curve_fit(bu.damped_osc_amp, keys[b], mag[b], \
+                popt_mag, pcov_mag = opti.curve_fit(damped_osc_amp, keys[b], mag[b], \
                                                sigma=weights[b], p0=p0_mag, maxfev=1000000)
             except:
                 popt_mag = p0_mag
@@ -407,8 +491,8 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
                 # Wrap fitting in a try/except block since trying all 3
                 # phi(DC) will inevitably lead to some bad fits
                 try:
-                    fitfun = lambda x,a,b,c:bu.damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
-                    popt, pcov = curve_fit(fitfun, keys[b], unphase[b], \
+                    fitfun = lambda x,a,b,c:damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
+                    popt, pcov = opti.curve_fit(fitfun, keys[b], unphase[b], \
                                            p0=p0_phase, bounds=bounds,
                                            sigma=phase_weights[b])
                 except:
@@ -418,7 +502,7 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
                 # Save the fits and the residuals
                 phase_fits[pmult] = np.copy(popt)
                 phase_resids[pmult] = np.sum( np.abs( \
-                                        bu.damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
+                                        damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
                                                      - unphase[b]) )
 
             #print drive, resp, phase_resids
@@ -433,14 +517,14 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
 
             if plot_fits:
 
-                fitmag = bu.damped_osc_amp(keys[b], popt_mag[0], \
+                fitmag = damped_osc_amp(keys[b], popt_mag[0], \
                                     popt_mag[1], popt_mag[2])
-                fitphase = bu.damped_osc_phase(keys[b], popt_phase[0], \
+                fitphase = damped_osc_phase(keys[b], popt_phase[0], \
                                         popt_phase[1], popt_phase[2], phase0=phase0)
 
                 if plot_inits:
-                    maginit = bu.damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
-                    phaseinit = bu.damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
+                    maginit = damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
+                    phaseinit = damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
                                          p0_phase[2], phase0=phase0)
 
                 if grid:
@@ -516,10 +600,10 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
                 p0_mag = mask * p0_mag
                 #p0_phase = mask * p0_phase
 
-                popt_mag, pcov_mag = curve_fit(fit_amp_func, keys[b], mag[b], \
+                popt_mag, pcov_mag = opti.curve_fit(fit_amp_func, keys[b], mag[b], \
                                                    p0=p0_mag, maxfev=1000000)
 
-                popt_phase, pcov_phase = curve_fit(fit_phase_func, keys[b], unphase[b], \
+                popt_phase, pcov_phase = opti.curve_fit(fit_phase_func, keys[b], unphase[b], \
                                                        p0=p0_phase, maxfev=1000000)
 
                 sum_fits[resp][drive] = (popt_mag, popt_phase, phase0)
@@ -540,8 +624,6 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
 
                     axarr4[resp,drive].semilogx(keys, unphase)
                     axarr4[resp,drive].semilogx(keys[b], fitphase, color='r', linewidth=3)
-
-    dir_obj.Hfuncs = fits
 
     if plot_fits:
 
@@ -571,6 +653,39 @@ def build_Hfuncs(dir_obj, fit_freqs = [50.,600], fpeaks=[400.,400.,50.], \
 
         plt.show()
 
+    if interpolate:
+        def outfunc(resp, drive, x):
+            amp = fits[resp][drive][0](x)
+            phase = fits[resp][drive][1](x)
+            return amp * np.exp(1.0j * phase)
 
-    return dir_obj
+    else:
+        def outfunc(resp, drive, x):
+            amp = damped_osc_amp(x, *fits[resp][drive][0])
+            phase = damped_osc_phase(x, *fits[resp][drive][1], phase0=fits[resp][drive][2])
+            return amp * np.exp(1.0j * phase)
+
+    return outfunc
+
 #################
+
+
+
+
+
+def make_tf_array(freqs, Hfunc):
+    '''Makes a 3x3xNfreq complex-valued array for use in diagonalization
+           INPUTS: freqs, array of frequencies
+                   Hfunc, output from build_Hfuncs()
+
+           OUTPUTS: Harr, array output'''
+
+    Nfreq = len(freqs)
+    Harr = np.zeros((Nfreq,3,3),dtype=np.complex128)
+
+    for drive in [0,1,2]:
+        for resp in [0,1,2]:
+            Harr[:,drive,resp] = Hfunc(resp, drive, freqs)
+
+    Hout = np.linalg.inv(Harr)
+    return Hout
