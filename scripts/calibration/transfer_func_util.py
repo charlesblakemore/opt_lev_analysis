@@ -363,7 +363,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                  weight_peak=False, weight_lowf=False, lowf_thresh=60., \
                  weight_phase=False, plot_fits=False, plot_inits=False, \
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
-                 interpolate = False, max_freq=300):
+                 interpolate = False, max_freq=300, num_to_avg=5):
     # Build the calibrated transfer function array
     # i.e. transfer matrices at each frequency and fit functions to each component
 
@@ -413,10 +413,13 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
 
             if interpolate:
                 b = keys < max_freq
+                num = num_to_avg
                 magfunc = interp.interp1d(keys[b], mag[b], kind='cubic', \
-                                          fill_value=(mag[b][0],0), bounds_error=False)
+                                          fill_value=(np.mean(mag[b][:num]),0), \
+                                          bounds_error=False)
                 phasefunc = interp.interp1d(keys[b], unphase[b], kind='cubic', \
-                                            fill_value=(unphase[b][0], 0), bounds_error=False)
+                                            fill_value=(np.mean(unphase[b][:num]), 0), \
+                                            bounds_error=False)
                 fits[resp][drive] = (magfunc, phasefunc)
                 if plot_fits:
                     pts = np.linspace(np.min(keys), np.max(keys), len(keys) * 10)
