@@ -13,6 +13,7 @@ import scipy.signal as signal
 import scipy
 
 import configuration
+import transfer_func_util as tf
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -30,6 +31,13 @@ import configuration
 #### Generic Helper functions
 
 def get_color_map( n ):
+    '''Gets a map of n colors from cold to hot for use in
+       plotting many curves.
+
+           INPUTS: n, length of color array to make
+
+           OUTPUTS: outmap, color map in rgba format'''
+
     jet = plt.get_cmap('jet') 
     cNorm  = colors.Normalize(vmin=0, vmax=n)
     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
@@ -40,10 +48,12 @@ def get_color_map( n ):
 
 def round_sig(x, sig=2):
     '''Round a number to a certain number of sig figs
+
            INPUTS: x, number to be rounded
                    sig, number of sig figs
 
            OUTPUTS: num, rounded number'''
+
     neg = False
     if x == 0:
         return 0
@@ -93,7 +103,7 @@ def copy_attribs(attribs):
 
 
 
-def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
+def getdata(fname, gain_error=1.0):
     '''loads a .h5 file from a path into data array and 
        attribs dictionary, converting ADC bits into 
        volatage. The h5 file is closed.'''
@@ -202,7 +212,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     if ( np.abs(drivefft[fund_ind-1]) > 0.01 * np.abs(drivefft[fund_ind]) or \
             np.abs(drivefft[fund_ind+1]) > 0.01 * np.abs(drivefft[fund_ind]) ):
         if verbose:
-            print "More than 1\% power in neighboring bins: spatial binning may be suboptimal"
+            print "More than 1% power in neighboring bins: spatial binning may be suboptimal"
             sys.stdout.flush()
 
     # Expand the filter to more than a single bin. This can introduce artifacts
@@ -281,7 +291,8 @@ class DataFile:
            Does not perform any calibrations.  
         ''' 
         dat, attribs= getdata(fname)
-        self.fname = fname 
+        self.fname = fname
+        self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
         self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
@@ -361,22 +372,65 @@ class DataFile:
             print "shit is fucked"
 
 
-    def diagonalize(self, Harr):
+    def diagonalize(self, date='', interpolate=False):
         '''Diagonalizes data, adding a new attribute to the DataFile object.
-           INPUTS: Harr, Nfreqx3x3 complex-valued matrix from the
-                         transfer_func_util.make_tf_array() function
+
+           INPUTS: date, date in form YYYYMMDD if you don't want to use
+                         default TF from file date
+                   interpolate, boolean specifying whether to use an 
+                                interpolating function or fit to damped HO
 
            OUTPUTS: none, generates new class attribute.'''
+
+        tf_path = '/calibrations/transfer_funcs/'
+        if not len(date):
+            tf_path +=  self.date
+        else:
+            tf_path += date
+
+        if interpolate:
+            tf_path += '_interp.Hfunc'
+        else:
+            tf_path += '.Hfunc'
+
+        # Load the transfer function. Note that this Hfunc maps
+        # drive -> response, so we will need to invert
+        try:
+            Hfunc = pickle.load(open(tf_path, 'rb'))
+        except:
+            print "Couldn't automatically find correct TF"
+            return
+
+        # Generate FFT frequencies for given data
+        N = len(self.pos_data[0])
+        freqs = np.fft.rfftfreq(N, d=1.0/self.fsamp)
+
+        # Compute TF at frequencies of interest. Appropriately inverts
+        # so we can map response -> drive
+        Harr = tf.make_tf_array(freqs, Hfunc)
+
+        f_ind = np.argmin( np.abs(freqs - 41) )
+        mat = Harr[f_ind,:,:]
+        conv_facs = [0, 0, 0]
+        for i in [0,1,2]:
+            conv_facs[i] = np.abs(mat[i,i])
+        self.conv_facs = conv_facs
+
+        # Compute the FFT, apply the TF and inverse FFT
         data_fft = np.fft.rfft(self.pos_data)
         diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
         self.diag_pos_data = np.fft.irfft(diag_fft)
 
 
+
+
     def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
-                sg_filter=False, sg_params=[3,1], verbose=True):
-        '''Diagonalizes data, adding a new attribute to the DataFile object. 
-           Loops over file and finds the driven cantilever axis then bins 
-           all 3 directions against driven axis
+                        sg_filter=False, sg_params=[3,1], verbose=True, \
+                        cantilever_drive=True, electrode_drive=False):
+        '''Sptially bins X, Y and Z responses against driven cantilever axis,
+           or in the case of multiple axes driven simultaneously, against the
+           drive with the largest amplitude.
+
            INPUTS: nbins, number of output bins
                    nharmonics, number of harmonics to include in fourier
                                binning procedure
@@ -384,51 +438,60 @@ class DataFile:
                    sg_filter, boolean specifying use of Savitsky-Golay filter
                    sg_params, parameters for Savitsky-Golay filter
                    verbose, boolean for some extra text outputs
+                   cantilever_drive, boolean to specify binning against cant
+                   electrode_drive, boolean to bin against an electrode drive
+                                    for reconstruction testing
 
            OUTPUTS: none, generates new class attribute'''
 
-        # First, find which axes were driven. If multiple are found,
-        # it takes the axis with the largest amplitude
-        indmap = {0: 'x', 1: 'y', 2: 'z'}
-        driven = [0,0,0]
-        for ind, key in enumerate(['x driven','y driven','z driven']):
-            if self.stage_settings[key]:
-                driven[ind] = 1
-        if np.sum(driven) > 1:
-            amp = [0,0,0]
-            for ind, val in enumerate(driven):
-                if val: 
-                    key = indmap[ind] + ' amp'
-                    amp[ind] = stage_settings[key]
-            cant_ind = np.argmax(np.abs(amp))
-        else:
-            cant_ind = np.argmax(np.abs(driven))
+        if cantilever_drive:
+            # First, find which axes were driven. If multiple are found,
+            # it takes the axis with the largest amplitude
+            indmap = {0: 'x', 1: 'y', 2: 'z'}
+            driven = [0,0,0]
+            for ind, key in enumerate(['x driven','y driven','z driven']):
+                if self.stage_settings[key]:
+                    driven[ind] = 1
+            if np.sum(driven) > 1:
+                amp = [0,0,0]
+                for ind, val in enumerate(driven):
+                    if val: 
+                        key = indmap[ind] + ' amp'
+                        amp[ind] = self.stage_settings[key]
+                cant_ind = np.argmax(np.abs(amp))
+            else:
+                cant_ind = np.argmax(np.abs(driven))
+            drivevec = self.cant_data[cant_ind]
+
+        if electrode_drive:
+            elec_ind = np.argmax(self.electrode_settings['driven'])
+            drivevec = self.electrode_data[elec_ind]
+            
 
         # Bin responses against the drive. If data has been diagonalized,
         # it bins the diagonal data as well
         dt = 1. / self.fsamp
-        drivevec = self.cant_data[cant_ind]
         binned_data = [[0,0], [0,0], [0,0]]
-        if self.diag_pos_data:
+        if len(self.diag_pos_data):
             diag_binned_data = [[0,0], [0,0], [0,0]]
         for resp in [0,1,2]:
             bins, binned_vec = spatial_bin(drivevec, self.pos_data[resp], dt, \
                                            nbins = nbins, nharmonics = nharmonics, \
                                            width = width, sg_filter = sg_filter, \
-                                           sg_params = sg_params, verbose = True)
+                                           sg_params = sg_params, verbose = verbose)
             binned_data[resp][0] = bins
             binned_data[resp][1] = binned_vec
             
-            if self.diag_pos_data:
+            if len(self.diag_pos_data):
                 diag_bins, diag_binned_vec = spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
                                                          nbins = nbins, nharmonics = nharmonics, \
                                                          width = width, sg_filter = sg_filter, \
-                                                         sg_params = sg_params, verbose = True)
+                                                         sg_params = sg_params, verbose = verbose)
                 diag_binned_data[resp][0] = diag_bins
                 diag_binned_data[resp][1] = diag_binned_vec
 
         self.binned_data = binned_data
-        if self.diag_pos_data:
+        if len(self.diag_pos_data):
             self.diag_binned_data = diag_binned_data
                 
 

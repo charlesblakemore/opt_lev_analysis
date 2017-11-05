@@ -12,7 +12,7 @@ p_param = {"bead_radius": 2.43e-6,
 ####Data column Labels
 col_labels = {"bead_pos"  : [0, 1, 2],
               "electrodes": [8, 9, 10, 11, 12, 13, 14],
-              "stage_pos" : [16, 17, 18],
+              "stage_pos" : [17, 18, 19],
               "other"     : [3, 4, 5, 6, 7]
 } 
 
@@ -51,7 +51,7 @@ electrode_settings = {'driven'   : [0, 1, 2, 3, 4, 5, 6],
 ####ADC parameters to convert from bits to voltage when loading raw .h5 files
 adc_params = {"adc_res":2**16,
               "adc_max_voltage":10.,
-              "ignore_pts": 2000}
+              "ignore_pts": 0}
 
 
 ####File extensions used at point throughout the analysis

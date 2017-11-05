@@ -24,19 +24,23 @@ step_cal_dir = '/data/20170903/bead1/discharge_fine'
 
 tf_cal_dir = '/data/20170903/bead1/tf_20170903/'
 
-thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
-
 date = tf_cal_dir.split('/')[2]
 
-plot_Hfunc = False
+plot_Hfunc = True
 interpolate = True
-save = True
+save = False
+
+# Doesn't use this but might later
+thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
+
+#######################################################
+
+
+# Generate automatic path for saving
 if interpolate:
     savepath = '/calibrations/transfer_funcs/' + date + '_interp.Hfunc'
 else:
     savepath = '/calibrations/transfer_funcs/' + date + '.Hfunc'
-
-#######################################################
 
 
 
@@ -97,5 +101,6 @@ if interpolate:
                              max_freq=400)
 
 # Svae the Hfunc object
-pickle.dump(Hfunc, open(savepath, 'wb'))
+if save:
+    pickle.dump(Hfunc, open(savepath, 'wb'))
 
