@@ -25,7 +25,7 @@ df.load(filepath + filname)
 
 df.calibrate_stage_position()
 
-df.diagonalize()
+df.diagonalize(maxfreq=100)
 
 df.get_force_v_pos(verbose=True, cantilever_drive=False, electrode_drive=True)
 

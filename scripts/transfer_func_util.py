@@ -415,10 +415,10 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                 b = keys < max_freq
                 num = num_to_avg
                 magfunc = interp.interp1d(keys[b], mag[b], kind='cubic', \
-                                          fill_value=(np.mean(mag[b][:num]),0), \
+                                          fill_value=(np.mean(mag[b][:num]), mag[b][-1]), \
                                           bounds_error=False)
                 phasefunc = interp.interp1d(keys[b], unphase[b], kind='cubic', \
-                                            fill_value=(np.mean(unphase[b][:num]), 0), \
+                                            fill_value=(np.mean(unphase[b][:num]), unphase[b][-1]), \
                                             bounds_error=False)
                 fits[resp][drive] = (magfunc, phasefunc)
                 if plot_fits:

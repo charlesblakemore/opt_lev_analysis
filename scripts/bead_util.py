@@ -1,4 +1,4 @@
-import h5py, os, re, glob, time, sys
+import h5py, os, re, glob, time, sys, fnmatch
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -73,6 +73,25 @@ def round_sig(x, sig=2):
 
 
 #### First define some functions to help with the DataFile object. 
+
+def find_all_fnames(dirname, ext='.h5', sort=True):
+    '''Finals all the filenames matching a particular extension
+       type in the directory and its subdirectories .
+
+       INPUTS: dirname, directory name to loop over
+
+       OUTPUTS: files, list of files names as strings'''
+
+    files = []
+    for root, dirnames, filenames in os.walk(dirname):
+        for filename in fnmatch.filter(filenames, '*' + ext):
+            files.append(os.path.join(root, filename))
+    if sort:
+        # Sort files based on final index
+        files.sort(key = find_str)
+
+    return files
+
 
 def find_str(str):
     '''finds the index from the standard file name format'''
@@ -243,13 +262,15 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     resp_r = np.fft.irfft(respfft_filt)
 
     # Sort reconstructed data, interpolate and resample
-    drivevec = np.linspace(mindrive, maxdrive, nbins)
+    mindrive = np.min(drive_r)
+    maxdrive = np.max(drive_r)
+    drivevec = np.linspace(mindrive+1e-9, maxdrive-1e-9, nbins)
 
     sortinds = drive_r.argsort()
-    interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], fill_value='extrapolate')
+    interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], \
+                                 bounds_error=False, fill_value='extrapolate')
 
     respvec = interpfunc(drivevec)
-
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
 
@@ -369,29 +390,32 @@ class DataFile:
         try: 
             pos_arr = pickle.load(open(posfname, "rb"))
         except:
-            print "shit is fucked"
+            1 + 2
+            #print "shit is fucked"
 
 
-    def diagonalize(self, date='', interpolate=False):
+    def diagonalize(self, date='', interpolate=False, maxfreq=1000):
         '''Diagonalizes data, adding a new attribute to the DataFile object.
 
            INPUTS: date, date in form YYYYMMDD if you don't want to use
                          default TF from file date
                    interpolate, boolean specifying whether to use an 
                                 interpolating function or fit to damped HO
+                   maxfreq, max frequency above which data is top-hat filtered
 
            OUTPUTS: none, generates new class attribute.'''
 
         tf_path = '/calibrations/transfer_funcs/'
+        ext = configuration.extensions['trans_fun']
         if not len(date):
             tf_path +=  self.date
         else:
             tf_path += date
 
         if interpolate:
-            tf_path += '_interp.Hfunc'
+            tf_path += '_interp' + ext
         else:
-            tf_path += '.Hfunc'
+            tf_path += ext
 
         # Load the transfer function. Note that this Hfunc maps
         # drive -> response, so we will need to invert
@@ -408,6 +432,9 @@ class DataFile:
         # Compute TF at frequencies of interest. Appropriately inverts
         # so we can map response -> drive
         Harr = tf.make_tf_array(freqs, Hfunc)
+
+        maxfreq_ind = np.argmin( np.abs(freqs - maxfreq) )
+        Harr[maxfreq_ind:,:,:] = 0.0+0.0j
 
         f_ind = np.argmin( np.abs(freqs - 41) )
         mat = Harr[f_ind,:,:]

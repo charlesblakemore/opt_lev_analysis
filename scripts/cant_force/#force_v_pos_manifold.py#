@@ -70,7 +70,7 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                         ax1pos and ax2pos are dictionary keys, resp and bins/dat
                         are array indices (native python lists)
                 diagoutdic, if diag=True second dictionary with diagonalized data
-                '''
+    '''
 
     force_curves = {}
     if diag:

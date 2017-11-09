@@ -20,27 +20,29 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-step_cal_dir = '/data/20170903/bead1/discharge_fine'
+step_cal_dir = '/data/20171106/bead1/discharge_fine3'
 
-tf_cal_dir = '/data/20170903/bead1/tf_20170903/'
+#tf_cal_dir = '/data/20170903/bead1/tf_20170903/'
+tf_cal_dir = '/data/20171106/bead1/tf_20171107_3/'
 
 date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
-interpolate = True
-save = False
+interpolate = False #True
+save = True
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
 
 #######################################################
 
+ext = config.extensions['trans_fun']
 
 # Generate automatic path for saving
 if interpolate:
-    savepath = '/calibrations/transfer_funcs/' + date + '_interp.Hfunc'
+    savepath = '/calibrations/transfer_funcs/' + date + '_interp' + ext
 else:
-    savepath = '/calibrations/transfer_funcs/' + date + '.Hfunc'
+    savepath = '/calibrations/transfer_funcs/' + date + ext
 
 
 
@@ -92,15 +94,15 @@ Hcal = tf.calibrate_H(Hout, vpn)
 
 # Build the Hfunc object
 if not interpolate:
-    Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[300, 300, 50], weight_peak=False, \
-                            weight_lowf=True, plot_Hfunc=True, \
+    Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 50], weight_peak=False, \
+                            weight_lowf=True, plot_fits=plot_Hfunc, \
                             plot_inits=False, weight_phase=True, grid=True,\
                             deweight_peak=True)
 if interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, interpolate=True, plot_fits=plot_Hfunc, \
-                             max_freq=400)
+                             max_freq=600)
 
-# Svae the Hfunc object
+# Save the Hfunc object
 if save:
     pickle.dump(Hfunc, open(savepath, 'wb'))
 

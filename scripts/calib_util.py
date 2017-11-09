@@ -262,6 +262,9 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
     normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
                        axarr[0], ylabel="Normalized Response [e]")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1])
+    for x in xfit:
+        if not (x) % 2:
+            axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
     plt.show()
 
     happy = raw_input("does the fit look good? (y/n): ")
