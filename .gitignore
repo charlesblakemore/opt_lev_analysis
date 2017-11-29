@@ -3,6 +3,7 @@
 *~
 /scripts/gravity_sim/test_masses/**/*
 /scripts/kp_analysis
+/playing_w_pics.py
 
 processed.pkl
 !/.gitignore
