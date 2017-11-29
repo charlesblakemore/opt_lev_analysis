@@ -3,6 +3,8 @@ import numpy as np
 import datetime as dt
 import dill as pickle 
 
+from obspy.signal.detrend import polynomial
+
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
@@ -30,7 +32,7 @@ import transfer_func_util as tf
 
 #### Generic Helper functions
 
-def get_color_map( n ):
+def get_color_map( n, cmap='jet' ):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
 
@@ -38,9 +40,8 @@ def get_color_map( n ):
 
            OUTPUTS: outmap, color map in rgba format'''
 
-    jet = plt.get_cmap('jet') 
     cNorm  = colors.Normalize(vmin=0, vmax=n)
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap) #cmap='viridis')
     outmap = []
     for i in range(n):
         outmap.append( scalarMap.to_rgba(i) )
@@ -239,7 +240,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     if width:
         lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
         upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
-        drivefilt[lower_ind:upper_ind+1] = cantfilt[fund_ind]
+        drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
 
     # Generate an array of harmonics
     harms = np.array([x+2 for x in range(nharmonics)])
@@ -254,6 +255,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
             drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
 
     # Apply the filter to both drive and response
+    #drivefilt = np.ones_like(drivefilt)
+    #drivefilt[0] = 0
     drivefft_filt = drivefilt * drivefft
     respfft_filt = drivefilt * respfft
 
@@ -261,16 +264,43 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     drive_r = np.fft.irfft(drivefft_filt) + meandrive
     resp_r = np.fft.irfft(respfft_filt)
 
+    #plt.plot(t, resp_r)
+    #plt.figure()
+
     # Sort reconstructed data, interpolate and resample
     mindrive = np.min(drive_r)
     maxdrive = np.max(drive_r)
-    drivevec = np.linspace(mindrive+1e-9, maxdrive-1e-9, nbins)
+
+    grad = np.gradient(drive_r)
 
     sortinds = drive_r.argsort()
-    interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], \
-                                 bounds_error=False, fill_value='extrapolate')
+    drive_r = drive_r[sortinds]
+    resp_r = resp_r[sortinds]
 
-    respvec = interpfunc(drivevec)
+    ginds = grad[sortinds] < 0
+
+    bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
+    drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
+
+    respvec = []
+    for bin_loc in drivevec:
+        inds = (drive_r > bin_loc - 0.5*bin_spacing) * (drive_r < bin_loc + 0.5*bin_spacing)
+        val = np.mean( resp_r[inds] )
+        respvec.append(val)
+
+    respvec = np.array(respvec)
+    
+    #plt.plot(drive_r, resp_r)
+    #plt.plot(drive_r[ginds], resp_r[ginds], linewidth=2)
+    #plt.plot(drive_r[np.invert(ginds)], resp_r[np.invert(ginds)], linewidth=2)
+    #plt.plot(drivevec, respvec, linewidth=5)
+    #plt.show()
+
+    #sortinds = drive_r.argsort()
+    #interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], \
+    #                             bounds_error=False, fill_value='extrapolate')
+
+    #respvec = interpfunc(drivevec)
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
 
@@ -392,6 +422,33 @@ class DataFile:
         except:
             1 + 2
             #print "shit is fucked"
+
+    
+    def detrend_poly(self, order=1, plot=False):
+        '''Remove a polynomial of arbitrary order from data.
+
+           INPUTS: order, order of the polynomial to subtract
+                   plot, boolean whether to plot detrending result
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        for resp in [0,1,2]:
+            self.pos_data[resp] = polynomial(self.pos_data[resp], order=order, plot=plot)
+
+
+    def high_pass_filter(self, order=1, fc=1.0):
+        '''Apply a digital butterworth type filter to the data
+
+           INPUTS: order, order of the butterworth filter
+                   fc, cutoff frequency in Hertz
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        Wn = 2.0 * fc / self.fsamp
+        b, a = signal.butter(order, Wn, btype='highpass')
+
+        for resp in [0,1,2]:
+            self.pos_data[resp] = signal.filtfilt(b, a, self.pos_data[resp])
 
 
     def diagonalize(self, date='', interpolate=False, maxfreq=1000):

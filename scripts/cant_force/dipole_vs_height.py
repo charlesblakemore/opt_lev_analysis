@@ -12,8 +12,6 @@ from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import Axes3D
 
 import bead_util as bu
-import calib_util as cal
-import transfer_func_util as tf
 import configuration as config
 
 dir1 = '/data/20171106/bead1/dipole_v_height_10Vfilt_2/'

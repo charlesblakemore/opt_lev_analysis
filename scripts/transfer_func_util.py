@@ -56,6 +56,7 @@ def sum_3osc_amp(f, A1, f1, g1, A2, f2, g2, A3, f3, g3):
                    g1,2,3 [Hz], damping factors
 
            OUTPUTS: Lorentzian amplitude of complex sum'''
+
     csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
            + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
            + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
@@ -70,12 +71,91 @@ def sum_3osc_phase(f, A1, f1, g1, A2, f2, g2, A3, f3, g3, phase0=0.):
                    f1,2,3 [Hz], resonant frequency of the three oscs
                    g1,2,3 [Hz], damping factors
 
-           OUTPUTS: Lorentzian amplitude of complex sum'''
+           OUTPUTS: Lorentzian phase of complex sum'''
+
     csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
            + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
            + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
     return np.angle(csum) + phase0
 
+
+
+
+def ipoly1d_func(x, *params):
+    '''inverse polynomial function to fit against
+
+           INPUTS: x, independent variable
+                   params, N-parameter array
+
+           OUTPUTS: ip(x) = params[0] * (x) ** (-deg) + ... 
+                                             + params[deg-1] * (x) ** -1
+    '''
+    out = x - x  
+    deg = len(params)
+    for ind, p in enumerate(params):
+        out += np.abs(p) * (x)**(ind - deg)
+    return out
+
+
+def ipoly1d(ipolyparams):
+    return lambda x: ipoly1d_func(x, *ipolyparams)
+
+
+
+def ipolyfit(xs, ys, deg):
+    mean = np.mean(ys)
+    params = np.array([mean * 0.001 for p in range(deg)])
+    popt, _ = opti.curve_fit(ipoly1d_func, xs, ys, p0=params, maxfev=10000)
+    return popt
+
+
+
+def make_extrapolator(interpfunc, pts=10, order=1, inverse=(False, False)):
+    '''Make a functional object that does nth order polynomial extrapolation
+       of a scipy.interpolate.interp1d object (should also work for other 1d
+       interpolating objects).
+
+           INPUTS: interpfunc, inteprolating function to extrapolate
+                   pts, points to include in linear regression
+                   order, order of the polynomial to use in extrapolation
+                   inverse, boolean specifying whether to use inverse poly
+                            1st index for lower range, 2nd for upper
+
+           OUTPUTS: extrapfunc, function object with extrapolation
+    '''
+    
+    xs = interpfunc.x
+    ys = interpfunc.y
+
+    if inverse[0]:
+        lower_params = ipolyfit(xs[:pts], ys[:pts], order)
+        lower = ipoly1d(lower_params)
+                
+    else:
+        lower_params = np.polyfit(xs[:pts], ys[:pts], order)
+        lower = np.poly1d(lower_params)
+
+    if inverse[1]:
+        upper_params = ipolyfit(xs[-pts:], ys[-pts:], order)
+        upper = ipoly1d(upper_params) 
+    else:
+        upper_params = np.polyfit(xs[-pts:], ys[-pts:], order)
+        upper = np.poly1d(upper_params) 
+
+    def extrapfunc(x):
+
+        ubool = x >= xs[-1]
+        lbool = x <= xs[0]
+
+        midval = interpfunc( x[ np.invert(ubool + lbool) ] )
+        uval = upper( x[ubool] )
+        lval = lower( x[lbool] )
+
+        return np.concatenate((lval, midval, uval))
+
+    return extrapfunc
+        
+        
 
     
 
@@ -414,15 +494,19 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
             if interpolate:
                 b = keys < max_freq
                 num = num_to_avg
-                magfunc = interp.interp1d(keys[b], mag[b], kind='cubic', \
-                                          fill_value=(np.mean(mag[b][:num]), mag[b][-1]), \
-                                          bounds_error=False)
-                phasefunc = interp.interp1d(keys[b], unphase[b], kind='cubic', \
-                                            fill_value=(np.mean(unphase[b][:num]), unphase[b][-1]), \
-                                            bounds_error=False)
-                fits[resp][drive] = (magfunc, phasefunc)
+                magfunc = interp.interp1d(keys[b], mag[b], kind='cubic') #, \
+                                          #fill_value=(np.mean(mag[b][:num]), mag[b][-1]), \
+                                          #bounds_error=False)
+                phasefunc = interp.interp1d(keys[b], unphase[b], kind='cubic') #, \
+                                            #fill_value=(np.mean(unphase[b][:num]), unphase[b][-1]), \
+                                            #bounds_error=False)
+
+                magfunc2 = make_extrapolator(magfunc, pts=20, order=3, inverse=(False, True))
+                phasefunc2 = make_extrapolator(phasefunc, pts=10, order=2, inverse=(False, True))
+
+                fits[resp][drive] = (magfunc2, phasefunc2)
                 if plot_fits:
-                    pts = np.linspace(np.min(keys), np.max(keys), len(keys) * 10)
+                    pts = np.linspace(np.min(keys) / 10., np.max(keys) * 10., len(keys) * 100)
                     
 
                     if grid:
@@ -430,10 +514,10 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                         axarr2[resp,drive].grid()
 
                     axarr1[resp,drive].loglog(keys, mag)
-                    axarr1[resp,drive].loglog(pts, magfunc(pts), color='r', linewidth=3)
+                    axarr1[resp,drive].loglog(pts, magfunc2(pts), color='r', linewidth=2)
 
                     axarr2[resp,drive].semilogx(keys, unphase)
-                    axarr2[resp,drive].semilogx(pts, phasefunc(pts), color='r', linewidth=3)
+                    axarr2[resp,drive].semilogx(pts, phasefunc2(pts), color='r', linewidth=2)
                 continue
 
 

@@ -28,8 +28,8 @@ tf_cal_dir = '/data/20171106/bead1/tf_20171107_3/'
 date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
-interpolate = False #True
-save = True
+interpolate = True
+save = False
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
@@ -72,8 +72,8 @@ for filname in step_cal_files:
     step_file_objs.append(df)
 
 # Do the step calibration
-vpn, off, err = cal.step_cal(step_file_objs)
-#print vpn, off, err
+#vpn, off, err = cal.step_cal(step_file_objs)
+vpn = 1.0e14
 
 
 
