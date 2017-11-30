@@ -124,19 +124,42 @@ class ImageGrid:
 
 
 
-    def measureImage(self, image, makePlots = False, rmax = 10):
+    def measureImage(self, image, makePlots = False, plot_cal = False, rmax = 10, rmin = 1):
         '''Finds all of the pixel shifts between Image and each 
            Image in self.'''
         mx = lambda im: im.measureShift(image, 0, plotCorr = makePlots,\
                                         makePlot = makePlots)
         my =  lambda im: im.measureShift(image, 1, plotCorr = makePlots,\
                                         makePlot = makePlots)
-        xShifts = map(mx, self.images)
-        yShifts = map(my, self.images)
-        prs = np.sqrt(xShifts**2 + yShifts**2)
+        xShifts = np.array(map(mx, self.images))
+        yShifts = np.array(map(my, self.images))
+        prs = np.sqrt(xShifts**2 + yShifts**2)#radii in pixel units
+        #find images within rmax
         neighbors = np.arange(len(self.images))[prs < rmax]
         nn = np.argmin(prs)
+        neighbors = neighbors[neighbors != nn]
+        #need to add sub pixel calculation of shifts here
+        #get local conversion between pixels and um
+        dpx = xShifts[neighbors] - xShifts[nn]
+        validX = np.abs(dpx) > rmin 
+        dpy = yShifts[neighbors] - yShifts[nn]
+        validY = np.abs(dpy) > rmin
 
+        dx = self.nanoPs[0, neighbors] - self.nanoPs[0, nn]
+        dy = self.nanoPs[1, neighbors] - self.nanoPs[1, nn]
+        if plot_cal:
+            plt.subplot(211), plt.plot(dpx, dx, '.')
+            plt.subplot(212), plt.plot(dpy, dy, '.')
+            plt.show()
+        cx = -1.*np.mean(dx[validX]/dpx[validX])
+        cy = np.mean(dy[validY]/dpy[validY])
+
+        #now use conversion to determine location of picture
+        x = self.nanoPs[0, nn] + xShifts[nn]*cx
+        y = self.nanoPs[1, nn] + yShifts[nn]*cy
+
+        return np.array([x, y])
+         
 
 
 
