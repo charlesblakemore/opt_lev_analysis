@@ -520,113 +520,113 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                     axarr2[resp,drive].semilogx(pts, phasefunc2(pts), color='r', linewidth=2)
                 continue
 
-
-            # Make initial guess based on high-pressure thermal spectra fits
-            #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
-            if (drive == 2) or (resp == 2):
-                # Z-direction is considerably different than X or Y
-                Amp = 1e17
-                f0 = 50
-                g = f0 * 5.0
-                fit_freqs = [1.,200.]
-                fpeak = fpeaks[2]
-            else:
-                Amp = 1e20
-                f0 = 300
-                g = f0
-                fit_freqs = [1.,600.]
-                fpeak = fpeaks[resp]
-
-            # Construct initial paramter arrays
-            p0_mag = [Amp, f0, g]
-            p0_phase = [1., f0, g]  # includes arbitrary smearing amplitude
-
-            b1 = keys > fit_freqs[0]
-            b2 = keys < fit_freqs[1]
-            b = b1 * b2
-
-            # Construct weights if desired
-            npkeys = np.array(keys)
-            weights = np.zeros(len(npkeys)) + 1.
-            if (weight_peak or deweight_peak):
-                if weight_peak:
-                    fac = -0.7
+            if not interpolate:
+                # Make initial guess based on high-pressure thermal spectra fits
+                #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
+                if (drive == 2) or (resp == 2):
+                    # Z-direction is considerably different than X or Y
+                    Amp = 1e17
+                    f0 = 50
+                    g = f0 * 5.0
+                    fit_freqs = [1.,200.]
+                    fpeak = fpeaks[2]
                 else:
-                    fac = 1.0
-                weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
-            if weight_lowf:
-                ind = np.argmin(np.abs(npkeys - lowf_thresh))
-                weights[:ind] *= 0.1
-            phase_weights = np.zeros(len(npkeys)) + 1.
-            if weight_phase and (drive != 2 and resp != 2):
-                ind = np.argmin(np.abs(npkeys - 50.))
-                phase_weights[:ind] *= 0.05
+                    Amp = 1e20
+                    f0 = 300
+                    g = f0
+                    fit_freqs = [1.,600.]
+                    fpeak = fpeaks[resp]
 
-            # Fit the TF magnitude
-            try:
-                popt_mag, pcov_mag = opti.curve_fit(damped_osc_amp, keys[b], mag[b], \
-                                               sigma=weights[b], p0=p0_mag, maxfev=1000000)
-            except:
-                popt_mag = p0_mag
+                # Construct initial paramter arrays
+                p0_mag = [Amp, f0, g]
+                p0_phase = [1., f0, g]  # includes arbitrary smearing amplitude
 
-            # Fit the TF phase with varying phi(DC): -pi, 0 and pi and
-            # select the sign based on sum of residuals
-            phase_fits = {}
-            phase_resids = [0.,0.,0.]
-            bounds = ([0.1, -np.inf, -np.inf], [10, np.inf, np.inf])
-            for pmult in np.arange(-1,2,1):
-                # Wrap fitting in a try/except block since trying all 3
-                # phi(DC) will inevitably lead to some bad fits
+                b1 = keys > fit_freqs[0]
+                b2 = keys < fit_freqs[1]
+                b = b1 * b2
+
+                # Construct weights if desired
+                npkeys = np.array(keys)
+                weights = np.zeros(len(npkeys)) + 1.
+                if (weight_peak or deweight_peak):
+                    if weight_peak:
+                        fac = -0.7
+                    else:
+                        fac = 1.0
+                    weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
+                if weight_lowf:
+                    ind = np.argmin(np.abs(npkeys - lowf_thresh))
+                    weights[:ind] *= 0.1
+                phase_weights = np.zeros(len(npkeys)) + 1.
+                if weight_phase and (drive != 2 and resp != 2):
+                    ind = np.argmin(np.abs(npkeys - 50.))
+                    phase_weights[:ind] *= 0.05
+
+                # Fit the TF magnitude
                 try:
-                    fitfun = lambda x,a,b,c:damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
-                    popt, pcov = opti.curve_fit(fitfun, keys[b], unphase[b], \
-                                           p0=p0_phase, bounds=bounds,
-                                           sigma=phase_weights[b])
+                    popt_mag, pcov_mag = opti.curve_fit(damped_osc_amp, keys[b], mag[b], \
+                                                   sigma=weights[b], p0=p0_mag, maxfev=1000000)
                 except:
-                    #print "bad fit...", drive, resp, np.pi*pmult
-                    popt = p0_phase
+                    popt_mag = p0_mag
 
-                # Save the fits and the residuals
-                phase_fits[pmult] = np.copy(popt)
-                phase_resids[pmult] = np.sum( np.abs( \
-                                        damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
-                                                     - unphase[b]) )
+                # Fit the TF phase with varying phi(DC): -pi, 0 and pi and
+                # select the sign based on sum of residuals
+                phase_fits = {}
+                phase_resids = [0.,0.,0.]
+                bounds = ([0.1, -np.inf, -np.inf], [10, np.inf, np.inf])
+                for pmult in np.arange(-1,2,1):
+                    # Wrap fitting in a try/except block since trying all 3
+                    # phi(DC) will inevitably lead to some bad fits
+                    try:
+                        fitfun = lambda x,a,b,c:damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
+                        popt, pcov = opti.curve_fit(fitfun, keys[b], unphase[b], \
+                                               p0=p0_phase, bounds=bounds,
+                                               sigma=phase_weights[b])
+                    except:
+                        #print "bad fit...", drive, resp, np.pi*pmult
+                        popt = p0_phase
 
-            #print drive, resp, phase_resids
-            mult = np.argmin(phase_resids)
-            if mult == 2:
-                mult = -1
+                    # Save the fits and the residuals
+                    phase_fits[pmult] = np.copy(popt)
+                    phase_resids[pmult] = np.sum( np.abs( \
+                                            damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
+                                                         - unphase[b]) )
 
-            popt_phase = phase_fits[mult]
-            phase0 = np.pi * mult
+                #print drive, resp, phase_resids
+                mult = np.argmin(phase_resids)
+                if mult == 2:
+                    mult = -1
 
-            fits[resp][drive] = (popt_mag, popt_phase, phase0)
+                popt_phase = phase_fits[mult]
+                phase0 = np.pi * mult
 
-            if plot_fits:
+                fits[resp][drive] = (popt_mag, popt_phase, phase0)
 
-                fitmag = damped_osc_amp(keys[b], popt_mag[0], \
-                                    popt_mag[1], popt_mag[2])
-                fitphase = damped_osc_phase(keys[b], popt_phase[0], \
-                                        popt_phase[1], popt_phase[2], phase0=phase0)
+                if plot_fits:
 
-                if plot_inits:
-                    maginit = damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
-                    phaseinit = damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
-                                         p0_phase[2], phase0=phase0)
+                    fitmag = damped_osc_amp(keys[b], popt_mag[0], \
+                                        popt_mag[1], popt_mag[2])
+                    fitphase = damped_osc_phase(keys[b], popt_phase[0], \
+                                            popt_phase[1], popt_phase[2], phase0=phase0)
 
-                if grid:
-                    axarr1[resp,drive].grid()
-                    axarr2[resp,drive].grid()
+                    if plot_inits:
+                        maginit = damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
+                        phaseinit = damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
+                                             p0_phase[2], phase0=phase0)
 
-                axarr1[resp,drive].loglog(keys, mag)
-                axarr1[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
-                if plot_inits:
-                    axarr1[resp,drive].loglog(keys[b], maginit, color='k', linewidth=2)
+                    if grid:
+                        axarr1[resp,drive].grid()
+                        axarr2[resp,drive].grid()
 
-                axarr2[resp,drive].semilogx(keys, unphase)
-                axarr2[resp,drive].semilogx(keys[b], fitphase, color='r', linewidth=3)
-                if plot_inits:
-                    axarr2[resp,drive].semilogx(keys[b], phaseinit, color='k', linewidth=2)
+                    axarr1[resp,drive].loglog(keys, mag)
+                    axarr1[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
+                    if plot_inits:
+                        axarr1[resp,drive].loglog(keys[b], maginit, color='k', linewidth=2)
+
+                    axarr2[resp,drive].semilogx(keys, unphase)
+                    axarr2[resp,drive].semilogx(keys[b], fitphase, color='r', linewidth=3)
+                    if plot_inits:
+                        axarr2[resp,drive].semilogx(keys[b], phaseinit, color='k', linewidth=2)
 
 
 

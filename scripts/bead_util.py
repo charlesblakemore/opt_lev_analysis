@@ -37,6 +37,7 @@ def get_color_map( n, cmap='jet' ):
        plotting many curves.
 
            INPUTS: n, length of color array to make
+                   cmap, color map for final output
 
            OUTPUTS: outmap, color map in rgba format'''
 

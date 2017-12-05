@@ -18,14 +18,16 @@ import configuration as config
 
 
 
-dir1 = '/data/20171106/bead1/grav_data_1/'
+dir1 = '/data/20170903/bead1/grav_data/manysep_h0-20um/'
+#dir1 = '/data/20171106/bead1/grav_data_1/'
+
 maxfiles = 10000 # Many more than necessary
 ax1_lab = 'x'
 ax2_lab = 'z'
 nbins = 100
 
-save_path1 = '/force_v_pos/20171106_force_v_pos_dic.p'
-save_path2 = '/force_v_pos/20171106_diagforce_v_pos_dic.p'
+save_path1 = '/force_v_pos/20170903_force_v_pos_dic.p'
+save_path2 = '/force_v_pos/20170903_diagforce_v_pos_dic.p'
 
 save = True #True
 load = False #True
@@ -72,10 +74,15 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                 diagoutdic, if diag=True second dictionary with diagonalized data
     '''
 
+    if len(files) == 0:
+        print "No Files Found!!"
+        return
+
     force_curves = {}
     if diag:
         diag_force_curves = {}
     old_per = 0
+    print "Processing %i files" % len(files)
     print "Percent complete: "
     for fil_ind, fil in enumerate(files):
         # Display percent completion
@@ -227,12 +234,17 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
 if not load:
     files = bu.find_all_fnames(dir1)
     files = files[:maxfiles]
-    force_dic, diag_force_dic = \
-        get_force_curve_dictionary(files, ax1=ax1_lab, ax2=ax2_lab, spacing=1e-6, diag=True)
 
-    if save:
-        pickle.dump(force_dic, open(save_path1, 'wb') )
-        pickle.dump(diag_force_dic, open(save_path2, 'wb') )
+    if len(files) == 0:
+        print 'No Files Found!!'
+        quit()
+    else:
+        force_dic, diag_force_dic = \
+            get_force_curve_dictionary(files, ax1=ax1_lab, ax2=ax2_lab, spacing=1e-6, diag=True)
+
+        if save:
+            pickle.dump(force_dic, open(save_path1, 'wb') )
+            pickle.dump(diag_force_dic, open(save_path2, 'wb') )
 
 
 fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
@@ -241,10 +253,10 @@ for resp in [0,1,2]:
 plt.show()
 
 
-np.save('./test_posvec2.npy', np.array(test_posvec))
-np.save('./test_arr2.npy', np.array(test_arr))
-np.save('./diag_test_posvec2.npy', np.array(diag_test_posvec))
-np.save('./diag_test_arr2.npy', np.array(diag_test_arr))
+#np.save('./test_posvec2.npy', np.array(test_posvec))
+#np.save('./test_arr2.npy', np.array(test_arr))
+#np.save('./diag_test_posvec2.npy', np.array(diag_test_posvec))
+#np.save('./diag_test_arr2.npy', np.array(diag_test_arr))
 
 
 
@@ -268,8 +280,6 @@ if plot:
     for ax11_ind, ax11 in enumerate(ax1):
         fgrid[ax11_ind,:] = force_dic[ax11][ax2pos][resp_to_plot][1]
         
-
-
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')

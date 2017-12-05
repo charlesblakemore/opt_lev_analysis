@@ -51,7 +51,7 @@ electrode_settings = {'driven'   : [0, 1, 2, 3, 4, 5, 6],
 ####ADC parameters to convert from bits to voltage when loading raw .h5 files
 adc_params = {"adc_res":2**16,
               "adc_max_voltage":10.,
-              "ignore_pts": 0}
+              "ignore_pts": 2000}
 
 
 ####File extensions used at point throughout the analysis
