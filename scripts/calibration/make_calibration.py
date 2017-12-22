@@ -20,17 +20,23 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-step_cal_dir = '/data/20170903/bead1/discharge_fine'
+step_cal_dir = '/data/20171221/bead6/discharge_fine'
 #step_cal_dir = '/data/20171106/bead1/discharge_fine3'
 
-tf_cal_dir = '/data/20170903/bead1/tf_20170903/'
+fake_step_cal = False
+vpn = 1.0e14
+
+
+tf_cal_dir = '/data/20171221/bead6/tf_20171221/'
 #tf_cal_dir = '/data/20171106/bead1/tf_20171107_3/'
 
 date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
-interpolate = False #True
-save = False
+interpolate = False 
+save = True
+
+
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
@@ -73,8 +79,8 @@ for filname in step_cal_files:
     step_file_objs.append(df)
 
 # Do the step calibration
-#vpn, off, err = cal.step_cal(step_file_objs)
-vpn = 1.0e14
+if not fake_step_cal:
+    vpn, off, err = cal.step_cal(step_file_objs)
 
 
 

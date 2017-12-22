@@ -76,11 +76,30 @@ def round_sig(x, sig=2):
 
 #### First define some functions to help with the DataFile object. 
 
+def count_dirs(path):
+    '''Counts the number of directories (and subdirectories)
+       in a given path.
+
+       INPUTS: path, directory name to loop over
+
+       OUTPUTS: numdir, number of directories and subdirectories
+                        in the given path'''
+
+    count = 0
+    for root, dirs, files in os.walk(path):
+        count += len(dirs)
+
+    return count
+    
+
+
 def find_all_fnames(dirname, ext='.h5', sort=True):
-    '''Finals all the filenames matching a particular extension
+    '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
        INPUTS: dirname, directory name to loop over
+               ext, file extension you're looking for
+               sort, boolean specifying whether to do a simple sort
 
        OUTPUTS: files, list of files names as strings'''
 
@@ -226,6 +245,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     mindrive = np.min(drive)
     maxdrive = np.max(drive)
 
+    meanresp = np.mean(resp)
+
     # Build the notch filter
     drivefilt = np.zeros(len(drivefft))
     drivefilt[fund_ind] = 1.0
@@ -263,7 +284,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
 
     # Reconstruct the filtered data
     drive_r = np.fft.irfft(drivefft_filt) + meandrive
-    resp_r = np.fft.irfft(respfft_filt)
+    resp_r = np.fft.irfft(respfft_filt) #+ meanresp
 
     #plt.plot(t, resp_r)
     #plt.figure()

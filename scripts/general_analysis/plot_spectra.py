@@ -13,9 +13,10 @@ import configuration as config
 
 
 
-dir1 = '/data/20171106/bead1/response_vs_acvoltage_ext/'
+#dir1 = '/data/20171106/bead1/grav_data_10picopos/pico_p0/'
+dir1 = '/data/20170903/bead1/grav_data/manysep_h0-20um/'
 maxfiles = 10000 # Many more than necessary
-lpf = 800   # Hz
+lpf = 2500   # Hz
 
 NFFT = 2**13
 
@@ -78,12 +79,13 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
 
         df.calibrate_stage_position()
         
-        df.high_pass_filter(fc=5)
+        df.high_pass_filter(fc=1)
+        df.detrend_poly()
 
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
         if diag:
-            df.diagonalize(maxfreq=lpf, interpolate=True)
+            df.diagonalize(maxfreq=lpf, interpolate=False)
 
         for axind, ax in enumerate(data_axes):
             psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
@@ -91,9 +93,19 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
                 fac = df.conv_facs[ax]
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
                 daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, color=color)
+                daxarr[axind,0].grid(alpha=0.5)
                 daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
+                daxarr[axind,1].grid(alpha=0.5)
+                daxarr[axind,0].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+                if ax == data_axes[-1]:
+                    daxarr[axind,0].set_xlabel('Frequency [Hz]', fontsize=10)
+                    daxarr[axind,1].set_xlabel('Frequency [Hz]', fontsize=10)
             else:
                 daxarr[axind].loglog(freqs, np.sqrt(psd), color=color)
+                daxarr[axind].grid(alpha=0.5)
+                daxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+                if ax == data_axes[-1]:
+                    daxarr[axind].set_xlabel('Frequency [Hz]', fontsize=10)
 
         if len(cant_axes):
             for axind, ax in enumerate(cant_axes):
