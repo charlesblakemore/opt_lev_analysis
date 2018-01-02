@@ -109,12 +109,12 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
 
         if len(cant_axes):
             for axind, ax in enumerate(cant_axes):
-                psd, freqs = mlab.psd(fd.cant_data[ax], Fs=df.fsamp, NFFT=NFFT)
+                psd, freqs = mlab.psd(df.cant_data[ax], Fs=df.fsamp, NFFT=NFFT)
                 caxarr[axind].loglog(freqs, np.sqrt(psd) )
 
         if len(elec_axes):
             for axind, ax in enumerate(elec_axes):
-                psd, freqs = mlab.psd(fd.electrode_data[ax], Fs=df.fsamp, NFFT=NFFT)
+                psd, freqs = mlab.psd(df.electrode_data[ax], Fs=df.fsamp, NFFT=NFFT)
                 eaxarr[axind].loglog(freqs, np.sqrt(psd) ) 
 
     plt.show()
