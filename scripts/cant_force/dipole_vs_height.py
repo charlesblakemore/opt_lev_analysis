@@ -1,8 +1,16 @@
+###########################
+# Script to analyze the microsphere's dipole response to a fixed
+# voltage on the cantilver which is driven toward and away from
+# the bead
+###########################
+
 import os, fnmatch, sys
 
 import dill as pickle
 
 import scipy.interpolate as interp
+import scipy.optimize as opti
+from scipy.optimize import minimize_scalar as minimize
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,25 +22,37 @@ from mpl_toolkits.mplot3d import Axes3D
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20171106/bead1/dipole_v_height_10Vfilt_2/'
-maxfiles = 10000 # Many more than necessary
-ax1_lab = 'z'
-nbins = 20
-
-plot_title = ''
-
-
 ###########################################################
 
 
 
+dir1 = '/data/20180220/bead1/dipole_vs_height/10V_wshield/'
+maxfiles = 10000 # Many more than necessary
+ax1_lab = 'z'
+nbins = 15
+tophatf = 300  # Top-hat filter frequency used in diagonalization
 
+plot_title = ''
 
+tfdate = '' #'20180215'
 
+fit_xdat = True
+fit_zdat = True
+closest_sep = 20
+closest_sep = 60
 
+diag = True
+###########################################################
+
+def dipole_force(x, a, b, c, x0=0):
+    return a*(1.0/np.abs(x-x0))**2 + b*(1.0/np.abs(x-x0)) + c
+
+def parabola(x, a, b, c):
+    return a*(x**2) + b*x + c
 
 def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
-                               ax1val=0,  spacing=1e-6, diag=False):
+                               ax1val=0,  spacing=1e-6, diag=False, fit_xdat=False, \
+                               fit_zdat=False, plottf=False):
     '''Loops over a list of file names, loads each file, diagonalizes,
        computes force v position and then closes then discards the 
        raw data to avoid filling memory. Returns the result as a nested
@@ -80,7 +100,10 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
                 continue
 
         if diag:
-            df.diagonalize(date='20171106', maxfreq=100)
+            if fil_ind == 0 and plottf:
+                df.diagonalize(date=tfdate, maxfreq=tophatf, plot=True)
+            else:
+                df.diagonalize(date=tfdate, maxfreq=tophatf)
 
         df.get_force_v_pos(verbose=False, nbins=nbins)
 
@@ -135,7 +158,25 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
     print 'Averaging files and building standard deviations'
     sys.stdout.flush()
 
+    if fit_xdat:
+        xdat = {'fit': dipole_force}
+        diag_xdat = {'fit': dipole_force}
+    if fit_zdat:
+        zdat = {'fit': dipole_force}
+        diag_zdat = {'fit': dipole_force}
+
     for cantV_k in cantV_keys:
+        if fit_zdat:
+            if cantV_k not in zdat:
+                zdat[cantV_k] = {}
+                if diag:
+                    diag_zdat[cantV_k] = {}
+        if fit_xdat:
+            if cantV_k not in xdat:
+                xdat[cantV_k] = {}
+                if diag:
+                    diag_xdat[cantV_k] = {}
+
         for ax1_k in ax1_keys:
             for resp in [0,1,2]:
 
@@ -155,6 +196,24 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
 
                 force_curves[cantV_k][ax1_k][resp] = [new_bins, new_dat, new_errs]
 
+                if fit_xdat and resp == 0:
+                    x0 = np.max(new_bins) + closest_sep
+                    p0 = [np.max(new_dat)/closest_sep**2, 0, 0]
+                    fitfun = lambda x,a,b,c: xdat['fit'](x,a,b,c,x0=x0)
+                    popt, pcov = opti.curve_fit(fitfun, new_bins, new_dat)
+                    val = fitfun(np.max(new_bins), popt[0], popt[1], 0)
+
+                    xdat[cantV_k][ax1_k] = (popt, val)
+
+                if fit_zdat and resp == 2:
+                    x0 = np.max(new_bins) + closest_sep
+                    p0 = [np.max(new_dat)/closest_sep**2, 0, 0]
+                    fitfun = lambda x,a,b,c: zdat['fit'](x,a,b,c,x0=x0)
+                    popt, pcov = opti.curve_fit(fitfun, new_bins, new_dat)
+                    val = fitfun(np.max(new_bins), popt[0], popt[1], 0)
+
+                    zdat[cantV_k][ax1_k] = (popt, val)
+
                 if diag:
                     old_diag_bins = diag_force_curves[cantV_k][ax1_k][resp][0]
                     old_diag_dat = diag_force_curves[cantV_k][ax1_k][resp][1]
@@ -162,7 +221,7 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
 
                     new_diag_bins = np.linspace(np.min(old_diag_bins)+1e-9, \
                                                 np.max(old_diag_bins)-1e-9, nbins)
-                    new_diag_dat = dat_func(new_diag_bins)
+                    new_diag_dat = diag_dat_func(new_diag_bins)
                     new_diag_errs = np.zeros_like(new_diag_dat)
 
                     diag_bin_sp = new_diag_bins[1] - new_diag_bins[0]
@@ -172,40 +231,110 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
 
                     diag_force_curves[cantV_k][ax1_k][resp] = \
                                         [new_diag_bins, new_diag_dat, new_diag_errs]
-                    
-                    
-    
 
+                    if fit_xdat and resp == 0:
+                        x0 = np.max(new_diag_bins) + closest_sep
+                        p0 = [np.max(new_diag_dat)/closest_sep**2, 0, 0]
+                        fitfun = lambda x,a,b,c: diag_xdat['fit'](x,a,b,c,x0=x0)
+                        popt, pcov = opti.curve_fit(fitfun, new_diag_bins, new_diag_dat)
+                        val = fitfun(np.max(new_diag_bins), popt[0], popt[1], 0)
+
+                        diag_xdat[cantV_k][ax1_k] = (popt, val)
+
+                    if fit_zdat and resp == 2:
+                        x0 = np.max(new_diag_bins) + closest_sep
+                        p0 = [np.max(new_diag_dat)/closest_sep**2, 0, 0]
+                        fitfun = lambda x,a,b,c: diag_zdat['fit'](x,a,b,c,x0=x0)
+                        popt, pcov = opti.curve_fit(fitfun, new_diag_bins, new_diag_dat)
+                        val = fitfun(np.max(new_diag_bins), popt[0], popt[1], 0)
+
+                        diag_zdat[cantV_k][ax1_k] = (popt, val)
+
+                
+    fits = {}
+    if fit_xdat:
+        if diag:
+            fits['x'] = (xdat, diag_xdat)
+        else:
+            fits['x'] = (xdat)
+    if fit_zdat:
+        if diag:
+            fits['z'] = (zdat, diag_zdat)
+        else:
+            fits['z'] = (zdat)
+
+    
     if diag:
-        return force_curves, diag_force_curves
+        return force_curves, diag_force_curves, fits
     else:
-        return force_curves
+        return force_curves, fits
+
+
 
 
 
 datafiles = bu.find_all_fnames(dir1, ext=config.extensions['data'])
 
-force_dic, diag_force_dic = \
-        get_force_curve_dictionary(datafiles, ax1=ax1_lab, diag=True)
+
+force_dic, diag_force_dic, fits= \
+            get_force_curve_dictionary(datafiles, ax1=ax1_lab, diag=diag, \
+                                               fit_xdat=fit_xdat, fit_zdat=fit_zdat)
+
+if fit_xdat:
+    xdat = fits['x'][0]
+    if diag:
+        diag_xdat = fits['x'][1]
+
+if fit_zdat:
+    zdat = fits['z'][0]
+    if diag:
+        diag_zdat = fits['z'][1]
+
 
 cantV = force_dic.keys()
 cantV.sort()
 
 figs = []
 axarrs = []
+xfigs = []
+xaxarrs = []
+zfigs = []
+zaxarrs = []
 
 for biasind, bias in enumerate(cantV):
     fig, axarr = plt.subplots(3,2,sharex=True,sharey=True,figsize=(6,8),dpi=150)
-
     figs.append(fig)
     axarrs.append(axarr)
 
+    if fit_xdat:
+        xfig, xaxarr = plt.subplots(1,2,sharex=True,sharey=True,figsize=(5,3),dpi=150)
+        xfigs.append(xfig)
+        xaxarrs.append(xaxarr)
+        xfits = []
+        diag_xfits = []
+
+    if fit_zdat:
+        zfig, zaxarr = plt.subplots(1,2,sharex=True,sharey=True,figsize=(5,3),dpi=150)
+        zfigs.append(zfig)
+        zaxarrs.append(zaxarr)
+        zfits = []
+        diag_zfits = []
+
     stage_settings = force_dic[bias].keys()
     stage_settings.sort()
+    stage_settings = np.array(stage_settings)
 
     for posind, pos in enumerate(stage_settings):
         color = 'C' + str(posind)
         lab = str(pos) + ' um'
+
+        if fit_xdat:
+            xfits.append(xdat[bias][pos][1])
+            diag_xfits.append(diag_xdat[bias][pos][1])
+
+        if fit_zdat:
+            zfits.append(zdat[bias][pos][1])
+            diag_zfits.append(diag_zdat[bias][pos][1])
 
         for resp in [0,1,2]:
             bins = force_dic[bias][pos][resp][0]
@@ -216,8 +345,18 @@ for biasind, bias in enumerate(cantV):
             diag_dat = diag_force_dic[bias][pos][resp][1]
             diag_errs = diag_force_dic[bias][pos][resp][2]
         
-            dat = (dat - dat[0]) * 1.0e15
-            diag_dat = (diag_dat - diag_dat[0]) * 1.0e15
+            if resp == 0 and fit_xdat:
+                off = np.mean(dat[0]) + xdat[bias][pos][0][2]
+                doff = np.mean(diag_dat[0]) + diag_xdat[bias][pos][0][2]
+            elif resp == 2 and fit_zdat:
+                off = np.mean(dat[0]) + zdat[bias][pos][0][2]
+                doff = np.mean(diag_dat[0]) + diag_zdat[bias][pos][0][2]
+            else:
+                off = dat[0]
+                doff = diag_dat[0]
+
+            dat = (dat - off) * 1.0e15
+            diag_dat = (diag_dat - doff) * 1.0e15
 
             axarrs[biasind][resp,0].errorbar(bins, dat, errs, \
                                              fmt='-', marker='.', \
@@ -228,14 +367,99 @@ for biasind, bias in enumerate(cantV):
                                              ms=7, color = color, label=lab, \
                                              alpha=0.9)
 
+    if fit_xdat:
+        xfits = np.array(xfits)
+        diag_xfits = np.array(diag_xfits)
+
+        maxind = np.argmax(np.abs(xfits))
+        diag_maxind = np.argmax(np.abs(diag_xfits))
+
+        gpts = np.abs(stage_settings - stage_settings[maxind]) < 15
+        diaggpts = np.abs(stage_settings - stage_settings[diag_maxind]) < 15
+
+        popt, pcov = opti.curve_fit(parabola, stage_settings[gpts], xfits[gpts])
+        popt_diag, pcov_diag = opti.curve_fit(parabola, stage_settings[diaggpts], diag_xfits[diaggpts])
+
+        beadheight = 'Height: %0.3g um' % (-0.5*popt[1]/popt[0])
+        diag_beadheight = 'Height: %0.3g um' % (-0.5*popt_diag[1]/popt_diag[0])
+
+        xaxarrs[biasind][0].errorbar(stage_settings, xfits, marker='.', ms=7)
+        xaxarrs[biasind][1].errorbar(stage_settings, diag_xfits, marker='.', ms=7)
+
+        xaxarrs[biasind][0].plot(stage_settings, parabola(stage_settings, *popt), '--', color='r')
+        xaxarrs[biasind][0].plot(stage_settings[gpts], parabola(stage_settings[gpts], *popt), \
+                                 color='r', lw=2)
+
+        xaxarrs[biasind][1].plot(stage_settings, \
+                                 parabola(stage_settings, *popt_diag), '--', color='r')
+        xaxarrs[biasind][1].plot(stage_settings[diaggpts], \
+                                 parabola(stage_settings[diaggpts], *popt_diag), \
+                                 color='r', lw=2)
+
+        xaxarrs[biasind][0].text(0.3*np.max(stage_settings), np.min(xfits), beadheight) 
+        xaxarrs[biasind][1].text(0.3*np.max(stage_settings), np.min(diag_xfits), diag_beadheight) 
+
+        xaxarrs[biasind][0].set_xlabel('Cantilever Height [um]')
+        xaxarrs[biasind][1].set_xlabel('Cantielver Height [um]')
+        xaxarrs[biasind][0].set_ylabel('Peak X-force From Fit')
+
+        xaxarrs[biasind][0].set_title('Raw Data', fontsize=12)
+        xaxarrs[biasind][1].set_title('Diagonalized Data', fontsize=12)
+
+        plt.tight_layout()
+
+
+    if fit_zdat:
+        zfits = np.array(zfits)
+        diag_zfits = np.array(diag_zfits)
+
+        fitfun = lambda x,a,b: a*x + b
+
+        crossind = np.argmin(np.abs(zfits))
+        diag_crossind = np.argmin(np.abs(diag_zfits))
+
+        gpts = np.abs(stage_settings - stage_settings[crossind]) < 15
+        diaggpts = np.abs(stage_settings - stage_settings[diag_crossind]) < 15
+
+        popt, pcov = opti.curve_fit(fitfun, stage_settings[gpts], zfits[gpts])
+        popt_diag, pcov_diag = opti.curve_fit(fitfun, stage_settings[diaggpts], diag_zfits[diaggpts])
+
+        beadheight = 'Height: %0.3g um' % (-1.0*popt[1]/popt[0])
+        diag_beadheight = 'Height: %0.3g um' % (-1.0*popt_diag[1]/popt_diag[0])
+
+        zaxarrs[biasind][0].errorbar(stage_settings, zfits, marker='.', ms=7)
+        zaxarrs[biasind][1].errorbar(stage_settings, diag_zfits, marker='.', ms=7)
+
+        zaxarrs[biasind][0].plot(stage_settings, fitfun(stage_settings, *popt), '--', color='r')
+        zaxarrs[biasind][0].plot(stage_settings[gpts], fitfun(stage_settings[gpts], *popt), \
+                                 color='r', lw=2)
+
+        zaxarrs[biasind][1].plot(stage_settings, \
+                                 fitfun(stage_settings, *popt_diag), '--', color='r')
+        zaxarrs[biasind][1].plot(stage_settings[diaggpts], \
+                                 fitfun(stage_settings[diaggpts], *popt_diag), \
+                                 color='r', lw=2)
+
+        zaxarrs[biasind][0].text(np.min(stage_settings), np.max(zfits), beadheight) 
+        zaxarrs[biasind][1].text(np.min(stage_settings), np.max(diag_zfits), diag_beadheight) 
+
+        zaxarrs[biasind][0].set_xlabel('Cantilever Height [um]')
+        zaxarrs[biasind][1].set_xlabel('Cantielver Height [um]')
+        zaxarrs[biasind][0].set_ylabel('Peak Z-force From Fit')
+
+        zaxarrs[biasind][0].set_title('Raw Data', fontsize=12)
+        zaxarrs[biasind][1].set_title('Diagonalized Data', fontsize=12)
+
+        plt.tight_layout()
+
 for arrind, arr in enumerate(axarrs):
 
     voltage = cantV[arrind]
     title = 'Dipole vs Height for %i V (filtered)' % int(voltage)
     arr[0,0].set_title('Raw Data', fontsize=12)
     arr[0,1].set_title('Diagonalized Data', fontsize=12)
-    arr[2,0].set_xlabel('Distance From Cantilever [um]', fontsize=12)
-    arr[2,1].set_xlabel('Distance From Cantilever [um]', fontsize=12)
+    arr[2,0].set_xlabel('Distance From Cantilever [um]', fontsize=10)
+    arr[2,1].set_xlabel('Distance From Cantilever [um]', fontsize=10)
 
     for resp in [0,1,2]:
         arr[resp,0].set_ylabel('Force [fN]')

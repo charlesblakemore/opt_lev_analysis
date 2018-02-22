@@ -243,13 +243,12 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                     int_bins.append(np.mean(old_bins[inds]))
                     int_dat.append(np.mean(old_dat[inds]))
 
-                try:
-                    dat_func = interp.interp1d(int_bins, int_dat, kind='cubic', bounds_error=False,\
+                int_bins = np.array(int_bins)
+                int_dat = np.array(int_dat)
+                
+
+                dat_func = interp.interp1d(int_bins, int_dat, kind='cubic', bounds_error=False,\
                                                fill_value='extrapolate')
-                except:
-                    plt.figure()
-                    plt.plot(int_bins, int_dat)
-                    plt.show()
                 
                 new_dat = dat_func(new_bins)
                 new_errs = np.zeros_like(new_dat)

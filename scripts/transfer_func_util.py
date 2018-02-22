@@ -776,3 +776,33 @@ def make_tf_array(freqs, Hfunc):
 
     Hout = np.linalg.inv(Harr)
     return Hout
+
+
+
+def plot_tf_array(freqs, Harr):
+    '''Plots a 3x3xNfreq complex-valued array for use in diagonalization
+           INPUTS: freqs, array of frequencies
+                   Harr, output from build_Hfuncs()
+
+           OUTPUTS: none'''
+
+    mfig, maxarr = plt.subplots(3,3,figsize=(8,8),sharex=True,sharey=True)
+    pfig, paxarr = plt.subplots(3,3,figsize=(8,8),sharex=True,sharey=True)
+
+    for drive in [0,1,2]:
+        for resp in [0,1,2]:
+            mag = np.abs(Harr[:,drive,resp])
+            phase = np.angle(Harr[:,drive,resp])
+            maxarr[drive,resp].loglog(freqs, mag)
+            paxarr[drive,resp].semilogx(freqs, phase)
+
+    for ind in [0,1,2]:
+        maxarr[ind,0].set_ylabel('Mag [abs]')
+        paxarr[ind,0].set_ylabel('Phase [rad]')
+
+        maxarr[2,ind].set_xlabel('Frequency [Hz]')
+        paxarr[2,ind].set_xlabel('Frequency [Hz]')
+
+    plt.tight_layout()
+    plt.show()
+

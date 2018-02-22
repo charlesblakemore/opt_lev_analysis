@@ -92,26 +92,66 @@ def count_dirs(path):
     return count
     
 
+def make_all_pardirs(path):
+    '''Function to help pickle from being shit. Takes a path
+       and looks at all the parent directories etc and tries 
+       making them if they don't exist.
 
-def find_all_fnames(dirname, ext='.h5', sort=True):
+       INPUTS: path, any path which needs a hierarchy already 
+                     in the file system before being used
+
+       OUTPUTS: none
+       '''
+
+    parts = path.split('/')
+    parent_dir = '/'
+    for ind, part in enumerate(parts):
+        if ind == 0 or ind == len(parts) - 1:
+            continue
+        parent_dir += part
+        parent_dir += '/'
+        if not os.path.isdir(parent_dir):
+            os.mkdir(parent_dir)
+
+
+
+def find_all_fnames(dirlist, ext='.h5', sort=True):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
-       INPUTS: dirname, directory name to loop over
+       INPUTS: dirlist, list of directory names to loop over
                ext, file extension you're looking for
                sort, boolean specifying whether to do a simple sort
 
        OUTPUTS: files, list of files names as strings'''
 
+    was_list = True
+
+    lengths = []
     files = []
-    for root, dirnames, filenames in os.walk(dirname):
-        for filename in fnmatch.filter(filenames, '*' + ext):
-            files.append(os.path.join(root, filename))
+
+    if type(dirlist) == str:
+        dirlist = [dirlist]
+        was_list = False
+
+    for dirname in dirlist:
+        for root, dirnames, filenames in os.walk(dirname):
+            for filename in fnmatch.filter(filenames, '*' + ext):
+                files.append(os.path.join(root, filename))
+        if was_list:
+            if len(lengths) == 0:
+                lengths.append(len(files))
+            else:
+                lengths.append(len(files) - np.sum(lengths)) 
+            
     if sort:
         # Sort files based on final index
         files.sort(key = find_str)
 
-    return files
+    if was_list:
+        return files, lengths
+    else:
+        return files
 
 
 def find_str(str):
@@ -251,9 +291,10 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     drivefilt = np.zeros(len(drivefft))
     drivefilt[fund_ind] = 1.0
 
-    if ( np.abs(drivefft[fund_ind-1]) > 0.01 * np.abs(drivefft[fund_ind]) or \
-            np.abs(drivefft[fund_ind+1]) > 0.01 * np.abs(drivefft[fund_ind]) ):
-        if verbose:
+    # Error message triggered by verbose option
+    if verbose:
+        if ( np.abs(drivefft[fund_ind-1]) > 0.01 * np.abs(drivefft[fund_ind]) or \
+             np.abs(drivefft[fund_ind+1]) > 0.01 * np.abs(drivefft[fund_ind]) ):
             print "More than 1% power in neighboring bins: spatial binning may be suboptimal"
             sys.stdout.flush()
 
@@ -348,6 +389,7 @@ class DataFile:
         self.diag_pos_data = []
         self.cant_data = [] 
         self.electrode_data = []
+        self.other_data = []
         self.fsamp = "Fsamp not loaded"
         #Conditions under which data is taken
         self.time = "Time not loaded"#loads time at end of file
@@ -363,8 +405,16 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
-        dat, attribs= getdata(fname)
+        dat, attribs = getdata(fname)
+        if len(dat) == 0:
+            self.badfile = True
+            return 
+        else:
+            self.badfile = False
+
+        #print attribs
         self.fname = fname
+        #print fname
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
         self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
@@ -455,7 +505,13 @@ class DataFile:
            OUTPUTS: none, generates new class attribute.'''
 
         for resp in [0,1,2]:
-            self.pos_data[resp] = polynomial(self.pos_data[resp], order=order, plot=plot)
+            self.pos_data[resp] = polynomial(self.pos_data[resp], \
+                                             order=order, plot=plot)
+
+        if len(self.other_data):
+            for ax in [0,1,2,3,4]:
+                self.other_data[ax] = polynomial(self.other_data[ax], \
+                                                 order=order, plot=plot)
 
 
     def high_pass_filter(self, order=1, fc=1.0):
@@ -473,7 +529,7 @@ class DataFile:
             self.pos_data[resp] = signal.filtfilt(b, a, self.pos_data[resp])
 
 
-    def diagonalize(self, date='', interpolate=False, maxfreq=1000):
+    def diagonalize(self, date='', interpolate=False, maxfreq=1000, plot=False):
         '''Diagonalizes data, adding a new attribute to the DataFile object.
 
            INPUTS: date, date in form YYYYMMDD if you don't want to use
@@ -512,6 +568,9 @@ class DataFile:
         # so we can map response -> drive
         Harr = tf.make_tf_array(freqs, Hfunc)
 
+        if plot:
+            tf.plot_tf_array(freqs, Harr)
+
         maxfreq_ind = np.argmin( np.abs(freqs - maxfreq) )
         Harr[maxfreq_ind:,:,:] = 0.0+0.0j
 
@@ -525,6 +584,15 @@ class DataFile:
         # Compute the FFT, apply the TF and inverse FFT
         data_fft = np.fft.rfft(self.pos_data)
         diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
+
+        if plot:
+            fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
+            for ax in [0,1,2]:
+                axarr[ax].loglog(freqs, np.abs(data_fft[ax])*conv_facs[ax])
+                axarr[ax].loglog(freqs, np.abs(diag_fft[ax]))
+            plt.tight_layout()
+            plt.show()
+
         self.diag_pos_data = np.fft.irfft(diag_fft)
 
 
@@ -589,10 +657,12 @@ class DataFile:
             binned_data[resp][1] = binned_vec
             
             if len(self.diag_pos_data):
-                diag_bins, diag_binned_vec = spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
-                                                         nbins = nbins, nharmonics = nharmonics, \
-                                                         width = width, sg_filter = sg_filter, \
-                                                         sg_params = sg_params, verbose = verbose)
+                diag_bins, diag_binned_vec = \
+                            spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
+                                        nbins = nbins, nharmonics = nharmonics, \
+                                        width = width, sg_filter = sg_filter, \
+                                        sg_params = sg_params, verbose = verbose)
+
                 diag_binned_data[resp][0] = diag_bins
                 diag_binned_data[resp][1] = diag_binned_vec
 

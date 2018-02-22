@@ -1,0 +1,47 @@
+#dirs = ['/data/20171221/bead6/precession_tests/test1_100V_elec3', \
+#        '/data/20171221/bead6/precession_tests/test1_100V_elec3_fieldoff', \
+#        '/data/20171221/bead6/precession_tests/test1_100V_elec3_muchlater', \
+#        '/data/20171221/bead6/precession_tests/test1_100V_elec3_muchlater2', \
+#        '/data/20171221/bead6/precession_tests/test1_100V_elec3_muchlater3', \
+#        '/data/20171221/bead6/precession_tests/test1_100V_elec3_muchlater4', \
+#        '/data/20171221/bead6/precession_tests/test1_100V_elec3_muchlater_long']
+
+
+#dirs = ['/data/20171221/bead6/precession_tests/test2_100V_elec3', \
+#        '/data/20171221/bead6/precession_tests/test2_100V_elec3_long', \
+#        '/data/20171221/bead6/precession_tests/test2_100V_elec3_fieldoff', \
+#        '/data/20171221/bead6/precession_tests/test2_100V_elec3_fieldoff_long', \
+#        '/data/20171221/bead6/precession_tests/test2_100V_elec3_fieldoff_long_2']
+
+
+
+#dirs = ['/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_prefield', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_fieldon', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_fieldon_freqchange', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_fieldon_freqend5400Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_fieldon_freqend5400Hz_2', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_fieldoff', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_catchat5250Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_catchat5250Hz_fieldoff'] #, \
+#        '/data/20171221/bead6/drive_at_rotfreq/test1_5800Hz_200Vac_catchat5250Hz_fieldoff_long']
+
+#dirs = ['/data/20171221/bead6/drive_at_rotfreq/test2_7975Hz_200Vac_prefield', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test2_7975Hz_200Vac_fieldon', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test2_7975Hz_200Vac_fieldoff']
+
+#dirs = ['/data/20171221/bead6/drive_at_rotfreq/test3_7080Hz_200Vac_fieldon', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test3_7080Hz_200Vac_fieldon_long', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test3_7080Hz_200Vac_fieldon_extralong']
+
+#dirs = ['/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_extralong', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_extralong_2', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_manualchirp_5250Hz-5000Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_manualchirp_endat5000Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_5000Hz-4500Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_stopat4976Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_catchat3450Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_3450Hz-3000Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_stopat3000Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_3000Hz-3250Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_autochirp_stopat3250Hz', \
+#        '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_freerun_END']
