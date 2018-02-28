@@ -20,8 +20,20 @@ import configuration as config
 
 ### Specify path with data, or folder with many picomotor subfolders
 
-dir1 = '/data/20180215/bead1/grav_data_withshield/'
-#dir1 = '/data/20171106/bead1/grav_data_1/'
+dir1 = '/data/20180220/bead1/gravity_data/grav_data_noshield/'
+#dir1 = '/data/20180215/bead1/grav_data_withshield/'
+
+parts = dir1.split('/')
+save_path1 = '/force_v_pos/%s/%s/%s_force_v_pos_dic.p' % (parts[2], parts[3], parts[-2])
+save_path2 = '/force_v_pos/%s/%s/%s_diagforce_v_pos_dic.p' % (parts[2], parts[3], parts[-2])
+bu.make_all_pardirs(save_path1)
+bu.make_all_pardirs(save_path2)
+
+save = False #True
+load = True
+load_path = '/force_v_pos/%s/%s/%s_force_v_pos_dic.p' % (parts[2], parts[3], parts[-2])
+
+
 
 # If True, this will trigger the script to use the following inputs
 # and process many directories simultaneously
@@ -34,18 +46,21 @@ if not os.path.exists(parent_savepath):
     print 'Making directory: ', parent_savepath
     os.makedirs(parent_savepath)
 
+
+
 optional_ext = '' #'300Hz-tophat_100mHz-notch_10harm'
+
 
 
 
 ### Specify other inputs
 
-maxfiles = 10000  # Many more than necessary
+maxfiles = 10000   # Many more than necessary
 ax1_lab = 'x'
 ax2_lab = 'z'
 nbins = 100        # Bins per full cantilever throw
 lpf = 300          # top-hat filter cutoff
-nharmonics = 10   # harmonics of cantilever drive to include in spatial binning
+nharmonics = 10    # harmonics of cantilever drive to include in spatial binning
 width = 0.1        # Notch filter width in Hz
 
 apply_butter = True   # Whether to apply a butterworth filter to data
@@ -53,21 +68,16 @@ butter_freq = 100
 butter_order = 3
 
 
-save_path1 = '/force_v_pos/20180215_shieldinstall/20180215_withshield_force_v_pos_dic.p'
-save_path2 = '/force_v_pos/20180215_shieldinstall/20180215_withshield_diagforce_v_pos_dic.p'
-
-bu.make_all_pardirs(save_path1)
-bu.make_all_pardirs(save_path2)
-
-save = True
-load = False #True
-load_path = '/force_v_pos/20171106_10picopos/20171106_diagforce_v_pos_dic_p6.p'
-
 plot = True
 resp_to_plot = 0
 ax2_toplot = 7
 
-plot_title = ''
+smooth_manifold = True   # Whether to smooth the final manifold
+tukey_alpha = 0.1        # alpha param for tukey window in manifold smoothing
+
+fakedrive = True
+fakefreq = 29
+fakeamp = 40
 
 
 ### These arrays are for testing various aspects of averaging files
@@ -128,12 +138,15 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
     print "Processing %i files" % len(files)
     print "Percent complete: "
     for fil_ind, fil in enumerate(files):
+
+        bu.progress_bar(fil_ind, len(files))
+
         # Display percent completion
-        per = int(100. * float(fil_ind) / float(len(files)) )
-        if per > old_per:
-            print old_per,
-            sys.stdout.flush()
-            old_per = per
+        #per = int(100. * float(fil_ind) / float(len(files)) )
+        #if per > old_per:
+        #    print old_per,
+        #    sys.stdout.flush()
+        #    old_per = per
 
         # Load data
         df = bu.DataFile()
@@ -159,7 +172,7 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
             df.diagonalize(maxfreq=lpf)
 
         df.get_force_v_pos(verbose=False, nbins=nbins, nharmonics=nharmonics, \
-                           width=width)
+                           width=width, fakedrive=fakedrive, fakefreq=fakefreq, fakeamp=fakeamp)
 
         # Add the current data to the output dictionary
         if ax1pos not in force_curves.keys():
@@ -238,21 +251,25 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                 #num_files = 3
                 #print num_files
 
-                for binval in old_bins[::num_files]:
-                    inds = np.abs(old_bins - binval) <= 0.2 * bin_sp
-                    int_bins.append(np.mean(old_bins[inds]))
-                    int_dat.append(np.mean(old_dat[inds]))
+                #for binval in old_bins[::num_files]:
+                #    inds = np.abs(old_bins - binval) <= 0.2 * bin_sp
+                #    avg_bin = np.mean(old_bins[inds])
+                #    if avg_bin not in int_bins:
+                #        int_bins.append(avg_bin)
+                #        int_dat.append(np.mean(old_dat[inds]))
 
-                try:
-                    dat_func = interp.interp1d(int_bins, int_dat, kind='cubic', bounds_error=False,\
-                                               fill_value='extrapolate')
-                except:
-                    plt.figure()
-                    plt.plot(int_bins, int_dat)
-                    plt.show()
-                
-                new_dat = dat_func(new_bins)
-                new_errs = np.zeros_like(new_dat)
+                #dat_func = interp.interp1d(old_bins, old_dat, kind='cubic', bounds_error=False,\
+                #                           fill_value='extrapolate')
+
+                #new_dat = dat_func(new_bins)
+                #new_errs = np.zeros_like(new_dat)
+
+                new_dat = np.zeros_like(new_bins)
+                new_errs = np.zeros_like(new_bins)
+                for binind, binval in enumerate(new_bins):
+                    inds = np.abs(old_bins - binval) <= 0.5*bin_sp
+                    new_dat[binind] = np.mean(old_dat[inds])
+                    new_errs[binind] = np.std(old_dat[inds])
 
                 if ax1_k == max_ax1:
                     if ax2_k == ax2pos:
@@ -262,10 +279,6 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                         test_arr[resp] = old_dat
                         test_arr_int[resp] = int_dat
                         test_arr_final[resp] = new_dat
-
-                for binind, binval in enumerate(new_bins):
-                    inds = np.abs( old_bins - binval ) < bin_sp
-                    new_errs[binind] = np.std( old_dat[inds] )
 
                 force_curves[ax1_k][ax2_k][resp] = [new_bins, new_dat, new_errs]
 
@@ -287,24 +300,32 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                     int_diag_bins = []
                     int_diag_dat = []
 
-                    num_files = int( np.sum( np.abs(old_diag_bins - old_diag_bins[0]) \
-                                             <= 0.2 * diag_bin_sp ) )
+                    # num_files = int( np.sum( np.abs(old_diag_bins - old_diag_bins[0]) \
+                    #                          <= 0.2 * diag_bin_sp ) )
 
-                    for binval in old_diag_bins[::num_files]:
-                        inds = np.abs(old_diag_bins - binval) <= 0.2 * diag_bin_sp
-                        int_diag_bins.append(np.mean(old_diag_bins[inds]))
-                        int_diag_dat.append(np.mean(old_diag_dat[inds]))
+                    # for binval in old_diag_bins[::num_files]:
+                    #     inds = np.abs(old_diag_bins - binval) <= 0.2 * diag_bin_sp
+                    #     int_diag_bins.append(np.mean(old_diag_bins[inds]))
+                    #     int_diag_dat.append(np.mean(old_diag_dat[inds]))
 
-                    diag_dat_func = interp.interp1d(int_diag_bins, int_diag_dat, kind='cubic', \
-                                                   bounds_error=False, fill_value='extrapolate')
+                    # diag_dat_func = interp.interp1d(int_diag_bins, int_diag_dat, kind='cubic', \
+                    #                                bounds_error=False, fill_value='extrapolate')
 
-                    new_diag_dat = diag_dat_func(new_diag_bins)
-                    new_diag_errs = np.zeros_like(new_diag_dat)
+                    # new_diag_dat = diag_dat_func(new_diag_bins)
+                    # new_diag_errs = np.zeros_like(new_diag_dat)
 
-                    diag_bin_sp = new_diag_bins[1] - new_diag_bins[0]
+                    # diag_bin_sp = new_diag_bins[1] - new_diag_bins[0]
+                    # for binind, binval in enumerate(new_diag_bins):
+                    #     diaginds = np.abs( old_diag_bins - binval ) < diag_bin_sp
+                    #     new_diag_errs[binind] = np.std( old_diag_dat[diaginds] )
+
+
+                    new_diag_dat = np.zeros_like(new_diag_bins)
+                    new_diag_errs = np.zeros_like(new_diag_bins)
                     for binind, binval in enumerate(new_diag_bins):
-                        diaginds = np.abs( old_diag_bins - binval ) < diag_bin_sp
-                        new_diag_errs[binind] = np.std( old_diag_dat[diaginds] )
+                        inds = np.abs(old_diag_bins - binval) <= 0.5*diag_bin_sp
+                        new_diag_dat[binind] = np.mean(old_diag_dat[inds])
+                        new_diag_errs[binind] = np.std(old_diag_dat[inds])
 
                     diag_force_curves[ax1_k][ax2_k][resp] = \
                                             [new_diag_bins, new_diag_dat, new_diag_errs]
@@ -401,15 +422,48 @@ if plot:
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    #ax1 = (np.max(ax1) - ax1) + 10
-
     xgrid, ygrid = np.meshgrid(sample_yvec, ax1)
-
-    #ax.plot_wireframe(sepgrid, xgrid, out)
     surf = ax.plot_surface(xgrid, ygrid, fgrid, \
-                       rcount=20, ccount=100,\
-                       cmap=cm.coolwarm, linewidth=0, antialiased=False)
+                           rcount=20, ccount=100,\
+                           cmap=cm.coolwarm, linewidth=0, antialiased=True)
 
     fig.colorbar(surf, aspect=20)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.91)
+    plt.suptitle('Raw Data')
+
+
+
+    xgrid2, ygrid2 = np.mgrid[np.min(sample_yvec):np.max(sample_yvec):200j, \
+                              np.min(ax1):np.max(ax1):200j]
+
+    xwin = signal.tukey(len(sample_yvec), alpha=tukey_alpha)
+    ywin = signal.tukey(len(ax1), alpha=tukey_alpha)
+
+    gridwin = np.einsum('i,j->ji', xwin, ywin)
+
+    if smooth_manifold:
+        s = None
+    else:
+        s = 0
+    tck = interp.bisplrep(xgrid, ygrid, fgrid*gridwin, s=s)
+    fgrid_fine = interp.bisplev(xgrid2[:,0], ygrid2[0,:], tck)
+
+    #ax.plot_wireframe(sepgrid, xgrid, out)
+
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111, projection='3d')
+
+    surf2 = ax2.plot_surface(xgrid2, ygrid2, fgrid_fine, rstride=1, cstride=1, \
+                             cmap=cm.coolwarm, linewidth=0, antialiased=True)
+
+    fig2.colorbar(surf2, aspect=20)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.91)
+    if smooth_manifold:
+        plt.suptitle('Oversampled/Smoothed Data')
+    else:
+        plt.suptitle('Oversampled Data')
+
 
     plt.show()

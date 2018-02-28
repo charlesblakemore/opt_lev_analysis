@@ -32,6 +32,33 @@ import transfer_func_util as tf
 
 #### Generic Helper functions
 
+def progress_bar(count, total, suffix='', bar_len=50):
+    '''Prints a progress bar and current completion percentage.
+       This is useful when processing many files and ensuring
+       a script is actually running and going through each file
+
+           INPUTS: count, current counting index
+                   total, total number of iterations to complete
+                   suffix, option string to add to progress bar
+                   bar_len, length of the progress bar in the console
+
+           OUTPUTS: none
+    '''
+    
+    if count == total - 1:
+        percents = 100.0
+        bar = '#' * bar_len
+    else:
+        filled_len = int(round(bar_len * count / float(total)))
+
+        percents = round(100.0 * count / float(total), 1)
+        bar = '#' * filled_len + '-' * (bar_len - filled_len)
+
+    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', suffix))
+    sys.stdout.flush()
+
+
+
 def get_color_map( n, cmap='jet' ):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
@@ -600,7 +627,8 @@ class DataFile:
 
     def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
                         sg_filter=False, sg_params=[3,1], verbose=True, \
-                        cantilever_drive=True, electrode_drive=False):
+                        cantilever_drive=True, electrode_drive=False, \
+                        fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0):
         '''Sptially bins X, Y and Z responses against driven cantilever axis,
            or in the case of multiple axes driven simultaneously, against the
            drive with the largest amplitude.
@@ -615,10 +643,14 @@ class DataFile:
                    cantilever_drive, boolean to specify binning against cant
                    electrode_drive, boolean to bin against an electrode drive
                                     for reconstruction testing
+                   fakedrive, boolean to use a fake drive signal
+                   fakefreq, frequency of fake drive
+                   fakeamp, fake amplitude in microns
+                   fakephi, fake phase for fake drive
 
            OUTPUTS: none, generates new class attribute'''
 
-        if cantilever_drive:
+        if cantilever_drive and not fakedrive:
             # First, find which axes were driven. If multiple are found,
             # it takes the axis with the largest amplitude
             indmap = {0: 'x', 1: 'y', 2: 'z'}
@@ -636,6 +668,12 @@ class DataFile:
             else:
                 cant_ind = np.argmax(np.abs(driven))
             drivevec = self.cant_data[cant_ind]
+
+        elif cantilever_drive and fakedrive:
+            numsamp = len(self.pos_data[0])
+            dt = 1.0 / self.fsamp
+            t = np.linspace(0, numsamp - 1, numsamp) * dt
+            drivevec = fakeamp * np.sin(2.0 * np.pi * fakefreq * t + fakephi) + fakeamp
 
         if electrode_drive:
             elec_ind = np.argmax(self.electrode_settings['driven'])

@@ -11,26 +11,10 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-
-#dir1 = '/data/20171221/bead6/precession_tests/test1_100V_elec3'
-#dir1 = '/data/20171221/bead6/precession_tests/test1_100V_elec3_fieldoff'
-#dir1 = '/data/20171221/bead6/precession_tests/test1_100V_elec3_muchlater_long'
-
-#dir1 = '/data/20171221/bead6/precession_tests/test2_100V_elec3_long'
-#dir1 = '/data/20171221/bead6/precession_tests/test2_100V_elec3_fieldoff_long'
-#dir1 = '/data/20171221/bead6/precession_tests/test2_100V_elec3_fieldoff_long_2'
-
-#dir1 = '/data/20171221/bead6/drive_at_rotfreq/test4_5250Hz_200Vac_fieldon_extralong'
+dir1 = '/data/20180220/bead1/gravity_data/no_cant_drive'
 
 
-#dir1 = '/data/20171221/bead6/test_2chan_chirp/test2_3000Hz-4000Hz'
-
-#dir1 = '/data/20180122/bead4/drive_at_rotfreq/test2_fieldon_getting_inphase2'
-
-dir1 = '/data/20180215/bead1/cantout'
-
-
-data_axes = [0,1]
+data_axes = [0,1,2]
 other_axes = []
 #other_axes = [5,7]
 
@@ -113,16 +97,11 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
     old_per = 0
     print "Processing %i files..." % len(files)
-    print "Percent complete: "
     for fil_ind, fil in enumerate(files):
         color = colors[fil_ind]
         
         # Display percent completion
-        per = int(100. * float(fil_ind) / float(len(files)) )
-        if per > old_per:
-            print old_per,
-            sys.stdout.flush()
-            old_per = per
+        bu.progress_bar(fil_ind, len(files))
 
         # Load data
         df = bu.DataFile()

@@ -55,7 +55,7 @@ def flicker(x, a):
 
 
 
-def build_mod_grav_funcs(data_dir):
+def build_mod_grav_funcs(theory_data_dir):
     '''Loads data from the output of /data/grav_sim_data/process_data.py
        which processes the raw simulation output from the farmshare code
 
@@ -166,8 +166,6 @@ def generate_alpha_lambda_limit(data_manifold, gfuncs, yukfuncs, lambdas, \
 
     #lambdas = lambdas[::-1]
     # HARDCODED NUMBERS BEWARE
-    #testalphas = np.linspace(0, 16, 50)
-    testalphas = np.linspace(10**0, 10**14, 50)
 
     colors = bu.get_color_map(len(lambdas))
 
@@ -320,18 +318,14 @@ newlambdas, alphas = generate_alpha_lambda_limit(data_manifold, gfuncs, yukfuncs
 
 
 
-
-
-
-
 ### Load limits to plot against
 
-limitdata_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/limitdata_20160928_datathief_nodecca2.txt'
+limitdata_path = '/home/charles/opt_lev_analysis/scripts/gravity_sim/gravity_sim_v2/data/limitdata_20160928_datathief_nodecca2.txt'
 #limitdata_path = '/home/charles/limit_nodecca2.txt'
 limitdata = np.loadtxt(limitdata_path, delimiter=',')
 limitlab = 'No Decca 2'
 
-limitdata_path2 = '/home/charles/opt_lev_analysis/scripts/gravity_sim/data/limitdata_20160914_datathief.txt'
+limitdata_path2 = '/home/charles/opt_lev_analysis/scripts/gravity_sim/gravity_sim_v2/data/limitdata_20160914_datathief.txt'
 limitdata2 = np.loadtxt(limitdata_path2, delimiter=',')
 limitlab2 = 'With Decca 2'
 
