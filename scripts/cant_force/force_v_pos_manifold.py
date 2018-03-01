@@ -3,6 +3,7 @@ import os, fnmatch, sys
 import dill as pickle
 
 import scipy.interpolate as interp
+import scipy.signal as signal
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,33 +18,83 @@ import transfer_func_util as tf
 import configuration as config
 
 
+### Specify path with data, or folder with many picomotor subfolders
 
-dir1 = '/data/20171106/bead1/grav_data_1/'
-maxfiles = 10000 # Many more than necessary
+dir1 = '/data/20180220/bead1/gravity_data/grav_data_noshield/'
+#dir1 = '/data/20180215/bead1/grav_data_withshield/'
+
+parts = dir1.split('/')
+save_path1 = '/force_v_pos/%s/%s/%s_force_v_pos_dic.p' % (parts[2], parts[3], parts[-2])
+save_path2 = '/force_v_pos/%s/%s/%s_diagforce_v_pos_dic.p' % (parts[2], parts[3], parts[-2])
+bu.make_all_pardirs(save_path1)
+bu.make_all_pardirs(save_path2)
+
+save = False #True
+load = True
+load_path = '/force_v_pos/%s/%s/%s_force_v_pos_dic.p' % (parts[2], parts[3], parts[-2])
+
+
+
+# If True, this will trigger the script to use the following inputs
+# and process many directories simultaneously
+picomotors = False
+picodir = '/data/20171106/bead1/grav_data_10picopos/'
+date = picodir.split('/')[2]
+numdirs = bu.count_dirs(picodir)
+parent_savepath = '/force_v_pos/' + date + '_' + str(numdirs) + 'picopos_2/'
+if not os.path.exists(parent_savepath):
+    print 'Making directory: ', parent_savepath
+    os.makedirs(parent_savepath)
+
+
+
+optional_ext = '' #'300Hz-tophat_100mHz-notch_10harm'
+
+
+
+
+### Specify other inputs
+
+maxfiles = 10000   # Many more than necessary
 ax1_lab = 'x'
 ax2_lab = 'z'
-nbins = 100
+nbins = 100        # Bins per full cantilever throw
+lpf = 300          # top-hat filter cutoff
+nharmonics = 10    # harmonics of cantilever drive to include in spatial binning
+width = 0.1        # Notch filter width in Hz
 
-save_path1 = '/force_v_pos/20171106_force_v_pos_dic.p'
-save_path2 = '/force_v_pos/20171106_diagforce_v_pos_dic.p'
+apply_butter = True   # Whether to apply a butterworth filter to data
+butter_freq = 100
+butter_order = 3
 
-save = True #True
-load = False #True
-load_path = '/force_v_pos/20170903_force_v_pos_dic.p'
 
 plot = True
 resp_to_plot = 0
-ax2_toplot = 0
+ax2_toplot = 7
 
-plot_title = ''
+smooth_manifold = True   # Whether to smooth the final manifold
+tukey_alpha = 0.1        # alpha param for tukey window in manifold smoothing
 
+fakedrive = True
+fakefreq = 29
+fakeamp = 40
+
+
+### These arrays are for testing various aspects of averaging files
+### together and some smoothing/resampling
 testind = 0
 test_posvec = [[],[],[]]
+test_posvec_int = [[],[],[]]
+test_posvec_final = [[],[],[]]
 test_arr = [[],[],[]]
+test_arr_int = [[],[],[]]
+test_arr_final = [[],[],[]]
 diag_test_posvec = [[],[],[]]
 diag_test_arr = [[],[],[]]
 
 ###########################################################
+
+
 
 
 
@@ -72,18 +123,30 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                 diagoutdic, if diag=True second dictionary with diagonalized data
     '''
 
+    if len(files) == 0:
+        print "No Files Found!!"
+        return
+
+    ### Do inital looping over files to concatenate data at the same
+    ### heights and separations
     force_curves = {}
     if diag:
         diag_force_curves = {}
     old_per = 0
+    print
+    print os.path.dirname(files[0])
+    print "Processing %i files" % len(files)
     print "Percent complete: "
     for fil_ind, fil in enumerate(files):
+
+        bu.progress_bar(fil_ind, len(files))
+
         # Display percent completion
-        per = int(100. * float(fil_ind) / float(len(files)) )
-        if per > old_per:
-            print old_per,
-            sys.stdout.flush()
-            old_per = per
+        #per = int(100. * float(fil_ind) / float(len(files)) )
+        #if per > old_per:
+        #    print old_per,
+        #    sys.stdout.flush()
+        #    old_per = per
 
         # Load data
         df = bu.DataFile()
@@ -91,6 +154,7 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
 
         df.calibrate_stage_position()
         
+        # Pick out height and separation
         ax1pos = df.stage_settings[ax1 + ' DC']
         ax2pos = df.stage_settings[ax2 + ' DC']
 
@@ -105,9 +169,10 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                 continue
 
         if diag:
-            df.diagonalize(maxfreq=100)
+            df.diagonalize(maxfreq=lpf)
 
-        df.get_force_v_pos(verbose=False, nbins=nbins)
+        df.get_force_v_pos(verbose=False, nbins=nbins, nharmonics=nharmonics, \
+                           width=width, fakedrive=fakedrive, fakefreq=fakefreq, fakeamp=fakeamp)
 
         # Add the current data to the output dictionary
         if ax1pos not in force_curves.keys():
@@ -161,9 +226,12 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
     sys.stdout.flush()
 
     #max_ax1 = np.max( ax1_keys )
-    test_ax1 = 35
+    test_ax1 = 38
     max_ax1 = ax1_keys[np.argmin( np.abs( test_ax1 - np.array(ax1_keys)) )]
     ax2pos = ax2_keys[np.argmin( np.abs(ax2_toplot - np.array(ax2_keys)) )]
+
+    ax1_keys.sort()
+    ax2_keys.sort()
 
     for ax1_k in ax1_keys:
         for ax2_k in ax2_keys:
@@ -172,21 +240,45 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                 old_bins = force_curves[ax1_k][ax2_k][resp][0]
                 old_dat = force_curves[ax1_k][ax2_k][resp][1]
 
+                new_bins = np.linspace(np.min(old_bins)+1e-9, np.max(old_bins)-1e-9, nbins)
+
+                bin_sp = new_bins[1] - new_bins[0]
+
+                int_bins = []
+                int_dat = []
+
+                num_files = int(np.sum( np.abs(old_bins - old_bins[0]) <= 0.2 * bin_sp ))
+                #num_files = 3
+                #print num_files
+
+                #for binval in old_bins[::num_files]:
+                #    inds = np.abs(old_bins - binval) <= 0.2 * bin_sp
+                #    avg_bin = np.mean(old_bins[inds])
+                #    if avg_bin not in int_bins:
+                #        int_bins.append(avg_bin)
+                #        int_dat.append(np.mean(old_dat[inds]))
+
+                #dat_func = interp.interp1d(old_bins, old_dat, kind='cubic', bounds_error=False,\
+                #                           fill_value='extrapolate')
+
+                #new_dat = dat_func(new_bins)
+                #new_errs = np.zeros_like(new_dat)
+
+                new_dat = np.zeros_like(new_bins)
+                new_errs = np.zeros_like(new_bins)
+                for binind, binval in enumerate(new_bins):
+                    inds = np.abs(old_bins - binval) <= 0.5*bin_sp
+                    new_dat[binind] = np.mean(old_dat[inds])
+                    new_errs[binind] = np.std(old_dat[inds])
+
                 if ax1_k == max_ax1:
                     if ax2_k == ax2pos:
                         test_posvec[resp] = old_bins
+                        test_posvec_int[resp] = int_bins
+                        test_posvec_final[resp] = new_bins
                         test_arr[resp] = old_dat
-
-                dat_func = interp.interp1d(old_bins, old_dat, kind='cubic')
-
-                new_bins = np.linspace(np.min(old_bins)+1e-9, np.max(old_bins)-1e-9, nbins)
-                new_dat = dat_func(new_bins)
-                new_errs = np.zeros_like(new_dat)
-
-                bin_sp = new_bins[1] - new_bins[0]
-                for binind, binval in enumerate(new_bins):
-                    inds = np.abs( old_bins - binval ) < bin_sp
-                    new_errs[binind] = np.std( old_dat[inds] )
+                        test_arr_int[resp] = int_dat
+                        test_arr_final[resp] = new_dat
 
                 force_curves[ax1_k][ax2_k][resp] = [new_bins, new_dat, new_errs]
 
@@ -199,19 +291,44 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                             diag_test_posvec[resp] = old_diag_bins
                             diag_test_arr[resp] = old_diag_dat
 
-                    diag_dat_func = interp.interp1d(old_diag_bins, old_diag_dat, kind='cubic')
 
                     new_diag_bins = np.linspace(np.min(old_diag_bins)+1e-9, \
                                                 np.max(old_diag_bins)-1e-9, nbins)
-                    new_diag_dat = dat_func(new_diag_bins)
-                    new_diag_errs = np.zeros_like(new_diag_dat)
 
                     diag_bin_sp = new_diag_bins[1] - new_diag_bins[0]
-                    for binind, binval in enumerate(new_diag_bins):
-                        diaginds = np.abs( old_diag_bins - binval ) < diag_bin_sp
-                        new_diag_errs[binind] = np.std( old_diag_dat[diaginds] )
 
-                    diag_force_curves[ax1_k][ax2_k][resp] = [new_diag_bins, new_diag_dat, new_diag_errs]
+                    int_diag_bins = []
+                    int_diag_dat = []
+
+                    # num_files = int( np.sum( np.abs(old_diag_bins - old_diag_bins[0]) \
+                    #                          <= 0.2 * diag_bin_sp ) )
+
+                    # for binval in old_diag_bins[::num_files]:
+                    #     inds = np.abs(old_diag_bins - binval) <= 0.2 * diag_bin_sp
+                    #     int_diag_bins.append(np.mean(old_diag_bins[inds]))
+                    #     int_diag_dat.append(np.mean(old_diag_dat[inds]))
+
+                    # diag_dat_func = interp.interp1d(int_diag_bins, int_diag_dat, kind='cubic', \
+                    #                                bounds_error=False, fill_value='extrapolate')
+
+                    # new_diag_dat = diag_dat_func(new_diag_bins)
+                    # new_diag_errs = np.zeros_like(new_diag_dat)
+
+                    # diag_bin_sp = new_diag_bins[1] - new_diag_bins[0]
+                    # for binind, binval in enumerate(new_diag_bins):
+                    #     diaginds = np.abs( old_diag_bins - binval ) < diag_bin_sp
+                    #     new_diag_errs[binind] = np.std( old_diag_dat[diaginds] )
+
+
+                    new_diag_dat = np.zeros_like(new_diag_bins)
+                    new_diag_errs = np.zeros_like(new_diag_bins)
+                    for binind, binval in enumerate(new_diag_bins):
+                        inds = np.abs(old_diag_bins - binval) <= 0.5*diag_bin_sp
+                        new_diag_dat[binind] = np.mean(old_diag_dat[inds])
+                        new_diag_errs[binind] = np.std(old_diag_dat[inds])
+
+                    diag_force_curves[ax1_k][ax2_k][resp] = \
+                                            [new_diag_bins, new_diag_dat, new_diag_errs]
                     
                     
     
@@ -225,26 +342,59 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
 
 
 if not load:
-    files = bu.find_all_fnames(dir1)
-    files = files[:maxfiles]
-    force_dic, diag_force_dic = \
-        get_force_curve_dictionary(files, ax1=ax1_lab, ax2=ax2_lab, spacing=1e-6, diag=True)
 
-    if save:
-        pickle.dump(force_dic, open(save_path1, 'wb') )
-        pickle.dump(diag_force_dic, open(save_path2, 'wb') )
+    if not picomotors:
+        files = bu.find_all_fnames(dir1)
+        files = files[:maxfiles]
+
+        if len(files) == 0:
+            print 'No Files Found!!'
+            quit()
+        else:
+            force_dic, diag_force_dic = \
+                get_force_curve_dictionary(files, ax1=ax1_lab, ax2=ax2_lab, spacing=1e-6, diag=True)
+
+            if save:
+                pickle.dump(force_dic, open(save_path1, 'wb') )
+                pickle.dump(diag_force_dic, open(save_path2, 'wb') )
+    
+    elif picomotors:
+        for i in range(numdirs):
+            path = picodir + '/pico_p' + str(i) + '/'
+            files = bu.find_all_fnames(path)
+            files = files[:maxfiles]
+
+            save_path1 = parent_savepath + date + '_force_v_pos_dic_' + \
+                             optional_ext + '_p' +str(i) + '.p'
+            save_path2 = parent_savepath + date + '_diagforce_v_pos_dic_' + \
+                             optional_ext + '_p' + str(i) + '.p'
+
+            if len(files) == 0:
+                print 'No Files Found in: ', path
+                quit()
+
+            else:
+                force_dic, diag_force_dic = \
+                            get_force_curve_dictionary(files, ax1=ax1_lab, ax2=ax2_lab, \
+                                                       spacing=1e-6, diag=True)
+                if save:
+                    pickle.dump(force_dic, open(save_path1, 'wb') )
+                    pickle.dump(diag_force_dic, open(save_path2, 'wb') )
 
 
-fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
+
+fig, axarr = plt.subplots(3,2,sharex=True,sharey=True)
 for resp in [0,1,2]:
-    axarr[resp].plot(test_posvec[resp], test_arr[resp])
+    axarr[resp,0].plot(test_posvec[resp], test_arr[resp])
+    axarr[resp,0].plot(test_posvec_int[resp], test_arr_int[resp])
+    axarr[resp,1].plot(test_posvec_final[resp], test_arr_final[resp])
 plt.show()
 
 
-np.save('./test_posvec2.npy', np.array(test_posvec))
-np.save('./test_arr2.npy', np.array(test_arr))
-np.save('./diag_test_posvec2.npy', np.array(diag_test_posvec))
-np.save('./diag_test_arr2.npy', np.array(diag_test_arr))
+#np.save('./test_posvec2.npy', np.array(test_posvec))
+#np.save('./test_arr2.npy', np.array(test_arr))
+#np.save('./diag_test_posvec2.npy', np.array(diag_test_posvec))
+#np.save('./diag_test_arr2.npy', np.array(diag_test_arr))
 
 
 
@@ -269,20 +419,51 @@ if plot:
         fgrid[ax11_ind,:] = force_dic[ax11][ax2pos][resp_to_plot][1]
         
 
-
-
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax1 = (np.max(ax1) - ax1) + 10
-
     xgrid, ygrid = np.meshgrid(sample_yvec, ax1)
-
-    #ax.plot_wireframe(sepgrid, xgrid, out)
     surf = ax.plot_surface(xgrid, ygrid, fgrid, \
-                       rcount=20, ccount=100,\
-                       cmap=cm.coolwarm, linewidth=0, antialiased=False)
+                           rcount=20, ccount=100,\
+                           cmap=cm.coolwarm, linewidth=0, antialiased=True)
 
     fig.colorbar(surf, aspect=20)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.91)
+    plt.suptitle('Raw Data')
+
+
+
+    xgrid2, ygrid2 = np.mgrid[np.min(sample_yvec):np.max(sample_yvec):200j, \
+                              np.min(ax1):np.max(ax1):200j]
+
+    xwin = signal.tukey(len(sample_yvec), alpha=tukey_alpha)
+    ywin = signal.tukey(len(ax1), alpha=tukey_alpha)
+
+    gridwin = np.einsum('i,j->ji', xwin, ywin)
+
+    if smooth_manifold:
+        s = None
+    else:
+        s = 0
+    tck = interp.bisplrep(xgrid, ygrid, fgrid*gridwin, s=s)
+    fgrid_fine = interp.bisplev(xgrid2[:,0], ygrid2[0,:], tck)
+
+    #ax.plot_wireframe(sepgrid, xgrid, out)
+
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111, projection='3d')
+
+    surf2 = ax2.plot_surface(xgrid2, ygrid2, fgrid_fine, rstride=1, cstride=1, \
+                             cmap=cm.coolwarm, linewidth=0, antialiased=True)
+
+    fig2.colorbar(surf2, aspect=20)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.91)
+    if smooth_manifold:
+        plt.suptitle('Oversampled/Smoothed Data')
+    else:
+        plt.suptitle('Oversampled Data')
+
 
     plt.show()
