@@ -12,12 +12,14 @@ import bead_util as bu
 import configuration as config
 
 #dir1 = '/data/20180314/bead1/grav_data/ydrive_3sep_3height_5Vac-1198Hz'
+#dir1 = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_extdrive_long'
+#dir1 = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_nofield_shieldin'
+
+#dir1 = '/data/20180314/bead1/grav_data/xdrive_3height_5Vac-1198Hz'
+
+#dir1 = '/data/20180314/bead1/grav_data/xdrive_1height_nofield_shieldin'
 
 dir1 = '/data/20180308/bead2/grav_data/onepos_long'
-
-#dir1 = '/data/20180220/bead1/gravity_data/long_cant_drive_withpause'
-#dir1 = '/data/20180220/bead1/gravity_data/long_cant_drive_nopause'
-
 
 data_axes = [0,1,2]
 ax_labs = {0: 'X', 1: 'Y', 2: 'Z'}
@@ -31,14 +33,12 @@ arrow_fac = 5
 drive_ax = 1
 harms = [2, 3]
 
-ax1val = 80   # um
+sub_cant_phase = True
+plot_first_drive = True
+
+ax1val = None   # um
 ax2val = None   # um
-ax3val = 0   # um
-
-#### HACKED SHITTTT
-savefigs = False
-title_pre = '/home/charles/plots/20180105_precession/test1_100V_muchlater3'
-
+ax3val = 10   # um
 
 #ylim = (1e-21, 1e-14)
 #ylim = (1e-7, 1e-1)
@@ -109,7 +109,10 @@ def select_by_position(files, ax1val=None, ax2val=None, ax3val=None):
     else:
         ax3fils = []
 
-    return bu.find_common_filnames(ax1fils, ax2fils, ax3fils)
+    if (ax1val is None) and (ax2val is None) and (ax3val is None):
+        return files
+    else:
+        return bu.find_common_filnames(ax1fils, ax2fils, ax3fils)
 
 
 
@@ -129,15 +132,6 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
 
        OUTPUTS: none, plots stuff
     '''
-
-
-    avgfig, avgaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
-                                    figsize=(8,8))
-
-    ampfig, ampaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
-                                        figsize=(8,8))
-    phasefig, phaseaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
-                                        figsize=(8,8))
 
     files = bu.sort_files_by_timestamp(files)
     files = files[file_inds[0]:file_inds[1]]
@@ -181,6 +175,11 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
         if fil_ind == 0:
             fftfreqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
             drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
+            
+            if plot_first_drive:
+                plt.loglog(fftfreqs, drivepsd)
+                plt.show()
+
             driveind = np.argmax(drivepsd[1:]) + 1
             drive_freq = fftfreqs[driveind]
             dt = 1.0/df.fsamp
@@ -197,13 +196,19 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
             else:
                 NFFT = userNFFT
 
-            psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
+            psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, NFFT=NFFT, \
+                                  window=mlab.window_none)
             bin_sp = freqs[1] - freqs[0]
 
             assert fftfreqs.all() == freqs.all()
 
             fft = np.fft.rfft(df.pos_data[ax])
-            phases[axind].append(np.angle(fft[driveind]))
+            cantfft = np.fft.rfft(df.cant_data[drive_ax])
+            if sub_cant_phase:
+                phases[axind].append(np.angle(fft[driveind]) - \
+                                     np.angle(cantfft[driveind]))
+            else:
+                phases[axind].append(np.angle(fft[driveind]))
 
             errinds = (freqs > freqs[driveind-25]) * (freqs < freqs[driveind+25])
             errinds[driveind] = False
@@ -232,6 +237,12 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
                 avg_psd[axind] += psd
                 Npsds[axind] += 1
 
+    avgfig, avgaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+                                    figsize=(8,8))
+    ampfig, ampaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+                                        figsize=(8,8))
+    phasefig, phaseaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+                                        figsize=(8,8))
 
     for axind, ax in enumerate(data_axes):
         plotasd = np.sqrt(avg_psd[axind]/Npsds[axind])*avg_facs[axind]
@@ -263,7 +274,7 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
 
     inds = np.array(range(len(phases[0]))) * tint
     for axind, ax in enumerate(data_axes):
-        phaseaxarr[axind].errorbar(inds, np.unwrap(phases[axind]), phase_errs[axind], \
+        phaseaxarr[axind].errorbar(inds, phases[axind], phase_errs[axind], \
                                  fmt='-', marker='.', ms=7, capsize=3)
         lab = ax_labs[ax] + ' Phase of Fund. [rad]'
         phaseaxarr[axind].set_ylabel(lab, fontsize=10)
@@ -282,8 +293,6 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
     plt.tight_layout()
 
     plt.show()
-
-
 
 allfiles = bu.find_all_fnames(dir1)
 
