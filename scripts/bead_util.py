@@ -45,6 +45,11 @@ def progress_bar(count, total, suffix='', bar_len=50):
            OUTPUTS: none
     '''
     
+    if len(suffix):
+        max_bar_len = 80 - len(suffix) - 15
+        if bar_len > max_bar_len:
+            bar_len = max_bar_len
+
     if count == total - 1:
         percents = 100.0
         bar = '#' * bar_len
@@ -179,6 +184,47 @@ def find_all_fnames(dirlist, ext='.h5', sort=True):
         return files, lengths
     else:
         return files
+
+
+
+def sort_files_by_timestamp(files):
+    '''Pretty self-explanatory function.'''
+    files = [(os.stat(path), path) for path in files]
+    files = [(stat.st_ctime, path) for stat, path in files]
+    files.sort(key = lambda x: (x[0]))
+    files = [obj[1] for obj in files]
+    return files
+
+
+
+def find_common_filnames(*lists):
+    intersection = []
+    numlists = len(lists)
+    
+    lens = []
+    for listind, fillist in enumerate(lists):
+        lens.append(len(fillist))
+    longind = np.argmax(np.array(lens))
+    newlists = []
+    newlists.append(lists[longind])
+    for n in range(numlists):
+        if n == longind:
+            continue
+        newlists.append(lists[n])
+
+    for filname in newlists[0]:
+        present = True
+        for n in range(numlists-1):
+            if len(newlists[n+1]) == 0:
+                continue
+            if filname not in newlists[n+1]:
+                present = False
+        if present:
+            intersection.append(filname)
+    return intersection
+
+
+
 
 
 def find_str(str):
@@ -428,6 +474,62 @@ class DataFile:
             # is a list where the electrode index is 1 if the electrode 
             # is driven and 0 otherwise
 
+    def load_only_attribs(self, fname):
+        dat, attribs = getdata(fname)
+        if len(dat) == 0:
+            self.badfile = True
+            return 
+        else:
+            self.badfile = False
+
+        self.fname = fname
+        self.date = fname.split('/')[2]
+
+        self.fsamp = attribs["Fsamp"]
+        self.time = labview_time_to_datetime(attribs["Time"])
+        try:
+            self.temps = attribs["temps"]
+            # Unpacks pressure gauge vector into dict with
+            # labels for pressure gauge specified by configuration.pressure_inds    
+            self.pressures = unpack_config_dict(configuration.pressure_inds, \
+                                                attribs["pressures"]) 
+        except:
+            self.temps = 'Temps not loaded!'
+            self.pressures = 'Pressures not loaded!'
+        # Unpacks stage settings into a dictionay with keys specified by
+        # configuration.stage_inds
+        self.stage_settings = \
+            unpack_config_dict(configuration.stage_inds, \
+            attribs["stage_settings"])
+        # Load all of the electrode settings into the correct keys
+        # First get DC values from its own .h5 attribute
+        self.electrode_settings["dc_settings"] = \
+            attribs["electrode_dc_vals"][:configuration.num_electrodes]
+        
+        # Copy "electrode_settings" attribute into numpy array so it can be 
+        # indexed by a list of indicies coming from 
+        # configuration.eloectrode_settings 
+        temp_elec_settings = np.array(attribs["electrode_settings"])
+        # First get part with 1 if electrode was driven and 0 else 
+        self.electrode_settings["driven"] = \
+            temp_elec_settings[configuration.electrode_settings['driven']]
+        # Now get array of amplitudes
+        self.electrode_settings["amplitudes"] = \
+            temp_elec_settings[configuration.electrode_settings['amplitudes']]
+        # Now get array of frequencies
+        self.electrode_settings["frequencies"] = \
+            temp_elec_settings[configuration.electrode_settings['frequencies']]
+        # reassign driven electrode_dc_vals because it is overwritten
+        dcval_temp = \
+            temp_elec_settings[configuration.electrode_settings['dc_vals2']]
+        # If an electrode is swept the electrode_dc_vals is not used. Make 
+        # sure that if an electrode is drive then the dc_setting comes from 
+        # attribs["electrode_settings"]  
+        for i, e in enumerate(self.electrode_settings["driven"]):
+            if e == 1. and dcval_temp[i] != 0:
+                self.electrode_settings["dc_settings"][i] = dcval_temp[i]
+
+
     def load(self, fname):
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
@@ -507,7 +609,10 @@ class DataFile:
         for k in configuration.calibrate_stage_keys:
             self.stage_settings[k] *= configuration.stage_cal    
         
-        self.cant_data*=configuration.stage_cal
+        try:
+            self.cant_data*=configuration.stage_cal
+        except:
+            1+2
         
         # Now load the cantilever position file.
         # First get the path to the position file from the file base name

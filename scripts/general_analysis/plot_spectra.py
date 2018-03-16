@@ -11,7 +11,9 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180220/bead1/gravity_data/no_cant_drive'
+dir1 = '/data/20180308/bead2/grav_data/onepos_long'
+#dir1 = '/data/20180220/bead1/gravity_data/long_cant_drive_withpause'
+#dir1 = '/data/20180220/bead1/gravity_data/long_cant_drive_nopause'
 
 
 data_axes = [0,1,2]
@@ -19,7 +21,7 @@ other_axes = []
 #other_axes = [5,7]
 
 
-step10 = False
+step10 = False #True
 invert_order = False
 
 #### HACKED SHITTTT
@@ -27,13 +29,13 @@ savefigs = False
 title_pre = '/home/charles/plots/20180105_precession/test1_100V_muchlater3'
 
 
-ylim = (1e-21, 1e-14)
-ylim = (1e-7, 1e-1)
+#ylim = (1e-21, 1e-14)
+#ylim = (1e-7, 1e-1)
+ylim = ()
 
-maxfiles = 1000 # Many more than necessary
 lpf = 2500   # Hz
 
-file_inds = (0, 700)
+file_inds = (0, 950)
 
 userNFFT = 2**12
 diag = False
@@ -67,7 +69,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
                                     figsize=(8,8))
 
-
     if len(cant_axes):
         cfig, caxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True)
         if len(cant_axes) == 1:
@@ -94,7 +95,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         files = files[::-1]
 
     colors = bu.get_color_map(len(files), cmap=colormap)
-
+    
     old_per = 0
     print "Processing %i files..." % len(files)
     for fil_ind, fil in enumerate(files):
@@ -120,10 +121,15 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
-        #df.diagonalize(maxfreq=lpf, interpolate=False)
+        df.diagonalize(maxfreq=lpf, interpolate=False)
+
+        if fil_ind == 0:
+            drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
+            driveind = np.argmax(drivepsd[1:]) + 1
+            drive_freq = freqs[driveind]
 
         for axind, ax in enumerate(data_axes):
-        
+
             try:
                 fac = df.conv_facs[ax]
             except:
@@ -134,6 +140,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 NFFT = userNFFT
 
             psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
+
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
                 daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, color=color)
@@ -168,9 +175,12 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 
+
     daxarr[0].set_xlim(0.5, 25000)
-    daxarr[0].set_ylim(ylim[0], ylim[1])
+    if len(ylim):
+        daxarr[0].set_ylim(ylim[0], ylim[1])
     plt.tight_layout()
+
 
     if savefigs:
         plt.savefig(title_pre + '.png')

@@ -14,13 +14,22 @@ import calib_util as cal
 import transfer_func_util as tf
 import configuration as config
 
+import warnings
+warnings.filterwarnings("ignore")
+
 
 ##################################################################
 ######################## Script Params ###########################
 
-data_dir = '/data/20180220/bead1/gravity_data/grav_data_init'
-savepath = '/sensitivities/20180220_grav_init_allpts.npy'
-save = True
+only_closest = True
+minsep = 20       # um
+maxthrow = 80     # um
+beadheight = 11   # um
+
+
+data_dir = '/data/20180308/bead2/grav_data/init'
+savepath = '/sensitivities/20180308_grav_init_close_time.npy'
+save = False
 load = False
 
 theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
@@ -141,7 +150,7 @@ def get_alpha_lambda(gfuncs, yukfuncs, lambdas, lims, files, cantind=0, \
                      minsep=20, maxthrow=80, beadheight=5, width=0, nharmonics=10, \
                      ignoreX=False, ignoreY=False, ignoreZ=False, \
                      plot=True, save=False, savepath='', confidence_level=0.95,
-                     print_timing=False, noiseband=10):
+                     print_timing=False, noiseband=10, only_closest=False):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then performs an optimal filter using the cantilever drive and 
        a theoretical force vs position to generate the filter/template.
@@ -324,6 +333,24 @@ def get_alpha_lambda(gfuncs, yukfuncs, lambdas, lims, files, cantind=0, \
     ax2posvec = fildat[biasvec[0]][ax1posvec[0]].keys()
     ax2posvec.sort()
 
+    if only_closest:
+        if ax1 == 'x' and ax2 == 'z':
+            seps = minsep + (maxthrow - np.array(ax1posvec))
+            heights = np.array(ax2posvec) - beadheight
+            sind = np.argmin(seps)
+            hind = np.argmin(np.abs(heights - beadheight))
+            ax1posvec = [ax1posvec[sind]]
+            ax2posvec = [ax2posvec[hind]]
+
+        elif ax1 =='z' and ax2 == 'x':
+            seps = minsep + (maxthrow - np.array(ax2posvec))
+            heights = np.array(ax1pos) - beadheight
+            sind = np.argmin(seps)
+            hind = np.argmin(np.abs(heights - beadheight))
+            ax1posvec = [ax1posvec[hind]]
+            ax2posvec = [ax2posvec[sind]]
+        
+
 
     tot_iterations = len(biasvec) * len(ax1posvec) * len(ax2posvec) * len(lambdas) * len(testalphas)
     i = -1
@@ -501,10 +528,14 @@ if not plot_just_current:
 
     datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
+    if len(datafiles) == 0:
+        print "Found no files in: ", data_dir
+        quit()
+
     newlambdas, alphas = get_alpha_lambda(gfuncs, yukfuncs, lambdas, lims, datafiles, cantind=0, \
                                           ax1='x', ax2='z', spacing=1e-6, diag=True, plottf=False, \
-                                          minsep=20, maxthrow=80, beadheight=5, \
-                                          print_timing=print_timing)
+                                          minsep=minsep, maxthrow=maxthrow, beadheight=beadheight, \
+                                          print_timing=print_timing, only_closest=only_closest)
 
 
     outdat = [newlambdas, alphas]

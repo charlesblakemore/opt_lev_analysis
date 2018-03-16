@@ -26,11 +26,11 @@ import configuration as config
 
 
 
-dir1 = '/data/20180220/bead1/dipole_vs_height/10V_wshield/'
+dir1 = '/data/20180314/bead1/dipole_vs_height/10V_unfilt/'
 maxfiles = 10000 # Many more than necessary
 ax1_lab = 'z'
-nbins = 15
-tophatf = 300  # Top-hat filter frequency used in diagonalization
+nbins = 20
+tophatf = 400  # Top-hat filter frequency used in diagonalization
 
 plot_title = ''
 
@@ -39,7 +39,7 @@ tfdate = '' #'20180215'
 fit_xdat = True
 fit_zdat = True
 closest_sep = 20
-closest_sep = 60
+#closest_sep = 60
 
 diag = True
 ###########################################################
@@ -78,11 +78,7 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
     old_per = 0
     for fil_ind, fil in enumerate(files):
         # Display percent completion
-        per = int(100. * float(fil_ind) / float(len(files)) )
-        if per > old_per:
-            print old_per,
-            sys.stdout.flush()
-            old_per = per
+        bu.progress_bar(fil_ind, len(files))
 
         # Load data
         df = bu.DataFile()
