@@ -103,7 +103,8 @@ def round_sig(x, sig=2):
 
 
 
-
+def fft_norm(N, fsamp):
+    return np.sqrt(2 / (N * fsamp))
 
 
 #### First define some functions to help with the DataFile object. 

@@ -173,11 +173,15 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
         df.diagonalize(maxfreq=lpf, interpolate=False)
 
         if fil_ind == 0:
+            fac = np.sqrt(2.0 /  (len(df.pos_data[0]) * df.fsamp))
             fftfreqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
-            drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
-            
+            drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax])) * fac
+            drivepsd2, freqs2 = mlab.psd(df.cant_data[drive_ax], NFFT=len(df.pos_data[0]), \
+                                         Fs=df.fsamp, window=mlab.window_none)
+
             if plot_first_drive:
                 plt.loglog(fftfreqs, drivepsd)
+                plt.loglog(fftfreqs, np.sqrt(drivepsd2))
                 plt.show()
 
             driveind = np.argmax(drivepsd[1:]) + 1
