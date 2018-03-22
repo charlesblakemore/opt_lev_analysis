@@ -474,6 +474,7 @@ class DataFile:
             # the dc value on electrodes 0-6. The key "driven_electrodes" 
             # is a list where the electrode index is 1 if the electrode 
             # is driven and 0 otherwise
+        self.cant_calibrated = False
 
     def load_only_attribs(self, fname):
         dat, attribs = getdata(fname)
@@ -606,12 +607,16 @@ class DataFile:
            system at trap in x direction with cantilever centered 
            on trap in y. Looks for stage position file with same 
            path and file name as self.fname '''
+        if self.cant_calibrated:
+            return
+
         # First get everything into microns.
         for k in configuration.calibrate_stage_keys:
             self.stage_settings[k] *= configuration.stage_cal    
         
         try:
             self.cant_data*=configuration.stage_cal
+            self.cant_calibrated = True
         except:
             1+2
         
@@ -628,7 +633,174 @@ class DataFile:
             1 + 2
             #print "shit is fucked"
 
+    def get_cant_drive_ax(self):
+        '''Determine the index of cant_data with the largest drive voltage,
+           which is extracted from df.stage_settings.
+
+           INPUTS: none, uses class attributes from loaded data
+
+           OUTPUTS: none, generates new class attribute.'''
+        indmap = {0: 'x', 1: 'y', 2: 'z'}
+        driven = [0,0,0]
+        
+        if len(self.stage_settings) == 0:
+            print "No data loaded..."
+            return 
+
+        for ind, key in enumerate(['x driven','y driven','z driven']):
+            if self.stage_settings[key]:
+                driven[ind] = 1
+        if np.sum(driven) > 1:
+            amp = [0,0,0]
+            for ind, val in enumerate(driven):
+                if val: 
+                    key = indmap[ind] + ' amp'
+                    amp[ind] = self.stage_settings[key]
+            drive_ind = np.argmax(np.abs(amp))
+        else:
+            drive_ind = np.argmax(np.abs(driven))
+
+        return drive_ind
+
+
+    def build_cant_filt(self, cant_fft, freqs, nharmonics=10, width=0, harms=[]):
+        '''Identify the fundamental drive frequency and make a notch filter
+           with the number of harmonics requested.
+
+           INPUTS: cant_fft, fft of cantilever drive
+                   freqs, array of frequencies associated to data ffts
+                   harms, number of harmonics to included
+                   width, width of the notch filter in Hz
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        # Find the drive frequency, ignoring the DC bin
+        fund_ind = np.argmax( np.abs(cant_fft[1:]) ) + 1
+        drive_freq = freqs[fund_ind]
+
+        drivefilt = np.zeros(len(cant_fft))
+        drivefilt[fund_ind] = 1.0
+
+        if width:
+            lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
+            upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
+            drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
+
+        if len(harms) == 0:
+            # Generate an array of harmonics
+            harms = np.array([x+2 for x in range(nharmonics)])
+        elif 0 not in harms:
+            drive_filt[fund_ind] = 0.0
+            if width:
+                drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
+
+        # Loop over harmonics and add them to the filter
+        for n in harms:
+            harm_ind = np.argmin( np.abs(n * drive_freq - freqs) )
+            drivefilt[harm_ind] = 1.0 
+            if width:
+                h_lower_ind = harm_ind - (fund_ind - lower_ind)
+                h_upper_ind = harm_ind + (upper_ind - fund_ind)
+                drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
+
+        return drivefilt, fund_ind, drive_freq
     
+
+    def get_boolean_cantfilt(self, ext_cant_drive=False, ext_cant_ind=1, \
+                             nharmonics=10, harms=[], width=0):
+        '''Builds a boolean notch filter for the cantilever drive
+
+           INPUTS: ext_cant_drive, bool to specify whether cantilever drive
+                                   is from an external source
+                   ext_cant_ind, index being driven externally
+
+           OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''
+
+        drive_ind = self.get_cant_drive_ax()
+        if ext_cant_drive:
+            drive_ind = ext_cant_ind
+
+        drivevec = self.cant_data[drive_ind]
+        drivefft = np.fft.rfft(drivevec)
+
+        freqs = np.fft.rfftfreq(len(drivevec), d=1.0/self.fsamp)
+
+        drivefilt, fund_ind, drive_freq = \
+                    self.build_cant_filt(drivefft, freqs, nharmonics=nharmonics, \
+                                         harms=harms, width=width)
+
+        # Apply filter by indexing with a boolean array
+        ginds = drivefilt > 0
+
+        return ginds, fund_ind, drive_freq, drive_ind
+
+
+    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=True, \
+                             ignoreX=False, ignoreY=False, ignoreZ=False, diag=False):   
+        '''Applies a cantilever notch filter and returns the filtered data
+           with an error estimate based on the neighboring bins of the PSD
+
+           INPUTS: ginds, boolean cantilever drive notch filter
+                   drive_freq, cantilever drive freq
+
+           OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''   
+
+        datffts = [[], [], []]
+        diagdatffts = [[], [], []]
+
+        daterrs = [[], [], []]
+        diagdaterrs = [[], [], []]
+
+        freqs = np.fft.rfftfreq(len(self.pos_data[0]), d=1.0/self.fsamp)
+        fund_ind = np.argmin(np.abs(freqs - drive_freq))
+
+        for resp in [0,1,2]:
+            #if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
+            #    print "Ignored some shit"
+            #    datffts[resp] = np.zeros_like(ginds)
+            #    diagdatffts[resp] = np.zeros_like(ginds)
+            #    daterrs[resp] = np.zeros_like(ginds)
+            #    diagdaterrs[resp] = np.zeros_like(ginds)
+            #    continue
+
+            datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
+            datffts[resp] = datfft[ginds]
+            if diag:
+                diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
+                diagdatffts[resp] = diagdatfft[ginds]
+
+            noise_inds_all = np.abs(freqs - drive_freq) < 0.5*noiseband
+            noise_inds_all[fund_ind] = False
+
+            noise_inds = noise_inds_all #* ginds
+
+            if plot:
+                plt.figure()
+                plt.loglog(freqs, np.abs(datfft), alpha=0.3)
+                plt.loglog(freqs[noise_inds], np.abs(datfft[noise_inds]))
+
+            daterrs[resp] = np.ones_like(datffts[resp]) * \
+                            np.median(np.abs(datfft[noise_inds]))
+            diagdaterrs[resp] = np.ones_like(diagdatffts[resp]) * \
+                                np.median(np.abs(diagdatfft[noise_inds]))
+
+            if plot:
+                plt.figure()
+                plt.plot(datfft[ginds].real, label='real')
+                plt.plot(datfft[ginds].imag, label='imag')
+                plt.plot(np.sqrt(2)*daterrs[resp], label='errs')
+                plt.legend()
+                plt.show()
+
+        datffts = np.array(datffts)
+        diagdatffts = np.array(diagdatffts)
+                
+        daterrs = np.array(daterrs)
+        diagdaterrs = np.array(diagdaterrs)
+
+        return datffts, diagdatffts, daterrs, diagdaterrs
+
+
     def detrend_poly(self, order=1, plot=False):
         '''Remove a polynomial of arbitrary order from data.
 
