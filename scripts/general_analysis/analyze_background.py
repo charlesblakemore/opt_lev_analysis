@@ -11,27 +11,28 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
+cbead = '/data/20180314/bead1'
+
 #dir1 = '/data/20180314/bead1/grav_data/ydrive_3sep_3height_5Vac-1198Hz'
 #dir1 = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_extdrive_long'
-#dir1 = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_nofield_shieldin'
+#dir1 = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_nofield_shieldin_superlong'
+
+#dir1 = cbead + '/grav_data/ydrive_1sep_1height_1V-1300Hz_shieldin_1V-cant'
+dir1 = cbead + '/grav_data/ydrive_1sep_1height_2V-2200Hz_shield_0mV-cant'
 
 #dir1 = '/data/20180314/bead1/grav_data/xdrive_3height_5Vac-1198Hz'
 
 #dir1 = '/data/20180314/bead1/grav_data/xdrive_1height_nofield_shieldin'
 
-dir1 = '/data/20180308/bead2/grav_data/onepos_long'
+#dir1 = '/data/20180308/bead2/grav_data/onepos_long'
 
-data_axes = [0,1,2]
-ax_labs = {0: 'X', 1: 'Y', 2: 'Z'}
-other_axes = []
-#other_axes = [5,7]
 
 track_phase = True
+unwrap = True
 build_avg = True
 label_drive = True
 arrow_fac = 5
 drive_ax = 1
-harms = [2, 3]
 
 sub_cant_phase = True
 plot_first_drive = True
@@ -46,7 +47,7 @@ ylim = ()
 
 lpf = 2500   # Hz
 
-file_inds = (0, 950)
+file_inds = (0, 1000)
 
 userNFFT = 2**12
 diag = False
@@ -118,17 +119,20 @@ def select_by_position(files, ax1val=None, ax2val=None, ax3val=None):
 
 
 def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
+                       ax_labs = {0: 'X', 1: 'Y', 2: 'Z'},\
                        diag=True, colormap='jet', sort='time', \
-                       file_inds=(0,10000)):
+                       file_inds=(0,10000), unwrap=False, \
+                       harms = [2, 3]):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
 
        INPUTS: files, list of files names to extract data
                data_axes, list of pos_data axes to plot
-               cant_axes, list of cant_data axes to plot
-               elec_axes, list of electrode_data axes to plot
-               diag, boolean specifying whether to diagonalize
+               ax_labs, dict with labels for plotted axes
+               diag, bool specifying whether to diagonalize
+               unwrap, bool to unwrap phase of background
+               harms, harmonics to label in ASD
 
        OUTPUTS: none, plots stuff
     '''
@@ -173,11 +177,15 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
         df.diagonalize(maxfreq=lpf, interpolate=False)
 
         if fil_ind == 0:
+            fac = np.sqrt(2.0 /  (len(df.pos_data[0]) * df.fsamp))
             fftfreqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
-            drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
-            
+            drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax])) * fac
+            drivepsd2, freqs2 = mlab.psd(df.cant_data[drive_ax], NFFT=len(df.pos_data[0]), \
+                                         Fs=df.fsamp, window=mlab.window_none)
+
             if plot_first_drive:
                 plt.loglog(fftfreqs, drivepsd)
+                plt.loglog(fftfreqs, np.sqrt(drivepsd2))
                 plt.show()
 
             driveind = np.argmax(drivepsd[1:]) + 1
@@ -243,6 +251,9 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
                                         figsize=(8,8))
     phasefig, phaseaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
                                         figsize=(8,8))
+    if unwrap:
+        phasefig2, phaseaxarr2 = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+                                              figsize=(8,8))
 
     for axind, ax in enumerate(data_axes):
         plotasd = np.sqrt(avg_psd[axind]/Npsds[axind])*avg_facs[axind]
@@ -274,12 +285,21 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
 
     inds = np.array(range(len(phases[0]))) * tint
     for axind, ax in enumerate(data_axes):
-        phaseaxarr[axind].errorbar(inds, phases[axind], phase_errs[axind], \
-                                 fmt='-', marker='.', ms=7, capsize=3)
         lab = ax_labs[ax] + ' Phase of Fund. [rad]'
+        if unwrap:
+            phaseaxarr2[axind].errorbar(inds, np.unwrap(phases[axind]), \
+                                       phase_errs[axind], \
+                                       fmt='-', marker='.', ms=7, capsize=3)
+            phaseaxarr2[axind].set_ylabel(lab, fontsize=10)
+
+        phaseaxarr[axind].errorbar(inds, phases[axind], phase_errs[axind], \
+                                       fmt='-', marker='.', ms=7, capsize=3)
+        
         phaseaxarr[axind].set_ylabel(lab, fontsize=10)
         if ax == data_axes[-1]:
             phaseaxarr[axind].set_xlabel('Time [s]', fontsize=10)
+            if unwrap:
+                phaseaxarr2[axind].set_xlabel('Time [s]', fontsize=10)
     plt.tight_layout()
 
     inds = np.array(range(len(amps[0]))) * tint
@@ -297,4 +317,5 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
 allfiles = bu.find_all_fnames(dir1)
 
 analyze_background(allfiles, file_inds=file_inds, diag=diag, \
-                  data_axes=data_axes, other_axes=other_axes)
+                   data_axes=[0,1,2], other_axes=[], \
+                   unwrap=unwrap)
