@@ -26,18 +26,25 @@ minsep = 15       # um
 maxthrow = 80     # um
 beadheight = 10   # um
 
+#data_dir = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_extdrive_nofield_long'
+#data_dir = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_nofield_shieldin'
+#data_dir = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_1V-1300Hz_shieldin_0mV-cant'
+data_dir = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_2V-2200Hz_shield_0mV-cant'
 
-data_dir = '/data/20180314/bead1/grav_data/ydrive_1sep_1height_1V-1300Hz_shieldin_10mV-cant'
-savepath = '/sensitivities/20180314_grav_shield_close_time.npy'
+#savepath = '/sensitivities/20180314_grav_shield-2200Hz_cant-m100mV_allharm.npy'
+savepath = '/sensitivities/20180314_grav_shieldin-2V-2200Hz_cant-m1V_allharm.npy'
 save = False
 load = False
-file_inds = (0, 1000)
+file_inds = (0, 10)
 
 theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 
 tfdate = '' #'20180215'
+diag = False
 
 confidence_level = 0.95
+
+lamb_range = (1.7e-6, 1e-4)
 
 #user_lims = [(65e-6, 80e-6), (-240e-6, 240e-6), (-5e-6, 5e-6)]
 user_lims = [(5e-6, 80e-6), (-240e-6, 240e-6), (-5e-6, 5e-6)]
@@ -45,6 +52,7 @@ user_lims = [(5e-6, 80e-6), (-240e-6, 240e-6), (-5e-6, 5e-6)]
 
 tophatf = 300   # Hz, doesn't reconstruct data above this frequency
 nharmonics = 10
+harms = [1,3,5,7]
 
 plot_just_current = False
 figtitle = ''
@@ -53,25 +61,26 @@ ignoreX = False
 ignoreY = False
 ignoreZ = False
 
+compute_min_alpha = False
+
 ##################################################################
 ################# Constraints to plot against ####################
 
-alpha_plot_lims = (10, 10**17)
-lambda_plot_lims = (10**(-8), 10**(-3))
+alpha_plot_lims = (1000, 10**13)
+lambda_plot_lims = (10**(-7), 10**(-4))
 
 
 #limitdata_path = '/home/charles/opt_lev_analysis/gravity_sim/gravity_sim_v1/data/' + \
-#                 'limitdata_20160928_datathief_nodecca2.txt'
-limitdata_path = '/home/charles/opt_lev_analysis/gravity_sim/gravity_sim_v1/data/' + \
-                 'decca2_limit.txt'
+#                 'decca2_limit.txt'
+
+limitdata_path = '/sensitivities/decca1_limits.txt'
 limitdata = np.loadtxt(limitdata_path, delimiter=',')
 limitlab = 'No Decca 2'
 
 
 #limitdata_path2 = '/home/charles/opt_lev_analysis/gravity_sim/gravity_sim_v1/data/' + \
-#                  'limitdata_20160914_datathief.txt'
-limitdata_path2 = '/home/charles/opt_lev_analysis/gravity_sim/gravity_sim_v1/data/' + \
-                 'no_decca2_limit.txt'
+#                 'no_decca2_limit.txt'
+limitdata_path2 = '/sensitivities/decca2_limits.txt'
 limitdata2 = np.loadtxt(limitdata_path2, delimiter=',')
 limitlab2 = 'With Decca 2'
 
@@ -147,6 +156,10 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
+
+
+
+
 def get_data_at_harms(files, gfuncs, yukfuncs, lambdas, lims, \
                       minsep=20, maxthrow=80, beadheight=5,\
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
@@ -207,14 +220,10 @@ def get_data_at_harms(files, gfuncs, yukfuncs, lambdas, lims, \
         cfind = len(fildat[cantbias][ax1pos][ax2pos])
         fildat[cantbias][ax1pos][ax2pos].append([])
 
-        if diag:
-            if fil_ind == 0 and plottf:
-                df.diagonalize(date=tfdate, maxfreq=tophatf, plot=True)
-            else:
-                df.diagonalize(date=tfdate, maxfreq=tophatf)
-                    
-        ### Find which axes were driven. If multiple are found,
-        ### it takes the axis with the largest amplitude
+        if fil_ind == 0 and plottf:
+            df.diagonalize(date=tfdate, maxfreq=tophatf, plot=True)
+        else:
+            df.diagonalize(date=tfdate, maxfreq=tophatf)
 
         if fil_ind == 0:
             ginds, fund_ind, drive_freq, drive_ind = \
@@ -263,6 +272,8 @@ def get_data_at_harms(files, gfuncs, yukfuncs, lambdas, lims, \
             yukfft = [[], [], []]
             for resp in [0,1,2]:
                 if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
+                    gfft[resp] = np.zeros(np.sum(ginds))
+                    yukfft[resp] = np.zeros(np.sum(ginds))
                     continue
 
                 if len(temp_gdat[ax1pos][ax2pos][0]):
@@ -300,9 +311,266 @@ def get_data_at_harms(files, gfuncs, yukfuncs, lambdas, lims, \
 
 
 
-def get_alpha_lambda_full(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=False, \
-                          plot=True, save=False, savepath='', confidence_level=0.95, \
-                          only_closest=False, ax1='x', ax2='z'):
+
+
+
+
+
+
+
+
+
+
+def get_alpha_lambda(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=False, \
+                     plot=True, save=False, savepath='', confidence_level=0.95, \
+                     only_closest=False, ax1='x', ax2='z', lamb_range=(1e-9, 1e-2)):
+    '''Loops over a list of file names, loads each file, diagonalizes,
+       then performs an optimal filter using the cantilever drive and 
+       a theoretical force vs position to generate the filter/template.
+       The result of the optimal filtering is stored, and the data 
+       released from memory
+
+       INPUTS: fildat
+
+       OUTPUTS: 
+    '''
+
+    # For the confidence interval, compute the inverse CDF of a 
+    # chi^2 distribution at given confidence level and compare to 
+    # liklihood ratio via a goodness of fit parameter.
+    # Refer to scipy.stats documentation to understand chi2
+    chi2dist = stats.chi2(1)
+    # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
+    con_val = 0.5 * chi2dist.ppf(confidence_level)
+
+    colors = bu.get_color_map(len(lambdas))
+
+    alphas = np.zeros_like(lambdas)
+    diagalphas = np.zeros_like(lambdas)
+    testalphas = np.linspace(-10**10, 10**10, 11)
+
+    minalphas = [[]] * len(lambdas)
+
+    biasvec = fildat.keys()
+    biasvec.sort()
+    ax1posvec = fildat[biasvec[0]].keys()
+    ax1posvec.sort()
+    ax2posvec = fildat[biasvec[0]][ax1posvec[0]].keys()
+    ax2posvec.sort()
+
+    if only_closest:
+        if ax1 == 'x' and ax2 == 'z':
+            seps = minsep + (maxthrow - np.array(ax1posvec))
+            heights = np.array(ax2posvec) - beadheight
+            sind = np.argmin(seps)
+            hind = np.argmin(np.abs(heights - beadheight))
+            ax1posvec = [ax1posvec[sind]]
+            ax2posvec = [ax2posvec[hind]]
+
+        elif ax1 =='z' and ax2 == 'x':
+            seps = minsep + (maxthrow - np.array(ax2posvec))
+            heights = np.array(ax1pos) - beadheight
+            sind = np.argmin(seps)
+            hind = np.argmin(np.abs(heights - beadheight))
+            ax1posvec = [ax1posvec[hind]]
+            ax2posvec = [ax2posvec[sind]]
+        
+
+    newlamb = lambdas[(lambdas > lamb_range[0]) * (lambdas < lamb_range[-1])]
+    tot_iterations = len(biasvec) * len(ax1posvec) * len(ax2posvec) * \
+                         len(newlamb) * len(testalphas) + 1
+    i = -1
+
+    # To test chi2 fit against "fake" data, uncomment these lines
+    rands = np.random.randn(*fildat[biasvec[0]][ax1posvec[0]][ax2posvec[0]][0][0][1].shape)
+    rands2 = np.random.randn(*fildat[biasvec[0]][ax1posvec[0]][ax2posvec[0]][0][0][1].shape)
+
+    for lambind, yuklambda in enumerate(lambdas):
+        #if lambind != 48:
+        #    continue
+
+        if (yuklambda < lamb_range[0]) or (yuklambda > lamb_range[1]):
+            continue
+
+        test = fildat[biasvec[0]][ax1posvec[0]][ax2posvec[0]][0][lambind]
+        test_yukdat = test[-1]
+        test_dat = test[1]
+
+        newalpha = 1e-4 * np.sqrt(np.mean(np.abs(test_dat) / np.abs(test_yukdat)))
+        testalphas = np.linspace(-1.0*newalpha, newalpha, 11)
+
+        chi_sqs = np.zeros(len(testalphas))
+        diagchi_sqs = np.zeros(len(testalphas))
+
+        for alphaind, testalpha in enumerate(testalphas):
+            N = 0
+            chi_sq = 0
+            diagchi_sq = 0
+
+            for bias, ax1pos, ax2pos in itertools.product(biasvec, ax1posvec, ax2posvec):
+                i += 1
+                bu.progress_bar(i, tot_iterations, suffix=' Fitting the Data for Chi^2')
+
+                for fil_ind in range(len(fildat[bias][ax1pos][ax2pos])):
+                    dat = fildat[bias][ax1pos][ax2pos][fil_ind][lambind]
+                    assert dat[0] == yuklambda
+                    _, datfft, diagdatfft, daterr, diagdaterr, gfft, yukfft = dat
+
+                    # To test chi2 fit against "fake" data, uncomment these lines
+                    #datfft = yukfft * -0.5e9
+                    #datfft += (1.0 / np.sqrt(2)) * daterr * rands + \
+                    #          (1.0 / np.sqrt(2)) * daterr * rands2 * 1.0j
+                    #gfft = np.zeros_like(datfft)
+
+                    for resp in [0,1,2]:
+                        if (ignoreX and resp == 0) or \
+                           (ignoreY and resp == 1) or \
+                           (ignoreZ and resp == 2):
+                            print ignoreX, ignoreY, ignoreZ, resp
+                            continue
+                        re_diff = datfft[resp].real - \
+                                  (gfft[resp].real + testalpha * yukfft[resp].real )
+                        im_diff = datfft[resp].imag - \
+                                  (gfft[resp].imag + testalpha * yukfft[resp].imag )
+                        if diag:
+                            diag_re_diff = diagdatfft[resp].real - \
+                                           (gfft[resp].real + testalpha * yukfft[resp].real )
+                            diag_im_diff = diagdatfft[resp].imag - \
+                                           (gfft[resp].imag + testalpha * yukfft[resp].imag )
+
+                        #plt.plot(np.abs(re_diff))
+                        #plt.plot(daterr[resp])
+                        #plt.show()
+
+                        chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*daterr[resp]**2) ) + \
+                                  np.sum( np.abs(im_diff)**2 / (0.5*daterr[resp]**2) ) )
+                        if diag:
+                            diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
+                                                    (0.5*diagdaterr[resp]**2) ) + \
+                                            np.sum( np.abs(diag_im_diff)**2 / \
+                                                    (0.5*diagdaterr[resp]**2) ) )
+
+                        N += len(re_diff) + len(im_diff)
+
+            chi_sqs[alphaind] = chi_sq / (N - 1)
+            if diag:
+                diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
+
+        max_chi = np.max(chi_sqs)
+        if diag:
+            max_diagchi = np.max(diagchi_sqs)
+
+        max_alpha = np.max(testalphas)
+
+        p0 = [max_chi/max_alpha**2, 0, 1]
+        if diag:
+            diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
+
+        #if lambind == 0:
+        #    p0 = [0.15e9, 0, 5]
+        #else:
+        #    p0 = p0_old
+
+        if plot:
+            plt.figure(1)
+            plt.plot(testalphas, chi_sqs, color = colors[lambind])
+            if diag:
+                plt.figure(2)
+                plt.plot(testalphas, diagchi_sqs, color = colors[lambind])
+    
+        try:
+            popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
+                                            p0=p0, maxfev=100000)
+            if diag:
+                diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
+                                                    p0=diag_p0, maxfev=1000000)
+        except:
+            print "Couldn't fit"
+            popt = [0,0,0]
+            popt[2] = np.mean(chi_sqs)
+
+        regular_con_val = con_val + np.min(chi_sqs)
+        if diag:
+            diag_con_val = con_val + np.min(diagchi_sqs)
+
+        # Select the positive root for the non-diagonalized data
+        soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - \
+                        4 * popt[0] * (popt[2] - regular_con_val)) ) / (2 * popt[0])
+        soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - \
+                        4 * popt[0] * (popt[2] - regular_con_val)) ) / (2 * popt[0])
+
+        if diag:
+            diagsoln1 = ( -1.0 * diagpopt[1] + np.sqrt( diagpopt[1]**2 - \
+                            4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
+            diagsoln2 = ( -1.0 * diagpopt[1] - np.sqrt( diagpopt[1]**2 - \
+                            4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
+
+        if soln1 > soln2:
+            alpha_con = soln1
+        else:
+            alpha_con = soln2
+
+        if diag:
+            if diagsoln1 > diagsoln2:
+                diagalpha_con = diagsoln1
+            else:
+                diagalpha_con = diagsoln2
+
+        alphas[lambind] = alpha_con
+        if diag:
+            diagalphas[lambind] = alpha_con
+
+
+    if plot:
+        plt.figure(1)
+        plt.title('Goodness of Fit for Various Lambda', fontsize=16)
+        plt.xlabel('Alpha Parameter [arb]', fontsize=14)
+        plt.ylabel('$\chi^2$', fontsize=18)
+
+        if diag:
+            plt.figure(2)
+            plt.title('Goodness of Fit for Various Lambda - DIAG', fontsize=16)
+            plt.xlabel('Alpha Parameter [arb]', fontsize=14)
+            plt.ylabel('$\chi^2$', fontsize=18)
+
+        plt.show()
+
+    if not diag:
+        diagalphas = np.zeros_like(alphas)
+
+    if save:
+        if savepath == '':
+            print 'No save path given, type full path here'
+            savepath = raw_input('path: ')
+        
+        np.save(savepath, [lambdas, alphas, diagalphas])
+
+
+    return lambdas, alphas, diagalphas
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def get_alpha_vs_file(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=False, \
+                     plot=True, save=False, savepath='', confidence_level=0.95, \
+                     only_closest=False, ax1='x', ax2='z', lamb_range=(1e-9, 1e-2)):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then performs an optimal filter using the cantilever drive and 
        a theoretical force vs position to generate the filter/template.
@@ -353,272 +621,49 @@ def get_alpha_lambda_full(fildat, diag=True, ignoreX=False, ignoreY=False, ignor
             ax2posvec = [ax2posvec[sind]]
         
 
-    tot_iterations = len(biasvec) * len(ax1posvec) * len(ax2posvec) * len(lambdas) * len(testalphas)
+    newlamb = lambdas[(lambdas > lamb_range[0]) * (lambdas < lamb_range[-1])]
+    tot_iterations = len(biasvec) * len(ax1posvec) * len(ax2posvec) * len(newlamb) * len(testalphas)
     i = -1
-    
+
     for lambind, yuklambda in enumerate(lambdas):
+        if lambind != 48:
+            continue
+
+        if (yuklambda < lamb_range[0]) or (yuklambda > lamb_range[1]):
+            continue
+
         test = fildat[biasvec[0]][ax1posvec[0]][ax2posvec[0]][0][lambind]
         test_yukdat = test[-1]
         test_dat = test[1]
         
-        newalpha = 100 * np.mean(test_yukdat / test_dat)
+        newalpha = 1e-4 * np.sqrt(np.mean(np.abs(test_dat) / np.abs(test_yukdat)))
         testalphas = np.linspace(-1.0*newalpha, newalpha, 11)
-        print testalphas
-
-        chi_sqs = np.zeros(len(testalphas))
-        diagchi_sqs = np.zeros(len(testalphas))
-
-        for alphaind, testalpha in enumerate(testalphas):
-            N = 0
-            chi_sq = 0
-            diagchi_sq = 0
-
-            for bias, ax1pos, ax2pos in itertools.product(biasvec, ax1posvec, ax2posvec):
-                i += 1
-                bu.progress_bar(i, tot_iterations, suffix=' Fitting the Data for Chi^2')
-
-                for fil_ind in range(len(fildat[bias][ax1pos][ax2pos])):
-                    dat = fildat[bias][ax1pos][ax2pos][fil_ind][lambind]
-                    assert dat[0] == yuklambda
-                    _, datfft, diagdatfft, daterr, diagdaterr, gfft, yukfft = dat
-
-                    for resp in [0,1,2]:
-                        if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
-                            continue
-                        re_diff = datfft[resp].real - \
-                                  (gfft[resp].real + testalpha * yukfft[resp].real )
-                        im_diff = datfft[resp].imag - \
-                                  (gfft[resp].imag + testalpha * yukfft[resp].imag )
-                        if diag:
-                            diag_re_diff = diagdatfft[resp].real - \
-                                           (gfft[resp].real + testalpha * yukfft[resp].real )
-                            diag_im_diff = diagdatfft[resp].imag - \
-                                           (gfft[resp].imag + testalpha * yukfft[resp].imag )
-
-                        #plt.plot(np.abs(re_diff))
-                        #plt.plot(daterr[resp])
-                        #plt.show()
-
-                        chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
-                                  np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
-                        diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
-                                                (0.5*(diagdaterr[resp]**2)) ) + \
-                                      np.sum( np.abs(diag_im_diff)**2 / \
-                                              (0.5*(diagdaterr[resp]**2)) ) )
-
-                        N += len(re_diff) + len(im_diff)
-
-            red_chi_sq = chi_sq / (N - 1)
-            diagred_chi_sq = diagchi_sq / (N - 1)
-            chi_sqs[alphaind] = red_chi_sq
-            diagchi_sqs[alphaind] = diagred_chi_sq
-
-        max_chi = np.max(chi_sqs)
-        max_diagchi = np.max(diagchi_sqs)
-        max_alpha = np.max(testalphas)
-
-        p0 = [max_chi/max_alpha**2, 0, 1]
-        diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
-
-        #if lambind == 0:
-        #    p0 = [0.15e9, 0, 5]
-        #else:
-        #    p0 = p0_old
-
-        if plot:
-            plt.figure(1)
-            plt.plot(testalphas, chi_sqs, color = colors[lambind])
-            plt.figure(2)
-            plt.plot(testalphas, diagchi_sqs, color = colors[lambind])
-            #plt.plot(testalphas, parabola(testalphas, *p0))
-    
-        try:
-            popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
-                                            p0=p0, maxfev=100000)
-            diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
-                                                p0=diag_p0, maxfev=1000000)
-        except:
-            print "Couldn't fit"
-            popt = [0,0,0]
-            popt[2] = np.mean(chi_sqs)
-
-        #p0_old = popt
-
-        diag_con_val = con_val + np.min(diagchi_sqs) - 1
-        con_val = con_val + np.min(chi_sqs) - 1 
-        
-        # Select the positive root for the non-diagonalized data
-        soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - \
-                        4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
-        soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - \
-                        4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
-
-        
-        diagsoln1 = ( -1.0 * diagpopt[1] + np.sqrt( diagpopt[1]**2 - \
-                        4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
-        diagsoln2 = ( -1.0 * diagpopt[1] - np.sqrt( diagpopt[1]**2 - \
-                        4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
-
-        if soln1 > soln2:
-            alpha_con = soln1
-        else:
-            alpha_con = soln2
-
-        if diagsoln1 > diagsoln2:
-            diagalpha_con = diagsoln1
-        else:
-            diagalpha_con = diagsoln2
-
-        alphas[lambind] = alpha_con
-        diagalphas[lambind] = alpha_con
-
-
-    if plot:
-        plt.figure(1)
-        plt.title('Goodness of Fit for Various Lambda', fontsize=16)
-        plt.xlabel('Alpha Parameter [arb]', fontsize=14)
-        plt.ylabel('$\chi^2$', fontsize=18)
-
-        plt.figure(2)
-        plt.title('Goodness of Fit for Various Lambda - DIAG', fontsize=16)
-        plt.xlabel('Alpha Parameter [arb]', fontsize=14)
-        plt.ylabel('$\chi^2$', fontsize=18)
-
-        plt.show()
-
-    if save:
-        if savepath == '':
-            print 'No save path given, type full path here'
-            savepath = raw_input('path: ')
-
-        np.save(savepath, [lambdas, alphas])
-
-
-    return lambdas, alphas, diagalphas
-
-
-
-
-
-
-
-
-
-
-
-def get_alpha_lambda_estimate(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=False, \
-                              plot=True, save=False, savepath='', confidence_level=0.95, \
-                              only_closest=False, ax1='x', ax2='z', lamb_range=(1e-9, 1e-2)):
-    '''Loops over a list of file names, loads each file, diagonalizes,
-       then performs an optimal filter using the cantilever drive and 
-       a theoretical force vs position to generate the filter/template.
-       The result of the optimal filtering is stored, and the data 
-       released from memory
-
-       INPUTS: fildat
-
-       OUTPUTS: 
-    '''
-
-    # For the confidence interval, compute the inverse CDF of a 
-    # chi^2 distribution at given confidence level and compare to 
-    # liklihood ratio via a goodness of fit parameter.
-    # Refer to scipy.stats documentation to understand chi2
-    chi2dist = stats.chi2(1)
-    # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
-    con_val = 0.5 * chi2dist.ppf(confidence_level)
-
-    colors = bu.get_color_map(len(lambdas))
-
-    alphas = np.zeros_like(lambdas)
-    diagalphas = np.zeros_like(lambdas)
-    testalphas = np.linspace(-10**10, 10**10, 101)
-
-    biasvec = fildat.keys()
-    biasvec.sort()
-    ax1posvec = fildat[biasvec[0]].keys()
-    ax1posvec.sort()
-    ax2posvec = fildat[biasvec[0]][ax1posvec[0]].keys()
-    ax2posvec.sort()
-
-    if only_closest:
-        if ax1 == 'x' and ax2 == 'z':
-            seps = minsep + (maxthrow - np.array(ax1posvec))
-            heights = np.array(ax2posvec) - beadheight
-            sind = np.argmin(seps)
-            hind = np.argmin(np.abs(heights - beadheight))
-            ax1posvec = [ax1posvec[sind]]
-            ax2posvec = [ax2posvec[hind]]
-
-        elif ax1 =='z' and ax2 == 'x':
-            seps = minsep + (maxthrow - np.array(ax2posvec))
-            heights = np.array(ax1pos) - beadheight
-            sind = np.argmin(seps)
-            hind = np.argmin(np.abs(heights - beadheight))
-            ax1posvec = [ax1posvec[hind]]
-            ax2posvec = [ax2posvec[sind]]
-        
-    newlamb = lambdas[(lambdas > lamb_range[0]) * (lambdas < lamb_range[-1])]
-    tot_iterations = len(biasvec) * len(ax1posvec) * len(ax2posvec) * len(newlamb)
-    i = -1
-    
-    for lambind, yuklambda in enumerate(lambdas):
-
-        bu.progress_bar(lambind, len(lambdas))
-
-        if (yuklambda > lamb_range[0]) or (yuklambda < lamb_range[1]):
-            continue
-        
-        N_min = 0
-        min_chi2 = 0
-        diag_min_chi2 = 0
 
         for bias, ax1pos, ax2pos in itertools.product(biasvec, ax1posvec, ax2posvec):
+            i += 1
+            bu.progress_bar(i, tot_iterations)
+ 
+            minalphas = [0] * len(fildat[bias][ax1pos][ax2pos])
+            diag_minalphas = [0] * len(fildat[bias][ax1pos][ax2pos])
+
             for fil_ind in range(len(fildat[bias][ax1pos][ax2pos])):
                 dat = fildat[bias][ax1pos][ax2pos][fil_ind][lambind]
                 assert dat[0] == yuklambda
                 _, datfft, diagdatfft, daterr, diagdaterr, gfft, yukfft = dat
 
-                for resp in [0,1,2]:
-                    if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
-                        continue
-                    re_diff = datfft[resp].real - gfft[resp].real
-                    im_diff = datfft[resp].imag - gfft[resp].imag
-                    if diag:
-                        diag_re_diff = diagdatfft[resp].real - gfft[resp].real
-                        diag_im_diff = diagdatfft[resp].imag - gfft[resp].imag
+                chi_sqs = np.zeros(len(testalphas))
+                diagchi_sqs = np.zeros(len(testalphas))
 
-                    min_chi2 += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
-                              np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
-                    diag_min_chi2 += ( np.sum( np.abs(diag_re_diff)**2 / \
-                                            (0.5*(diagdaterr[resp]**2)) ) + \
-                                  np.sum( np.abs(diag_im_diff)**2 / \
-                                          (0.5*(diagdaterr[resp]**2)) ) )
+                for alphaind, testalpha in enumerate(testalphas):
 
-                    N_min += len(re_diff) + len(im_diff)
-            
-        red_min_chi2 = min_chi2 / N_min
-        diag_red_min_chi2 = diag_min_chi2 / N_min
-
-
-
-
-        for alphaind, testalpha in enumerate(testalphas):
-            N = 0
-            chi_sq = 0
-            diagchi_sq = 0
-
-            for bias, ax1pos, ax2pos in itertools.product(biasvec, ax1posvec, ax2posvec):
-                i += 1
-                bu.progress_bar(i, tot_iterations, suffix=' Fitting the Data for Chi^2')
-
-                for fil_ind in range(len(fildat[bias][ax1pos][ax2pos])):
-                    dat = fildat[bias][ax1pos][ax2pos][fil_ind][lambind]
-                    assert dat[0] == yuklambda
-                    _, datfft, diagdatfft, daterr, diagdaterr, gfft, yukfft = dat
-
+                    chi_sq = 0
+                    diagchi_sq = 0
+                    N = 0
+                
                     for resp in [0,1,2]:
-                        if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
+                        if (ignoreX and resp == 0) or \
+                           (ignoreY and resp == 1) or \
+                           (ignoreZ and resp == 2):
                             continue
                         re_diff = datfft[resp].real - \
                                   (gfft[resp].real + testalpha * yukfft[resp].real )
@@ -636,100 +681,93 @@ def get_alpha_lambda_estimate(fildat, diag=True, ignoreX=False, ignoreY=False, i
 
                         chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
                                   np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
-                        diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
-                                                (0.5*(diagdaterr[resp]**2)) ) + \
-                                      np.sum( np.abs(diag_im_diff)**2 / \
-                                              (0.5*(diagdaterr[resp]**2)) ) )
+                        if diag:
+                            diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
+                                                    (0.5*(diagdaterr[resp]**2)) ) + \
+                                            np.sum( np.abs(diag_im_diff)**2 / \
+                                                    (0.5*(diagdaterr[resp]**2)) ) )
 
                         N += len(re_diff) + len(im_diff)
 
-            red_chi_sq = chi_sq / (N - 1)
-            diagred_chi_sq = diagchi_sq / (N - 1)
-            chi_sqs[alphaind] = red_chi_sq
-            diagchi_sqs[alphaind] = diagred_chi_sq
+                    chi_sqs[alphaind] = chi_sq / (N - 1)
+                    if diag:
+                        diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
 
-        max_chi = np.max(chi_sqs)
-        max_diagchi = np.max(diagchi_sqs)
-        max_alpha = np.max(testalphas)
+                max_chi = np.max(chi_sqs)
+                if diag:
+                    max_diagchi = np.max(diagchi_sqs)
 
-        p0 = [max_chi/max_alpha**2, 0, 1]
-        diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
+                max_alpha = np.max(testalphas)
 
-        #if lambind == 0:
-        #    p0 = [0.15e9, 0, 5]
-        #else:
-        #    p0 = p0_old
-
-        if plot:
-            plt.figure(1)
-            plt.plot(testalphas, chi_sqs, color = colors[lambind])
-            plt.figure(2)
-            plt.plot(testalphas, diagchi_sqs, color = colors[lambind])
-            #plt.plot(testalphas, parabola(testalphas, *p0))
+                p0 = [max_chi/max_alpha**2, 0, 1]
+                if diag:
+                    diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
     
-        try:
-            popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
-                                            p0=p0, maxfev=100000)
-            diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
-                                                p0=diag_p0, maxfev=1000000)
-        except:
-            print "Couldn't fit"
-            popt = [0,0,0]
-            popt[2] = np.mean(chi_sqs)
+                try:
+                    popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
+                                                p0=p0, maxfev=100000)
+                    if diag:
+                        diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
+                                                            p0=diag_p0, maxfev=1000000)
+                except:
+                    print "Couldn't fit"
+                    popt = [0,0,0]
+                    popt[2] = np.mean(chi_sqs)
 
-        #p0_old = popt
+                regular_con_val = con_val + np.min(chi_sqs)
+                if diag:
+                    diag_con_val = con_val + np.min(diagchi_sqs)
 
-        diag_con_val = con_val + np.min(diagchi_sqs)
-        con_val = con_val + np.min(chi_sqs)
-        
-        # Select the positive root for the non-diagonalized data
-        soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - \
-                        4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
-        soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - \
-                        4 * popt[0] * (popt[2] - con_val)) ) / (2 * popt[0])
+                # Select the positive root for the non-diagonalized data
+                soln1 = ( -1.0 * popt[1] + np.sqrt( popt[1]**2 - \
+                        4 * popt[0] * (popt[2] - regular_con_val)) ) / (2 * popt[0])
+                soln2 = ( -1.0 * popt[1] - np.sqrt( popt[1]**2 - \
+                        4 * popt[0] * (popt[2] - regular_con_val)) ) / (2 * popt[0])
 
-        
-        diagsoln1 = ( -1.0 * diagpopt[1] + np.sqrt( diagpopt[1]**2 - \
-                        4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
-        diagsoln2 = ( -1.0 * diagpopt[1] - np.sqrt( diagpopt[1]**2 - \
-                        4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
+                if diag:
+                    diagsoln1 = ( -1.0 * diagpopt[1] + np.sqrt( diagpopt[1]**2 - \
+                            4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
+                    diagsoln2 = ( -1.0 * diagpopt[1] - np.sqrt( diagpopt[1]**2 - \
+                            4 * diagpopt[0] * (diagpopt[2] - diag_con_val)) ) / (2 * diagpopt[0])
 
-        if soln1 > soln2:
-            alpha_con = soln1
-        else:
-            alpha_con = soln2
+                if soln1 > soln2:
+                    alpha_con = soln1
+                else:
+                    alpha_con = soln2
 
-        if diagsoln1 > diagsoln2:
-            diagalpha_con = diagsoln1
-        else:
-            diagalpha_con = diagsoln2
+                if diag:
+                    if diagsoln1 > diagsoln2:
+                        diagalpha_con = diagsoln1
+                    else:
+                        diagalpha_con = diagsoln2
 
-        alphas[lambind] = alpha_con
-        diagalphas[lambind] = alpha_con
-
-
-    if plot:
-        plt.figure(1)
-        plt.title('Goodness of Fit for Various Lambda', fontsize=16)
-        plt.xlabel('Alpha Parameter [arb]', fontsize=14)
-        plt.ylabel('$\chi^2$', fontsize=18)
-
-        plt.figure(2)
-        plt.title('Goodness of Fit for Various Lambda - DIAG', fontsize=16)
-        plt.xlabel('Alpha Parameter [arb]', fontsize=14)
-        plt.ylabel('$\chi^2$', fontsize=18)
-
-        plt.show()
-
-    if save:
-        if savepath == '':
-            print 'No save path given, type full path here'
-            savepath = raw_input('path: ')
-
-        np.save(savepath, [lambdas, alphas])
+                minalphas[fil_ind] = alpha_con
+                if diag:
+                    diag_minalphas[fil_ind] = diagalpha_con
 
 
-    return lambdas, alphas, diagalphas
+            if plot:
+                minfig, minaxarr = plt.subplots(1,2,figsize=(10,5),dpi=150)
+                minaxarr[0].plot(minalphas)
+                minaxarr[0].set_title('Min $\\alpha$ vs. Time', fontsize=18)
+                minaxarr[0].set_xlabel('File Num', fontsize=16)
+                minaxarr[0].set_ylabel('$\\alpha$ [arb]', fontsize=16)
+
+                minaxarr[1].hist(minalphas, bins=20)
+                minaxarr[1].set_xlabel('$\\alpha$ [arb]', fontsize=16)
+
+                plt.tight_layout()
+                plt.show()
+
+
+    return minalphas
+
+
+
+
+
+
+
 
 
 
@@ -756,12 +794,20 @@ if not plot_just_current:
 
     fildat = get_data_at_harms(datafiles, gfuncs, yukfuncs, lambdas, lims, \
                                minsep=minsep, maxthrow=maxthrow, beadheight=beadheight, \
-                               cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
-                               nharmonics=nharmonics, ext_cant_drive=True, ext_cant_ind=1, \
+                               cantind=0, ax1='x', ax2='z', diag=diag, plottf=False, \
+                               nharmonics=nharmonics, harms=harms, \
+                               ext_cant_drive=True, ext_cant_ind=1, \
                                ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ)
+    
+    if compute_min_alpha:
+        _ = get_alpha_vs_file(fildat, only_closest=only_closest, \
+                              ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ, \
+                              lamb_range=lamb_range, diag=diag, plot=True)
 
-    newlambdas, alphas, diagalphas = get_alpha_lambda_full(fildat, only_closest=only_closest, \
-                                          ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ)
+    newlambdas, alphas, diagalphas = \
+                    get_alpha_lambda(fildat, only_closest=only_closest, \
+                                     ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ, \
+                                     lamb_range=lamb_range, diag=diag)
 
 
     outdat = [newlambdas, alphas, diagalphas]
@@ -772,6 +818,11 @@ if not plot_just_current:
         dat = np.load(savepath)
         newlambdas = dat[0]
         alphas = dat[1]
+        diagalphas = dat[2]
+
+
+
+
 
 
 
@@ -779,34 +830,45 @@ if not plot_just_current:
 
 
 fig, ax = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
-fig2, ax2 = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
+if diag:
+    fig2, ax2 = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
 
 if not plot_just_current:
     ax.loglog(newlambdas, alphas, linewidth=2, label='95% CL')
-    ax2.loglog(newlambdas, diagalphas, linewidth=2, label='95% CL')
+    if diag:
+        ax2.loglog(newlambdas, diagalphas, linewidth=2, label='95% CL')
+
 ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
-ax2.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
 ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
-ax2.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
 ax.grid()
-ax2.grid()
 
 ax.set_xlim(lambda_plot_lims[0], lambda_plot_lims[1])
-ax2.set_xlim(lambda_plot_lims[0], lambda_plot_lims[1])
 ax.set_ylim(alpha_plot_lims[0], alpha_plot_lims[1])
-ax2.set_ylim(alpha_plot_lims[0], alpha_plot_lims[1])
 
 ax.set_xlabel('$\lambda$ [m]')
-ax2.set_xlabel('$\lambda$ [m]')
 ax.set_ylabel('$\\alpha$')
-ax2.set_ylabel('$\\alpha$')
 
 ax.legend(numpoints=1, fontsize=9)
-ax2.legend(numpoints=1, fontsize=9)
 
 ax.set_title(figtitle)
-ax2.set_title(figtitle)
 
 plt.tight_layout()
+
+if diag:
+    ax2.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
+    ax2.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
+    ax2.grid()
+
+    ax2.set_xlim(lambda_plot_lims[0], lambda_plot_lims[1])
+    ax2.set_ylim(alpha_plot_lims[0], alpha_plot_lims[1])
+
+    ax2.set_xlabel('$\lambda$ [m]')
+    ax2.set_ylabel('$\\alpha$')
+
+    ax2.legend(numpoints=1, fontsize=9)
+
+    ax2.set_title(figtitle)
+
+    plt.tight_layout()
 
 plt.show()

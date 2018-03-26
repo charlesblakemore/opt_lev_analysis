@@ -8,6 +8,7 @@ from obspy.signal.detrend import polynomial
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
+import matplotlib.mlab as mlab
 
 import scipy.interpolate as interp
 import scipy.optimize as optimize
@@ -61,6 +62,9 @@ def progress_bar(count, total, suffix='', bar_len=50):
 
     sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', suffix))
     sys.stdout.flush()
+    
+    if count == total - 1:
+        print
 
 
 
@@ -689,8 +693,8 @@ class DataFile:
         if len(harms) == 0:
             # Generate an array of harmonics
             harms = np.array([x+2 for x in range(nharmonics)])
-        elif 0 not in harms:
-            drive_filt[fund_ind] = 0.0
+        elif 1 not in harms:
+            drivefilt[fund_ind] = 0.0
             if width:
                 drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
 
@@ -746,45 +750,53 @@ class DataFile:
            OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''   
 
         datffts = [[], [], []]
-        diagdatffts = [[], [], []]
-
         daterrs = [[], [], []]
-        diagdaterrs = [[], [], []]
+
+        if diag:
+            diagdatffts = [[], [], []]
+            diagdaterrs = [[], [], []]
 
         freqs = np.fft.rfftfreq(len(self.pos_data[0]), d=1.0/self.fsamp)
         fund_ind = np.argmin(np.abs(freqs - drive_freq))
+        bin_sp = freqs[1] - freqs[0]
+
+        harm_freqs = freqs[ginds]
 
         for resp in [0,1,2]:
-            #if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
-            #    print "Ignored some shit"
-            #    datffts[resp] = np.zeros_like(ginds)
-            #    diagdatffts[resp] = np.zeros_like(ginds)
-            #    daterrs[resp] = np.zeros_like(ginds)
-            #    diagdaterrs[resp] = np.zeros_like(ginds)
-            #    continue
+
+            N = len(self.pos_data[resp])
 
             datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
             datffts[resp] = datfft[ginds]
+            daterrs[resp] = np.zeros_like(datffts[resp])
             if diag:
                 diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
                 diagdatffts[resp] = diagdatfft[ginds]
+                diagdaterrs[resp] = np.zeros_like(datffts[resp])
 
-            noise_inds_all = np.abs(freqs - drive_freq) < 0.5*noiseband
-            noise_inds_all[fund_ind] = False
+            for freqind, freq in enumerate(harm_freqs):
+                harm_ind = np.argmin(np.abs(freqs-freq))
+                noise_inds = np.abs(freqs - freq) < 0.5*noiseband
+                noise_inds[harm_ind] = False
+                if freqind == 0:
+                    noise_inds_init = noise_inds
 
-            noise_inds = noise_inds_all #* ginds
+                #daterrs[resp][freqind] = np.median(np.abs(datfft[noise_inds]))
+                daterrs[resp][freqind] = np.abs(datfft[harm_ind])
+                if diag:
+                    #diagdaterrs[resp][freqind] = np.median(np.abs(diagdatfft[noise_inds]))
+                    diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
 
             if plot:
+                normfac = np.sqrt(bin_sp)*fft_norm(N, self.fsamp)
+
                 plt.figure()
-                plt.loglog(freqs, np.abs(datfft), alpha=0.3)
-                plt.loglog(freqs[noise_inds], np.abs(datfft[noise_inds]))
+                plt.loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
+                plt.loglog(freqs[noise_inds_init], np.abs(datfft[noise_inds_init])*normfac)
+                plt.loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, '.', ms=10)
+                plt.ylabel('Force [N]')
+                plt.xlabel('Frequency [Hz]')
 
-            daterrs[resp] = np.ones_like(datffts[resp]) * \
-                            np.median(np.abs(datfft[noise_inds]))
-            diagdaterrs[resp] = np.ones_like(diagdatffts[resp]) * \
-                                np.median(np.abs(diagdatfft[noise_inds]))
-
-            if plot:
                 plt.figure()
                 plt.plot(datfft[ginds].real, label='real')
                 plt.plot(datfft[ginds].imag, label='imag')
@@ -793,10 +805,14 @@ class DataFile:
                 plt.show()
 
         datffts = np.array(datffts)
-        diagdatffts = np.array(diagdatffts)
-                
         daterrs = np.array(daterrs)
-        diagdaterrs = np.array(diagdaterrs)
+        if diag:
+            diagdatffts = np.array(diagdatffts)
+            diagdaterrs = np.array(diagdaterrs)
+
+        if not diag:
+            diagdatffts = np.zeros_like(datffts)
+            diagdaterrs = np.zeros_like(daterrs)
 
         return datffts, diagdatffts, daterrs, diagdaterrs
 
@@ -899,6 +915,34 @@ class DataFile:
             plt.show()
 
         self.diag_pos_data = np.fft.irfft(diag_fft)
+
+
+    
+
+
+    def plot_cant_asd(self, drive_ax, np_mlab_compare=False):
+        '''Plots the ASD = sqrt(PSD) of a given cantilever drive. This is useful
+           for debugging and such
+
+           INPUTS: drive_ax, [0,1,2] axis of cantilever drive
+
+           OUTPUTS: none, plots stuff'''
+        
+        if np_mlab_compare:
+            fac = np.sqrt(2.0 /  (len(self.pos_data[0]) * self.fsamp))
+            fftfreqs = np.fft.rfftfreq(len(self.pos_data[0]), d=1.0/self.fsamp)
+            drivepsd = np.abs(np.fft.rfft(self.cant_data[drive_ax])) * fac
+            plt.loglog(fftfreqs, drivepsd, label='NumPy FFT amplitude')
+
+        drivepsd2, freqs2 = mlab.psd(self.cant_data[drive_ax], NFFT=len(self.pos_data[0]), \
+                                     Fs=self.fsamp, window=mlab.window_none)
+        
+        plt.loglog(fftfreqs, np.sqrt(drivepsd2), label='Mlab PSD')
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('ASD [$\mu$m/rt(Hz)]')
+        if np_mlab_compare:
+            plt.legend(loc=0)
+        plt.show()
 
 
 
