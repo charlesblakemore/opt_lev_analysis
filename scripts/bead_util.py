@@ -739,15 +739,18 @@ class DataFile:
         return ginds, fund_ind, drive_freq, drive_ind
 
 
-    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=True, \
-                             ignoreX=False, ignoreY=False, ignoreZ=False, diag=False):   
+    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False):   
         '''Applies a cantilever notch filter and returns the filtered data
            with an error estimate based on the neighboring bins of the PSD
 
            INPUTS: ginds, boolean cantilever drive notch filter
                    drive_freq, cantilever drive freq
 
-           OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''   
+           OUTPUTS: datffts, ffts evalutated at ginds
+                    diagdatffts, diagffts evaluated at ginds
+                    daterrs, errors from surrounding bins
+                    diagdaterrs, diag errors from surrounding bins
+        ''' 
 
         datffts = [[], [], []]
         daterrs = [[], [], []]
@@ -762,6 +765,12 @@ class DataFile:
 
         harm_freqs = freqs[ginds]
 
+        if type(harm_freqs) == np.float64:
+            harm_freqs = np.array([harm_freqs])
+            just_one = True
+        else:
+            just_one = False
+
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
@@ -769,6 +778,7 @@ class DataFile:
             datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
             datffts[resp] = datfft[ginds]
             daterrs[resp] = np.zeros_like(datffts[resp])
+            
             if diag:
                 diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
                 diagdatffts[resp] = diagdatfft[ginds]
@@ -781,11 +791,19 @@ class DataFile:
                 if freqind == 0:
                     noise_inds_init = noise_inds
 
-                #daterrs[resp][freqind] = np.median(np.abs(datfft[noise_inds]))
-                daterrs[resp][freqind] = np.abs(datfft[harm_ind])
+                errval = np.median(np.abs(datfft[noise_inds]))
+                if just_one:
+                    daterrs[resp] = errval
+                else:
+                    daterrs[resp][freqind] = errval
+                #daterrs[resp][freqind] = np.abs(datfft[harm_ind])
                 if diag:
-                    #diagdaterrs[resp][freqind] = np.median(np.abs(diagdatfft[noise_inds]))
-                    diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
+                    diagerrval = np.median(np.abs(diagdatfft[noise_inds]))
+                    if just_one:
+                        diagdaterrs[resp] = diagerrval
+                    else:
+                        diagdaterrs[resp][freqind] = diagerrval
+                    #diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
 
             if plot:
                 normfac = np.sqrt(bin_sp)*fft_norm(N, self.fsamp)
@@ -937,7 +955,7 @@ class DataFile:
         drivepsd2, freqs2 = mlab.psd(self.cant_data[drive_ax], NFFT=len(self.pos_data[0]), \
                                      Fs=self.fsamp, window=mlab.window_none)
         
-        plt.loglog(fftfreqs, np.sqrt(drivepsd2), label='Mlab PSD')
+        plt.loglog(freqs2, np.sqrt(drivepsd2), label='Mlab PSD')
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('ASD [$\mu$m/rt(Hz)]')
         if np_mlab_compare:

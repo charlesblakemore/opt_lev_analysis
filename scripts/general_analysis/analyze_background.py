@@ -14,9 +14,9 @@ import configuration as config
 cbead = '/data/20180314/bead1'
 
 #dir1 = cbead + '/grav_data/ydrive_1sep_1height_1V-1300Hz_shieldin_1V-cant'
-dir1 = cbead + '/grav_data/ydrive_1sep_1height_2V-2200Hz_shield_0mV-cant'
+#dir1 = cbead + '/grav_data/ydrive_1sep_1height_2V-2200Hz_shield_0mV-cant'
 
-dir1 = cbead + '/grav_data/ydrive_3sep_1height_2V-2200Hz_shieldin_0V-cant'
+dir1 = cbead + '/grav_data/ydrive_6sep_1height_shield-2Vac-2200Hz_cant-0mV'
 
 
 #dir1 = '/data/20180314/bead1/grav_data/xdrive_3height_5Vac-1198Hz'
@@ -29,29 +29,28 @@ track_phase = True
 unwrap = True
 build_avg = True
 label_drive = True
-arrow_fac = 5
 drive_ax = 1
+
+harms_to_track = [1,2,3,4,5,6,7,8,9,10]
 
 sub_cant_phase = True
 plot_first_drive = True
 
-ax1val = 60   # um
+ax1val = 80   # um
 ax2val = None   # um
 ax3val = None   # um
 
 #ylim = (1e-21, 1e-14)
 #ylim = (1e-7, 1e-1)
 ylim = ()
+arrow_fac = 5
 
 lpf = 2500   # Hz
 
-file_inds = (0, 3000)
+file_inds = (0, 10000)
 
-userNFFT = 2**12
 diag = False
 
-
-fullNFFT = True
 
 ###########################################################
 
@@ -141,9 +140,8 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
 
     colors = bu.get_color_map(len(files), cmap=colormap)
     
-    avg_psd = [[]] * len(data_axes)
-    Npsds = [[]] * len(data_axes)
-    avg_facs = [0] * len(data_axes)
+    avg_asd = [[]] * len(data_axes)
+    Nasds = [[]] * len(data_axes)
 
     amps = [[], [], []]
     amp_errs = [[], [], []]
@@ -179,62 +177,47 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
         if fil_ind == 0:
             if plot_first_drive:
                 df.plot_cant_asd(drive_ax)
-            driveind = np.argmax(drivepsd[1:]) + 1
-            drive_freq = fftfreqs[driveind]
+            driveasd = np.abs( np.fft.rfft(df.cant_data[drive_ax]) )
+            freqs = np.fft.rfftfreq(Nsamp, d=1.0/df.fsamp)
+            bin_sp = freqs[1] - freqs[0]
+            driveind = np.argmax(driveasd[1:]) + 1
+            drive_freq = freqs[driveind]
             dt = 1.0/df.fsamp
             tint = dt * len(df.pos_data[0]) + 0.5
 
+        datfft, diagdatfft, daterr, diagdaterr = \
+                     df.get_datffts_and_errs(driveind, drive_freq, plot=False)
+
         for axind, ax in enumerate(data_axes):
 
-            try:
-                fac = df.conv_facs[ax]
-            except:
-                fac = 1.0
-            if fullNFFT:
-                NFFT = Nsamp
-            else:
-                NFFT = userNFFT
-
-            freqs = np.fft.rfftfreqs(Nsamp, d=1.0/df.fsamp)
-            bin_sp = freqs[1] - freqs[0]
-            
-            fft = np.fft.rfft(df.pos_data[ax])
-            cantfft = np.fft.rfft(df.cant_data[drive_ax])
-
-            asd = np.abs(fft) * bu.fft_norm(Nsamp, df.fsamp)
-
             if sub_cant_phase:
-                phases[axind].append(np.angle(fft[driveind]) - \
+                cantfft = np.fft.rfft(df.cant_data[drive_ax])
+                phases[axind].append(np.angle(datfft[ax]) - \
                                      np.angle(cantfft[driveind]))
             else:
-                phases[axind].append(np.angle(fft[driveind]))
+                phases[axind].append(np.angle(datfft[ax]))
 
-            errinds = (freqs > freqs[driveind-25]) * (freqs < freqs[driveind+25])
-            errinds[driveind] = False
-
-            sig_re = np.mean(asd[errinds] * bin_sp / np.sqrt(2))
+            sig_re = daterr / np.sqrt(2)
             sig_im = np.copy(sig_re)
 
-            normfft = fft * bu.fft_norm(Nsamp, df.fsamp)
-
-            im = np.imag(normfft[driveind]) * fac * np.sqrt(bin_sp)
-            re = np.real(normfft[driveind]) * fac * np.sqrt(bin_sp)
+            im = np.imag(datfft[ax])
+            re = np.real(datfft[ax])
 
             phase_var = np.mean((im**2 * sig_re**2 + re**2 * sig_im**2) / \
                                 (re**2 + im**2)**2)
             phase_errs[axind].append(np.sqrt(phase_var))
             
-            amps[axind].append(np.sqrt(psd[driveind]*bin_sp)*fac)
-            err_est = np.median(np.sqrt(psd[errinds]*bin_sp)*fac)
-            amp_errs[axind].append(err_est)
+            amps[axind].append(np.abs(datfft[ax])*np.sqrt(bin_sp)*bu.fft_norm(Nsamp, df.fsamp))
+            amp_errs[axind].append(daterr[ax]*np.sqrt(bin_sp)*bu.fft_norm(Nsamp, df.fsamp))
 
-            if not len(avg_psd[axind]):
-                avg_psd[axind] = psd
-                Npsds[axind] = 1
-                avg_facs[axind] = fac
+            asd = np.abs( np.fft.rfft(df.pos_data[ax]) ) * \
+                    bu.fft_norm(Nsamp, df.fsamp) * df.conv_facs[ax]
+            if not len(avg_asd[axind]):
+                avg_asd[axind] = asd
+                Nasds[axind] = 1
             else:
-                avg_psd[axind] += psd
-                Npsds[axind] += 1
+                avg_asd[axind] += asd
+                Nasds[axind] += 1
 
     avgfig, avgaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
                                     figsize=(8,8))
@@ -247,7 +230,7 @@ def analyze_background(files, data_axes=[0,1,2], other_axes=[], \
                                               figsize=(8,8))
 
     for axind, ax in enumerate(data_axes):
-        plotasd = np.sqrt(avg_psd[axind]/Npsds[axind])*avg_facs[axind]
+        plotasd = avg_asd[axind]/Nasds[axind]
         avgaxarr[axind].loglog(freqs, plotasd)
         avgaxarr[axind].grid(alpha=0.5)
         lab = ax_labs[ax] + ' sqrt(PSD) [N/rt(Hz)]'

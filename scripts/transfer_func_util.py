@@ -238,7 +238,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-2, mfreq = 
             # fixed threshold.
             Hmatst_good = Hmatst[:,:,finds[b]]
 
-            # Generate a integer by which to roll the data_fft to compute the noise
+            # Generate an integer by which to roll the data_fft to compute the noise
             # limit of the TF measurement
             shift = int(0.5 * (finds[b][1] - finds[b][0]))
             randadd = np.random.choice(np.arange(-int(0.1*shift), \
