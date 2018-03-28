@@ -162,6 +162,10 @@ def find_all_fnames(dirlist, ext='.h5', sort=True):
 
        OUTPUTS: files, list of files names as strings'''
 
+    print "Finding files in: "
+    print dirlist
+    sys.stdout.flush()
+
     was_list = True
 
     lengths = []
@@ -185,6 +189,9 @@ def find_all_fnames(dirlist, ext='.h5', sort=True):
         # Sort files based on final index
         files.sort(key = find_str)
 
+    if len(files) == 0:
+        print "DIDN'T FIND ANY FILES :("
+
     if was_list:
         return files, lengths
     else:
@@ -203,13 +210,17 @@ def sort_files_by_timestamp(files):
 
 
 def find_common_filnames(*lists):
+    '''Takes multiple lists of files and determines their 
+    intersection. This is useful when filtering a large number 
+    of files by DC stage positions.'''
+
     intersection = []
     numlists = len(lists)
     
-    lens = []
+    lengths = []
     for listind, fillist in enumerate(lists):
-        lens.append(len(fillist))
-    longind = np.argmax(np.array(lens))
+        lengths.append(len(fillist))
+    longind = np.argmax(np.array(lengths))
     newlists = []
     newlists.append(lists[longind])
     for n in range(numlists):
@@ -227,8 +238,6 @@ def find_common_filnames(*lists):
         if present:
             intersection.append(filname)
     return intersection
-
-
 
 
 
