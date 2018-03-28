@@ -106,6 +106,8 @@ class Background:
         else:
             self.relevant_files = bu.find_common_filnames(ax1fils, ax2fils, ax3fils)
 
+        self.nfiles = len(self.relevant_files)
+
 
 
 
@@ -114,7 +116,8 @@ class Background:
                            file_inds=(0,10000), unwrap=False, \
                            harms_to_track = [1, 2, 3], \
                            ext_cant_drive=False, ext_cant_ind=0, \
-                           plot_first_drive=False, sub_cant_phase=True):
+                           plot_first_drive=False, sub_cant_phase=True, \
+                           progstr=''):
         '''Loops over a list of file names, loads each file, diagonalizes,
            then plots the amplitude spectral density of any number of data
            or cantilever/electrode drive signals
@@ -151,7 +154,7 @@ class Background:
             color = colors[fil_ind]
 
             # Display percent completion
-            bu.progress_bar(fil_ind, nfiles)
+            bu.progress_bar(fil_ind, nfiles, suffix=progstr)
 
             # Load data
             df = bu.DataFile()
@@ -253,7 +256,8 @@ class Background:
         harm_freqs = self.freqs[self.ginds]
         drive_freq = harm_freqs[0]
 
-        avgfig, avgaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+        avgfig, avgaxarr = plt.subplots(len(data_axes),1, \
+                                        sharex=True,sharey=True, \
                                         figsize=(8,8))
 
         ampfigs = []
@@ -261,9 +265,11 @@ class Background:
         phasefigs = []
         phaseaxarrs = []
         for harm in harms_to_plot:
-            ampfig, ampaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+            ampfig, ampaxarr = plt.subplots(len(data_axes),1, \
+                                            sharex=True,sharey=True, \
                                             figsize=(8,8))
-            phasefig, phaseaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+            phasefig, phaseaxarr = plt.subplots(len(data_axes),1, \
+                                                sharex=True,sharey=True, \
                                                 figsize=(8,8))
             ampfigs.append(ampfig)
             ampaxarrs.append(ampaxarr)
@@ -274,7 +280,8 @@ class Background:
             phasefigs2 = []
             phaseaxarrs2 = []
             for harm in harms_to_plot:
-                phasefig2, phaseaxarr2 = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+                phasefig2, phaseaxarr2 = plt.subplots(len(data_axes),1,\
+                                                      sharex=True,sharey=True, \
                                                       figsize=(8,8))
                 phasefigs2.append(phasefig2)
                 phaseaxarrs2.append(phaseaxarr2)
