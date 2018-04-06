@@ -502,7 +502,7 @@ class DataFile:
             tf.plot_tf_array(freqs, Harr)
 
         maxfreq_ind = np.argmin( np.abs(freqs - maxfreq) )
-        Harr[maxfreq_ind:,:,:] = 0.0+0.0j
+        Harr[maxfreq_ind+1:,:,:] = 0.0+0.0j
 
         f_ind = np.argmin( np.abs(freqs - 41) )
         mat = Harr[f_ind,:,:]

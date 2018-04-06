@@ -11,15 +11,14 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180308/bead2/grav_data/onepos_long'
-#dir1 = '/data/20180220/bead1/gravity_data/long_cant_drive_withpause'
-#dir1 = '/data/20180220/bead1/gravity_data/long_cant_drive_nopause'
+dir1 = '/data/20180404/bead2/spinning/chirpup/chirpup2'
 
 
 data_axes = [0,1,2]
 other_axes = []
 #other_axes = [5,7]
 
+drive_ax = 1
 
 step10 = False #True
 invert_order = False
@@ -35,7 +34,7 @@ ylim = ()
 
 lpf = 2500   # Hz
 
-file_inds = (0, 950)
+file_inds = (0, 180)
 
 userNFFT = 2**12
 diag = False

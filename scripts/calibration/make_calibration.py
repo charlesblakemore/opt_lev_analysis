@@ -20,18 +20,17 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-step_cal_dir = '/data/20180314/bead1/discharge_fine4'
-#step_cal_dir = '/data/20171106/bead1/discharge_fine3'
+step_cal_dir = '/data/20180404/bead2/discharge/fine2'
 
 fake_step_cal = False
 vpn = 1.0e14
 
-tf_cal_dir = '/data/20180314/bead1/tf_20180314/'
+tf_cal_dir = '/data/20180404/bead2/tf_20180404/'
 
 date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
-interpolate = True 
+interpolate = False 
 save = True
 
 
@@ -68,6 +67,7 @@ for root, dirnames, filenames in os.walk(tf_cal_dir):
         tf_cal_files.append(os.path.join(root, filename))
 
 
+
 #### BODY OF CALIBRATION
 
 step_file_objs = []
@@ -102,7 +102,7 @@ if not interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 50], weight_peak=False, \
                             weight_lowf=True, plot_fits=plot_Hfunc, \
                             plot_inits=False, weight_phase=True, grid=True,\
-                            deweight_peak=True)
+                            deweight_peak=True, lowf_weight_fac=0.01)
 if interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, interpolate=True, plot_fits=plot_Hfunc, \
                              max_freq=600)

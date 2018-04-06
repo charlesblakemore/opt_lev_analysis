@@ -26,7 +26,7 @@ import configuration as config
 
 
 
-dir1 = '/data/20180314/bead1/dipole_vs_height/10V_unfilt/'
+dir1 = '/data/20180404/bead2/dipole_vs_height/10V_unfilt_tumbling/'
 maxfiles = 10000 # Many more than necessary
 ax1_lab = 'z'
 nbins = 20

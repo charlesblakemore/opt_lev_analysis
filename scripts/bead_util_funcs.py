@@ -211,8 +211,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=True):
 
 def sort_files_by_timestamp(files):
     '''Pretty self-explanatory function.'''
-    files = [(os.stat(path), path) for path in files]
-    files = [(stat.st_ctime, path) for stat, path in files]
+    files = [(get_hdf5_time(path), path) for path in files]
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -304,6 +303,19 @@ def getdata(fname, gain_error=1.0):
         f = []
 
     return dat, attribs
+
+def get_hdf5_time(fname):
+    try:
+        f = h5py.File(fname,'r')
+        dset = f['beads/data/pos_data']
+        attribs = copy_attribs(dset.attrs)
+        f.close()
+
+    except (KeyError, IOError):
+        print "Warning, got no keys for: ", fname
+        attribs = {}
+
+    return attribs["Time"]
 
 def labview_time_to_datetime(lt):
     '''Convert a labview timestamp (i.e. time since 1904) to a  
