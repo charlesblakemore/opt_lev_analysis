@@ -238,7 +238,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-2, mfreq = 
             # fixed threshold.
             Hmatst_good = Hmatst[:,:,finds[b]]
 
-            # Generate a integer by which to roll the data_fft to compute the noise
+            # Generate an integer by which to roll the data_fft to compute the noise
             # limit of the TF measurement
             shift = int(0.5 * (finds[b][1] - finds[b][0]))
             randadd = np.random.choice(np.arange(-int(0.1*shift), \
@@ -440,7 +440,8 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
         
 
 def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
-                 weight_peak=False, weight_lowf=False, lowf_thresh=60., \
+                 weight_peak=False, weight_lowf=False, lowf_weight_fac=0.1, \
+                 lowf_thresh=60., \
                  weight_phase=False, plot_fits=False, plot_inits=False, \
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
                  interpolate = False, max_freq=300, num_to_avg=5):
@@ -556,7 +557,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                     weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
                 if weight_lowf:
                     ind = np.argmin(np.abs(npkeys - lowf_thresh))
-                    weights[:ind] *= 0.1
+                    weights[:ind] *= lowf_weight_fac #0.01
                 phase_weights = np.zeros(len(npkeys)) + 1.
                 if weight_phase and (drive != 2 and resp != 2):
                     ind = np.argmin(np.abs(npkeys - 50.))
