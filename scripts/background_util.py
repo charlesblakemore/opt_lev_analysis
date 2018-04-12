@@ -246,6 +246,8 @@ class Background:
 
             harm_freqs = freqs[ginds]
             for axind, ax in enumerate(data_axes):
+                print ax, df.conv_facs[ax]
+
                 asd = np.abs( np.fft.rfft(df.pos_data[ax]) ) * \
                       bu.fft_norm(Nsamp, df.fsamp) * df.conv_facs[ax]
                 diag_asd = np.abs( np.fft.rfft(df.diag_pos_data[ax]) ) * \
