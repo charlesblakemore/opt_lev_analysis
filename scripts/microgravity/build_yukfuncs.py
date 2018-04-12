@@ -17,7 +17,6 @@ import configuration as config
 
 
 
-#data_manifold_path = '/force_v_pos/20170903_diagforce_v_pos_dic.p'
 
 theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 
@@ -78,7 +77,8 @@ def build_mod_grav_funcs(theory_data_dir):
     yukfuncs = [yuk_fx_funcs, yuk_fy_funcs, yuk_fz_funcs]
     lims = [xlim, ylim, zlim]
 
-    return gfuncs, yukfuncs, lambdas, lims
+    return np.array(gfuncs), np.array(yukfuncs), \
+            np.array(lambdas), np.array(lims)
 
 def ptarr(xarr, yarr, zarr):
     '''Generates the correctly shaped array to be taken by the interpolating 
@@ -91,12 +91,14 @@ gfuncs, yukfuncs, lambdas, lims = build_mod_grav_funcs(theory_data_dir)
 lam25umind = np.argmin((lambdas-2.5e-5)**2)
  
 xpltarr = np.arange(lims[0][0], lims[0][1], 1e-7)
-ypltarr = np.arange(-4e-5, 4e-5, 1e-7)
+ypltarr = np.arange(-4E-5, 4E-5, 1e-7)
 zpltarr = np.arange(lims[2][0], lims[2][1], 1e-7)
 
 ones = np.ones_like(ypltarr)
 pts = ptarr(2.5e-5*ones, ypltarr, 0.*ones)
 
 #plt.plot(ypltarr, yukfuncs[0][lam25umind](pts))
+#plt.xlabel("displacement [m]")
+#plt.ylabel("Fx[N]")
 #plt.show()
 

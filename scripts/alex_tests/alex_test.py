@@ -109,10 +109,10 @@ def get_amp_phase(ts, f0, nh, Fs = 5000, make_plot = False):
 
 
 
-files = glob.glob(dat_dir + "/*.h5")
+files = bu.sort_files_by_timestamp(glob.glob(dat_dir + "/*.h5"))
 #preallocate memory
 
-def proc_files(files, nh = 10, nfft = 25001): 
+def proc_files(files, nh = 10): 
     nf = len(files)
     amparr = np.zeros((nf, nh))
     phiarr = np.zeros((nf, nh))
@@ -136,10 +136,6 @@ def proc_files(files, nh = 10, nfft = 25001):
     return amparr, phiarr, sigasarr, sigphisarr, ave_fft
 
 
-def compute_phase(coefs):
-    phis = np.angle(coefs[:, 0, :])
-    sigs = np.sqrt(np.abs(coefs[:, 0, :]**-2)*coefs[:, 1, :]**2)
-    return phis, sigs
 
 
 
