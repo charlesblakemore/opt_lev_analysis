@@ -20,12 +20,12 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-step_cal_dir = '/data/20180404/bead2/discharge/fine2'
+step_cal_dir = '/data/20180524/bead1/discharge/fine3'
 
 fake_step_cal = False
 vpn = 1.0e14
 
-tf_cal_dir = '/data/20180404/bead2/tf_20180404/'
+tf_cal_dir = '/data/20180524/bead1/tf_20180524/'
 
 date = tf_cal_dir.split('/')[2]
 

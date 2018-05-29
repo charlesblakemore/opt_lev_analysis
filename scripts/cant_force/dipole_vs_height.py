@@ -26,7 +26,7 @@ import configuration as config
 
 
 
-dir1 = '/data/20180404/bead2/dipole_vs_height/10V_unfilt_tumbling/'
+dir1 = '/data/20180524/bead1/dipole_vs_height/cant_10V_80um_throw_17_Hz'
 maxfiles = 10000 # Many more than necessary
 ax1_lab = 'z'
 nbins = 20
@@ -36,7 +36,7 @@ plot_title = ''
 
 tfdate = '' #'20180215'
 
-fit_xdat = True
+fit_xdat = False
 fit_zdat = True
 closest_sep = 20
 #closest_sep = 60
@@ -372,7 +372,8 @@ for biasind, bias in enumerate(cantV):
 
         gpts = np.abs(stage_settings - stage_settings[maxind]) < 15
         diaggpts = np.abs(stage_settings - stage_settings[diag_maxind]) < 15
-
+        plt.plot(stage_settings[diaggpts], xfits[gpts])
+        plt.show()
         popt, pcov = opti.curve_fit(parabola, stage_settings[gpts], xfits[gpts])
         popt_diag, pcov_diag = opti.curve_fit(parabola, stage_settings[diaggpts], diag_xfits[diaggpts])
 

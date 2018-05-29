@@ -207,8 +207,9 @@ class DataFile:
 
         # First get everything into microns.
         for k in configuration.calibrate_stage_keys:
+            #print k
             self.stage_settings[k] *= configuration.stage_cal    
-        
+            
         try:
             self.cant_data*=configuration.stage_cal
             self.cant_calibrated = True
@@ -230,7 +231,8 @@ class DataFile:
 
     def get_cant_drive_ax(self):
         '''Determine the index of cant_data with the largest drive voltage,
-           which is extracted from df.stage_settings.
+           which is either exrtacted from stage setting or determined
+           from the RMS of the stage monitor.
 
            INPUTS: none, uses class attributes from loaded data
 
@@ -252,6 +254,11 @@ class DataFile:
                     key = indmap[ind] + ' amp'
                     amp[ind] = self.stage_settings[key]
             drive_ind = np.argmax(np.abs(amp))
+        if np.sum(driven) == 0: # handel case of external drive
+            drive_fft = np.fft.rfft(self.cant_data)
+            mean_sq = np.sum(np.abs(drive_fft[:, 1:])**2, axis = 1)#cut DC
+            drive_ind = np.argmax(mean_sq)
+
         else:
             drive_ind = np.argmax(np.abs(driven))
 
@@ -515,6 +522,7 @@ class DataFile:
         data_fft = np.fft.rfft(self.pos_data)
         diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
 
+
         if plot:
             fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
             for ax in [0,1,2]:
@@ -580,24 +588,12 @@ class DataFile:
                    fakephi, fake phase for fake drive
 
            OUTPUTS: none, generates new class attribute'''
-
+    
         if cantilever_drive and not fakedrive:
             # First, find which axes were driven. If multiple are found,
             # it takes the axis with the largest amplitude
-            indmap = {0: 'x', 1: 'y', 2: 'z'}
-            driven = [0,0,0]
-            for ind, key in enumerate(['x driven','y driven','z driven']):
-                if self.stage_settings[key]:
-                    driven[ind] = 1
-            if np.sum(driven) > 1:
-                amp = [0,0,0]
-                for ind, val in enumerate(driven):
-                    if val: 
-                        key = indmap[ind] + ' amp'
-                        amp[ind] = self.stage_settings[key]
-                cant_ind = np.argmax(np.abs(amp))
-            else:
-                cant_ind = np.argmax(np.abs(driven))
+            
+            cant_ind = self.get_cant_drive_ax()
             drivevec = self.cant_data[cant_ind]
 
         elif cantilever_drive and fakedrive:

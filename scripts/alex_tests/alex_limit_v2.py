@@ -105,7 +105,7 @@ class GravFile(bu.DataFile):
         self.amps_at_harms = np.real(np.abs(self.coef_at_harms))
         self.phis_at_harms = np.angle(self.coef_at_harms) - self.drive_phase 
         self.sigma_phis_at_harms = self.noise**2*self.amps_at_harms**2\
-                                    /(2.*(self.amps_at_harms)**4)
+                                   /(2.*(self.amps_at_harms)**4)
 
         if plot_psds:
             max_bin = np.argmin((fplt_max - self.freq_vector)**2)

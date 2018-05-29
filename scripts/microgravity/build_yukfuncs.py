@@ -97,8 +97,8 @@ zpltarr = np.arange(lims[2][0], lims[2][1], 1e-7)
 ones = np.ones_like(ypltarr)
 pts = ptarr(2.5e-5*ones, ypltarr, 0.*ones)
 
-#plt.plot(ypltarr, yukfuncs[0][lam25umind](pts))
-#plt.xlabel("displacement [m]")
-#plt.ylabel("Fx[N]")
-#plt.show()
+plt.plot(ypltarr, yukfuncs[0][lam25umind](pts))
+plt.xlabel("displacement [m]")
+plt.ylabel("Fx[N]")
+plt.show()
 
