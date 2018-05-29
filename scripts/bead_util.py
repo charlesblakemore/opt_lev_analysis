@@ -32,10 +32,13 @@ from bead_util_funcs import *
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
 # ----------------------------------------------------
 ### Imports a number of utility functions from a 
-### companion module called bead_util_funcs
+### companion module called bead_util_funcs.
+### When using in scripts, it is only necessary to 
+### import this module, not both.
 # ----------------------------------------------------
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
+#
 #######################################################
 
 
@@ -407,9 +410,9 @@ class DataFile:
                 plt.xlabel('Frequency [Hz]')
 
                 plt.figure()
-                plt.plot(datfft[ginds].real, label='real')
-                plt.plot(datfft[ginds].imag, label='imag')
-                plt.plot(np.sqrt(2)*daterrs[resp], label='errs')
+                plt.plot(datfft[ginds].real * normfac, label='real')
+                plt.plot(datfft[ginds].imag * normfac, label='imag')
+                plt.plot(np.sqrt(2)*daterrs[resp] * normfac, label='errs')
                 plt.legend()
                 plt.show()
 

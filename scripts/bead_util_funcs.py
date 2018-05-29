@@ -43,7 +43,7 @@ import transfer_func_util as tf
 
 #### Generic Helper functions
 
-def progress_bar(count, total, suffix='', bar_len=50):
+def progress_bar(count, total, suffix='', bar_len=50, newline=True):
     '''Prints a progress bar and current completion percentage.
        This is useful when processing many files and ensuring
        a script is actually running and going through each file
@@ -73,7 +73,7 @@ def progress_bar(count, total, suffix='', bar_len=50):
     sys.stdout.write('[%s] %s%s ... %s\r' % (bar, percents, '%', suffix))
     sys.stdout.flush()
     
-    if count == total - 1:
+    if (count == total - 1) and newline:
         print
 
 
@@ -202,6 +202,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=True):
     if len(files) == 0:
         print "DIDN'T FIND ANY FILES :("
 
+    print "Found %i files..." % len(files)
     if was_list:
         return files, lengths
     else:

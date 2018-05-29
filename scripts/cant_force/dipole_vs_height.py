@@ -26,18 +26,18 @@ import configuration as config
 
 
 
-dir1 = '/data/20180404/bead2/dipole_vs_height/10V_unfilt_tumbling/'
+dir1 = '/data/20180520/bead1/dipole_vs_height/10V_1'
 maxfiles = 10000 # Many more than necessary
 ax1_lab = 'z'
 nbins = 20
-tophatf = 400  # Top-hat filter frequency used in diagonalization
+tophatf = 300  # Top-hat filter frequency used in diagonalization
 
 plot_title = ''
 
 tfdate = '' #'20180215'
 
-fit_xdat = True
-fit_zdat = True
+fit_xdat = False #True
+fit_zdat = False #True
 closest_sep = 20
 #closest_sep = 60
 

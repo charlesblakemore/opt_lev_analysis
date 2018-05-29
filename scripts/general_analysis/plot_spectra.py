@@ -11,8 +11,14 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180404/bead2/spinning/chirpup/chirpup2'
+#dir1 = '/data/20180520/bead1/dipole_vs_height/10V_1'
+#dir1 = '/data/20180520/bead1/spinning/chirpup5'
+dir1 = '/data/20180520/bead1/grav_data/1sep_pics_good'
 
+use_dir = False
+
+allfiles = ['/data/20180314/bead1/1_6mbar_zcool.h5'] #, \
+            #'/data/20180520/bead1/1_6mbar_zcool.h5']
 
 data_axes = [0,1,2]
 other_axes = []
@@ -34,16 +40,21 @@ ylim = ()
 
 lpf = 2500   # Hz
 
-file_inds = (0, 180)
+file_inds = (0, 1800)
 
 userNFFT = 2**12
 diag = False
 
-
 fullNFFT = True
+
+#window = mlab.window_hanning
+window = mlab.window_none
 
 ###########################################################
 
+
+outvec1 = []
+outvec2 = []
 
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
@@ -138,10 +149,19 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
             else:
                 NFFT = userNFFT
 
-            psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
+            outvec1.append(df.pos_data[ax] * fac)
+            if ax == 0:
+                freqs = np.fft.rfftfreq(len(df.pos_data[ax]), d=1.0/df.fsamp)
+                outvec2.append(freqs)
+            fft = np.fft.rfft(df.pos_data[ax]*fac)
+            outvec2.append(fft)
+
+            psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, \
+                                  NFFT=NFFT, window=window)
 
             if diag:
-                dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, NFFT=NFFT)
+                dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
+                                        NFFT=NFFT, window=window)
                 daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, color=color)
                 daxarr[axind,0].grid(alpha=0.5)
                 daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
@@ -159,18 +179,21 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         if len(cant_axes):
             for axind, ax in enumerate(cant_axes):
-                psd, freqs = mlab.psd(df.cant_data[ax], Fs=df.fsamp, NFFT=NFFT)
+                psd, freqs = mlab.psd(df.cant_data[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
                 caxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
         if len(elec_axes):
             for axind, ax in enumerate(elec_axes):
-                psd, freqs = mlab.psd(df.electrode_data[ax], Fs=df.fsamp, NFFT=NFFT)
+                psd, freqs = mlab.psd(df.electrode_data[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
                 eaxarr[axind].loglog(freqs, np.sqrt(psd), color=color ) 
 
         if len(other_axes):
             for axind, ax in enumerate(other_axes):
                 ax = ax - 3
-                psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, NFFT=NFFT)
+                psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 
@@ -200,8 +223,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         plt.show()
 
 
-
-allfiles = bu.find_all_fnames(dir1)
+if use_dir:
+    allfiles = bu.find_all_fnames(dir1)
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes)
