@@ -30,14 +30,14 @@ dir1 = '/data/20180524/bead1/dipole_vs_height/cant_10V_80um_throw_17_Hz'
 maxfiles = 10000 # Many more than necessary
 ax1_lab = 'z'
 nbins = 20
-tophatf = 400  # Top-hat filter frequency used in diagonalization
+tophatf = 300  # Top-hat filter frequency used in diagonalization
 
 plot_title = ''
 
 tfdate = '' #'20180215'
 
-fit_xdat = False
-fit_zdat = True
+fit_xdat = False #True
+fit_zdat = False #True
 closest_sep = 20
 #closest_sep = 60
 
