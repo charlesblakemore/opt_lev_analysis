@@ -140,17 +140,36 @@ class DataFile:
             return 
         else:
             self.badfile = False
+        
+        self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
+        self.fsamp = attribs["Fsamp"]
+        self.nsamp = len(dat[:,0])
+
+        self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
+                               * (10**9) + self.time
+
+        fpga_fname = fname[:-3] + '_fpga.h5'
+        fpga_dat = get_fpga_data(fpga_fname, verbose=True, timestamp=self.time)
+
+        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp)
 
         #print attribs
         self.fname = fname
         #print fname
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
-        self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+
+        ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+        self.pos_data = fpga_dat['xyz']
+        self.pos_time = fpga_dat['xyz_time']
+        
+        # Load quadrant and backscatter amplitudes and phases
+        self.amp = fpga_dat['amp']
+        self.phase = fpga_dat['phase']
+        self.quad_time = fpga_dat['quad_time']
+
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
         self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
-        self.fsamp = attribs["Fsamp"]
-        self.time = labview_time_to_datetime(attribs["Time"])
         try:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
