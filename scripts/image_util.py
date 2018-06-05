@@ -13,7 +13,9 @@ import re
 import peakdetect as pdet
 from scipy.optimize import curve_fit
 import scipy.stats
-
+import beam_profile as bf
+import scipy.ndimage.filters as ndf
+import cv2
 #Functions for use in the class representing image data.
 
 b, a = signal.butter(4, [.005, .5], btype = 'bandpass')
@@ -111,6 +113,24 @@ def findMaxCorr(corr, make_plot = False, \
         plt.show()
     return ind
 
+
+def find_init_y_center(image_arr, thresh = 15., sigma = 3, \
+                        make_plot = True):
+    '''finds first guess for the center of the cantilever in pixels.'''
+    barr = ndf.gaussian_filter(image_arr, sigma)>thresh
+    b_marg = np.sum(barr, axis = 0)
+    pixels = np.arange(len(b_marg))
+    init_center = np.sum(pixels*b_marg)/np.sum(b_marg)
+    if make_plot:
+        plt.imshow(image_arr)
+        plt.axvline(x = init_center)
+        plt.show()
+    return init_center
+
+def refine_y_center(imarge_arr, init_center):
+    '''refines guess for initial center of the attractor'''
+
+
 def line(x, m, b):
     '''line function for fitting'''
     return m*x + b
@@ -170,7 +190,7 @@ class Image:
             return np.array([offset, np.max(corr)])
         else:
             return np.array([-1*offset, np.max(corr)])
-
+        
 
 class ImageGrid:
     '''Class for storing a collection of Image objects. 
@@ -347,4 +367,14 @@ def plotPicoPos(igs):
 
 
 
+def measure_separation(ig_dat_path, ig_cal_path, ig_cal_profiles, \
+                        stage_travel = 80.):
+    '''returns the separation between the end of the attractor and the center 
+       of the trap given a path with a grid of images, a calibration image grid        and a path to profies taken with the agilis stage at the same position          as the calibration image grid.'''   
+    ig1 = ImageGrid(ig_dat_path)
+    ig2 = ImageGrid(ig_cal_path)
+    cents_cal, es_cal = bf.find_beam_crossing(ig_cal_profiles)
+    dmgs = ig2.measureGrid(ig1, make_plot = True)
+    dx = dmgs[0][0]
+    return stage_travel - (cents_cal - dx)
 
