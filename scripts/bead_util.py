@@ -149,7 +149,7 @@ class DataFile:
                                * (10**9) + self.time
 
         fpga_fname = fname[:-3] + '_fpga.h5'
-        fpga_dat = get_fpga_data(fpga_fname, verbose=True, timestamp=self.time)
+        fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
 
         fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp)
 

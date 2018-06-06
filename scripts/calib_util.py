@@ -63,10 +63,10 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
     # bandpass filter around drive frequency if desired.
     if filt:
-        b, a = sp.butter(3, [2.*(fdrive-band_width/2.)/fsamp, \
+        b, a = signal.butter(3, [2.*(fdrive-band_width/2.)/fsamp, \
                              2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
-        drive = sp.filtfilt(b, a, drive)
-        response = sp.filtfilt(b, a, response)
+        drive = signal.filtfilt(b, a, drive)
+        response = signal.filtfilt(b, a, response)
     
     # Compute the number of points and drive amplitude to normalize correlation
     lentrace = len(drive)
@@ -89,7 +89,7 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 
 
-def find_step_cal_response(file_obj, bandwidth=1.):
+def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
     '''Analyze a data step-calibraiton data file, find the drive frequency,
        correlate the response to the drive
 
@@ -154,9 +154,9 @@ def find_step_cal_response(file_obj, bandwidth=1.):
     drive_amp2 = popt[0]
 
     # Include the possibility of a different sign of response
-    sign = 1 #np.sign(np.mean(drive*responsefilt))
+    sign = np.sign(np.mean(drive*responsefilt))
 
-    return sign * response_amp / drive_amp
+    return response_amp / drive_amp
 
 
 
