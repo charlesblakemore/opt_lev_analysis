@@ -3,7 +3,7 @@ import numpy as np
 import datetime as dt
 import dill as pickle 
 
-from obspy.signal.detrend import polynomial
+#from obspy.signal.detrend import polynomial
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
@@ -635,6 +635,7 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     xyz_time = []
     xyz = [[], [], []]
+    xyz_fb = [[], [], []]
     sync = []
 
     for ind, dat in enumerate(xyz_dat):
@@ -660,9 +661,15 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
                 xyz[2].append(dat)
             elif xyz_ind == 5:
                 sync.append(dat)
+            elif xyz_ind == 6:
+                xyz_fb[0].append(dat)
+            elif xyz_ind == 7:
+                xyz_fb[1].append(dat)
+            elif xyz_ind == 8:
+                xyz_fb[2].append(dat)
             
             xyz_ind += 1
-            xyz_ind = xyz_ind % 6
+            xyz_ind = xyz_ind % 9
 
         # Check for the timestamp
         if not writing_data and xyz_ind == 0:
@@ -685,8 +692,8 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
-    # read out is a multiple of 5 (2 time + X + Y + Z) so the Z
-    # channel usually  ends up with less samples.
+    # read out is a multiple of 9 (2 time + X + Y + Z + Sync +
+    # Xfb + Yfb + Zfb) so the Zfb channel usually  ends up with less samples.
     # The following is coded very generally
 
     min_len = 10.0**9  # Assumes we never more than 1 billion samples
@@ -698,10 +705,12 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     xyz_time = np.array(xyz_time[:min_len])
     sync = np.array(sync[:min_len])
     for ind in [0,1,2]:
-        xyz[ind]   = xyz[ind][:min_len]
-    xyz = np.array(xyz)        
+        xyz[ind]    = xyz[ind][:min_len]
+        xyz_fb[ind] = xyz_fb[ind][:min_len] 
+    xyz = np.array(xyz)
+    xyz_fb = np.array(xyz_fb)
 
-    return xyz_time, xyz, sync
+    return xyz_time, xyz, xyz_fb, sync
 
 
 
@@ -744,11 +753,11 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     # raw_time, raw_dat = extract_raw(dat0, timestamp)
     raw_time, raw_dat = (None, None)
     quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-    xyz_time, xyz, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+    xyz_time, xyz, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
-           'xyz_time': xyz_time, 'xyz': xyz, \
+           'xyz_time': xyz_time, 'xyz': xyz, 'fb': xyz_fb,\
            'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
@@ -798,6 +807,7 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # Crop the xyz arrays
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
     out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
+    out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
 
     # Crop the quad arrays
     out['quad_time'] = fpga_dat['quad_time'][off_ind:off_ind+nsamp]

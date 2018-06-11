@@ -3,7 +3,7 @@ import numpy as np
 import datetime as dt
 import dill as pickle 
 
-from obspy.signal.detrend import polynomial
+#from obspy.signal.detrend import polynomial
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
@@ -83,7 +83,7 @@ class DataFile:
             self.badfile = False
 
         self.fname = fname
-        self.date = fname.split('/')[2]
+        self.date = fname.split('\\')[2]
 
         self.fsamp = attribs["Fsamp"]
         self.time = labview_time_to_datetime(attribs["Time"])
@@ -158,7 +158,7 @@ class DataFile:
         #print attribs
         self.fname = fname
         #print fname
-        self.date = fname.split('/')[2]
+        self.date = fname.split('\\')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
         ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])

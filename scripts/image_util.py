@@ -10,12 +10,11 @@ import os
 import configuration
 import glob
 import re
-import peakdetect as pdet
+#import peakdetect as pdet
 from scipy.optimize import curve_fit
 import scipy.stats
 import beam_profile as bf
 import scipy.ndimage.filters as ndf
-import cv2
 #Functions for use in the class representing image data.
 
 b, a = signal.butter(4, [.005, .5], btype = 'bandpass')
