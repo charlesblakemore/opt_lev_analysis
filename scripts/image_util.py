@@ -1,360 +1,380 @@
+################################################################################
+#Set of utilities for determing the displacement
+#of the picomotors from images.
+###############################################################################
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import Image
-import cv2
+from scipy import signal
+import bead_util as bu
 import os
-from scipy.optimize import curve_fit
-from scipy.optimize import minimize_scalar
+import configuration
 import glob
 import re
-from scipy import stats
-import bead_util as bu
-from mpl_toolkits.mplot3d import Axes3D
-import itertools
+import peakdetect as pdet
+from scipy.optimize import curve_fit
+import scipy.stats
+import beam_profile as bf
+import scipy.ndimage.filters as ndf
+import cv2
+#Functions for use in the class representing image data.
 
-calib_image_path  = "/data/20170831/image_calibration2"
-align_file = "/calibrations/image_alignments/stage_position_20170831.npy"
-cal_out_file = "/calibrations/image_calibrations/stage_polynomial_1d_20170831.npy"
-imfile =  "/data/20170901/bead3/grav_data_z12um_close/urmbar_yo_elec0_0mV41Hz0mVdc_stage-X80um-Y40um-Z12um_Ydrive40umAC-13Hz.h5.npy"
+b, a = signal.butter(4, [.005, .5], btype = 'bandpass')
+
+def marg(imarr, axis):
+    '''Subtracts median off of image array and then margenalizes
+       along specified axis.'''
+    return np.sum(imarr-np.median(imarr), axis = axis)
+
+def sem(sigs):
+    '''standard error of weighted mean.'''
+    return np.sqrt(1./np.sum(sigs**-2))
+
+def initEdge(arr, thresh = 0.5):
+    '''Makes an initial guess at the x position by finding the first 
+       element above threshold specified relative to the maximum value.'''
+    threshValue = np.max(arr)*thresh
+    return next(x[0] for x in enumerate(arr) if x[1] > threshValue)
+
+def gaussWeight(arr, mu, sig = 50):
+    '''multiplies arr by gaussian weight centered at mu with width sig'''
+    weights = np.exp(-1.*(np.arange(len(arr))-mu)**2/(2.*sig**2))
+    return arr*weights
+
+def initXProcessing(imarr):
+    '''margenaizes by summing over y, finds initia edge, and weights.'''
+    marged = marg(imarr, 1) 
+    edge0 = initEdge(marged)
+    ix = signal.filtfilt(b, a, gaussWeight(marged, edge0))
+    return ix/np.sqrt(np.sum(ix**2))
 
 
-def get_first_edge(row, l_ind, h_ind):
-    #gets index of first non zero element in a vector
-    if all(i==0 for i in row):
-        return -1.
+def initYProcessing(imarr):
+    '''margenaizes by summing over y, finds initia edge, and weights.'''
+    marged = marg(imarr, 0) 
+    iy = signal.filtfilt(b, a, marged)
+    return iy/np.sqrt(np.sum(iy**2))
+
+def getNanoStage(fname):
+    '''Takes image filename as argument. gets nano positioning stage 
+       dc settings by opening the .h5 file associated with the image file.
+       Returns the median voltage times the stage calibration from V to um'''
+    h5fname = os.path.splitext(fname)[0]
+    df = bu.DataFile()
+    df.load(h5fname)
+    return np.median(df.cant_data, axis = -1)*configuration.stage_cal
+
+def plotImages(Images):
+    '''Plots an array of images'''
+    n = int(np.ceil(np.sqrt(len(Images))))
+    f, axarr = plt.subplots(n, n, sharex = True)
+    i = 0
+    for r in range(n):
+        for c in range(n):
+            axarr[r, c].imshow(Images[i].imarr)
+            i += 1
+            if i+1 > len(Images):
+                break
+        if i+1 > len(Images):
+            break
+    plt.show()
+
+def picoSortFun(path):
+    '''gets integer off of end of pico motor path for sorting'''
+    return int(re.match('.*?([0-9]+)$', path).group(1))
+
+
+def getPaths(path):
+    '''returns list of pico motor paths inside parent directory'''
+    paths = [x[0] for x in os.walk(path)][1:]#chop off 0th parent directory
+    paths.sort(key = picoSortFun)
+    return paths
+
+
+def findMaxCorr(corr, make_plot = False, \
+        lookahead = 10, delta = 0.05, rt = 0.8):
+    '''picks the right peak out of the correlation.'''
+    peaks = np.array(pdet.peakdetect(corr, \
+            lookahead = lookahead, delta = delta)[0]) #[0] to get positive 
+    inds = peaks[:, 0]
+    values = peaks[:, 1]
+    maxPeak = np.argmax(values)
+    candidates = values>rt*values[maxPeak]
+    #return middle candidate value if odd number of candidates
+    ncandids = np.sum(candidates)
+    if ncandids%2 and ncandids >1:
+        ind = np.median(inds[candidates])
+        #make_plot = True
     else:
-        edge_inds = np.nonzero(row)[0]
-        b = (edge_inds>l_ind) & (edge_inds<h_ind)
-        if len(edge_inds[b])>0: 
-            return np.min(edge_inds[b])
-        else:
-            return -1.
-
-def edge_in_range(edges, l_ind, h_ind):
-    #given all of the edges finds the left most edge in a given range.
-    s = np.shape(edges)
-    l_edge = np.zeros(s[0])
-    for i, e in enumerate(l_edge):
-        l_edge[i] = get_first_edge(edges[i], l_ind, h_ind)
-
-    return l_edge
-
-
-def find_l_edge(edges, edge_width = 10., make_plt = False):
-    #finds the coordinates of the left edge of a cantilever given a set of canny edges
-    #plt.imshow(edges)
-    #plt.show()
-    shape = np.shape(edges)
-    l_ind0 = 0.
-    h_ind0 = shape[0]
-    l_edge = edge_in_range(edges, l_ind0, h_ind0) 
-    ed = np.median(l_edge[l_edge>-1.])
-    l_edge = edge_in_range(edges, ed-edge_width/2., ed+edge_width/2.) 
-    b = l_edge>0.
-    x_edges = l_edge[b]
-    y_edges = np.arange(shape[0])[b]
-    if make_plt:
-        plt.imshow(edges)
-        plt.plot(x_edges, y_edges)
+        ind = inds[maxPeak]
+    ind = int(ind)
+    if make_plot:
+        plt.plot(corr)
+        plt.plot([ind], corr[ind], 'x')
         plt.show()
-    return x_edges, y_edges
+    return ind
 
-def parab(x, a, b, c):
-    #linear function for fitting
-    return a*x**2 + b*x + c
+
+def find_init_y_center(image_arr, thresh = 15., sigma = 3, \
+                        make_plot = True):
+    '''finds first guess for the center of the cantilever in pixels.'''
+    barr = ndf.gaussian_filter(image_arr, sigma)>thresh
+    b_marg = np.sum(barr, axis = 0)
+    pixels = np.arange(len(b_marg))
+    init_center = np.sum(pixels*b_marg)/np.sum(b_marg)
+    if make_plot:
+        plt.imshow(image_arr)
+        plt.axvline(x = init_center)
+        plt.show()
+    return init_center
+
+def refine_y_center(imarge_arr, init_center):
+    '''refines guess for initial center of the attractor'''
+
 
 def line(x, m, b):
-    '''linear function for fitting.'''
+    '''line function for fitting'''
     return m*x + b
 
-def parab_int(pz, py):
-    # finds intersection of 2 parabolas where z=parab(y, *pz) and y=parab(z, *py). Returns smallest real positive intersection.
-    poly = [pz[0]*py[0]**2, 2.*pz[0]*py[0]*py[1], 2.*pz[0]*py[0]*py[2] + pz[0]*py[1]**2 + pz[1]*py[0], 2.*pz[0]*py[1]*py[2] + pz[1]*py[1] - 1., pz[0]*py[2]**2 + pz[1]*py[2] + pz[2]]
-    zs = np.roots(poly)
-    realb = np.isreal(zs) #only take real solutions
-    zs = zs[realb]
-    ys = parab(zs, *py)
-    rs = ys**2 + zs**2
-    minr = np.argmin(rs)
-    return np.array([zs[minr], ys[minr]])
+class Image:
+    'Class for storing and measuring images of attractors for metrology'
 
-def measure_cantilever(fpath, fun = line, make_plot = False, plot_edges = False, thresh1 = 600, thresh2 = 700, app_width = 5, auto_thresh = True, nfit = 100, filt_size = 3):
-    #measures pixel coordinates of the corner of the cantilever by fitting the edges of the cantilever to fun
-    #import
-    f, f_ext = os.path.splitext(fpath)
-    #print f
-    if f_ext == '.bmp':
-    	img = cv2.imread(fpath, 0)
-    if f_ext == '.npy':
-        img = np.load(fpath)
-    kern = np.ones((filt_size, filt_size), np.float32)/filt_size
-    img_f = cv2.filter2D(img, -1, kern)
-    shape = np.array(np.shape(img_f))
-    #canny edge detect
-    edges = np.zeros_like(img_f)
-    cv2.Canny(img_f, thresh1, thresh2, edges, app_width)
-    if plot_edges:
-        plt.imshow(edges)
-        plt.show()
-    x_edges_z, y_edges_z = find_l_edge(edges)
-    y_edges_y, x_edges_y = find_l_edge(np.transpose(edges))#transpose and flip output x->y, y->x to find top edge 
-
-    #fit edge
-    popt_z, pcov_z = curve_fit(fun, y_edges_z[:nfit], x_edges_z[:nfit])
-    popt_y, pcov_y = curve_fit(fun, x_edges_y[:nfit], y_edges_y[:nfit])
-    xplt = np.arange(shape[0])
-    yplt = np.arange(shape[1])
-
-    #find corner
-    if fun == line:
-        popt_z = np.hstack(([0.], popt_z))
-        popt_y = np.hstack(([0], popt_y))
-    	corn_coords = parab_int(popt_z, popt_y)#set x^2 coeff to 0
-    else:
-        corn_coords = parab_int(popt_z, popt_y)    
+    def __init__(self, fname):
+        '''initalizes class with filename'''
+        self.fname = fname
+        self.imarr = np.load(fname)
+        self.margs = np.array([initXProcessing(self.imarr),\
+                               initYProcessing(self.imarr)])
+        self.nanoPos = getNanoStage(self.fname)        
 
 
-    if make_plot:
-        plt.plot(parab(xplt, *popt_z), xplt, 'r')
-        plt.plot(yplt, parab(yplt, *popt_y), 'k')
-        plt.plot(x_edges_z[:nfit], y_edges_z[:nfit], 'w')
-        plt.plot(x_edges_y[:nfit], y_edges_y[:nfit], 'w')
-        plt.plot([corn_coords[0]], [corn_coords[1]], 'xy', ms = 20, mew = 2)
-        plt.xlabel("x[pixels]")
-        plt.ylabel("y[pixels]")
-        plt.imshow(img_f)
-        plt.show()
+    def measureShift(self, Image2, axis, plotCorr = True, makePlot = True,\
+                     invertY = True, peak_detect = False):
+        '''measures shift between self and Image2 from the shift in 
+           the maximum of the correlation and auto correlation of images
+           margenalized over opposite axis. If shift is positive then Image 2
+           is to the right of self.'''
+
+        cent = np.max([len(self.margs[axis]), len(Image2.margs[axis])])-1     
+        corr = signal.correlate(self.margs[axis], Image2.margs[axis])
+
+        #acorr = signal.correlate(self.margs[axis], self.margs[axis])
+        if plotCorr:
+            plt.plot(np.arange(len(corr)) - cent, corr, label = 'correlation')
+            plt.xlabel('pixel shift')
+            plt.ylabel('correlation')
+            plt.legend()
+            plt.show()
+        #only shifts discrete pixels. need to fix
+        #if offset is >0 then image 2 is ahead of self
+        if peak_detect:
+            offset = cent - findMaxCorr(corr)
+        else:
+            offset = cent - np.argmax(corr)
+        if makePlot:
+            if offset>=0:
+                #advance self to right
+                plt.plot(np.concatenate((np.zeros(offset), self.margs[axis])),\
+                         '.', label = 'self shifted right ' + str(offset))
+            else:
+                # move Image2 right
+                plt.plot(np.concatenate((np.zeros(-1*offset),\
+                Image2.margs[axis])), '.', label = 'image2 shifted right ' \
+                + str(-1*offset))
+            plt.plot(self.margs[axis], label = 'self')
+            plt.plot(Image2.margs[axis], label = 'image 2')
+            plt.legend()
+            plt.show()
+        
+        #ability to treat axees differently
+        if axis == 0:
+            return np.array([offset, np.max(corr)])
+        else:
+            return np.array([-1*offset, np.max(corr)])
+        
+
+class ImageGrid:
+    '''Class for storing a collection of Image objects. 
+     Contains a method that can determine the location of an arbitrarily 
+     shifted image within the grid.'''
+
+
+    def __init__(self, path):
+        '''loads images from path into list of image objects'''
+        imArr = []
+        imFnames = glob.glob(path + '/*.h5.npy')
+        for fname in imFnames:
+            imArr.append(Image(fname))
+        self.fnames = imFnames
+        self.images = imArr
+        posEr = lambda image: image.nanoPos 
+        self.nanoPs = np.transpose(np.array(map(posEr, self.images)))
+        self.indArr = self.ind_arr()
+        self.shape = np.shape(self.indArr)
+
+    def groupAxis(self, axis, thresh = 0.25):
+        '''groups inds of images into rows or columns from nano 
+           positioning stage measurements. Sorted into group when
+           difference below thresh.'''
+        pax = self.nanoPs[axis, :] #position array
+        sortInds = np.argsort(pax) #sort index array
+        inds = [] #initialize list to store lists of inds for each group
+        rowCol = [] #initialize list for each group
+        init_p = pax[sortInds[0]] 
+        for i in sortInds:
+            if pax[i] - init_p>thresh:
+                inds.append(rowCol)
+                rowCol = [i]
+                init_p = pax[i]
+            if i == sortInds[-1]:
+                rowCol.append(i)
+                inds.append(rowCol)
+            else:
+                rowCol.append(i)
+
+        return inds
+
+    def ind_arr(self, thresh = 0.25):
+        '''returns a 2d nump array of image indicies indexed by image  
+           row and column. If there are multiple images at the same grid
+           location it returns the first.'''
+
+        xinds = self.groupAxis(0, thresh = thresh)
+        yinds = self.groupAxis(1, thresh = thresh)
+        nx = len(xinds)
+        ny = len(yinds)
+        indArr = np.zeros((nx, ny), dtype = int)
+        for i in range(nx):
+            for j in range(ny):
+                ind = list(set(xinds[i]).intersection(yinds[j]))
+                indArr[i, j] = ind[0]
+
+        return indArr
+
+
+    def measureImage(self, image, makePlots = False, pltFit = False):
+        '''Finds the location of an image in the image grid by fitting
+            to the pixel shift from images that correlate most with 
+            image.'''
+        mx = lambda im: im.measureShift(image, 0, plotCorr = makePlots,\
+                                        makePlot = makePlots)
+        my =  lambda im: im.measureShift(image, 1, plotCorr = makePlots,\
+                                        makePlot = makePlots)
+        xShifts = np.array(map(mx, self.images))
+        yShifts = np.array(map(my, self.images))
+        cent_im = np.argmin((1-yShifts[:, 1])**2 + (1-xShifts[:, 1])**2)
+        cent_ind = zip(*np.where(self.indArr == cent_im))[0]
+        # determine edge cases 
+        bxl = cent_ind[0]>0 
+        bxh = cent_ind[0] < self.shape[0]-1
+        byl = cent_ind[1]>0 
+        byh = cent_ind[1] < self.shape[1]-1
+        #do case away from edges
+        if bxl and bxh and byl and byh:
+            fitinds = np.ndarray.flatten(self.indArr[\
+                    cent_ind[0]-1:cent_ind[0]+2,\
+                    cent_ind[1]-1:cent_ind[1] +2])
+            xfitShifts = xShifts[fitinds, 0]
+            xnanoPs = self.nanoPs[0, fitinds]
+            yfitShifts = yShifts[fitinds, 0]
+            ynanoPs = self.nanoPs[1, fitinds]
+            xpopt, xcov = curve_fit(line, xfitShifts, xnanoPs)
+            ypopt, ycov = curve_fit(line, yfitShifts, ynanoPs)
+            if pltFit:
+                f, axarr = plt.subplots(1, 2, sharex = True, sharey = True)
+                axarr[0].plot(xfitShifts, xnanoPs, 'o')
+                axarr[0].plot(xfitShifts, line(xfitShifts, *xpopt))
+                axarr[1].plot(yfitShifts, ynanoPs, 'o')
+                axarr[1].plot(yfitShifts, line(yfitShifts, *ypopt))
+                axarr[0].set_xlabel("x pixel shift")
+                axarr[0].set_ylabel("x nano positiong stage [um]")
+                axarr[1].set_xlabel("y pixel shift")
+                axarr[1].set_ylabel("y nano positiong stage [um]")
+                plt.show()
+            return np.array([[xpopt[-1], np.sqrt(xcov[-1, -1])], \
+                            [ypopt[-1], np.sqrt(ycov[-1, -1])]])
+        else:
+             return np.array([[np.nan, np.nan], \
+                            [np.nan, np.nan]])
+        
+    def measureGrid(self, ImageGrid2, make_plot = False):
+        '''uses self to measure every image in ImageGrid2. 
+        From the differences in nano positioning stage at 
+        the same image location determines the shift in the 
+        nano positioning stage.'''
+        #position of images in ImageGrid2 relative to self
+        pos21 = []
+        for im in ImageGrid2.images:
+            pos21.append(self.measureImage(im))
+	pos21 = np.array(pos21) #[image, x or y, value or sigma]
+	#get images with measured positions
+        valid = np.bitwise_not(np.isnan(pos21[:, 0, 0]))
+	deltaXs = pos21[valid, 0, 0]\
+                - np.transpose(ImageGrid2.nanoPs)[valid, 0]
+        sigXs = pos21[valid, 0, 1]
+	deltaYs = pos21[valid, 1, 0]\
+		 - np.transpose(ImageGrid2.nanoPs)[valid, 1]
+        sigYs = pos21[valid, 1, 1]
+	xShift = np.average(deltaXs, weights = sigXs**-2)
+        sigXshift = sem(sigXs)
+	yShift = np.average(deltaYs, weights = sigYs**-2)
+        sigYshift = sem(sigYs)
+
+	if make_plot:
+                plt.plot(pos21[valid, 0, 0], pos21[valid, 1, 0], '.')
+                plt.show()
+                ybins = np.arange(10, 40)
+		plt.subplot(211), plt.hist(deltaXs)
+		plt.subplot(212), plt.hist(deltaYs)
+		plt.xlabel("shift [um]")
+		plt.ylabel("Number")
+		plt.show()
+		
+		plt.plot(self.nanoPs[0, :], self.nanoPs[1, :],'.',  \
+			label = 'self grid')
+		plt.plot(ImageGrid2.nanoPs[0, :] + xShift, \
+			 ImageGrid2.nanoPs[1, :] + yShift, '.',\
+			label = 'new grid shifted')	
+		plt.plot(ImageGrid2.nanoPs[0, valid] + xShift, \
+			 ImageGrid2.nanoPs[1, valid] + yShift, '.',\
+			label = 'overlap')
+		plt.legend()
+		plt.xlabel('x position [um]')
+       		plt.ylabel('y position [um]')
+		plt.show()	
+	
+	return [[xShift, sigXshift], [yShift, sigYshift]]
+
+
+def plotPicoPos(igs):
+    '''takes array of image grids and plots the change in position'''
+    pxs = np.zeros_like(igs)
+    sigxs = np.zeros_like(igs)
+    pys = np.zeros_like(igs)
+    sigys = np.zeros_like(igs)
+
+    for i, ig in enumerate(igs[1:]):
+        shift = igs[i].measureGrid(ig)
+        pxs[i+1] = shift[0][0] + pxs[i]
+        pys[i+1] = shift[1][0] + pys[i]
+        sigxs[i+1] = np.sqrt(np.sum(sigxs**2) + shift[0][1]**2)
+        sigys[i+1] = np.sqrt(np.sum(sigys**2) + shift[1][1]**1)
     
-    return np.array(np.real(corn_coords))
-
-   
-
-def measure_cantilever1d(fpath, trapx, fun = line, make_plot = False, plot_edges = False, thresh1 = 2500, thresh2 = 3000, app_width = 5, auto_thresh = True, filt_size = 3):
-    #measures pixel coordinates of the corner of the cantilever by fitting the edges of the cantilever to fun
-    #import
-    f, f_ext = os.path.splitext(fpath)
-    #print f
-    if f_ext == '.bmp':
-    	img = cv2.imread(fpath, 0)
-    if f_ext == '.npy':
-        img = np.load(fpath)
-    kern = np.ones((filt_size, filt_size), np.float32)/filt_size
-    img_f = cv2.filter2D(img, -1, kern)
-    shape = np.array(np.shape(img_f))
-    #canny edge detect
-    edges = np.zeros_like(img_f)
-    cv2.Canny(img_f, thresh1, thresh2, edges, app_width)
-    if plot_edges:
-        plt.imshow(edges)
-        plt.show()
-    x_edges_z, y_edges_z = find_l_edge(edges)
-    y_edges_y, x_edges_y = find_l_edge(np.transpose(edges))#transpose and flip output x->y, y->x to find top edge 
-
-    #fit edge
-    #popt_z, pcov_z = curve_fit(fun, y_edges_z, x_edges_z)
-    popt_y, pcov_y = curve_fit(fun, x_edges_y, y_edges_y)
-    xplt = np.arange(shape[0])
-    yplt = np.arange(shape[1])
-
-    #find corner
-    if fun == line:
-        #popt_z = np.hstack(([0.], popt_z))
-        popt_y = np.hstack(([0], popt_y))
-    	#corn_coords = parab_int(popt_z, popt_y)#set x^2 coeff to 0
-    else:
-        corn_coords = parab_int(popt_z, popt_y)    
+    plt.errorbar(pxs, pys, xerr = sigxs*10., yerr = sigys*10., fmt = 'o-', label = '10 $\sigma$')
+    plt.xlabel("x position [um]")
+    plt.ylabel('y position [um]')
+    plt.legend()
+    plt.show()
 
 
-    if make_plot:
-        #plt.plot(parab(xplt, *popt_z), xplt, 'r')
-        plt.plot(yplt, parab(yplt, *popt_y), 'k')
-        yarg = np.argmin((yplt-trapx)**2)
-        plt.plot(trapx, parab(trapx, *popt_y), 'o')
-        #plt.plot(x_edges_z, y_edges_z, 'w')
-        plt.plot(x_edges_y, y_edges_y, 'w')
-        #plt.plot([corn_coords[0]], [corn_coords[1]], 'xy', ms = 20, mew = 2)
-        plt.xlabel("x[pixels]")
-        plt.ylabel("y[pixels]")
-        plt.imshow(img_f)
-        plt.show()
-    
-    return parab(trapx, *popt_y)
 
+def measure_separation(ig_dat_path, ig_cal_path, ig_cal_profiles, \
+                        stage_travel = 80.):
+    '''returns the separation between the end of the attractor and the center 
+       of the trap given a path with a grid of images, a calibration image grid        and a path to profies taken with the agilis stage at the same position          as the calibration image grid.'''   
+    ig1 = ImageGrid(ig_dat_path)
+    ig2 = ImageGrid(ig_cal_path)
+    cents_cal, es_cal = bf.find_beam_crossing(ig_cal_profiles)
+    dmgs = ig2.measureGrid(ig1, make_plot = True)
+    dx = dmgs[0][0]
+    return stage_travel - (cents_cal - dx)
 
-    
-def get_xydistance(im_fname, cols = {'x_stage':17, 'y_stage':18}, dat_ext = '.h5'):
-    #extracts the mean stage position from the data associated with an image file name. returns a numpy array [x, y]
-    fname, fext = os.path.splitext(im_fname)
-    #print fname
-    dat, attribs, f = bu.getdata(fname)#works with ext .h5.npy on im_fname
-    f.close() 
-    x =  np.mean(dat[:, cols['x_stage']])
-    y = np.mean(dat[:, cols['y_stage']])
-    return np.array([x, y])
-
-
-def get_distances(files, align_file, cant_cal = 8.0, ext = '.npy'):
-    #gets all of the distances associated with a list of image files from the associated data file.
-    cal = np.load(align_file)
-    cal2 = cal[::-1]
-    ds = np.array(map(get_xydistance, files))*cant_cal
-    ds = np.array(ds) - cal2
-    return np.array(ds)
-
-def ignore_point(vec, p):
-    #broduces a boolian vector with ones for every point except points taking value p
-    return np.array([i!=p for i in vec])
-
-def quad_roots(popt):
-    #the quadratic equation for a*x^2 + b*x + c = 0 when popt = [a, b, c]. Returns the smallest positive real root.
-    rs = np.array([(-1.*popt[1] + np.sqrt(popt[1]**2-4.*popt[0]*popt[2]))/(2.*popt[0]), (-1.*popt[1] - np.sqrt(popt[1]**2-4.*popt[0]*popt[2]))/(2.*popt[0])])
-    real = np.isreal(rs)
-    return np.min(rs[rs[real]>= 0.])
-
-
-def find_intercept(can_pos, ds, idx, make_plot = True, make_error_plot = False):
-    #gets z and y intercept from fitting measured displacement to a parabola and calculating the intercept
-    if idx == 0:
-        o_idx = 1
-        direction = 'z'
-    else:
-        o_idx = 0
-        direction = 'y'
-    ps = ds[:, idx]
-    orth_pos = stats.mode(ds[:, idx])
-    bo = ignore_point(ds[:, idx], orth_pos[0][0])
-    if idx == 0:
-        popt, pcov = curve_fit(parab, ds[bo, idx], can_pos[bo, idx])
-        d0 =  quad_roots(popt)
-    if make_plot:
-        ds_plot = np.arange(np.min(ds[bo, idx]), np.max(ds[bo, idx]), .01)
-        plt.plot(ds[bo, idx], can_pos[bo, idx], 'o')
-        plt.plot(ds_plot, parab(ds_plot, *popt), label = 'intercept=' + str(np.round(d0, decimals = 2)))
-        plt.xlabel("stage %s position [$\mu m$]" % direction)
-        plt.ylabel("measured distance [pixels]")
-        plt.legend()
-        plt.show()
-    if make_error_plot:
-        plt.plot(ds[bo, idx], parab(ds[bo, idx], *popt)-can_pos[bo, idx], 'o')
-        plt.xlabel("stage z position [$\mu m$]")
-        plt.ylabel("error [pixels]")
-        plt.show()
-
-    return d0
-
-def stage_pos_fun(can_pos, ds, cal_file, make_plot = True):
-    #fits measured stage position in pixels vs 'true' stage position in microns to quadratic. Given a measured stage position this returns the 'true' stage position relative to the trap.
-    popt_z, pcov_z = curve_fit(parab, can_pos[:, 0], ds[:, 0]) 
-    popt_y, pcov_y = curve_fit(parab, can_pos[:, 1], ds[:, 1])
-    out_poly = np.array([popt_z, popt_y])
-    np.save(cal_file, out_poly)
-    if make_plot:
-        fit_z = np.linspace(np.min(can_pos[:, 0]), np.max(can_pos[:, 0]), 100)
-        fit_y = np.linspace(np.min(can_pos[:, 1]), np.max(can_pos[:, 1]), 100)
-        plt.plot(can_pos[:, 0], ds[:, 0], 'o', label = "z")
-        plt.plot(can_pos[:, 1], ds[:, 1], 'o', label = "y")
-        plt.plot(fit_z, parab(fit_z, *popt_z))
-        plt.plot(fit_y, parab(fit_y, *popt_y))
-        plt.xlabel("measured displacement from trap [pixels]")
-        plt.ylabel("displacement from trap [$\mu m$]")
-        plt.legend()
-        plt.show()
- 
-
-
-def polyfit2d(x, y, z, order = 2):
-    '''fits 2d surfaces to polynomial of order order'''
-    ncols = (order + 1)**2
-    G = np.zeros((x.size, ncols))
-    ij = itertools.product(range(order + 1), range(order + 1))
-    for k, (i, j) in enumerate(ij):
-        G[:, k] = x**i*y**j
-    m, _, _, _ = np.linalg.lstsq(G, z)
-    return m
-
-def polyval2d(x, y, m):
-    '''generates z vector from x, y and polynomial vector m'''
-    order = int(np.sqrt(len(m))) - 1
-    ij = itertools.product(range(order + 1), range(order + 1))
-    z = np.zeros_like(x)
-    for a, (i,j) in zip(m, ij):
-        z += a * x**i * y**j
-    return z
-
-def plot_3d_calib(can_pos, ds, axis, polyfit, stage_cal = 8.0):
-    '''plots the pixel corner coordinates as a function of stage xy position'''
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(can_pos[:, 0], can_pos[:, 1], ds[:, axis], marker = 'o')  
-    ax.set_xlabel('x pixel')
-    ax.set_ylabel('y pixel')
-    if axis==0:
-        lab = 'stage x [um]'
-    if axis==1:
-        lab = 'stage y [um]'
-    ax.set_zlabel(lab)
-    ax.scatter(can_pos[:, 0], can_pos[:, 1], polyval2d(can_pos[:, 0], can_pos[:, 1], polyfit), marker = '^')
-         
-
-def get_calibration(img_cal_path, align_file, cal_out_file, image_ext = '.npy', cant_cal = 8.0):
-    '''Does all of the steps to get the calibration of cantilever images and saves the result.'''
-    fs = glob.glob(img_cal_path + '/*' + image_ext)
-    ds = get_distances(fs, align_file)
-    can_pos = np.array(map(measure_cantilever, fs))
-    align = np.load(align_file)
-    print ds
-    print align
-    ds[:, 0] += align[0]
-    ds[:, 1] += align[1]
-    mx = polyfit2d(can_pos[:, 0], can_pos[:, 1], ds[:, 0])
-    my = polyfit2d(can_pos[:, 0], can_pos[:, 1], ds[:, 1])
-    cal_arr = np.array([mx, my])
-    directory = os.path.dirname(cal_out_file)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    np.save(cal_out_file, cal_arr)
-    return ds, can_pos
-
-def get_calibration1d(img_cal_path, align_file, cal_out_file, cantx, image_ext = '.npy', cant_cal = 8.0, make_plot = True):
-    '''Does all of the steps to get the calibration of cantilever images and saves the result.'''
-    fs = glob.glob(img_cal_path + '/*' + image_ext)
-    ds = get_distances(fs, align_file)
-    measure = lambda f: measure_cantilever1d(f, cantx)
-    can_pos = np.array(map(measure, fs))
-    align = np.load(align_file)
-    print ds
-    print align
-    #ds[:, 0] -= align[1]
-    popt, pcov = curve_fit(parab,can_pos, ds[:, 0])
-    if make_plot:
-        xplt = np.linspace(np.min(can_pos), np.max(can_pos), 100)
-        plt.plot(can_pos, ds[:, 0], 'x')
-        plt.plot(xplt, parab(xplt, *popt))
-        plt.xlabel('cantilever pixel')
-        plt.ylabel('stage position [um]')
-        plt.show()
-    directory = os.path.dirname(cal_out_file)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    np.save(cal_out_file, popt)
-    return ds[:, 0], can_pos
-
-def measure_image(im_file, cal_out_file, make_plot = True):
-    #given an image file returns the calibrated coordinates of the cantileve edge
-    pixels = measure_cantilever(im_file, make_plot = make_plot)
-    cal = np.load(cal_out_file)
-    
-    px = polyval2d(pixels[0], pixels[1], cal[0])
-    py = polyval2d(pixels[0], pixels[1], cal[1])
-    return np.array([px, py])
-
-def measure_image1d(im_file, trapx, cal_out_file, make_plot = True):
-    #given an image file returns the calibrated coordinates of the cantileve edge
-    pixel = measure_cantilever1d(im_file, trapx, make_plot = make_plot)
-    cal = np.load(cal_out_file) 
-    return parab(pixel, *cal)
-
-#get_calibration(calib_image_path, align_file, cal_out_file)  
-#measure_image1d(imfile, 340, cal_out_file)
-  

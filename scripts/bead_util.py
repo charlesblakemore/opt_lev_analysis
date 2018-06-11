@@ -1,421 +1,662 @@
-import h5py, os, matplotlib, re, glob, math
+import h5py, os, re, glob, time, sys, fnmatch
 import numpy as np
 import datetime as dt
+import dill as pickle 
+
+from obspy.signal.detrend import polynomial
+
 import matplotlib.pyplot as plt
-import scipy.optimize as opt
-import scipy.signal as sp
-import scipy.interpolate as interp
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
+import matplotlib.mlab as mlab
 
+import scipy.interpolate as interp
+import scipy.optimize as optimize
+import scipy.signal as signal
+import scipy
+
+import configuration
+import transfer_func_util as tf
+
+from bead_util_funcs import *
 
 #######################################################
-# This module has basic utility functions for analyzing bead
-# data. In particular, this module has the basic data
-# loading function, bead/physical constants and bead
-# spectra.
+# This module contains the DataFile class which stores
+# information from a single hdf5 file. Includes class
+# methods to calibrate/diagonalize data, bin data into 
+# force vs position, plot cantilever drive data, create 
+# harmonic notch filters from cantilever drive data, 
+# extracting data/errors at the notch filter fft bins
 #
-# This version has been significantly trimmed from previous
-# bead_util in an attempt to force modularization.
-# Previous code for millicharge and chameleon data
-# can be found by reverting opt_lev_analysis
+# READ THIS PART  :  READ THIS PART  :  READ THIS PART
+# READ THIS PART  :  READ THIS PART  :  READ THIS PART
+# ----------------------------------------------------
+### Imports a number of utility functions from a 
+### companion module called bead_util_funcs.
+### When using in scripts, it is only necessary to 
+### import this module, not both.
+# ----------------------------------------------------
+# READ THIS PART  :  READ THIS PART  :  READ THIS PART
+# READ THIS PART  :  READ THIS PART  :  READ THIS PART
+#
 #######################################################
 
 
-bead_radius = 2.43e-6 ##m
-bead_rho = 2.2e3 ## kg/m^3
-kb = 1.3806488e-23 #J/K
-bead_mass = 4./3*np.pi*bead_radius**3 * bead_rho
-plate_sep = 1e-3 ## m
-e_charge = 1.6e-19 ## C
 
-nucleon_mass = 1.67e-27 ## kg
-num_nucleons = bead_mass/nucleon_mass
+class DataFile:
+    '''Class holing all of the data for an individual file. 
+       Contains methods to  apply calibrations to the data, 
+       including image coordinate correction. Also contains 
+       methods to change basis from time data to cantilever 
+       position data.
+    '''
 
-## default columns for data files
-data_columns = [0, 1, 2] ## column to calculate the correlation against
-drive_column = -1
+    def __init__(self):
+        '''Initializes the an empty DataFile object. 
+           All of the attributes are filled with strings
+        '''
+        self.fname = "Filename not assigned."
+        #Data and data parameters
+        self.pos_data = []
+        self.diag_pos_data = []
+        self.cant_data = [] 
+        self.electrode_data = []
+        self.other_data = []
+        self.fsamp = "Fsamp not loaded"
+        #Conditions under which data is taken
+        self.time = "Time not loaded"#loads time at end of file
+        self.temps = []
+        self.pressures = {} # loads to dict with keys different gauges 
+        self.stage_settings = {} # loads to dict. Look at config.py for keys 
+        self.electrode_settings = {} # loads to dict. The key "dc_settings" gives\
+            # the dc value on electrodes 0-6. The key "driven_electrodes" 
+            # is a list where the electrode index is 1 if the electrode 
+            # is driven and 0 otherwise
+        self.cant_calibrated = False
 
-
-## work around inability to pickle lambda functions
-class ColFFT(object):
-    def __init__(self, vid):
-        self.vid = vid
-    def __call__(self, idx):
-        return np.fft.rfft( self.vid[idx[0], idx[1], :] )
-
-
-
-def find_str(str):
-    idx_offset = 1e10 # Large number to ensure sorting by index first
-
-    fname, _ = os.path.splitext(str)
-    
-    endstr = re.findall("\d+mV_[\d+Hz_]*[a-zA-Z]*[\d+]*", fname)
-    if( len(endstr) != 1 ):
-        # Couldn't find expected pattern, so return the 
-        # second to last number in the string
-        return int(re.findall('\d+', fname)[-1])
-
-    # Check for an index number
-    sparts = endstr[0].split("_")
-    if ( len(sparts) >= 3 ):
-        return idx_offset*int(sparts[2]) + int(sparts[0][:-2])
-    else:
-        return int(sparts[0][:-2])
-
-
-def getdata(fname, gain_error=1.0, adc_max_voltage=10., adc_res=2**16):
-    ### Get bead data from a file.  Guesses whether it's a text file
-    ### or a HDF5 file by the file extension
-
-    ## Hard coded scaling from DAQ
-    adc_fac = (adc_res - 1) / (2. * adc_max_voltage)
-
-    _, fext = os.path.splitext( fname )
-    if( fext == ".h5"):
-        try:
-            f = h5py.File(fname,'r')
-            dset = f['beads/data/pos_data']
-            dat = np.transpose(dset)
-            dat = dat / adc_fac
-            attribs = dset.attrs
-
-        except (KeyError, IOError):
-            print "Warning, got no keys for: ", fname
-            dat = []
-            attribs = {}
-            f = []
-    else:
-        dat = np.loadtxt(fname, skiprows = 5, usecols = [2, 3, 4, 5])
-        attribs = {}
-        f = []
-
-    return dat, attribs, f
-
-def labview_time_to_datetime(lt):
-    ### Convert a labview timestamp (i.e. time since 1904) to a 
-    ### more useful format (python datetime object)
-    
-    ## first get number of seconds between Unix time and Labview's
-    ## arbitrary starting time
-    lab_time = dt.datetime(1904, 1, 1, 0, 0, 0)
-    nix_time = dt.datetime(1970, 1, 1, 0, 0, 0)
-    delta_seconds = (nix_time-lab_time).total_seconds()
-
-    lab_dt = dt.datetime.fromtimestamp( lt - delta_seconds)
-    
-    return lab_dt
-    
-
-def inrange(x, xmin, xmax):
-    return np.logical_and( x >= xmin, x<=xmax )
-
-
-
-
-def round_sig(x, sig=2):
-    '''Round a number to a certain number of sig figs
-           INPUTS: x, number to be rounded
-                   sig, number of sig figs
-
-           OUTPUTS: num, rounded number'''
-    neg = False
-    if x == 0:
-        return 0
-    else:
-        if x < 0:
-            neg = True
-            x = -1.0 * x
-        num = round(x, sig-int(math.floor(math.log10(x)))-1)
-        if neg:
-            return -1.0 * num
+    def load_only_attribs(self, fname):
+        dat, attribs = getdata(fname)
+        if len(dat) == 0:
+            self.badfile = True
+            return 
         else:
-            return num
+            self.badfile = False
 
-def trend_fun(x, a, b):
-    '''Two paramater linear function to de-trend datasets
-           INPUTS: x, variable
-                   a, param 1 = slope
-                   b, param 2 = offset
+        self.fname = fname
+        self.date = fname.split('/')[2]
 
-           OUTPUTS: a*x + b'''
-    return a*x + b
-
-
-
-def step_fun(x, q, x0):
-    '''Single, decreasing step function
-           INPUTS: x, variable
-                   q, size of step
-                   x0, location of step
-
-           OUTPUTS: q * (x <= x0)'''
-    xs = np.array(x)
-    return q*(xs<=x0)
-
-def multi_step_fun(x, qs, x0s):
-    '''Sum of many single, decreasing step functions
-           INPUTS: x, variable
-                   qs, sizes of steps
-                   x0s, locations of steps
-
-           OUTPUTS: SUM_i [qi * (x <= x0i)]'''
-    rfun = 0.
-    for i, x0 in enumerate(x0s):
-        rfun += step_fun(x, qs[i], x0)
-    return rfun
-
-
-
-def thermal_psd_spec(f, A, f0, g):
-    #The position power spectrum of a microsphere normalized so that A = (volts/meter)^2*2kb*t/M
-    w = 2.*np.pi*f #Convert to angular frequency.
-    w0 = 2.*np.pi*f0
-    num = g * w0**2
-    denom = ((w0**2 - w**2)**2 + w**2*g**2)
-    return 2 * (A * num / denom) # Extra factor of 2 from single-sided PSD
-
-
-def damped_osc_amp(f, A, f0, g):
-    '''Fitting function for AMPLITUDE of a damped harmonic oscillator
-           INPUTS: f [Hz], frequency 
-                   A, amplitude
-                   f0 [Hz], resonant frequency
-                   g [Hz], damping factor
-
-           OUTPUTS: Lorentzian amplitude'''
-    w = 2. * np.pi * f
-    w0 = 2. * np.pi * f0
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * g**2)
-    return A / denom
-
-def damped_osc_phase(f, A, f0, g, phase0 = 0.):
-    '''Fitting function for PHASE of a damped harmonic oscillator.
-       Includes an arbitrary DC phase to fit over out of phase responses
-           INPUTS: f [Hz], frequency 
-                   A, amplitude
-                   f0 [Hz], resonant frequency
-                   g [Hz], damping factor
-
-           OUTPUTS: Lorentzian amplitude'''
-    w = 2. * np.pi * f
-    w0 = 2. * np.pi * f0
-    return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
-
-
-
-def sum_3osc_amp(f, A1, f1, g1, A2, f2, g2, A3, f3, g3):
-    '''Fitting function for AMPLITUDE of a sum of 3 damped harmonic oscillators.
-           INPUTS: f [Hz], frequency 
-                   A1,2,3, amplitude of the three oscillators
-                   f1,2,3 [Hz], resonant frequency of the three oscs
-                   g1,2,3 [Hz], damping factors
-
-           OUTPUTS: Lorentzian amplitude of complex sum'''
-    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
-           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
-           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
-    return np.abs(csum)
-
-def sum_3osc_phase(f, A1, f1, g1, A2, f2, g2, A3, f3, g3, phase0=0.):
-    '''Fitting function for PHASE of a sum of 3 damped harmonic oscillators.
-       Includes an arbitrary DC phase to fit over out of phase responses
-           INPUTS: f [Hz], frequency 
-                   A1,2,3, amplitude of the three oscillators
-                   f1,2,3 [Hz], resonant frequency of the three oscs
-                   g1,2,3 [Hz], damping factors
-
-           OUTPUTS: Lorentzian amplitude of complex sum'''
-    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
-           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
-           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
-    return np.angle(csum) + phase0
-
-
-    
-def unwrap_phase(cycles):
-    #Converts phase in cycles from ranging from 0 to 1 to ranging from -0.5 to 0.5 
-    if cycles>0.5:
-        cycles +=-1
-    return cycles
-
-def gauss_fun(x, A, mu, sig):
-    return A*np.exp( -(x-mu)**2/(2*sig**2) )
-
-
-def rotate_data(x, y, ang):
-    c, s = np.cos(ang), np.sin(ang)
-    return c*x - s*y, s*x + c*y
-
-
-
-
-
-
-def good_corr(drive, response, fsamp, fdrive):
-    corr = np.zeros(int(fsamp/fdrive))
-    response = np.append(response, np.zeros( int(fsamp/fdrive)-1 ))
-    n_corr = len(drive)
-    for i in range(len(corr)):
-        #Correct for loss of points at end
-        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical tests
-        #correct_fac = 1.0*n_corr/(n_corr-i) # 
-        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
-    return corr
-
-def corr_func(drive, response, fsamp, fdrive, good_pts = [], filt = False, band_width = 1):
-    #gives the correlation over a cycle of drive between drive and response.
-
-    #First subtract of mean of signals to avoid correlating dc
-    drive = drive-np.mean(drive)
-    response  = response-np.mean(response)
-
-    #bandpass filter around drive frequency if desired.
-    if filt:
-        b, a = sp.butter(3, [2.*(fdrive-band_width/2.)/fsamp, 2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
-        drive = sp.filtfilt(b, a, drive)
-        response = sp.filtfilt(b, a, response)
-    
-    #Compute the number of points and drive amplitude to normalize correlation
-    lentrace = len(drive)
-    drive_amp = np.sqrt(2)*np.std(drive)
-      
-    #Throw out bad points if desired
-    if len(good_pts):
-        response[-good_pts] = 0.
-        lentrace = np.sum(good_pts)    
-
-
-    #corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp**2)
-    corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp)
-    return corr_full
-
-
-
-def calc_orthogonalize_pars(d):
-    ## take a dictionary containing x, y, z traces and return gram-schmidt
-    ## coefficients that orthoganalize the set, i.e. the orthogonal components
-    ## are: 
-    ##       z_orth = z
-    ##       y_orth = y - <y,z_orth>/<z_orth,z_orth>*z
-    ##       x_orth = x - <x,z_orth>/<z_orth,z_orth>*z - <x,y_orth>/<y_orth,y_orth>*y_orth
-    ## where the returned coefficients are:  
-    ##       c_yz = <y,z_orth>/<z_orth,z_orth>
-    ##       c_xz = <x,z_orth>/<z_orth,z_orth>
-    ##       c_xy = <x,y_orth>/<y_orth,y_orth>
-
-    z_orth = d['z'] - np.median( d['z'] )
-    y0 = d['y']- np.median( d['y'])
-    c_yz = np.sum( y0*z_orth )/np.sum( z_orth**2 )
-    y_orth = y0 - c_yz*z_orth
-    x0 = d['x']
-    c_xz = np.sum( x0*z_orth )/np.sum( z_orth**2 )
-    c_xy = np.sum( x0*y_orth )/np.sum( y_orth**2 )
-
-    return c_yz, c_xz, c_xy
-
-
-def orthogonalize(xdat,ydat,zdat,c_yz,c_xz,c_xy):
-    ## apply orthogonalization parameters generated by calc_orthogonalize pars
-    zorth = zdat - np.median(zdat)
-    yorth = ydat - np.median(ydat) - c_yz*zorth
-    xorth = xdat - np.median(xdat) - c_xz*zorth - c_xy*yorth
-    return xorth, yorth, zorth
-
-
-def get_color_map( n ):
-    jet = plt.get_cmap('jet') 
-    cNorm  = colors.Normalize(vmin=0, vmax=n)
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
-    outmap = []
-    for i in range(n):
-        outmap.append( scalarMap.to_rgba(i) )
-    return outmap
-
-
-def load_dir_file( f ):
-
-    lines = [line.rstrip('\n') for line in open(f)]
-
-    out_dict = {}
-    for l in lines: 
+        self.fsamp = attribs["Fsamp"]
+        self.time = labview_time_to_datetime(attribs["Time"])
+        try:
+            self.temps = attribs["temps"]
+            # Unpacks pressure gauge vector into dict with
+            # labels for pressure gauge specified by configuration.pressure_inds    
+            self.pressures = unpack_config_dict(configuration.pressure_inds, \
+                                                attribs["pressures"]) 
+        except:
+            self.temps = 'Temps not loaded!'
+            self.pressures = 'Pressures not loaded!'
+        # Unpacks stage settings into a dictionay with keys specified by
+        # configuration.stage_inds
+        self.stage_settings = \
+            unpack_config_dict(configuration.stage_inds, \
+            attribs["stage_settings"])
+        # Load all of the electrode settings into the correct keys
+        # First get DC values from its own .h5 attribute
+        self.electrode_settings["dc_settings"] = \
+            attribs["electrode_dc_vals"][:configuration.num_electrodes]
         
-        lparts = l.split(";")
+        # Copy "electrode_settings" attribute into numpy array so it can be 
+        # indexed by a list of indicies coming from 
+        # configuration.eloectrode_settings 
+        temp_elec_settings = np.array(attribs["electrode_settings"])
+        # First get part with 1 if electrode was driven and 0 else 
+        self.electrode_settings["driven"] = \
+            temp_elec_settings[configuration.electrode_settings['driven']]
+        # Now get array of amplitudes
+        self.electrode_settings["amplitudes"] = \
+            temp_elec_settings[configuration.electrode_settings['amplitudes']]
+        # Now get array of frequencies
+        self.electrode_settings["frequencies"] = \
+            temp_elec_settings[configuration.electrode_settings['frequencies']]
+        # reassign driven electrode_dc_vals because it is overwritten
+        dcval_temp = \
+            temp_elec_settings[configuration.electrode_settings['dc_vals2']]
+        # If an electrode is swept the electrode_dc_vals is not used. Make 
+        # sure that if an electrode is drive then the dc_setting comes from 
+        # attribs["electrode_settings"]  
+        for i, e in enumerate(self.electrode_settings["driven"]):
+            if e == 1. and dcval_temp[i] != 0:
+                self.electrode_settings["dc_settings"][i] = dcval_temp[i]
+
+
+    def load(self, fname):
+        '''Loads the data from file with fname into DataFile object. 
+           Does not perform any calibrations.  
+        ''' 
+        dat, attribs = getdata(fname)
+        if len(dat) == 0:
+            self.badfile = True
+            return 
+        else:
+            self.badfile = False
         
-        if( len( lparts ) < 4 ):
-            continue
+        self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
+        self.fsamp = attribs["Fsamp"]
+        self.nsamp = len(dat[:,0])
 
-        idx = int(lparts[0])
-        dirs = lparts[1].split(',')
-        dirs_list = []
-        for cdir in dirs:
-            dirs_list.append(cdir.strip())
+        self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
+                               * (10**9) + self.time
 
-        out_dict[idx] = [dirs_list, lparts[2].strip(), int(lparts[3])]
+        fpga_fname = fname[:-3] + '_fpga.h5'
+        fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
+        self.encode_bits = attribs["encode_bits"]
 
-    return out_dict
+        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
+                                           self.encode_bits)
 
-def data_list_to_dict( d ):
-    out_dict = {"path": d[0], "label": d[1], "drive_idx": d[2]}
-    return out_dict
+        #print attribs
+        self.fname = fname
+        #print fname
+        self.date = fname.split('/')[2]
+        dat = dat[configuration.adc_params["ignore_pts"]:, :]
+
+        ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+        self.pos_data = fpga_dat['xyz']
+        self.pos_time = fpga_dat['xyz_time']
+        
+        # Load quadrant and backscatter amplitudes and phases
+        self.amp = fpga_dat['amp']
+        self.phase = fpga_dat['phase']
+        self.quad_time = fpga_dat['quad_time']
+
+        self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
+        self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
+        try:
+            self.temps = attribs["temps"]
+            # Unpacks pressure gauge vector into dict with
+            # labels for pressure gauge specified by configuration.pressure_inds    
+            self.pressures = unpack_config_dict(configuration.pressure_inds, \
+                                                attribs["pressures"]) 
+        except:
+            self.temps = 'Temps not loaded!'
+            self.pressures = 'Pressures not loaded!'
+        # Unpacks stage settings into a dictionay with keys specified by
+        # configuration.stage_inds
+        self.stage_settings = \
+            unpack_config_dict(configuration.stage_inds, \
+            attribs["stage_settings"])
+        # Load all of the electrode settings into the correct keys
+        # First get DC values from its own .h5 attribute
+        self.electrode_settings["dc_settings"] = \
+            attribs["electrode_dc_vals"][:configuration.num_electrodes]
+        
+        # Copy "electrode_settings" attribute into numpy array so it can be 
+        # indexed by a list of indicies coming from 
+        # configuration.eloectrode_settings 
+        temp_elec_settings = np.array(attribs["electrode_settings"])
+        # First get part with 1 if electrode was driven and 0 else 
+        self.electrode_settings["driven"] = \
+            temp_elec_settings[configuration.electrode_settings['driven']]
+        # Now get array of amplitudes
+        self.electrode_settings["amplitudes"] = \
+            temp_elec_settings[configuration.electrode_settings['amplitudes']]
+        # Now get array of frequencies
+        self.electrode_settings["frequencies"] = \
+            temp_elec_settings[configuration.electrode_settings['frequencies']]
+        # reassign driven electrode_dc_vals because it is overwritten
+        dcval_temp = \
+            temp_elec_settings[configuration.electrode_settings['dc_vals2']]
+        # If an electrode is swept the electrode_dc_vals is not used. Make 
+        # sure that if an electrode is drive then the dc_setting comes from 
+        # attribs["electrode_settings"]  
+        for i, e in enumerate(self.electrode_settings["driven"]):
+            if e == 1. and dcval_temp[i] != 0:
+                self.electrode_settings["dc_settings"][i] = dcval_temp[i]
+                
+    def load_other_data(self):
+        dat, attribs = getdata(self.fname)
+        dat = dat[configuration.adc_params["ignore_pts"]:, :]
+        self.other_data = np.transpose(dat[:, configuration.col_labels["other"]])
 
 
-def make_histo_vs_time(x,y,xlab="File number",ylab="beta",lab="",col="k",axs=[],isbot=False):
+    def calibrate_stage_position(self):
+        '''calibrates voltage in cant_data and into microns. 
+           Uses stage position file to put origin of coordinate 
+           system at trap in x direction with cantilever centered 
+           on trap in y. Looks for stage position file with same 
+           path and file name as self.fname '''
+        if self.cant_calibrated:
+            return
 
-    ## take x and y data and plot the time series as well as a Gaussian fit
-    ## to the distro
+        # First get everything into microns.
+        for k in configuration.calibrate_stage_keys:
+            #print k
+            self.stage_settings[k] *= configuration.stage_cal    
+            
+        try:
+            self.cant_data*=configuration.stage_cal
+            self.cant_calibrated = True
+        except:
+            1+2
+        
+        # Now load the cantilever position file.
+        # First get the path to the position file from the file base name
+        # and get the extension from configuration.extensions["stage_position"].
+        filename, file_extension = os.path.splitext(self.fname)
+        posfname = \
+            os.path.join(filename, configuration.extensions["stage_position"])
+        # Load position of course stage. If file cant be found 
+        try: 
+            pos_arr = pickle.load(open(posfname, "rb"))
+        except:
+            1 + 2
+            #print "shit is fucked"
 
-    ## now do the inset plot
-    #iax = plt.axes([0.1,0.1,0.5,0.8])
-    plt.sca(axs[0])
-    fmtstr = 'o-' if( len(y) < 200 ) else '.'
-    ms = 4 if( len(y) < 200 ) else 3
-    plt.plot( x, y, fmtstr, color=col, mec="none", markersize=ms )
-    if(isbot):
-        plt.xlabel(xlab)
-    plt.ylabel(ylab)
+    def get_cant_drive_ax(self):
+        '''Determine the index of cant_data with the largest drive voltage,
+           which is either exrtacted from stage setting or determined
+           from the RMS of the stage monitor.
+
+           INPUTS: none, uses class attributes from loaded data
+
+           OUTPUTS: none, generates new class attribute.'''
+        indmap = {0: 'x', 1: 'y', 2: 'z'}
+        driven = [0,0,0]
+        
+        if len(self.stage_settings) == 0:
+            print "No data loaded..."
+            return 
+
+        for ind, key in enumerate(['x driven','y driven','z driven']):
+            if self.stage_settings[key]:
+                driven[ind] = 1
+        if np.sum(driven) > 1:
+            amp = [0,0,0]
+            for ind, val in enumerate(driven):
+                if val: 
+                    key = indmap[ind] + ' amp'
+                    amp[ind] = self.stage_settings[key]
+            drive_ind = np.argmax(np.abs(amp))
+        if np.sum(driven) == 0: # handel case of external drive
+            drive_fft = np.fft.rfft(self.cant_data)
+            mean_sq = np.sum(np.abs(drive_fft[:, 1:])**2, axis = 1)#cut DC
+            drive_ind = np.argmax(mean_sq)
+
+        else:
+            drive_ind = np.argmax(np.abs(driven))
+
+        return drive_ind
+
+
+    def build_cant_filt(self, cant_fft, freqs, nharmonics=10, width=0, harms=[]):
+        '''Identify the fundamental drive frequency and make a notch filter
+           with the number of harmonics requested.
+
+           INPUTS: cant_fft, fft of cantilever drive
+                   freqs, array of frequencies associated to data ffts
+                   harms, number of harmonics to included
+                   width, width of the notch filter in Hz
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        # Find the drive frequency, ignoring the DC bin
+        fund_ind = np.argmax( np.abs(cant_fft[1:]) ) + 1
+        drive_freq = freqs[fund_ind]
+
+        drivefilt = np.zeros(len(cant_fft))
+        drivefilt[fund_ind] = 1.0
+
+        if width:
+            lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
+            upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
+            drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
+
+        if len(harms) == 0:
+            # Generate an array of harmonics
+            harms = np.array([x+2 for x in range(nharmonics)])
+        elif 1 not in harms:
+            drivefilt[fund_ind] = 0.0
+            if width:
+                drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
+
+        # Loop over harmonics and add them to the filter
+        for n in harms:
+            harm_ind = np.argmin( np.abs(n * drive_freq - freqs) )
+            drivefilt[harm_ind] = 1.0 
+            if width:
+                h_lower_ind = harm_ind - (fund_ind - lower_ind)
+                h_upper_ind = harm_ind + (upper_ind - fund_ind)
+                drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
+
+        return drivefilt, fund_ind, drive_freq
     
-    yy=plt.ylim()
 
-    plt.sca(axs[1])
-    #iax2=plt.gca()
+    def get_boolean_cantfilt(self, ext_cant_drive=False, ext_cant_ind=1, \
+                             nharmonics=10, harms=[], width=0):
+        '''Builds a boolean notch filter for the cantilever drive
 
-    crange = [np.percentile(y,5.)-np.std(y), np.percentile(y,95.)+np.std(y)]
-    hh, be = np.histogram( y, bins = 30, range=crange )
-    bc = be[:-1]+np.diff(be)/2.0
-    cmu, cstd = np.median(y), np.std(y)
-    amp0 = np.sum(hh)/np.sqrt(2*np.pi*cstd)
-    spars=[amp0, cmu, cstd]
-    try:
-        bp, bcov = opt.curve_fit( gauss_fun, bc, hh, p0=spars )
-    except RuntimeError:
-        bp = spars
-        bcov = np.eye(len(bp))
-        bcov[1,1] = cstd/np.sqrt( len(y) )
+           INPUTS: ext_cant_drive, bool to specify whether cantilever drive
+                                   is from an external source
+                   ext_cant_ind, index being driven externally
 
-    if( not np.shape(bcov) ):
-        bcov = np.eye(len(bp))
-        bcov[1,1] = cstd/np.sqrt( len(y) )        
+           OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''
 
-    xx = np.linspace(crange[0], crange[1], 1e3)
+        drive_ind = self.get_cant_drive_ax()
+        if ext_cant_drive:
+            drive_ind = ext_cant_ind
 
-    plt.errorbar( hh, bc, xerr=np.sqrt(hh), yerr=0, fmt='.', color=col, linewidth=1.5 )
-   
-    if(isbot):
-        plt.xlabel("Counts")
-        plt.legend(loc=0,prop={"size": 10})
+        drivevec = self.cant_data[drive_ind]
+        drivefft = np.fft.rfft(drivevec)
 
+        freqs = np.fft.rfftfreq(len(drivevec), d=1.0/self.fsamp)
 
-    plt.ylim(yy)
+        drivefilt, fund_ind, drive_freq = \
+                    self.build_cant_filt(drivefft, freqs, nharmonics=nharmonics, \
+                                         harms=harms, width=width)
 
-    #plt.subplots_adjust(top=0.96, right=0.99, bottom=0.15, left=0.075)
+        # Apply filter by indexing with a boolean array
+        ginds = drivefilt > 0
+
+        return ginds, fund_ind, drive_freq, drive_ind
 
 
-def simple_sort( s ):
-    ## simple sort function that sorts by last number in the file name
-    ss = re.findall("\d+.h5", s)
-    if( not ss ):
-        return 0.
-    else:
-        return float(ss[0][:-3])
+    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False):   
+        '''Applies a cantilever notch filter and returns the filtered data
+           with an error estimate based on the neighboring bins of the PSD
+
+           INPUTS: ginds, boolean cantilever drive notch filter
+                   drive_freq, cantilever drive freq
+
+           OUTPUTS: datffts, ffts evalutated at ginds
+                    diagdatffts, diagffts evaluated at ginds
+                    daterrs, errors from surrounding bins
+                    diagdaterrs, diag errors from surrounding bins
+        ''' 
+
+        datffts = [[], [], []]
+        daterrs = [[], [], []]
+
+        if diag:
+            diagdatffts = [[], [], []]
+            diagdaterrs = [[], [], []]
+
+        freqs = np.fft.rfftfreq(len(self.pos_data[0]), d=1.0/self.fsamp)
+        fund_ind = np.argmin(np.abs(freqs - drive_freq))
+        bin_sp = freqs[1] - freqs[0]
+
+        harm_freqs = freqs[ginds]
+
+        if type(harm_freqs) == np.float64:
+            harm_freqs = np.array([harm_freqs])
+            just_one = True
+        else:
+            just_one = False
+
+        for resp in [0,1,2]:
+
+            N = len(self.pos_data[resp])
+
+            datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
+            datffts[resp] = datfft[ginds]
+            daterrs[resp] = np.zeros_like(datffts[resp])
+            
+            if diag:
+                diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
+                diagdatffts[resp] = diagdatfft[ginds]
+                diagdaterrs[resp] = np.zeros_like(datffts[resp])
+
+            for freqind, freq in enumerate(harm_freqs):
+                harm_ind = np.argmin(np.abs(freqs-freq))
+                noise_inds = np.abs(freqs - freq) < 0.5*noiseband
+                noise_inds[harm_ind] = False
+                if freqind == 0:
+                    noise_inds_init = noise_inds
+
+                errval = np.median(np.abs(datfft[noise_inds]))
+                if just_one:
+                    daterrs[resp] = errval
+                else:
+                    daterrs[resp][freqind] = errval
+                #daterrs[resp][freqind] = np.abs(datfft[harm_ind])
+                if diag:
+                    diagerrval = np.median(np.abs(diagdatfft[noise_inds]))
+                    if just_one:
+                        diagdaterrs[resp] = diagerrval
+                    else:
+                        diagdaterrs[resp][freqind] = diagerrval
+                    #diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
+
+            if plot:
+                normfac = np.sqrt(bin_sp)*fft_norm(N, self.fsamp)
+
+                plt.figure()
+                plt.loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
+                plt.loglog(freqs[noise_inds_init], np.abs(datfft[noise_inds_init])*normfac)
+                plt.loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, '.', ms=10)
+                plt.ylabel('Force [N]')
+                plt.xlabel('Frequency [Hz]')
+
+                plt.figure()
+                plt.plot(datfft[ginds].real * normfac, label='real')
+                plt.plot(datfft[ginds].imag * normfac, label='imag')
+                plt.plot(np.sqrt(2)*daterrs[resp] * normfac, label='errs')
+                plt.legend()
+                plt.show()
+
+        datffts = np.array(datffts)
+        daterrs = np.array(daterrs)
+        if diag:
+            diagdatffts = np.array(diagdatffts)
+            diagdaterrs = np.array(diagdaterrs)
+
+        if not diag:
+            diagdatffts = np.zeros_like(datffts)
+            diagdaterrs = np.zeros_like(daterrs)
+
+        return datffts, diagdatffts, daterrs, diagdaterrs
+
+
+    def detrend_poly(self, order=1, plot=False):
+        '''Remove a polynomial of arbitrary order from data.
+
+           INPUTS: order, order of the polynomial to subtract
+                   plot, boolean whether to plot detrending result
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        for resp in [0,1,2]:
+            self.pos_data[resp] = polynomial(self.pos_data[resp], \
+                                             order=order, plot=plot)
+
+        if len(self.other_data):
+            for ax in [0,1,2,3,4]:
+                self.other_data[ax] = polynomial(self.other_data[ax], \
+                                                 order=order, plot=plot)
+
+
+    def high_pass_filter(self, order=1, fc=1.0):
+        '''Apply a digital butterworth type filter to the data
+
+           INPUTS: order, order of the butterworth filter
+                   fc, cutoff frequency in Hertz
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        Wn = 2.0 * fc / self.fsamp
+        b, a = signal.butter(order, Wn, btype='highpass')
+
+        for resp in [0,1,2]:
+            self.pos_data[resp] = signal.filtfilt(b, a, self.pos_data[resp])
+
+
+    def diagonalize(self, date='', interpolate=False, maxfreq=1000, plot=False):
+        '''Diagonalizes data, adding a new attribute to the DataFile object.
+
+           INPUTS: date, date in form YYYYMMDD if you don't want to use
+                         default TF from file date
+                   interpolate, boolean specifying whether to use an 
+                                interpolating function or fit to damped HO
+                   maxfreq, max frequency above which data is top-hat filtered
+
+           OUTPUTS: none, generates new class attribute.'''
+
+        tf_path = '/calibrations/transfer_funcs/'
+        ext = configuration.extensions['trans_fun']
+        if not len(date):
+            tf_path +=  self.date
+        else:
+            tf_path += date
+
+        if interpolate:
+            tf_path += '_interp' + ext
+        else:
+            tf_path += ext
+
+        # Load the transfer function. Note that this Hfunc maps
+        # drive -> response, so we will need to invert
+        try:
+            Hfunc = pickle.load(open(tf_path, 'rb'))
+        except:
+            print "Couldn't automatically find correct TF"
+            return
+
+        # Generate FFT frequencies for given data
+        N = len(self.pos_data[0])
+        freqs = np.fft.rfftfreq(N, d=1.0/self.fsamp)
+
+        # Compute TF at frequencies of interest. Appropriately inverts
+        # so we can map response -> drive
+        Harr = tf.make_tf_array(freqs, Hfunc)
+
+        if plot:
+            tf.plot_tf_array(freqs, Harr)
+
+        maxfreq_ind = np.argmin( np.abs(freqs - maxfreq) )
+        Harr[maxfreq_ind+1:,:,:] = 0.0+0.0j
+
+        f_ind = np.argmin( np.abs(freqs - 41) )
+        mat = Harr[f_ind,:,:]
+        conv_facs = [0, 0, 0]
+        for i in [0,1,2]:
+            conv_facs[i] = np.abs(mat[i,i])
+        self.conv_facs = conv_facs
+
+        # Compute the FFT, apply the TF and inverse FFT
+        data_fft = np.fft.rfft(self.pos_data)
+        diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
+
+
+        if plot:
+            fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
+            for ax in [0,1,2]:
+                axarr[ax].loglog(freqs, np.abs(data_fft[ax])*conv_facs[ax])
+                axarr[ax].loglog(freqs, np.abs(diag_fft[ax]))
+            plt.tight_layout()
+            plt.show()
+
+        self.diag_pos_data = np.fft.irfft(diag_fft)
+
+
+    
+
+
+    def plot_cant_asd(self, drive_ax, np_mlab_compare=False):
+        '''Plots the ASD = sqrt(PSD) of a given cantilever drive. This is useful
+           for debugging and such
+
+           INPUTS: drive_ax, [0,1,2] axis of cantilever drive
+
+           OUTPUTS: none, plots stuff'''
+        
+        if np_mlab_compare:
+            fac = np.sqrt(2.0 /  (len(self.pos_data[0]) * self.fsamp))
+            fftfreqs = np.fft.rfftfreq(len(self.pos_data[0]), d=1.0/self.fsamp)
+            drivepsd = np.abs(np.fft.rfft(self.cant_data[drive_ax])) * fac
+            plt.loglog(fftfreqs, drivepsd, label='NumPy FFT amplitude')
+
+        drivepsd2, freqs2 = mlab.psd(self.cant_data[drive_ax], NFFT=len(self.pos_data[0]), \
+                                     Fs=self.fsamp, window=mlab.window_none)
+        
+        plt.loglog(freqs2, np.sqrt(drivepsd2), label='Mlab PSD')
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('ASD [$\mu$m/rt(Hz)]')
+        if np_mlab_compare:
+            plt.legend(loc=0)
+        plt.show()
+
+
+
+
+    def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
+                        sg_filter=False, sg_params=[3,1], verbose=True, \
+                        cantilever_drive=True, electrode_drive=False, \
+                        fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0):
+        '''Sptially bins X, Y and Z responses against driven cantilever axis,
+           or in the case of multiple axes driven simultaneously, against the
+           drive with the largest amplitude.
+
+           INPUTS: nbins, number of output bins
+                   nharmonics, number of harmonics to include in fourier
+                               binning procedure
+                   width, bandwidth, in Hz, of notch filter
+                   sg_filter, boolean specifying use of Savitsky-Golay filter
+                   sg_params, parameters for Savitsky-Golay filter
+                   verbose, boolean for some extra text outputs
+                   cantilever_drive, boolean to specify binning against cant
+                   electrode_drive, boolean to bin against an electrode drive
+                                    for reconstruction testing
+                   fakedrive, boolean to use a fake drive signal
+                   fakefreq, frequency of fake drive
+                   fakeamp, fake amplitude in microns
+                   fakephi, fake phase for fake drive
+
+           OUTPUTS: none, generates new class attribute'''
+    
+        if cantilever_drive and not fakedrive:
+            # First, find which axes were driven. If multiple are found,
+            # it takes the axis with the largest amplitude
+            
+            cant_ind = self.get_cant_drive_ax()
+            drivevec = self.cant_data[cant_ind]
+
+        elif cantilever_drive and fakedrive:
+            numsamp = len(self.pos_data[0])
+            dt = 1.0 / self.fsamp
+            t = np.linspace(0, numsamp - 1, numsamp) * dt
+            drivevec = fakeamp * np.sin(2.0 * np.pi * fakefreq * t + fakephi) + fakeamp
+
+        if electrode_drive:
+            elec_ind = np.argmax(self.electrode_settings['driven'])
+            drivevec = self.electrode_data[elec_ind]
+            
+
+        # Bin responses against the drive. If data has been diagonalized,
+        # it bins the diagonal data as well
+        dt = 1. / self.fsamp
+        binned_data = [[0,0], [0,0], [0,0]]
+        if len(self.diag_pos_data):
+            diag_binned_data = [[0,0], [0,0], [0,0]]
+        for resp in [0,1,2]:
+            bins, binned_vec = spatial_bin(drivevec, self.pos_data[resp], dt, \
+                                           nbins = nbins, nharmonics = nharmonics, \
+                                           width = width, sg_filter = sg_filter, \
+                                           sg_params = sg_params, verbose = verbose)
+            binned_data[resp][0] = bins
+            binned_data[resp][1] = binned_vec
+            
+            if len(self.diag_pos_data):
+                diag_bins, diag_binned_vec = \
+                            spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
+                                        nbins = nbins, nharmonics = nharmonics, \
+                                        width = width, sg_filter = sg_filter, \
+                                        sg_params = sg_params, verbose = verbose)
+
+                diag_binned_data[resp][0] = diag_bins
+                diag_binned_data[resp][1] = diag_binned_vec
+
+        self.binned_data = binned_data
+        if len(self.diag_pos_data):
+            self.diag_binned_data = diag_binned_data
+                
+

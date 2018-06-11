@@ -1,7 +1,9 @@
 .*
 *.pyc
 *~
-/scripts/gravity_sim/test_masses/**/*
+/gravity_sim/**/test_masses/**/*
+/gravity_sim/**/data/**/*
+/scripts/kp_analysis
 
 processed.pkl
 !/.gitignore

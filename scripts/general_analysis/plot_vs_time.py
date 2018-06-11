@@ -1,109 +1,159 @@
-import cant_utils as cu
+import os, fnmatch, sys
+
+import dill as pickle
+
+import scipy.interpolate as interp
+
 import numpy as np
 import matplotlib.pyplot as plt
-import glob 
+import matplotlib.mlab as mlab
+
 import bead_util as bu
-import Tkinter
-import tkFileDialog
-import os, sys
-from scipy.optimize import curve_fit
-import bead_util as bu
-from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
-import time
+import configuration as config
 
 
-dirs = [45, 46]
+dir1 = '/data/20171221/bead6/test_2chan_chirp/test2_3000Hz-4000Hz'
 
-ddict = bu.load_dir_file( "/home/charles/opt_lev_analysis/scripts/dirfiles/dir_file_june2017.txt" )
+step10 = True
+invert_order = False
 
-files = [0,1]
-axes_to_plot = [2, 4]
-maxfiles = 2
+data_axes = [6,7]
 
-load_charge_cal = True
+maxfiles = 1000 # Many more than necessary
+lpf = 2500   # Hz
 
-calibrate = True
-tf_path = './trans_funcs/Hout_20170627.p'
-step_cal_path = './calibrations/step_cal_20170627.p'
-thermal_cal_file_path = '/data/20170627/bead4/1_6mbar_nocool.h5'
-cal_drive_freq = 41.
+file_inds = (0, 500)
 
-
-init_data = [0., 0., 20.]
-
-def proc_dir(d):
-    dv = ddict[d]
-
-    init_data = [dv[0], [0,0,dv[-1]], dv[1]]
-    dir_obj = cu.Data_dir(dv[0], [0,0,dv[-1]], dv[1])
-    dir_obj.load_dir(cu.simple_loader)
-    
-    return dir_obj
+userNFFT = 2**12
+diag = False
 
 
-dir_objs = map(proc_dir, dirs)
+fullNFFT = False
 
-time_dict = {}
-for obj in dir_objs:
-    for find, fobj in enumerate(obj.fobjs):
-        if find not in files:
-            continue
-        time = fobj.Time
-        if time not in time_dict:
-            time_dict[time] = []
-            time_dict[time].append(fobj.fname)
-        else:
-            time_dict[time].append(fobj.fname)
+###########################################################
 
 
-times = time_dict.keys()
 
-colors_yeay = bu.get_color_map( len(times) )
-f, axarr = plt.subplots(len(axes_to_plot),2,sharey='row',sharex='all',figsize=(10,12),dpi=100)
+def plot_vs_time(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
+                      diag=True, colormap='jet', sort='time', file_inds=(0,10000)):
+    '''Loops over a list of file names, loads each file, diagonalizes,
+       then plots the amplitude spectral density of any number of data
+       or cantilever/electrode drive signals
 
-for i, time in enumerate(times):
+       INPUTS: files, list of files names to extract data
+               data_axes, list of pos_data axes to plot
+               cant_axes, list of cant_data axes to plot
+               elec_axes, list of electrode_data axes to plot
+               diag, boolean specifying whether to diagonalize
 
-    newobj = cu.Data_dir(0, init_data, time)
-    newobj.files = time_dict[time]
-    newobj.load_dir(cu.diag_loader, maxfiles=maxfiles)
+       OUTPUTS: none, plots stuff
+    '''
 
-    newobj.load_H(tf_path)
-    newobj.load_step_cal(step_cal_path)
+    if diag:
+        dfig, daxarr = plt.subplots(len(data_axes),2,sharex=True,sharey=True, \
+                                    figsize=(8,8))
+    else:
+        dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+                                    figsize=(8,8))
 
-    newobj.calibrate_H()
 
-    newobj.diagonalize_files(reconstruct_lowf=True,lowf_thresh=200.,# plot_Happ=True, \
-                             build_conv_facs=True, drive_freq=cal_drive_freq, close_dat=False)
+    if len(cant_axes):
+        cfig, caxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True)
+    if len(elec_axes):
+        efig, eaxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True)
 
-    fobj = newobj.fobjs[0]
-    #print fobj.pos_data
-    #raw_input()
-    
-    for axind, ax in enumerate(axes_to_plot):
+
+    files = [(os.stat(path), path) for path in files]
+    files = [(stat.st_ctime, path) for stat, path in files]
+    files.sort(key = lambda x: (x[0]))
+    files = [obj[1] for obj in files]
+
+    files = files[file_inds[0]:file_inds[1]]
+    if step10:
+        files = files[::10]
+    if invert_order:
+        files = files[::-1]
+
+    colors = bu.get_color_map(len(files), cmap=colormap)
+
+    old_per = 0
+    print "Processing %i files..." % len(files)
+    print "Percent complete: "
+    for fil_ind, fil in enumerate(files):
+        color = colors[fil_ind]
         
-        axarr[axind,0].set_ylabel('Data Axis: %s' % str(ax))
+        # Display percent completion
+        per = int(100. * float(fil_ind) / float(len(files)) )
+        if per > old_per:
+            print old_per,
+            sys.stdout.flush()
+            old_per = per
+
+        # Load data
+        df = bu.DataFile()
+        df.load(fil)
+
+        df.calibrate_stage_position()
         
-        if ax <= 2:
-            fac = newobj.conv_facs[ax]
-            axarr[axind,0].plot(fobj.pos_data[ax] * fac)
-            axarr[axind,1].plot(fobj.diag_pos_data[ax])
-        elif ax > 2:
-            newax = ax-3
-            axarr[axind,0].plot(fobj.other_data[newax])
-            axarr[axind,1].plot(fobj.other_data[newax])
+        df.high_pass_filter(fc=1)
+        df.detrend_poly()
+
+        df.diagonalize(maxfreq=lpf, interpolate=False)
+
+        loaded_other = False
+        for ax in data_axes:
+            if ax > 2 and not loaded_other:
+                df.load_other_data()
+
+        for axind, ax in enumerate(data_axes):
+        
+            if ax <= 2:
+                data = df.pos_data[ax]
+                fac = df.conv_facs[ax]
+            if ax > 2:
+                data = df.other_data[ax-3]
+                fac = 1.0
+
+            t = np.arange(len(data)) * (1.0 / df.fsamp)
+
+            if diag:
+
+                daxarr[axind,0].plot(t, data * fac, color=color)
+                daxarr[axind,0].grid(alpha=0.5)
+                daxarr[axind,1].plot(t, data, color = color)
+                daxarr[axind,1].grid(alpha=0.5)
+                daxarr[axind,0].set_ylabel('[N]', fontsize=10)
+                if ax == data_axes[-1]:
+                    daxarr[axind,0].set_xlabel('t [s]', fontsize=10)
+                    daxarr[axind,1].set_xlabel('t [s]', fontsize=10)
+            else:
+                daxarr[axind].plot(t, data * fac, color=color)
+                daxarr[axind].grid(alpha=0.5)
+                daxarr[axind].set_ylabel('[N]', fontsize=10)
+                if ax == data_axes[-1]:
+                    daxarr[axind].set_xlabel('t [s]', fontsize=10)
+
+        if len(cant_axes):
+            for axind, ax in enumerate(cant_axes):
+                
+                t = np.arange(len(df.cant_data[ax])) * (1.0 / df.fsamp)
+                caxarr[axind].plot(t, df.cant_data[ax], color=color )
+
+        if len(elec_axes):
+            for axind, ax in enumerate(elec_axes): 
+
+                t = np.arange(len(df.electrode_data[ax])) * (1.0 / df.fsamp)
+                eaxarr[axind].plot(t, df.electrode_data[ax], color=color )
+
+    #daxarr[0].set_xlim(0.5, 25000)
+    #daxarr[0].set_ylim(1e-21, 1e-14)
+    plt.tight_layout()
 
 
-axarr[0,0].set_title('Raw Data: Chosen Axes')
-axarr[0,1].set_title('Diagonalized Data: Chosen Axes')
-
-for col in [0,1]:
-    axarr[-1,col].set_xlabel('Sample [arb]')
+    plt.show()
 
 
-axarr[0,0].legend(loc=0, numpoints=1, ncol=2, fontsize=9)
 
-#if len(fig_title):
-#    f.suptitle(fig_title, fontsize=18)
+allfiles = bu.find_all_fnames(dir1)
 
-plt.show()
+plot_vs_time(allfiles, data_axes=data_axes, file_inds=file_inds, diag=diag)
