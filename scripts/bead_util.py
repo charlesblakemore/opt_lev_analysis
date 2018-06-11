@@ -130,7 +130,7 @@ class DataFile:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
 
-    def load(self, fname):
+    def load(self, fname, load_FPGA = True):
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
@@ -155,6 +155,13 @@ class DataFile:
         fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
                                            self.encode_bits)
 
+            self.pos_data = fpga_dat['xyz']
+            self.pos_time = fpga_dat['xyz_time']
+        
+            # Load quadrant and backscatter amplitudes and phases
+            self.amp = fpga_dat['amp']
+            self.phase = fpga_dat['phase']
+            self.quad_time = fpga_dat['quad_time']
         #print attribs
         self.fname = fname
         #print fname
@@ -162,13 +169,6 @@ class DataFile:
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
         ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
-        self.pos_data = fpga_dat['xyz']
-        self.pos_time = fpga_dat['xyz_time']
-        
-        # Load quadrant and backscatter amplitudes and phases
-        self.amp = fpga_dat['amp']
-        self.phase = fpga_dat['phase']
-        self.quad_time = fpga_dat['quad_time']
 
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
         self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])

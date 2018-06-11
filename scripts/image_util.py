@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 import bead_util as bu
+import bead_util_funcs as buf
 import os
 import configuration
 import glob
@@ -60,7 +61,7 @@ def getNanoStage(fname):
        Returns the median voltage times the stage calibration from V to um'''
     h5fname = os.path.splitext(fname)[0]
     df = bu.DataFile()
-    df.load(h5fname)
+    df.load(h5fname, load_FPGA = False)
     return np.median(df.cant_data, axis = -1)*configuration.stage_cal
 
 def plotImages(Images):
@@ -114,22 +115,25 @@ def findMaxCorr(corr, make_plot = False, \
     return ind
 
 
-def find_init_y_center(image_arr, thresh = 15., sigma = 3, \
-                        make_plot = True):
+def find_init_y_center_front(image_arr, thresh = 15., sigma = 3, rthresh = .8, \
+                    yroi = 20, make_plot = True):
     '''finds first guess for the center of the cantilever in pixels.'''
     barr = ndf.gaussian_filter(image_arr, sigma)>thresh
-    b_marg = np.sum(barr, axis = 0)
+    y_marg = np.sum(barr, axis = 1)
+    init_front = np.argmin((y_marg - rthresh*np.max(y_marg))**2)
+    b_marg = np.sum(barr[-init_front:-init_front + yroi, :], axis = 0)
     pixels = np.arange(len(b_marg))
     init_center = np.sum(pixels*b_marg)/np.sum(b_marg)
     if make_plot:
         plt.imshow(image_arr)
+        plt.axhline(y = init_front)
         plt.axvline(x = init_center)
         plt.show()
-    return init_center
+    return init_center, init_front
 
-def refine_y_center(imarge_arr, init_center):
+def refine_y_center(imarge_arr, init_center, make_plot = True):
     '''refines guess for initial center of the attractor'''
-
+    
 
 def line(x, m, b):
     '''line function for fitting'''
@@ -201,7 +205,8 @@ class ImageGrid:
     def __init__(self, path):
         '''loads images from path into list of image objects'''
         imArr = []
-        imFnames = glob.glob(path + '/*.h5.npy')
+        imFnames = buf.find_all_fnames(path, ext = '.npy')
+        #print imFnames
         for fname in imFnames:
             imArr.append(Image(fname))
         self.fnames = imFnames
