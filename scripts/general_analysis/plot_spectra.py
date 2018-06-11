@@ -233,7 +233,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 if use_dir:
     allfiles = bu.find_all_fnames(dir1)
 
-allfiles = allfiles[:maxfiles]
+allfiles = allfiles[40:maxfiles]
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes)

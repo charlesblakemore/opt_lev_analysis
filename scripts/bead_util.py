@@ -150,8 +150,10 @@ class DataFile:
 
         fpga_fname = fname[:-3] + '_fpga.h5'
         fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
+        self.encode_bits = attribs["encode_bits"]
 
-        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp)
+        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
+                                           self.encode_bits)
 
         #print attribs
         self.fname = fname
