@@ -635,6 +635,7 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     xyz_time = []
     xyz = [[], [], []]
+    sync = []
 
     for ind, dat in enumerate(xyz_dat):
 
@@ -657,9 +658,11 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
                 xyz[1].append(dat)
             elif xyz_ind == 4:
                 xyz[2].append(dat)
+            elif xyz_ind == 5:
+                sync.append(dat)
             
             xyz_ind += 1
-            xyz_ind = xyz_ind % 5
+            xyz_ind = xyz_ind % 6
 
         # Check for the timestamp
         if not writing_data and xyz_ind == 0:
@@ -693,11 +696,12 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Re-size everything by the minimum length and convert to numpy array
     xyz_time = np.array(xyz_time[:min_len])
+    sync = np.array(sync[:min_len])
     for ind in [0,1,2]:
         xyz[ind]   = xyz[ind][:min_len]
     xyz = np.array(xyz)        
 
-    return xyz_time, xyz
+    return xyz_time, xyz, sync
 
 
 
@@ -740,40 +744,65 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     # raw_time, raw_dat = extract_raw(dat0, timestamp)
     raw_time, raw_dat = (None, None)
     quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-    xyz_time, xyz = extract_xyz(dat2, timestamp, verbose=verbose)
+    xyz_time, xyz, sync = extract_xyz(dat2, timestamp, verbose=verbose)
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
            'xyz_time': xyz_time, 'xyz': xyz, \
            'quad_time': quad_time, 'amp': amp, \
-           'phase': phase}
+           'phase': phase, 'sync': sync}
 
     return out
 
 
 
-def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp):
-    '''Based on the daqmx timestamp, find the start of the starting
-       point in the FPGA and crop the result to have the same number
-       of samples.'''
+def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
+                            encode_len=500, plot_synch=False):
+    '''Align the psuedo-random bits the DAQ card spits out to the FPGA
+       to synchronize the acquisition of the FPGA.'''
 
     out = {}
+
+    # The FIFOs to read the raw data aren't even setup yet
+    # so this is just some filler code
     out['raw_time'] = fpga_dat['raw_time']
     out['raw_dat'] = fpga_dat['raw_dat']
 
+    # Cutoff irrelevant zeros
+    encode_bin = np.array(encode_bin[:encode_len])
+
+    # Load the I32 representation of the synchronization data
+    # At each 500 kHz sample of the FPGA, the state of the sync
+    # digital pin is sampled: True->(I32+1), False->(I32-1)
+    sync_dat = fpga_dat['sync']
+
+    sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
+
+    corr = np.correlate(sync_dat, encode_bin)
+    off_ind = np.argmax(corr)
+
+    if plot_synch:
+        # Make an array of indices for plotting
+        inds = np.linspace(0,encode_len-1,encode_len)
+        dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
+
+        plt.step(inds, encode_bin, lw=2.5, where='pre', label='encode_bits')
+        plt.step(dat_inds-off_ind, sync_dat, where='pre', label='aligned_data')
+        plt.xlim(-5, encode_len+10)
+
+        plt.show()
+
     # Find the xyz and quad timestamps that match the daqmx first 
     # sample timestamp
-    xyz_time_ind = np.argmin( np.abs( fpga_dat['xyz_time'] - timestamp ) )
-    quad_time_ind = np.argmin( np.abs( fpga_dat['quad_time'] - timestamp ) )
 
     # Crop the xyz arrays
-    out['xyz_time'] = fpga_dat['xyz_time'][xyz_time_ind:xyz_time_ind+nsamp]
-    out['xyz'] = fpga_dat['xyz'][:,xyz_time_ind:xyz_time_ind+nsamp]
+    out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
+    out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
 
     # Crop the quad arrays
-    out['quad_time'] = fpga_dat['quad_time'][quad_time_ind:quad_time_ind+nsamp]
-    out['amp'] = fpga_dat['amp'][:,quad_time_ind:quad_time_ind+nsamp]
-    out['phase'] = fpga_dat['phase'][:,quad_time_ind:quad_time_ind+nsamp]
+    out['quad_time'] = fpga_dat['quad_time'][off_ind:off_ind+nsamp]
+    out['amp'] = fpga_dat['amp'][:,off_ind:off_ind+nsamp]
+    out['phase'] = fpga_dat['phase'][:,off_ind:off_ind+nsamp]
 
     # return data in the same format as it was given
     return out

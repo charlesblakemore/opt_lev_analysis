@@ -13,12 +13,14 @@ import configuration as config
 
 #dir1 = '/data/20180520/bead1/dipole_vs_height/10V_1'
 #dir1 = '/data/20180520/bead1/spinning/chirpup5'
-dir1 = '/data/20180520/bead1/grav_data/1sep_pics_good'
+dir1 = '/data/20180605/bead1/overnight'
+#dir1 = '/data/20180605/bead1/discharge/coarse2'
+maxfiles = 200
 
-use_dir = False
+use_dir = True
 
-allfiles = ['/data/20180314/bead1/1_6mbar_zcool.h5'] #, \
-            #'/data/20180520/bead1/1_6mbar_zcool.h5']
+#allfiles = ['/data/20180605/bead1/1_8mbar_zcool.h5', \
+#            '/data/20180605/bead1/turbombar_xyzcool.h5']
 
 data_axes = [0,1,2]
 other_axes = []
@@ -76,7 +78,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         dfig, daxarr = plt.subplots(len(data_axes),2,sharex=True,sharey=True, \
                                     figsize=(8,8))
     else:
-        dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
+        dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=False, \
                                     figsize=(8,8))
 
     if len(cant_axes):
@@ -105,7 +107,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         files = files[::-1]
 
     colors = bu.get_color_map(len(files), cmap=colormap)
-    
+    #colors = ['C0', 'C1', 'C2']
+
     old_per = 0
     print "Processing %i files..." % len(files)
     for fil_ind, fil in enumerate(files):
@@ -128,6 +131,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         
         df.high_pass_filter(fc=1)
         df.detrend_poly()
+
+        #plt.figure()
+        #plt.plot(df.pos_data[0])
+        #plt.show()
 
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
@@ -225,6 +232,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
 if use_dir:
     allfiles = bu.find_all_fnames(dir1)
+
+allfiles = allfiles[40:maxfiles]
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes)
