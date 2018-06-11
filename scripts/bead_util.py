@@ -147,13 +147,14 @@ class DataFile:
 
         self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
                                * (10**9) + self.time
+        if load_FPGA:
+            fpga_fname = fname[:-3] + '_fpga.h5'
+            fpga_dat = get_fpga_data(fpga_fname, verbose=False,\
+                    timestamp=self.time)
+            self.encode_bits = attribs["encode_bits"]
 
-        fpga_fname = fname[:-3] + '_fpga.h5'
-        fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
-        self.encode_bits = attribs["encode_bits"]
-
-        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                           self.encode_bits)
+            fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, \
+                    self.nsamp, self.encode_bits)
 
             self.pos_data = fpga_dat['xyz']
             self.pos_time = fpga_dat['xyz_time']
