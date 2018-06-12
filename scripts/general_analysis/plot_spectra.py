@@ -16,9 +16,18 @@ maxfiles = 200
 
 use_dir = False
 
-allfiles = [r'C:\Data\20180611\bead1\1_4mbar_zcool.h5', \
-            r'C:\Data\20180611\bead1\1_4mbar_xyzcool.h5']
-          
+#allfiles = [r'C:\Data\20180611\bead6\1_4mbar_zcool_init.h5',\
+#            r'C:\Data\20180611\bead6\1_4mbar_zcool_low1.h5', \
+#            r'C:\Data\20180611\bead6\1_4mbar_zcool_low2.h5']
+
+allfiles = [r'C:\Data\20180611\bead6\1_4mbar_xyzcool.h5',\
+            r'C:\Data\20180611\bead6\turbombar_xyzcool_pumped.h5', \
+            r'C:\Data\20180611\bead6\post_pump3\turbombar_xyzcool_pumped_0.h5']
+
+labels = []
+labels = ['1.4 mbar', 'Post-Pump', 'Much Later']
+matplotlib_colors = False
+
 data_axes = [0,1,2]
 other_axes = []
 #other_axes = [5,7]
@@ -104,7 +113,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         files = files[::-1]
 
     colors = bu.get_color_map(len(files), cmap=colormap)
-    #colors = ['C0', 'C1', 'C2']
+    colors = ['r', 'g', 'b']
+    if matplotlib_colors:
+        colors = ['C' + str(i) for i in range(10)]
 
     old_per = 0
     print "Processing %i files..." % len(files)
@@ -175,7 +186,15 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                     daxarr[axind,0].set_xlabel('Frequency [Hz]', fontsize=10)
                     daxarr[axind,1].set_xlabel('Frequency [Hz]', fontsize=10)
             else:
-                daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color)
+                if len(labels):
+                    try:
+                        lab = labels[fil_ind]
+                    except:
+                        lab = ''
+                else:
+                    lab = ''
+                daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, \
+                                     label=lab, color=color)
                 daxarr[axind].grid(alpha=0.5)
                 daxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
                 if ax == data_axes[-1]:
@@ -201,7 +220,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 
-
+    daxarr[0].legend(loc=0)
     daxarr[0].set_xlim(0.5, 25000)
     if len(ylim):
         daxarr[0].set_ylim(ylim[0], ylim[1])
