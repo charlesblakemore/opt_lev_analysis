@@ -62,7 +62,7 @@ def getNanoStage(fname):
        Returns the median voltage times the stage calibration from V to um'''
     h5fname = os.path.splitext(fname)[0]
     df = bu.DataFile()
-    df.load(h5fname, load_FPGA = False)
+    df.load(h5fname)
     return np.median(df.cant_data, axis = -1)*configuration.stage_cal
 
 def plotImages(Images):
