@@ -683,7 +683,7 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
             if verbose:
                 print "couldn't close file, not sure if it's open"
 
-    if len(dat0):
+    if len(dat1):
         # Use subroutines to handle each type of data
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
         raw_time, raw_dat = (None, None)
@@ -691,8 +691,8 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         xyz_time, xyz, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
     else:
         raw_time, raw_dat = (None, None)
-        quad_time, amp, phase = (None, None)
-        xyz_time, xyz, xyz_fb, sync = (None, None)
+        quad_time, amp, phase = (None, None, None)
+        xyz_time, xyz, xyz_fb, sync = (None, None, None, None)
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
@@ -712,8 +712,10 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     out = {}
     notNone = False
     for key in fpga_dat:
-        if fpga_dat[key] == None:
-            return fpga_dat
+        if type(fpga_dat[key]) != type(None):
+            notNone = True
+    if not notNone:
+        return fpga_dat
 
     # The FIFOs to read the raw data aren't even setup yet
     # so this is just some filler code

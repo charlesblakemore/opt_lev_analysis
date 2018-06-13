@@ -25,7 +25,7 @@ step_cal_dir = '/data/20180524/bead1/discharge/fine3'
 fake_step_cal = True
 vpn = 1.0e14
 
-tf_cal_dir = '/data/20180613/bead1/tf_20180613/'
+tf_cal_dir = '/data/20180613/bead1/tf_20180613_2/'
 
 date = tf_cal_dir.split('/')[2]
 
