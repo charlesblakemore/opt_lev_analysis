@@ -17,6 +17,7 @@ import scipy.stats
 import beam_profile as bf
 import scipy.ndimage.filters as ndf
 import cv2
+from scipy.signal import argrelextrema
 #Functions for use in the class representing image data.
 
 b, a = signal.butter(4, [.005, .5], btype = 'bandpass')
@@ -116,7 +117,7 @@ def findMaxCorr(corr, make_plot = False, \
 
 
 def find_init_y_center_front(image_arr, thresh = 15., sigma = 3, rthresh = .8, \
-                    yroi = 20, make_plot = True):
+                    yroi = 20, make_plot = False):
     '''finds first guess for the center of the cantilever in pixels.'''
     barr = ndf.gaussian_filter(image_arr, sigma)>thresh
     y_marg = np.sum(barr, axis = 1)
@@ -131,13 +132,67 @@ def find_init_y_center_front(image_arr, thresh = 15., sigma = 3, rthresh = .8, \
         plt.show()
     return init_center, init_front
 
-def refine_y_center(imarge_arr, init_center, make_plot = True):
+def refine_local_min(marg, roi, init_guess):
+    '''finds local min around init_guess'''
+    return np.argmin(marg[init_guess-roi:init_guess+roi])-roi+init_guess
+
+
+def find_trap_y(imarr, init_front, rthresh = 0.8, make_plot = False):
+    '''finds the laser beam in an image'''
+    barr = imarr>rthresh*np.max(imarr)
+    marg = np.sum(barr[0:init_front, :], axis = 0)
+    x = np.argmax(marg)
+    if make_plot:
+        plt.plot(marg)
+        plt.plot([x], marg[int(x)], 'xr')
+        plt.show()
+    return x
+
+
+
+def refine_y_center(image_arr, yroi = 20, xroi = 3, half_width = 20,\
+        wn = 0.15, make_plot = True):
     '''refines guess for initial center of the attractor'''
-    
+    init_cent, init_front = find_init_y_center_front(image_arr)
+    marg = np.sum(image_arr[-init_front:-init_front + yroi, :], axis = 0)
+    refine_cent = refine_local_min(marg, xroi, init_cent)
+    b, a = signal.butter(4, 0.15, btype = 'low')
+    margf = signal.filtfilt(b, a, marg)
+    lmins = argrelextrema(margf, np.less)[0]
+    lmins = lmins[np.abs(lmins-init_cent)<half_width]
+    cent_refine = np.mean(lmins)
+    x = find_trap_y(image_arr, init_front) 
+    if make_plot:
+        #plt.plot(marg)
+        #plt.plot(margf)
+        #plt.plot([refine_cent], marg[refine_cent], 'x')
+        #plt.plot(lmins, margf[lmins], 'o')
+        #plt.show()
+        plt.imshow(image_arr)
+        for m in lmins:
+            plt.axvline(x = m, c = 'y', linewidth = 2)
+        plt.axvline(x = cent_refine, c = 'r', linewidth = 1)
+        plt.axvline(x = x, c = 'k', linewidth = 1)
+        plt.show()
+    return cent_refine - x
+
 
 def line(x, m, b):
     '''line function for fitting'''
     return m*x + b
+
+def iterate_lin_fit(xdata, ydata, ytols = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 5]):
+    '''performs an iterative linear fit throwing out outliers 
+       greater than tol away at each iteration'''
+    good = np.ones_like(xdata, dtype = 'bool')
+    for i, tol in enumerate(ytols):
+        popt, pcov = curve_fit(line, xdata[good], ydata[good])
+        plt.plot(xdata[good], line(xdata[good], *popt), 'r')
+        plt.plot(xdata[good], ydata[good], 'o')
+        plt.show()
+        good = np.abs(line(xdata, *popt) - ydata)<tol
+    
+    return popt, pcov
 
 class Image:
     'Class for storing and measuring images of attractors for metrology'
@@ -237,6 +292,30 @@ class ImageGrid:
                 rowCol.append(i)
 
         return inds
+    def measure_trap_y(self, make_plot = True, examine = False):
+        '''measures the centering of the attractor relative to the trap'''
+        dys = np.zeros(len(self.images))
+        good = np.ones(len(self.images), dtype = 'bool')
+        if examine:
+            for i, im in enumerate(self.images):
+                dys[i] = refine_y_center(im.imarr, make_plot = examine)
+                goodi = raw_input("good is 1 bad is 0: ")
+                if goodi == '0':
+                    good[i] = False
+                else:
+                    good[i] = True
+        else:
+            for i, im in enumerate(self.images):
+                dys[i] = refine_y_center(im.imarr, make_plot = examine)
+        
+        popt, pcov = iterate_lin_fit(self.nanoPs[1, good], dys[good])
+        if make_plot:
+            plt.plot(self.nanoPs[1, good], dys[good], 'o')
+            plt.plot(self.nanoPs[1, good], line(self.nanoPs[1, good], *popt))
+            plt.show()
+        return -1.*popt[1]/popt[0]
+
+
 
     def ind_arr(self, thresh = 0.25):
         '''returns a 2d nump array of image indicies indexed by image  
