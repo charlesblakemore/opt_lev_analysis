@@ -605,6 +605,7 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
         # Time stamp from FPGA is a U64 with the UNIX epoch 
         # time in nanoseconds, synced to the host's clock
         if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
             if verbose:
                 print "found timestamp  : ", float(dattime) * 10**(-9)
                 print "comparison time  : ", timestamp 
@@ -612,15 +613,19 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    xyz_time_high = np.int32(xyz_dat[ind::9])
-    xyz_time_low = np.int32(xyz_dat[ind+1::9])
+    xyz_time_high = np.int32(xyz_dat[tind::9])
+    xyz_time_low = np.int32(xyz_dat[tind+1::9])
     xyz_time = xyz_time_high.astype(np.uint64) << np.uint64(32) \
                   + xyz_time_low.astype(np.uint64)
 
-    xyz = [xyz_dat[ind+2::9], xyz_dat[ind+3::9], xyz_dat[ind+4::9]]
-    xyz_fb = [xyz_dat[ind+5::9], xyz_dat[ind+6::9], xyz_dat[ind+7::9]]
+    xyz = [xyz_dat[tind+2::9], xyz_dat[tind+3::9], xyz_dat[tind+4::9]]
+    xyz_fb = [xyz_dat[tind+6::9], xyz_dat[tind+7::9], xyz_dat[tind+8::9]]
     
-    sync = xyz_dat[ind+8::9]
+    sync = np.int32(xyz_dat[tind+5::9])
+
+    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
+    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
+    #plt.show()
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
@@ -723,6 +728,8 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     out['raw_dat'] = fpga_dat['raw_dat']
 
     # Cutoff irrelevant zeros
+    if len(encode_bin) < encode_len:
+        encode_len = len(encode_bin)
     encode_bin = np.array(encode_bin[:encode_len])
 
     # Load the I32 representation of the synchronization data
@@ -730,10 +737,12 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # digital pin is sampled: True->(I32+1), False->(I32-1)
     sync_dat = fpga_dat['sync']
 
+    sync_dat = sync_dat[:len(encode_bin) * 10]
     sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
-    sync_dat = sync_dat[:len(encode_bin) * 2]
 
-    corr = np.correlate(sync_dat, encode_bin)
+    dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
+
+    corr = np.correlate(sync_dat_bin, encode_bin)
     off_ind = np.argmax(corr)
 
     if plot_sync:

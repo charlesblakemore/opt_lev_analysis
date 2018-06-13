@@ -184,6 +184,15 @@ class DataFile:
 
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
         self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
+
+        #freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+        #for ind in [0,1,2]:
+        #    plt.loglog(freqs, np.abs(np.fft.rfft(self.pos_data[ind])))
+        #plt.figure()
+        #for ind in [3,5,1]:
+        #    plt.loglog(freqs, np.abs(np.fft.rfft(self.electrode_data[ind])))
+        #plt.show()
+
         try:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
