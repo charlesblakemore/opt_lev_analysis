@@ -14,6 +14,7 @@ prof_path2 = '/data/20180529/imaging_tests/p1/profile'
 ig1 = ImageGrid(path1)
 ig2 = ImageGrid(path2)
 
+#s = measure_separation(path2, path1, prof_path1)
 #cents1, es1 = find_beam_crossing(prof_path1)
 #cents2, es2 = find_beam_crossing(prof_path2)
 #dimgs = ig1.measureGrid(ig2, make_plot = True)

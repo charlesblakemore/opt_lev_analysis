@@ -131,6 +131,7 @@ class DataFile:
 
 
     def load(self, fname, plot_raw_dat=False, plot_sync=False):
+
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
@@ -155,17 +156,13 @@ class DataFile:
                                * (10**9) + self.time
 
         fpga_fname = fname[:-3] + '_fpga.h5'
-        start = time.time()
+
         fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
-        stop = time.time()
-        print "get_fpga_data: ", stop - start
+
         self.encode_bits = attribs["encode_bits"]
 
-        start = time.time()
         fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
                                            self.encode_bits, plot_sync=plot_sync)
-        stop = time.time()
-        print "sync_fpga_data: ", stop - start
 
         #print attribs
         self.fname = fname

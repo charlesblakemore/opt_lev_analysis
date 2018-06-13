@@ -30,7 +30,7 @@ def gauss(x, A, mu, sig):
 
 def profile(fname, data_column = 1):
     df = bu.DataFile()
-    df.load(fname)
+    df.load(fname, load_FPGA = False)
     df.load_other_data()
     df.calibrate_stage_position()
     if 'ysweep' in fname:
