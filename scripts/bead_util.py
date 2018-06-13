@@ -130,11 +130,18 @@ class DataFile:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
 
-    def load(self, fname, load_FPGA = True):
+    def load(self, fname, plot_raw_dat=False, plot_sync=False):
+
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
         dat, attribs = getdata(fname)
+        if plot_raw_dat:
+            for n in range(20):
+                plt.plot(dat[:,n], label=str(n))
+            plt.legend()
+            plt.show()
+
         if len(dat) == 0:
             self.badfile = True
             return 
@@ -147,22 +154,16 @@ class DataFile:
 
         self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
                                * (10**9) + self.time
-        if load_FPGA:
-            fpga_fname = fname[:-3] + '_fpga.h5'
-            fpga_dat = get_fpga_data(fpga_fname, verbose=False,\
-                    timestamp=self.time)
-            self.encode_bits = attribs["encode_bits"]
 
-            fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, \
-                    self.nsamp, self.encode_bits)
+        fpga_fname = fname[:-3] + '_fpga.h5'
 
-            self.pos_data = fpga_dat['xyz']
-            self.pos_time = fpga_dat['xyz_time']
-        
-            # Load quadrant and backscatter amplitudes and phases
-            self.amp = fpga_dat['amp']
-            self.phase = fpga_dat['phase']
-            self.quad_time = fpga_dat['quad_time']
+        fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
+
+        self.encode_bits = attribs["encode_bits"]
+
+        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
+                                           self.encode_bits, plot_sync=plot_sync)
+
         #print attribs
         self.fname = fname
         #print fname
@@ -170,6 +171,16 @@ class DataFile:
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
         ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+        self.pos_data = fpga_dat['xyz']
+        self.pos_time = fpga_dat['xyz_time']
+        self.pos_fb = fpga_dat['fb']
+
+        #print self.pos_data
+
+        # Load quadrant and backscatter amplitudes and phases
+        self.amp = fpga_dat['amp']
+        self.phase = fpga_dat['phase']
+        self.quad_time = fpga_dat['quad_time']
 
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
         self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])

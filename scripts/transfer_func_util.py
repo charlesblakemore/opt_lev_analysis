@@ -9,7 +9,6 @@ import scipy.optimize as opti
 import scipy.signal as signal
 import scipy.interpolate as interp
 
-import cant_util as cu
 import bead_util as bu
 import image_util as imu
 import configuration as config
