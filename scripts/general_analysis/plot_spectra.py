@@ -11,18 +11,20 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-#dir1 = '/data/20180520/bead1/dipole_vs_height/10V_1'
-#dir1 = '/data/20180520/bead1/spinning/chirpup5'
-dir1 = '/data/20180605/bead1/overnight'
-#dir1 = '/data/20180605/bead1/discharge/coarse2'
+dir1 = '/data/20180611/bead6/post_pump2'
 maxfiles = 200
 
-use_dir = True
+use_dir = False
 
-#allfiles = ['/data/20180605/bead1/1_8mbar_zcool.h5', \
-#            '/data/20180605/bead1/turbombar_xyzcool.h5']
+allfiles = ['/data/20180611/bead6/1_4mbar_xyzcool.h5', \
+            '/data/20180611/bead6/post_pump2/turbombar_xyzcool_pumped_0.h5', \
+            '/data/20180611/bead6/post_pump3/turbombar_xyzcool_pumped_0.h5']#, \
+
+#labs = ['1','2', '3']
 
 data_axes = [0,1,2]
+fb_axes = []
+#fb_axes = [0,1,2]
 other_axes = []
 #other_axes = [5,7]
 
@@ -47,7 +49,7 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = True
+fullNFFT = False
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -60,7 +62,7 @@ outvec2 = []
 
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
-                      diag=True, colormap='jet', sort='time', file_inds=(0,10000)):
+                      fb_axes=[], diag=True, colormap='jet', sort='time', file_inds=(0,10000)):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -93,12 +95,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         ofig, oaxarr = plt.subplots(len(other_axes),1,sharex=True,sharey=True)
         if len(other_axes) == 1:
             oaxarr = [oaxarr]
-
-
-    files = [(os.stat(path), path) for path in files]
-    files = [(stat.st_ctime, path) for stat, path in files]
-    files.sort(key = lambda x: (x[0]))
-    files = [obj[1] for obj in files]
+    if len(fb_axes):
+        fbfig, fbaxarr = plt.subplots(len(fb_axes),1,sharex=True,sharey=True)
+        if len(fb_axes) == 1:
+            fbaxarr = [fbaxarr]
 
     files = files[file_inds[0]:file_inds[1]]
     if step10:
@@ -165,6 +165,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
             psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
+            fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
+                                  NFFT=NFFT, window=window)
 
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
@@ -181,8 +183,17 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color)
                 daxarr[axind].grid(alpha=0.5)
                 daxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+
+                if len(fb_axes):
+                    fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
+                    fbaxarr[axind].grid(alpha=0.5)
+                    fbaxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+
+
                 if ax == data_axes[-1]:
                     daxarr[axind].set_xlabel('Frequency [Hz]', fontsize=10)
+                    if len(fb_axes):
+                        fbaxarr[axind].set_xlabel('Frequency [Hz]', fontsize=10)
 
         if len(cant_axes):
             for axind, ax in enumerate(cant_axes):
@@ -204,8 +215,12 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 
+    daxarr[0].legend()
+    if len(fb_axes):
+        fbaxarr[0].legend()
 
     daxarr[0].set_xlim(0.5, 25000)
+    
     if len(ylim):
         daxarr[0].set_ylim(ylim[0], ylim[1])
     plt.tight_layout()
@@ -233,7 +248,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 if use_dir:
     allfiles = bu.find_all_fnames(dir1)
 
-allfiles = allfiles[40:maxfiles]
+allfiles = allfiles[:maxfiles]
+#allfiles = bu.sort
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
-                  data_axes=data_axes, other_axes=other_axes)
+                  data_axes=data_axes, other_axes=other_axes, \
+                  fb_axes=fb_axes)

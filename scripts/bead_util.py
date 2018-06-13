@@ -130,11 +130,17 @@ class DataFile:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
 
-    def load(self, fname):
+    def load(self, fname, plot_raw_dat=False, plot_sync=False):
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
         dat, attribs = getdata(fname)
+        if plot_raw_dat:
+            for n in range(20):
+                plt.plot(dat[:,n], label=str(n))
+            plt.legend()
+            plt.show()
+
         if len(dat) == 0:
             self.badfile = True
             return 
@@ -149,11 +155,17 @@ class DataFile:
                                * (10**9) + self.time
 
         fpga_fname = fname[:-3] + '_fpga.h5'
+        start = time.time()
         fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
+        stop = time.time()
+        print "get_fpga_data: ", stop - start
         self.encode_bits = attribs["encode_bits"]
 
+        start = time.time()
         fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                           self.encode_bits)
+                                           self.encode_bits, plot_sync=plot_sync)
+        stop = time.time()
+        print "sync_fpga_data: ", stop - start
 
         #print attribs
         self.fname = fname
@@ -164,7 +176,10 @@ class DataFile:
         ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
         self.pos_data = fpga_dat['xyz']
         self.pos_time = fpga_dat['xyz_time']
-        
+        self.pos_fb = fpga_dat['fb']
+
+        #print self.pos_data
+
         # Load quadrant and backscatter amplitudes and phases
         self.amp = fpga_dat['amp']
         self.phase = fpga_dat['phase']

@@ -22,16 +22,16 @@ import configuration as config
 
 step_cal_dir = '/data/20180524/bead1/discharge/fine3'
 
-fake_step_cal = False
+fake_step_cal = True
 vpn = 1.0e14
 
-tf_cal_dir = '/data/20180524/bead1/tf_20180524/'
+tf_cal_dir = '/data/20180613/bead1/tf_20180613/'
 
 date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
 interpolate = False 
-save = True
+save = False
 
 
 
@@ -56,6 +56,8 @@ else:
 step_cal_files = []
 for root, dirnames, filenames in os.walk(step_cal_dir):
     for filename in fnmatch.filter(filenames, '*' + config.extensions['data']):
+        if '_fpga.h5' in filename:
+            continue
         step_cal_files.append(os.path.join(root, filename))
 # Sort files based on final index
 step_cal_files.sort(key = bu.find_str)
@@ -64,20 +66,25 @@ step_cal_files.sort(key = bu.find_str)
 tf_cal_files = []
 for root, dirnames, filenames in os.walk(tf_cal_dir):
     for filename in fnmatch.filter(filenames, '*' + config.extensions['data']):
+        if '_fpga.h5' in filename:
+            continue
         tf_cal_files.append(os.path.join(root, filename))
 
 
 
 #### BODY OF CALIBRATION
 
-step_file_objs = []
-for filname in step_cal_files:
-    df = bu.DataFile()
-    df.load(filname)
-    step_file_objs.append(df)
+
 
 # Do the step calibration
 if not fake_step_cal:
+
+    step_file_objs = []
+    for filname in step_cal_files:
+        df = bu.DataFile()
+        df.load(filname)
+        step_file_objs.append(df)
+
     vpn, off, err = cal.step_cal(step_file_objs)
 
 
@@ -85,7 +92,8 @@ if not fake_step_cal:
 
 
 tf_file_objs = []
-for filname in tf_cal_files:
+for fil_ind, filname in enumerate(tf_cal_files):
+    bu.progress_bar(fil_ind, len(tf_cal_files), suffix='opening files')
     df = bu.DataFile()
     df.load(filname)
     tf_file_objs.append(df)
