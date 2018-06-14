@@ -11,14 +11,12 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180611/bead6/post_pump2'
+dir1 = '/data/20180613/bead1/discharge/fine2'
 maxfiles = 200
 
 use_dir = False
 
-allfiles = ['/data/20180611/bead6/1_4mbar_xyzcool.h5', \
-            '/data/20180611/bead6/post_pump2/turbombar_xyzcool_pumped_0.h5', \
-            '/data/20180611/bead6/post_pump3/turbombar_xyzcool_pumped_0.h5']#, \
+allfiles = ['/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_80.h5']
 
 #labs = ['1','2', '3']
 
@@ -47,7 +45,7 @@ lpf = 2500   # Hz
 file_inds = (0, 1800)
 
 userNFFT = 2**12
-diag = False
+diag = True
 
 fullNFFT = False
 

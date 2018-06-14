@@ -137,14 +137,16 @@ def refine_local_min(marg, roi, init_guess):
     return np.argmin(marg[init_guess-roi:init_guess+roi])-roi+init_guess
 
 
-def find_trap_y(imarr, init_front, rthresh = 0.8, make_plot = False):
+def find_trap_y(imarr, init_front, rthresh = 0.8, make_plot = True):
     '''finds the laser beam in an image'''
     barr = imarr>rthresh*np.max(imarr)
     marg = np.sum(barr[0:init_front, :], axis = 0)
+    cent = np.sum(marg*np.arange(len(marg)))/np.sum(marg)
     x = np.argmax(marg)
     if make_plot:
         plt.plot(marg)
         plt.plot([x], marg[int(x)], 'xr')
+        plt.plot([cent], marg[int(cent)], 'xb')
         plt.show()
     return x
 

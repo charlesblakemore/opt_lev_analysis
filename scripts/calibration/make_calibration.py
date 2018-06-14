@@ -20,9 +20,11 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-step_cal_dir = '/data/20180524/bead1/discharge/fine3'
+step_cal_dir = '/data/20180613/bead1/discharge/fine2'
+max_file = 90
 
-fake_step_cal = True
+
+fake_step_cal = False
 vpn = 1.0e14
 
 tf_cal_dir = '/data/20180613/bead1/tf_20180613_2/'
@@ -31,7 +33,7 @@ date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
 interpolate = False 
-save = False
+save = True
 
 
 
@@ -80,7 +82,7 @@ for root, dirnames, filenames in os.walk(tf_cal_dir):
 if not fake_step_cal:
 
     step_file_objs = []
-    for filname in step_cal_files:
+    for filname in step_cal_files[:max_file]:
         df = bu.DataFile()
         df.load(filname)
         step_file_objs.append(df)

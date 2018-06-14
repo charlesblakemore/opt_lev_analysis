@@ -28,9 +28,9 @@ def gauss(x, A, mu, sig):
     '''gaussian fitting function'''
     return A*np.exp(-1.*(x-mu)**2/(2.*sig**2))
 
-def profile(fname, data_column = 1):
+def profile(fname, data_column = 3):
     df = bu.DataFile()
-    df.load(fname, load_FPGA = False)
+    df.load(fname)
     df.load_other_data()
     df.calibrate_stage_position()
     if 'ysweep' in fname:
@@ -46,6 +46,11 @@ def profile(fname, data_column = 1):
         sign = 1.0
 
     b, a = sig.butter(1, 0.5)
+    #shape = np.shape(df.other_data)
+    #for i in range(shape[0]):
+    #    plt.plot(df.other_data[i, :], label = str(i))
+    #plt.legend()
+    #plt.show()
     int_filt = sig.filtfilt(b, a, df.other_data[data_column, :])
     proft = np.gradient(int_filt)
     stage_filt = sig.filtfilt(b, a, df.cant_data[stage_column, :])
