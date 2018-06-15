@@ -560,6 +560,8 @@ def extract_quad(quad_dat, timestamp, verbose=False):
     # wit thhe appropriate decimation of the primary array
     quad_time_high = np.int32(quad_dat[ind::12])
     quad_time_low = np.int32(quad_dat[ind+1::12])
+    if len(quad_time_low) != len(quad_time_high):
+        quad_time_high = quad_time_high[:-1]
     quad_time = quad_time_high.astype(np.uint64) << np.uint64(32) \
                   + quad_time_low.astype(np.uint64)
 
@@ -636,6 +638,9 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     # wit thhe appropriate decimation of the primary array
     xyz_time_high = np.int32(xyz_dat[tind::9])
     xyz_time_low = np.int32(xyz_dat[tind+1::9])
+    if len(xyz_time_low) != len(xyz_time_high):
+        xyz_time_high = xyz_time_high[:-1]
+
     xyz_time = xyz_time_high.astype(np.uint64) << np.uint64(32) \
                   + xyz_time_low.astype(np.uint64)
 
