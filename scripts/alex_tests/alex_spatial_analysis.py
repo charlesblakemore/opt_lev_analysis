@@ -13,23 +13,28 @@ import matplotlib
 from scipy.stats import sem
 import build_yukfuncs as yf
 import image_util as iu
+import scipy.signal as ss
 reload(al2)
 
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
 
-recalculate = True
+recalculate = False
 calculate_limit = True
 save_name = "binned_force_data.npy"
 save_limit_data = "limit_data.npy"
 dat_dir = "/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um_2"
-n_file = 80
+n_file = 454
 increment = 1
 plt_file = 10
 plt_increment = 100
-files = bu.sort_files_by_timestamp(bu.find_all_fnames(dat_dir)[:-1])
+ah5 = lambda fname: fname + '.h5'
+files = bu.sort_files_by_timestamp(bu.find_all_fnames(dat_dir))
+#files = map(ah5, files)
 p0 = [20., 40., 0.]
-sps = iu.getNanoStage(files)
+sps = np.array(map(iu.getNanoStage, map(ah5, files)))
+ba0 = sps[:, 0]>79.
+ba1 = sps[:, 2]>24.
 force_data = np.zeros((n_file, 3, 2, 100))
 if recalculate:
     for i, f in enumerate(files[::increment][:n_file]):
@@ -71,7 +76,7 @@ def fit_alpha(mean_data, sems, yukfuncs, p0 = p0, cf = 1.E6, \
     fs = make_template(mean_data, yukfuncs, p0 = p0, cf = cf)
     n = np.shape(mean_data)[-1]
     def rcs(alpha):
-        return np.sum((mean_data[0, 1, :] - alpha*alpha_scale*fs[0])**2\
+        return np.sum((ss.detrend(mean_data[0, 1, :]) - alpha*alpha_scale*fs[0])**2\
                 /sems[0, 1, :]**2)/(n-1)
     res0 = ms(rcs)
     def delt_chi_sq(b):
@@ -116,6 +121,7 @@ def fit_alpha_individual_files(force_data, sems, yukfuncs, p0=p0, cf = 1.E6,\
         plt.show()
     return aes
 #force data inds : [file, direction, drive/response, bin #]
+force_data = force_data[ba0*ba1, :, :, :]
 mean_data = np.mean(force_data, axis = 0)
 sems = sem(force_data, axis = 0)
 
@@ -144,17 +150,17 @@ plt.grid()
 plt.xlabel("$\lambda$ [m]")
 plt.ylabel("|$\\alpha$|")
 plt.show()
-for i in np.arange(1, n_file, 5):
-    plt.plot(force_data[i, 0, 0, :], force_data[i, 0, 1, :], label = "t=" + str(i*10) + 's')
+for i in np.arange(0, 6, 1):
+    plt.plot(force_data[i, 0, 0, :], ss.detrend(force_data[i, 0, 1, :]), label = "t=" + str(i*10) + 's')
 
 
-plt.plot(mean_data[0, 0, :], mean_data[0, 1, :], label = "mean", linewidth = 5)
+plt.plot(mean_data[0, 0, :], ss.detrend(mean_data[0, 1, :]), label = "mean", linewidth = 5)
         
         
-plt.plot(mean_data[0, 0, :], mean_data[0, 1, :] + sems[0, 1, :], \
+plt.plot(mean_data[0, 0, :], ss.detrend(mean_data[0, 1, :]) + sems[0, 1, :], \
         label = "+sigma")
 
-plt.plot(mean_data[0, 0, :], mean_data[0, 1, :] - sems[0, 1, :], \
+plt.plot(mean_data[0, 0, :], ss.detrend(mean_data[0, 1, :]) - sems[0, 1, :], \
         label = "-sigma")
 plt.xlabel("attractor displacement[um]")
 plt.ylabel("Force[N]")

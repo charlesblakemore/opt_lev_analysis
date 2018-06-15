@@ -58,8 +58,9 @@ def initYProcessing(imarr):
 
 def getNanoStage(fname):
     '''Takes image filename as argument. gets nano positioning stage 
-       dc settings by opening the .h5 file associated with the image file.
-       Returns the median voltage times the stage calibration from V to um'''
+        dc settings by opening the .h5 file associated with the image file.
+    Returns the median voltage times the stage calibration from V to um'''
+    
     h5fname = os.path.splitext(fname)[0]
     df = bu.DataFile()
     df.load(h5fname)
