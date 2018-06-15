@@ -11,10 +11,12 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180613/bead1/discharge/fine2'
-maxfiles = 200
+dir1 = '/data/20180613/bead1/tf_20180613_2/freq_comb_elec5'
+dir1 = '/data/20180613/bead1/dipole_vs_height/10V_unfilt'
+dir1 = '/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um'
+maxfiles = 50
 
-use_dir = False
+use_dir = True
 
 allfiles = ['/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_80.h5']
 
@@ -45,9 +47,9 @@ lpf = 2500   # Hz
 file_inds = (0, 1800)
 
 userNFFT = 2**12
-diag = True
+diag = False
 
-fullNFFT = False
+fullNFFT = True
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -165,6 +167,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                                   NFFT=NFFT, window=window)
             fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
+
+            
+            dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
+                                    NFFT=NFFT, window=window)
 
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \

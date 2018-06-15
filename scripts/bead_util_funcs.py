@@ -400,7 +400,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     meanresp = np.mean(resp)
 
     # Build the notch filter
-    drivefilt = np.zeros(len(drivefft))
+    drivefilt = np.zeros(len(drivefft)) #+ np.random.randn(len(drivefft))*1.0e-3
     drivefilt[fund_ind] = 1.0
 
     # Error message triggered by verbose option
@@ -435,12 +435,30 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     drivefft_filt = drivefilt * drivefft
     respfft_filt = drivefilt * respfft
 
-    # Reconstruct the filtered data
-    drive_r = np.fft.irfft(drivefft_filt) + meandrive
-    resp_r = np.fft.irfft(respfft_filt) #+ meanresp
+    #plt.loglog(freqs, np.abs(respfft))
+    #plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'x', ms=10)
+    #plt.show()
 
-    #plt.plot(t, resp_r)
-    #plt.figure()
+    # Reconstruct the filtered data
+    
+    #plt.loglog(freqs, np.abs(drivefft_filt))
+    #plt.show()
+
+    fac = np.sqrt(2) * fft_norm(len(t),1.0/(t[1]-t[0])) * np.sqrt(freqs[1] - freqs[0])
+
+    #drive_r = np.zeros(len(t)) + meandrive
+    #for ind, freq in enumerate(freqs[drivefilt>0]):
+    #    drive_r += fac * np.abs(drivefft_filt[drivefilt>0][ind]) * \
+    #               np.cos( 2 * np.pi * freq * t + \
+    #                       np.angle(drivefft_filt[drivefilt>0][ind]) )
+    drive_r = np.fft.irfft(drivefft_filt) + meandrive
+
+    #resp_r = np.zeros(len(t))
+    #for ind, freq in enumerate(freqs[drivefilt>0]):
+    #    resp_r += fac * np.abs(respfft_filt[drivefilt>0][ind]) * \
+    #              np.cos( 2 * np.pi * freq * t + \
+    #                      np.angle(respfft_filt[drivefilt>0][ind]) )
+    resp_r = np.fft.irfft(respfft_filt) #+ meanresp
 
     # Sort reconstructed data, interpolate and resample
     mindrive = np.min(drive_r)
@@ -451,6 +469,9 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     sortinds = drive_r.argsort()
     drive_r = drive_r[sortinds]
     resp_r = resp_r[sortinds]
+
+    #plt.plot(drive_r, resp_r, '.')
+    #plt.show()
 
     ginds = grad[sortinds] < 0
 

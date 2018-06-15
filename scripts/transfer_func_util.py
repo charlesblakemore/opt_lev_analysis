@@ -159,7 +159,7 @@ def make_extrapolator(interpfunc, pts=10, order=1, inverse=(False, False)):
     
 
 
-def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-2, mfreq = 1., \
+def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 1., \
                          fix_HF=False):
     '''Generates a transfer function from a list of DataFile objects
            INPUTS: fobjs, list of file objects
@@ -216,6 +216,12 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-2, mfreq = 
         for eind in avg_drive_fft.keys():
             # First find drive-frequency bins above a fixed threshold
             dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*fsamp)
+            #datpsd = np.abs(avg_data_fft[eind])**2 * 2. / (N*fsamp)
+            #plt.loglog(fft_freqs, dpsd[eind])
+            #plt.loglog(fft_freqs, np.ones(len(dpsd[eind])) * dpsd_thresh)
+            #plt.figure()
+            #plt.loglog(fft_freqs, datpsd[config.elec_map[eind]])
+            #plt.show()
             inds = np.where(dpsd > dpsd_thresh)
 
             # Extract the frequency indices
@@ -438,12 +444,12 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
 
         
 
-def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
+def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                  weight_peak=False, weight_lowf=False, lowf_weight_fac=0.1, \
-                 lowf_thresh=60., \
+                 lowf_thresh=120., \
                  weight_phase=False, plot_fits=False, plot_inits=False, \
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
-                 interpolate = False, max_freq=300, num_to_avg=5):
+                 interpolate = False, max_freq=600, num_to_avg=5):
     # Build the calibrated transfer function array
     # i.e. transfer matrices at each frequency and fit functions to each component
 
@@ -461,8 +467,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
     fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]   
 
     if plot_fits:
-        f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='all')
-        f2, axarr2 = plt.subplots(3,3, sharex='all', sharey='all')
+        f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='row')
+        f2, axarr2 = plt.subplots(3,3, sharex='all', sharey='row')
         f1.suptitle("Magnitude of Transfer Function", fontsize=18)
         f2.suptitle("Phase of Transfer Function", fontsize=18)
 
@@ -525,15 +531,15 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                 #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
                 if (drive == 2) or (resp == 2):
                     # Z-direction is considerably different than X or Y
-                    Amp = 1e17
-                    f0 = 50
+                    Amp = 1e24
+                    f0 = 200
                     g = f0 * 5.0
-                    fit_freqs = [1.,200.]
+                    fit_freqs = [1.,600.]
                     fpeak = fpeaks[2]
                 else:
-                    Amp = 1e20
-                    f0 = 300
-                    g = f0
+                    Amp = 1e27
+                    f0 = 400
+                    g = f0 * 0.3
                     fit_freqs = [1.,600.]
                     fpeak = fpeaks[resp]
 
@@ -552,11 +558,16 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,50.], \
                     if weight_peak:
                         fac = -0.7
                     else:
-                        fac = 1.0
+                        if drive != resp:
+                            fac = 1.0
+                        else:
+                            fac = 0.0
                     weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
                 if weight_lowf:
                     ind = np.argmin(np.abs(npkeys - lowf_thresh))
-                    weights[:ind] *= lowf_weight_fac #0.01
+                    if drive != resp:
+                        weights[:ind] *= lowf_weight_fac #0.01
+
                 phase_weights = np.zeros(len(npkeys)) + 1.
                 if weight_phase and (drive != 2 and resp != 2):
                     ind = np.argmin(np.abs(npkeys - 50.))

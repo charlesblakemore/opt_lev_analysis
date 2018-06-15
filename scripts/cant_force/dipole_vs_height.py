@@ -26,18 +26,19 @@ import configuration as config
 
 
 
-dir1 = '/data/20180524/bead1/dipole_vs_height/cant_10V_80um_throw_17_Hz'
-maxfiles = 10000 # Many more than necessary
+dir1 = '/data/20180613/bead1/dipole_vs_height/10V_70um_17hz'
+start_file = 0
+maxfiles = 60 # Many more than necessary
 ax1_lab = 'z'
-nbins = 20
+nbins = 50
 tophatf = 300  # Top-hat filter frequency used in diagonalization
 
 plot_title = ''
 
 tfdate = '' #'20180215'
 
-fit_xdat = False #True
-fit_zdat = False #True
+fit_xdat = True
+fit_zdat = True
 closest_sep = 20
 #closest_sep = 60
 
@@ -133,6 +134,9 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
                 
                 sort_inds = np.argsort(new_bins)
 
+                #plt.plot(new_bins[sort_inds], new_dat[sort_inds])
+                #plt.show()
+
                 force_curves[cantbias][ax1pos][resp] = \
                             [new_bins[sort_inds], new_dat[sort_inds]]
 
@@ -179,15 +183,16 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
                 old_bins = force_curves[cantV_k][ax1_k][resp][0]
                 old_dat = force_curves[cantV_k][ax1_k][resp][1]
 
-                dat_func = interp.interp1d(old_bins, old_dat, kind='cubic')
+                #dat_func = interp.interp1d(old_bins, old_dat, kind='cubic')
 
                 new_bins = np.linspace(np.min(old_bins)+1e-9, np.max(old_bins)-1e-9, nbins)
-                new_dat = dat_func(new_bins)
-                new_errs = np.zeros_like(new_dat)
+                new_dat = np.zeros_like(new_bins)
+                new_errs = np.zeros_like(new_bins)
 
                 bin_sp = new_bins[1] - new_bins[0]
                 for binind, binval in enumerate(new_bins):
                     inds = np.abs( old_bins - binval ) < bin_sp
+                    new_dat[binind] = np.mean( old_dat[inds] )
                     new_errs[binind] = np.std( old_dat[inds] )
 
                 force_curves[cantV_k][ax1_k][resp] = [new_bins, new_dat, new_errs]
@@ -198,6 +203,14 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
                     fitfun = lambda x,a,b,c: xdat['fit'](x,a,b,c,x0=x0)
                     popt, pcov = opti.curve_fit(fitfun, new_bins, new_dat)
                     val = fitfun(np.max(new_bins), popt[0], popt[1], 0)
+
+                    #print resp
+                    #print fitfun(-200, *popt) - popt[2]
+                    #print fitfun(50, *popt) - popt[2]
+                    #plt.plot(new_bins, new_dat, label='Dat')
+                    #plt.plot(new_bins, fitfun(new_bins, *popt), label='Fit')
+                    #plt.legend()
+                    #plt.show()
 
                     xdat[cantV_k][ax1_k] = (popt, val)
 
@@ -213,17 +226,19 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
                 if diag:
                     old_diag_bins = diag_force_curves[cantV_k][ax1_k][resp][0]
                     old_diag_dat = diag_force_curves[cantV_k][ax1_k][resp][1]
-                    diag_dat_func = interp.interp1d(old_diag_bins, old_diag_dat, kind='cubic')
+                    
+                    #diag_dat_func = interp.interp1d(old_diag_bins, old_diag_dat, kind='cubic')
 
                     new_diag_bins = np.linspace(np.min(old_diag_bins)+1e-9, \
                                                 np.max(old_diag_bins)-1e-9, nbins)
-                    new_diag_dat = diag_dat_func(new_diag_bins)
-                    new_diag_errs = np.zeros_like(new_diag_dat)
+                    new_diag_dat = np.zeros_like(new_diag_bins)
+                    new_diag_errs = np.zeros_like(new_diag_bins)
 
                     diag_bin_sp = new_diag_bins[1] - new_diag_bins[0]
                     for binind, binval in enumerate(new_diag_bins):
                         diaginds = np.abs( old_diag_bins - binval ) < diag_bin_sp
                         new_diag_errs[binind] = np.std( old_diag_dat[diaginds] )
+                        new_diag_dat[binind] = np.mean( old_diag_dat[diaginds] )
 
                     diag_force_curves[cantV_k][ax1_k][resp] = \
                                         [new_diag_bins, new_diag_dat, new_diag_errs]
@@ -270,7 +285,7 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
 
 
 datafiles = bu.find_all_fnames(dir1, ext=config.extensions['data'])
-
+datafiles = datafiles[start_file:start_file+maxfiles]
 
 force_dic, diag_force_dic, fits= \
             get_force_curve_dictionary(datafiles, ax1=ax1_lab, diag=diag, \
@@ -372,8 +387,7 @@ for biasind, bias in enumerate(cantV):
 
         gpts = np.abs(stage_settings - stage_settings[maxind]) < 15
         diaggpts = np.abs(stage_settings - stage_settings[diag_maxind]) < 15
-        plt.plot(stage_settings[diaggpts], xfits[gpts])
-        plt.show()
+
         popt, pcov = opti.curve_fit(parabola, stage_settings[gpts], xfits[gpts])
         popt_diag, pcov_diag = opti.curve_fit(parabola, stage_settings[diaggpts], diag_xfits[diaggpts])
 
@@ -452,7 +466,7 @@ for biasind, bias in enumerate(cantV):
 for arrind, arr in enumerate(axarrs):
 
     voltage = cantV[arrind]
-    title = 'Dipole vs Height for %i V (filtered)' % int(voltage)
+    title = 'Dipole vs Height for %i V' % int(voltage)
     arr[0,0].set_title('Raw Data', fontsize=12)
     arr[0,1].set_title('Diagonalized Data', fontsize=12)
     arr[2,0].set_xlabel('Distance From Cantilever [um]', fontsize=10)
