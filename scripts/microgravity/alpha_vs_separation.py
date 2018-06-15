@@ -29,12 +29,16 @@ maxthrow = 80     # um
 beadheight = 10   # um
 
 #data_dir = '/data/20180314/bead1/grav_data/ydrive_6sep_1height_shield-2Vac-2200Hz_cant-0mV'
-data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
+#data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
-savepath = '/sensitivities/20180314_grav_shieldin-2V-2200Hz_cant-0V_allharm.npy'
+#data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
+data_dir = '/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um'
+
+savepath = '/sensitivities/20180613_grav-no-shield_1.npy'
 save = False
 load = False
-file_inds = (0, 200)
+file_inds = (0, 2000)
+max_file_per_pos = 1
 
 theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #theory_data_dir = '/data/grav_sim_data/1um_spacing_x-0-p80_y-m250-p250_z-m20-p20/'
@@ -52,7 +56,7 @@ user_lims = [(5e-6, 80e-6), (-240e-6, 240e-6), (-5e-6, 5e-6)]
 
 tophatf = 300   # Hz, doesn't reconstruct data above this frequency
 nharmonics = 10
-harms = [1,2,3,4,5]#,6,7,8,9]
+harms = [1,2,3,4,5,6,7,8,9]
 
 plotfilt = False
 plot_just_current = False
@@ -169,7 +173,8 @@ def build_mod_grav_funcs(theory_data_dir):
 def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       width=0, nharmonics=10, harms=[], \
-                      ext_cant_drive=False, ext_cant_ind=1, plotfilt=False):
+                      ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
+                      max_file_per_pos=1000):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then performs an optimal filter using the cantilever drive and 
        a theoretical force vs position to generate the filter/template.
@@ -240,6 +245,8 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
         if ax2pos not in fildat[cantbias][ax1pos].keys():
             fildat[cantbias][ax1pos][ax2pos] = []
 
+        if len(fildat[cantbias][ax1pos][ax2pos]) >= max_file_per_pos:
+            continue
 
         if fil_ind == 0 and plottf:
             df.diagonalize(date=tfdate, maxfreq=tophatf, plot=True)
@@ -247,8 +254,8 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
             df.diagonalize(date=tfdate, maxfreq=tophatf)
 
 
-        if fil_ind == 0:
-            ginds, fund_ind, drive_freq, drive_ind = \
+        #if fil_ind == 0:
+        ginds, fund_ind, drive_freq, drive_ind = \
                 df.get_boolean_cantfilt(ext_cant_drive=ext_cant_drive, ext_cant_ind=ext_cant_ind, \
                                         nharmonics=nharmonics, harms=harms, width=width)
 
@@ -499,11 +506,16 @@ def fit_alpha_vs_sep_1height(alphadat, height, minsep=10.0, maxthrow=80.0, beadh
 
                 testvec.append([popt[1]*SCALE_FAC, np.sqrt(pcov[1,1])*SCALE_FAC])
 
-                #print popt * SCALE_FAC
+                print popt * SCALE_FAC
 
-                #plt.plot(dat[:,0], dat[:,1], '.', ms=5)
-                #plt.plot(dat[:,0], line(dat[:,0], popt[0]*SCALE_FAC, popt[1]*SCALE_FAC))
-                #plt.show()
+                plt.plot(dat[:,0], dat[:,1], '.', ms=5, label='Best Fit Alphas')
+                plt.plot(dat[:,0], line(dat[:,0], popt[0]*SCALE_FAC, popt[1]*SCALE_FAC), \
+                         label='Linear + Constant Fit')
+                plt.xlabel('Separation [um]')
+                plt.ylabel('Alpha [abs]')
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
 
                 ### Append the result to our output array
                 fits[bias][ax2pos].append(popt*SCALE_FAC)
@@ -613,7 +625,7 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
 
 
 
-
+height = 25.0
 
 
 if not plot_just_current:
@@ -634,18 +646,19 @@ if not plot_just_current:
                                beadheight=beadheight, plotfilt=plotfilt, \
                                cantind=0, ax1='x', ax2='z', diag=diag, plottf=False, \
                                nharmonics=nharmonics, harms=harms, \
-                               ext_cant_drive=True, ext_cant_ind=1)
+                               ext_cant_drive=True, ext_cant_ind=1, \
+                               max_file_per_pos=max_file_per_pos)
 
     alphadat = find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
                                  ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ)
 
     
     fits, outdat = fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
-                                       maxthrow=maxthrow, beadheight=beadheight)
+                                       maxthrow=maxthrow, beadheight=beadheight, plot=True)
     
 
     #alphas_bf, alphas_95cl, fits = \
-    #            fit_alpha_vs_sep_1height(outdat, height, minsep=minsep, maxthrow=maxthrow, \
+    #            fit_alpha_vs_sep_1height(alphadat, height, minsep=minsep, maxthrow=maxthrow, \
     #                                     beadheight=beadheight)
 
 
