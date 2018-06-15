@@ -653,7 +653,6 @@ class DataFile:
         if electrode_drive:
             elec_ind = np.argmax(self.electrode_settings['driven'])
             drivevec = self.electrode_data[elec_ind]
-            
 
         # Bin responses against the drive. If data has been diagonalized,
         # it bins the diagonal data as well

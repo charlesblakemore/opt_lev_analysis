@@ -101,7 +101,7 @@ for fil_ind, filname in enumerate(tf_cal_files):
     tf_file_objs.append(df)
 
 # Build the uncalibrated TF: Vresp / Vdrive
-Hout, Hnoise = tf.build_uncalibrated_H(tf_file_objs, fix_HF = True)
+Hout, Hnoise = tf.build_uncalibrated_H(tf_file_objs, fix_HF = False)
 
 # Calibrate the transfer function to Vresp / Newton_drive
 # for a particular charge step calibration
@@ -109,7 +109,7 @@ Hcal = tf.calibrate_H(Hout, vpn)
 
 # Build the Hfunc object
 if not interpolate:
-    Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 50], weight_peak=False, \
+    Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
                             weight_lowf=True, plot_fits=plot_Hfunc, \
                             plot_inits=False, weight_phase=True, grid=True,\
                             deweight_peak=True, lowf_weight_fac=0.01)
