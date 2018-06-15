@@ -12,6 +12,7 @@ from scipy.optimize import curve_fit
 import matplotlib
 from scipy.stats import sem
 import build_yukfuncs as yf
+import image_util as iu
 reload(al2)
 
 decca_path = "/home/arider/limit_data/just_decca.csv"
@@ -21,14 +22,14 @@ recalculate = True
 calculate_limit = True
 save_name = "binned_force_data.npy"
 save_limit_data = "limit_data.npy"
-dat_dir = "/data/20180524/bead1/grav_data/1sep_1h_init"
+dat_dir = "/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um_2"
 n_file = 80
 increment = 1
 plt_file = 10
 plt_increment = 100
 files = bu.sort_files_by_timestamp(bu.find_all_fnames(dat_dir)[:-1])
 p0 = [20., 40., 0.]
-
+sps = iu.getNanoStage(files)
 force_data = np.zeros((n_file, 3, 2, 100))
 if recalculate:
     for i, f in enumerate(files[::increment][:n_file]):

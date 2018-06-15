@@ -6,6 +6,7 @@ from beam_profile import *
 
 path1 = '/data/20180529/imaging_tests/p0/image_grid_good'
 path2 = '/data/20180529/imaging_tests/p1/image_grid'
+path3 = '/data/20180613/bead1/image_grids/imgridx3'
 
 prof_path1 = '/data/20180529/imaging_tests/p0/xprofile'
 prof_path2 = '/data/20180529/imaging_tests/p1/profile'
@@ -13,8 +14,9 @@ prof_path2 = '/data/20180529/imaging_tests/p1/profile'
 
 ig1 = ImageGrid(path1)
 ig2 = ImageGrid(path2)
+ig3= ImageGrid(path3)
 
-s = measure_separation(path2, path1, prof_path1)
+s = measure_separation(path3, path1, prof_path1)
 #cents1, es1 = find_beam_crossing(prof_path1)
 #cents2, es2 = find_beam_crossing(prof_path2)
 #dimgs = ig1.measureGrid(ig2, make_plot = True)

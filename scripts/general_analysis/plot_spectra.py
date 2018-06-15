@@ -16,7 +16,9 @@ maxfiles = 200
 
 use_dir = False
 
-allfiles = ['/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_80.h5']
+allfiles = ['/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_60.h5',\
+            '/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_70.h5',\
+            '/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_80.h5']
 
 #labs = ['1','2', '3']
 
@@ -44,8 +46,8 @@ lpf = 2500   # Hz
 
 file_inds = (0, 1800)
 
-userNFFT = 2**12
-diag = True
+userNFFT = 2**14
+diag = False
 
 fullNFFT = False
 

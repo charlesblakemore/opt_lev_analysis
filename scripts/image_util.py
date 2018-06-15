@@ -63,7 +63,8 @@ def getNanoStage(fname):
     h5fname = os.path.splitext(fname)[0]
     df = bu.DataFile()
     df.load(h5fname)
-    return np.median(df.cant_data, axis = -1)*configuration.stage_cal
+    df.calibrate_stage_position()
+    return np.median(df.cant_data, axis = -1)
 
 def plotImages(Images):
     '''Plots an array of images'''
