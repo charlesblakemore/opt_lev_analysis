@@ -276,142 +276,138 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr, binned_data = fil
                 start = time.time()
 
-                plt.plot(drivevec)
-                if j == 4:
-                    plt.show()
-
                 j += 1
                 bu.progress_bar(j, len(lambdas) * len(dat), suffix=suff, newline=newline)
 
-                gfft = [[], [], []]
-                yukfft = [[], [], []]
-                gforce = [[], [], []]
-                yukforce = [[], [], []]
+            gfft = [[], [], []]
+            yukfft = [[], [], []]
+            gforce = [[], [], []]
+            yukforce = [[], [], []]
+
+            for resp in [0,1,2]:
+                if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
+                    gfft[resp] = np.zeros(np.sum(ginds))
+                    yukfft[resp] = np.zeros(np.sum(ginds))
+                    continue
+
+                if len(temp_gdat[ax1][ax2][0]):
+                    gfft[resp] = temp_gdat[ax1][ax2][0][resp]
+                    gforce[resp] = plot_forces[ax1][ax2][0][resp]
+                else:
+                    gforcevec = gfuncs[resp](pts*1e-6)
+                    gforcefunc = interp.interp1d(posvec, gforcevec)
+                    gforcet = gforcefunc(drivevec)
+
+                    gforce[resp] = gforcevec
+                    gfft[resp] =  np.fft.rfft(gforcet)[ginds]
+
+                if len(temp_gdat[ax1][ax2][1][lambind]):
+                    yukfft[resp] = temp_gdat[ax1][ax2][1][lambind][resp]
+                    yukforce[resp] = plot_forces[ax1][ax2][0][resp]
+                else:
+                    yukforcevec = yukfuncs[resp][lambind](pts*1e-6)
+                    yukforcefunc = interp.interp1d(posvec, yukforcevec)
+                    yukforcet = yukforcefunc(drivevec)
+
+                    yukforce[resp] = yukforcevec
+                    yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
+
+            gfft = np.array(gfft)
+            yukfft = np.array(yukfft)
+            gforce = np.array(gforce)
+            yukforce = np.array(yukforce)
+
+            temp_gdat[ax1][ax2][0] = gfft
+            temp_gdat[ax1][ax2][1][lambind] = yukfft
+            plot_forces[ax1][ax2][0] = gforce
+            plot_forces[ax1][ax2][1][lambind] = yukforce
+
+
+            newalpha = 2 * np.mean( np.abs(datfft) ) / np.mean( np.abs(yukfft) ) * 10**(-1)
+            #print newalpha, ':', 
+            testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
+
+
+            chi_sqs = np.zeros(len(testalphas))
+            diagchi_sqs = np.zeros(len(testalphas))
+
+            for alphaind, testalpha in enumerate(testalphas):
+
+                chi_sq = 0
+                diagchi_sq = 0
+                N = 0
 
                 for resp in [0,1,2]:
-                    if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
-                        gfft[resp] = np.zeros(np.sum(ginds))
-                        yukfft[resp] = np.zeros(np.sum(ginds))
+                    if (ignoreX and resp == 0) or \
+                       (ignoreY and resp == 1) or \
+                       (ignoreZ and resp == 2):
                         continue
-
-                    if len(temp_gdat[ax1][ax2][0]):
-                        gfft[resp] = temp_gdat[ax1][ax2][0][resp]
-                        gforce[resp] = plot_forces[ax1][ax2][0][resp]
-                    else:
-                        gforcevec = gfuncs[resp](pts*1e-6)
-                        gforcefunc = interp.interp1d(posvec, gforcevec)
-                        gforcet = gforcefunc(drivevec)
-
-                        gforce[resp] = gforcevec
-                        gfft[resp] =  np.fft.rfft(gforcet)[ginds]
-
-                    if len(temp_gdat[ax1][ax2][1][lambind]):
-                        yukfft[resp] = temp_gdat[ax1][ax2][1][lambind][resp]
-                        yukforce[resp] = plot_forces[ax1][ax2][0][resp]
-                    else:
-                        yukforcevec = yukfuncs[resp][lambind](pts*1e-6)
-                        yukforcefunc = interp.interp1d(posvec, yukforcevec)
-                        yukforcet = yukforcefunc(drivevec)
-
-                        yukforce[resp] = yukforcevec
-                        yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
-
-                gfft = np.array(gfft)
-                yukfft = np.array(yukfft)
-                gforce = np.array(gforce)
-                yukforce = np.array(yukforce)
-
-                temp_gdat[ax1][ax2][0] = gfft
-                temp_gdat[ax1][ax2][1][lambind] = yukfft
-                plot_forces[ax1][ax2][0] = gforce
-                plot_forces[ax1][ax2][1][lambind] = yukforce
-                
-
-                newalpha = 2 * np.mean( np.abs(datfft) ) / np.mean( np.abs(yukfft) ) * 10**(-1)
-                #print newalpha, ':', 
-                testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
-
-
-                chi_sqs = np.zeros(len(testalphas))
-                diagchi_sqs = np.zeros(len(testalphas))
-
-                for alphaind, testalpha in enumerate(testalphas):
-
-                    chi_sq = 0
-                    diagchi_sq = 0
-                    N = 0
-                
-                    for resp in [0,1,2]:
-                        if (ignoreX and resp == 0) or \
-                           (ignoreY and resp == 1) or \
-                           (ignoreZ and resp == 2):
-                            continue
-                        re_diff = datfft[resp].real - \
-                                  (gfft[resp].real + testalpha * yukfft[resp].real )
-                        im_diff = datfft[resp].imag - \
-                                  (gfft[resp].imag + testalpha * yukfft[resp].imag )
-                        if diag:
-                            diag_re_diff = diagdatfft[resp].real - \
-                                           (gfft[resp].real + testalpha * yukfft[resp].real )
-                            diag_im_diff = diagdatfft[resp].imag - \
-                                           (gfft[resp].imag + testalpha * yukfft[resp].imag )
-
-                        #plt.plot(np.abs(re_diff))
-                        #plt.plot(daterr[resp])
-                        #plt.show()
-
-                        chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
-                                  np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
-                        if diag:
-                            diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
-                                                    (0.5*(diagdaterr[resp]**2)) ) + \
-                                            np.sum( np.abs(diag_im_diff)**2 / \
-                                                    (0.5*(diagdaterr[resp]**2)) ) )
-
-                        N += len(re_diff) + len(im_diff)
-
-                    chi_sqs[alphaind] = chi_sq / (N - 1)
+                    re_diff = datfft[resp].real - \
+                              (gfft[resp].real + testalpha * yukfft[resp].real )
+                    im_diff = datfft[resp].imag - \
+                              (gfft[resp].imag + testalpha * yukfft[resp].imag )
                     if diag:
-                        diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
+                        diag_re_diff = diagdatfft[resp].real - \
+                                       (gfft[resp].real + testalpha * yukfft[resp].real )
+                        diag_im_diff = diagdatfft[resp].imag - \
+                                       (gfft[resp].imag + testalpha * yukfft[resp].imag )
 
-                max_chi = np.max(chi_sqs)
-                if diag:
-                    max_diagchi = np.max(diagchi_sqs)
-
-                max_alpha = np.max(testalphas)
-
-                p0 = [max_chi/max_alpha**2, 0, 1]
-                if diag:
-                    diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
-    
-                try:
-                    #plt.plot(testalphas, chi_sqs)
+                    #plt.plot(np.abs(re_diff))
+                    #plt.plot(daterr[resp])
                     #plt.show()
-                    popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
-                                                p0=p0, maxfev=100000)
+
+                    chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
+                              np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
                     if diag:
-                        diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
-                                                            p0=diag_p0, maxfev=1000000)
-                except:
-                    print "Couldn't fit"
-                    popt = [0,0,0]
-                    popt[2] = np.mean(chi_sqs)
+                        diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
+                                                (0.5*(diagdaterr[resp]**2)) ) + \
+                                        np.sum( np.abs(diag_im_diff)**2 / \
+                                                (0.5*(diagdaterr[resp]**2)) ) )
 
-                best_fit_alphas[lambind] = -0.5 * popt[1] / popt[0]
+                    N += len(re_diff) + len(im_diff)
+
+                chi_sqs[alphaind] = chi_sq / (N - 1)
                 if diag:
-                    diag_best_fit_alphas[lambind] = -0.5 * diagpopt[1] / diagpopt[0]
+                    diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
 
-                stop = time.time()
-                #print 'func eval time: ', stop-start
-                
-                if plot_best_alpha:
+            max_chi = np.max(chi_sqs)
+            if diag:
+                max_diagchi = np.max(diagchi_sqs)
 
-                    fig_best, axarr_best = plt.subplots(3,1)
-                    for resp in [0,1,2]:
-                        yforce = (yukforce[resp]-np.mean(yukforce[resp])) * best_fit_alphas[lambind]
-                        axarr_best[resp].plot(posvec, yforce, color='r')
-                        axarr_best[resp].plot(binned_data[resp][0], binned_data[resp][1], color='k')
-                    plt.show()
+            max_alpha = np.max(testalphas)
+
+            p0 = [max_chi/max_alpha**2, 0, 1]
+            if diag:
+                diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
+
+            try:
+                #plt.plot(testalphas, chi_sqs)
+                #plt.show()
+                popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
+                                            p0=p0, maxfev=100000)
+                if diag:
+                    diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
+                                                        p0=diag_p0, maxfev=1000000)
+            except:
+                print "Couldn't fit"
+                popt = [0,0,0]
+                popt[2] = np.mean(chi_sqs)
+
+            best_fit_alphas[lambind] = -0.5 * popt[1] / popt[0]
+            if diag:
+                diag_best_fit_alphas[lambind] = -0.5 * diagpopt[1] / diagpopt[0]
+
+            stop = time.time()
+            #print 'func eval time: ', stop-start
+
+            if plot_best_alpha:
+
+                fig_best, axarr_best = plt.subplots(3,1)
+                for resp in [0,1,2]:
+                    yforce = (yukforce[resp]-np.mean(yukforce[resp])) * best_fit_alphas[lambind]
+                    axarr_best[resp].plot(posvec, yforce, color='r')
+                    axarr_best[resp].plot(binned_data[resp][0], binned_data[resp][1], color='k')
+                plt.show()
 
             outdat[bias][ax1][ax2].append([best_fit_alphas, diag_best_fit_alphas])
 
