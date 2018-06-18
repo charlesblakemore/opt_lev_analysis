@@ -12,12 +12,12 @@ import bead_util as bu
 import configuration as config
 
 
-dir1 = '/data/20171221/bead6/test_2chan_chirp/test2_3000Hz-4000Hz'
+dir1 = '/data/20180618/bead1/discharge/coarse2'
 
-step10 = True
+step10 = False
 invert_order = False
 
-data_axes = [6,7]
+data_axes = [0,1,2]
 
 maxfiles = 1000 # Many more than necessary
 lpf = 2500   # Hz
