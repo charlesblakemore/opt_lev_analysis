@@ -109,7 +109,7 @@ class File_prof:
          
 
 def proc_dir(dir):
-    files = glob.glob(dir + '/*.h5')
+    files = bu.find_all_fnames(dir)
     file_profs = []
     cents = []
     for fi in files:
