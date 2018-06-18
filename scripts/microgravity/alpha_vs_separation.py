@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore")
 
 minsep = 15       # um
 maxthrow = 80     # um
-beadheight = 10   # um
+beadheight = 25   # um
 
 #data_dir = '/data/20180314/bead1/grav_data/ydrive_6sep_1height_shield-2Vac-2200Hz_cant-0mV'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
@@ -38,7 +38,7 @@ savepath = '/sensitivities/20180613_grav-no-shield_1.npy'
 save = False
 load = False
 file_inds = (0, 2000)
-max_file_per_pos = 1
+max_file_per_pos = 10
 
 theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #theory_data_dir = '/data/grav_sim_data/1um_spacing_x-0-p80_y-m250-p250_z-m20-p20/'
@@ -50,9 +50,9 @@ confidence_level = 0.95
 
 lamb_range = (1.7e-6, 1e-4)
 
-#user_lims = [(65e-6, 80e-6), (-240e-6, 240e-6), (-5e-6, 5e-6)]
-user_lims = [(5e-6, 80e-6), (-240e-6, 240e-6), (-5e-6, 5e-6)]
-#user_lims = []
+userlims = [(5e-6, 80e-6), (-240e-6, 240e-6), (-20e-6, 20e-6)]
+#userlims = [(5e-6, 21e-6), (-240e-6, 240e-6), (-2e-6, 0e-6)]
+#userlims = []
 
 tophatf = 300   # Hz, doesn't reconstruct data above this frequency
 nharmonics = 10
@@ -127,8 +127,6 @@ def build_mod_grav_funcs(theory_data_dir):
                           for modified gravity with indexing: 
                           [[y0_fx, y1_fx, ...], [y0_fy, ...], [y0_fz, ...]]
                 lambdas, np.array with all lambdas from the simulation
-                lims, 3 element with tuples for (min, max) of coordinate
-                      limits in interpolation
     '''
 
     # Load modified gravity curves from simulation output
@@ -174,7 +172,7 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       width=0, nharmonics=10, harms=[], \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
-                      max_file_per_pos=1000):
+                      max_file_per_pos=1000, userlims=[]):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then performs an optimal filter using the cantilever drive and 
        a theoretical force vs position to generate the filter/template.
@@ -228,13 +226,14 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
             newxpos = ax1pos
             newheight = ax2pos
 
-        if (newxpos < lims[0][0]*1e6) or (newxpos > lims[0][1]*1e6):
-            #print 'skipped x'
-            continue
+        if len(userlims):
+            if (newxpos < userlims[0][0]*1e6) or (newxpos > userlims[0][1]*1e6):
+                #print 'skipped x'
+                continue
 
-        if (newheight < lims[2][0]*1e6) or (newheight > lims[2][1]*1e6):
-            #print 'skipped z'
-            continue
+            if (newheight < userlims[2][0]*1e6) or (newheight > userlims[2][1]*1e6):
+                #print 'skipped z'
+                continue
 
         ### Add this combination of positions to the output
         ### data dictionary
@@ -263,6 +262,11 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                     df.get_datffts_and_errs(ginds, drive_freq, noiseband=noiseband, plot=plotfilt, \
                                             diag=diag)
 
+        df.get_force_v_pos()
+        binned = np.array(df.binned_data)
+        for resp in [0,1,2]:
+            binned[resp][1] = binned[resp][1] * df.conv_facs[resp]
+
         drivevec = df.cant_data[drive_ind]
         
         mindrive = np.min(drivevec)
@@ -274,7 +278,8 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
         pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
 
         fildat[cantbias][ax1pos][ax2pos].append((drivevec, posvec, pts, ginds, \
-                                                 datffts, diagdatffts, daterrs, diagdaterrs))
+                                                 datffts, diagdatffts, daterrs, diagdaterrs, \
+                                                 binned))
 
     return fildat
 
@@ -287,7 +292,7 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
 
 
 def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
-                      ignoreX=False, ignoreY=False, ignoreZ=False):
+                       ignoreX=False, ignoreY=False, ignoreZ=False, plot_best_alpha=False):
     '''Loops over the output from get_data_at_harms, fits each set of
        data against the appropriate modified gravity template and compiles
        the result into a dictionary
@@ -299,6 +304,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
 
     outdat = {}
     temp_gdat = {}
+    plot_forces = {}
 
     biasvec = fildat.keys()
     ax1vec = fildat[biasvec[0]].keys()
@@ -309,10 +315,13 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
         for ax1 in ax1vec:
             outdat[bias][ax1] = {}
             temp_gdat[ax1] = {}
+            plot_forces[ax1] = {}
             for ax2 in ax2vec:
                 outdat[bias][ax1][ax2] = []
                 temp_gdat[ax1][ax2] = [[],[]]
-                temp_gdat[ax1][ax2][1] = [[]] * len(lambdas)
+                temp_gdat[ax1][ax2][1] = [[] for i in range(len(lambdas))]
+                plot_forces[ax1][ax2] = [[],[]]
+                plot_forces[ax1][ax2][1] = [[] for i in range(len(lambdas))]
 
 
     i = 0
@@ -320,9 +329,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
     for bias, ax1, ax2 in itertools.product(biasvec, ax1vec, ax2vec):
         i += 1
         suff = '%i / %i param combinations' % (i, totlen)
-        if i != totlen:
-            newline=False
-        else:
+        newline=False
+        if i == totlen:
             newline=True
 
         dat = fildat[bias][ax1][ax2]
@@ -330,8 +338,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
         
         j = 0
         for fil in dat:
-            drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr = fil
-
+            drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr, binned_data = fil
             start = time.time()
 
             ######################################
@@ -346,6 +353,9 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
 
                 gfft = [[], [], []]
                 yukfft = [[], [], []]
+                gforce = [[], [], []]
+                yukforce = [[], [], []]
+
                 for resp in [0,1,2]:
                     if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
                         gfft[resp] = np.zeros(np.sum(ginds))
@@ -354,28 +364,36 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
 
                     if len(temp_gdat[ax1][ax2][0]):
                         gfft[resp] = temp_gdat[ax1][ax2][0][resp]
+                        gforce[resp] = plot_forces[ax1][ax2][0][resp]
                     else:
                         gforcevec = gfuncs[resp](pts*1e-6)
                         gforcefunc = interp.interp1d(posvec, gforcevec)
                         gforcet = gforcefunc(drivevec)
 
+                        gforce[resp] = gforcevec
                         gfft[resp] =  np.fft.rfft(gforcet)[ginds]
 
                     if len(temp_gdat[ax1][ax2][1][lambind]):
                         yukfft[resp] = temp_gdat[ax1][ax2][1][lambind][resp]
+                        yukforce[resp] = plot_forces[ax1][ax2][0][resp]
                     else:
                         yukforcevec = yukfuncs[resp][lambind](pts*1e-6)
                         yukforcefunc = interp.interp1d(posvec, yukforcevec)
                         yukforcet = yukforcefunc(drivevec)
 
+                        yukforce[resp] = yukforcevec
                         yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
 
                 gfft = np.array(gfft)
                 yukfft = np.array(yukfft)
+                gforce = np.array(gforce)
+                yukforce = np.array(yukforce)
 
                 temp_gdat[ax1][ax2][0] = gfft
                 temp_gdat[ax1][ax2][1][lambind] = yukfft
-
+                plot_forces[ax1][ax2][0] = gforce
+                plot_forces[ax1][ax2][1][lambind] = yukforce
+                
 
                 newalpha = 2 * np.mean( np.abs(datfft) ) / np.mean( np.abs(yukfft) ) * 10**(-4)
                 #print newalpha, ':', 
@@ -451,6 +469,15 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
 
                 stop = time.time()
                 #print 'func eval time: ', stop-start
+                
+                if plot_best_alpha:
+
+                    fig_best, axarr_best = plt.subplots(3,1)
+                    for resp in [0,1,2]:
+                        axarr_best[resp].plot(posvec, (yukforce[resp]-np.mean(yukforce[resp]))*best_fit_alphas[lambind], \
+                                              color='r')
+                        axarr_best[resp].plot(binned_data[resp][0], binned_data[resp][1], color='k')
+                    plt.show()
 
             outdat[bias][ax1][ax2].append([best_fit_alphas, diag_best_fit_alphas])
 
@@ -539,7 +566,7 @@ def fit_alpha_vs_sep_1height(alphadat, height, minsep=10.0, maxthrow=80.0, beadh
 
 
 def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheight=40.0, \
-                        plot=False):
+                        plot=False, scale_fac=1.0*10**9):
 
     biasvec = alphadat.keys()
     ax1vec = alphadat[biasvec[0]].keys()
@@ -559,6 +586,8 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
 
     fits = {}
     outdat = {}
+
+    testvec = []
 
     ### Perform identical fits for each cantilever bias and height
     for bias in biasvec:
@@ -592,28 +621,77 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
             errs = errs[sort1,:]
             errs = errs[:,sort2]
 
-            def err_func(params):
-                funcval = params[0] * seps_g + params[1] * heights_g + params[2]
-                lst_sq = np.abs(dat - funcval)**2 / errs**2
-                return np.sum(lst_sq)
-                
+
+            '''
+            X = []
+            Z = []
+            F = []
+            E = []
+            for sepind, sep in enumerate(seps_sort):
+                for heightind, height in enumerate(heights_sort):
+                    X.append(sep)
+                    Z.append(height)
+                    F.append(dat[sepind,heightind])
+                    E.append(errs[sepind,heightind])
+
+            A = np.c_[Z, X, np.ones(len(X))] #, E]
+            res, residue, _, _ = linalg.lstsq(A, F)
+
+            Feval = res[0] * heights_g + res[1] * seps_g + res[2]
+
             if plot:
                 fig = plt.figure()
-                ax = fig.add_subplot(111, projection='3d')
-                ax.scatter(seps_g, heights_g, dat)
-
-                fig2 = plt.figure()
-                ax2 = fig2.add_subplot(111, projection='3d')
-                ax2.scatter(seps_g, heights_g, errs)
-
+                ax = fig.gca(projection='3d')
+                ax.plot_surface(heights_g, seps_g, Feval, rstride=1, cstride=1, alpha=0.3)
+                ax.scatter(heights_g, seps_g, dat)
                 plt.show()
+            
+            x = res
 
-            res = opti.minimize(err_func, [np.mean(dat), np.mean(dat), np.mean(dat)])
 
-            fits[bias][lambind] = res
+            '''
+
+            def func(params, fdat=dat, scale_fac=scale_fac):
+                funcval = params[0] * heights_g + params[1] * seps_g + params[2]
+                return (funcval*scale_fac - fdat).flatten()
+
+            res = opti.leastsq(func, [0.2*np.mean(dat), 0.2*np.mean(dat), 0], \
+                               full_output=1, maxfev=10000)
+
+            try:
+                x = res[0]
+                residue = linalg.inv(res[1])[2,2]
+            except:
+                2+2
+
+            print lambind, np.log10(np.mean(dat)), np.log10(np.abs(x[2]*scale_fac))
+            print 
+            #raw_input()
+
+            if plot:
+                vals = x[0] * heights_g + x[1] * seps_g + x[2]
+                vals = vals * scale_fac
+
+                fig = plt.figure()
+                ax = fig.gca(projection='3d')
+                ax.plot_surface(heights_g, seps_g, vals, rstride=1, cstride=1, alpha=0.3)
+                ax.scatter(heights_g, seps_g, dat)
+                #print x[2] * scale_fac
+                plt.show()
+            
+
+            fits[bias][lambind] = (x, residue)
             outdat[bias][lambind] = (dat, errs)
 
-    return fits, outdat
+            testvec.append([x[2]*scale_fac, residue])
+
+    testvec = np.array(testvec)
+    testvec.shape
+
+    alphas_bf = np.array(testvec[:,0])
+    alphas_95cl = np.array(testvec[:,1]) * scale_fac
+
+    return fits, outdat, alphas_bf, alphas_95cl
 
 
 
@@ -647,14 +725,15 @@ if not plot_just_current:
                                cantind=0, ax1='x', ax2='z', diag=diag, plottf=False, \
                                nharmonics=nharmonics, harms=harms, \
                                ext_cant_drive=True, ext_cant_ind=1, \
-                               max_file_per_pos=max_file_per_pos)
+                               max_file_per_pos=max_file_per_pos, userlims=userlims)
 
     alphadat = find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
-                                 ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ)
+                                  ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ, \
+                                  plot_best_alpha=False)
 
     
-    fits, outdat = fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
-                                       maxthrow=maxthrow, beadheight=beadheight, plot=True)
+    fits, outdat, alphas_bf, alphas_95cl = fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
+                                                               maxthrow=maxthrow, beadheight=beadheight, plot=True)
     
 
     #alphas_bf, alphas_95cl, fits = \
@@ -665,7 +744,7 @@ if not plot_just_current:
 
 
 
-'''
+
 
 
 
@@ -683,8 +762,8 @@ ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, col
 ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
 ax.grid()
 
-ax.set_xlim(lambda_plot_lims[0], lambda_plot_lims[1])
-ax.set_ylim(alpha_plot_lims[0], alpha_plot_lims[1])
+#ax.set_xlim(lambda_plot_lims[0], lambda_plot_lims[1])
+#ax.set_ylim(alpha_plot_lims[0], alpha_plot_lims[1])
 
 ax.set_xlabel('$\lambda$ [m]')
 ax.set_ylabel('$\\alpha$')
@@ -714,4 +793,4 @@ if diag:
 
 plt.show()
 
-'''
+

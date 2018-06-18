@@ -1,218 +1,626 @@
+import sys, time, itertools
+
+import dill as pickle
+
 import numpy as np
-import matplotlib.pyplot as pyplot
-import cPickle as pickle
-import matplotlib.colors as colors
-import scipy.interpolate as interpolate
-import scipy.optimize as optimize
-import sys, time
-import cant_util as cu
-import scipy.signal as signal
+
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+
+import scipy.interpolate as interp
+import scipy.stats as stats
+import scipy.optimize as opti
+import scipy.linalg as linalg
+
+import bead_util as bu
+import calib_util as cal
+import transfer_func_util as tf
+import configuration as config
+
+import warnings
+warnings.filterwarnings("ignore")
 
 
-#######################################################
-# This module allows a user to load and interact with
-# force curves from a Yukawa-type modification to gravity
-# between a microsphere and some probe mass
-#
-# This assumes the curves have already been computed 
-# by code in .../scripts/gravity_sim and simply interacts
-# with the pickled result
-#######################################################
 
 
-class Grav_force_curve:
-    '''Class to hold the expected force curves for a yukawa modification to gravity.
-       Instances of this class take pickled data from ../gravity_sim/save_force_curves.py
-       and interpolate over separation and position along cantilever face. Class 
-       methods allow one to access and call these interpolating functions in a somewhat
-       sensible manner.'''
 
-    def __init__(self, path='', make_splines=False, spline_order=2):
+# Various fitting functions
+def parabola(x, a, b, c):
+    return a * x**2 + b * x + c
 
-        if( path != ''):
-            self.path = path
-            self.load_fcurves(path, make_splines=make_splines, \
-                              spline_order=spline_order)
+def line(x, a, b):
+    return a * x + b
+
+def plane(x, z, a, b, c):
+    return a * x + b * z + c
+
+def const(x, a):
+    return a
+
+def flicker(x, a):
+    return a * (1. / x)
 
 
-    def load_fcurves(self, path='', make_splines=False, spline_order=2):
-        if( path == ''):
-            print "ERROR: No file to load..."
-            return
 
-        try:
-            self.path = path
-            self.dic = pickle.load( open(path, 'rb') )
-            assert self.dic['order'] == 'Rbead, Sep, Yuklambda', 'Key ordering unexpected'
-            self.posvec = np.array(self.dic['posvec'])
 
-            rbeads = [rbead for rbead in self.dic.keys() \
-                           if isinstance(rbead, (int, float, long))]
-            rbeads.sort()
-            self.rbeads = np.array(rbeads)
+
+def build_mod_grav_funcs(theory_data_dir):
+    '''Loads data from the output of /data/grav_sim_data/process_data.py
+       which processes the raw simulation output from the farmshare code
+
+       INPUTS: theory_data_dir, path to the directory containing the data
+
+       OUTPUTS: gfuncs, 3 element list with 3D interpolating functions
+                        for regular gravity [fx, fy, fz]
+                yukfuncs, 3 x Nlambda array with 3D interpolating function
+                          for modified gravity with indexing: 
+                          [[y0_fx, y1_fx, ...], [y0_fy, ...], [y0_fz, ...]]
+                lambdas, np.array with all lambdas from the simulation
+    '''
+
+    # Load modified gravity curves from simulation output
+    Gdata = np.load(theory_data_dir + 'Gravdata.npy')
+    yukdata = np.load(theory_data_dir + 'yukdata.npy')
+    lambdas = np.load(theory_data_dir + 'lambdas.npy')
+    xpos = np.load(theory_data_dir + 'xpos.npy')
+    ypos = np.load(theory_data_dir + 'ypos.npy')
+    zpos = np.load(theory_data_dir + 'zpos.npy')
     
-            seps = self.dic[self.rbeads[0]].keys()
-            seps.sort()
-            self.seps = np.array(seps)
+    if lambdas[-1] > lambdas[0]:
+        lambdas = lambdas[::-1]
+        yukdata = np.flip(yukdata, 0)
 
-            lambdas = self.dic[self.rbeads[0]][self.seps[0]].keys()
-            lambdas.sort()
-            self.lambdas = np.array(lambdas)
+    # Find limits to avoid out of range erros in interpolation
+    xlim = (np.min(xpos), np.max(xpos))
+    ylim = (np.min(ypos), np.max(ypos))
+    zlim = (np.min(zpos), np.max(zpos))
 
-            if make_splines:
-                self.make_splines(spline_order=spline_order)
+    # Build interpolating functions for regular gravity
+    gfuncs = [0,0,0]
+    for resp in [0,1,2]:
+        gfuncs[resp] = interp.RegularGridInterpolator((xpos, ypos, zpos), Gdata[:,:,:,resp])
 
-        except:
-            self.dic = 'No data loaded!'
-            print "ERROR: Bad File! Couldn't load..."
+    # Build interpolating functions for yukawa-modified gravity
+    yukfuncs = [[],[],[]]
+    for resp in [0,1,2]:
+        for lambind, yuklambda in enumerate(lambdas):
+            lamb_func = interp.RegularGridInterpolator((xpos, ypos, zpos), yukdata[lambind,:,:,:,resp])
+            yukfuncs[resp].append(lamb_func)
+    lims = [xlim, ylim, zlim]
 
-    def make_splines(self, spline_order=2):
-        '''Fuction to generate interpolating splines from loaded force curves
-               INPUTS: order, polynomial order of interpolating spline
+    return gfuncs, yukfuncs, lambdas, lims
 
-               OUTPUTS: Nothing returned, creates class attribute "splines"'''
-        if type(self.dic) == str:
-            print "ERROR: No Data Loaded!"
-            return
 
-        print "Making splines!"
 
-        Gsplines = {}
-        yuksplines = {}
 
-        # Loop over bead radii from loaded data
-        for rbead in self.rbeads:
-            if rbead not in Gsplines.keys():
-                Gsplines[rbead] = {}
-                yuksplines[rbead] = {}
 
-            # Loop over length scale lambda from yukawa modification
-            for yuklambda in self.lambdas:
 
-                # Finally, loop over separations and construct a grid
-                Ggrid = []
-                yukgrid = []
-                for sep in self.seps:
 
-                    # Find the appropriate curve
-                    Gcurve, yukcurve = self.dic[rbead][sep][yuklambda]
 
-                    # Stack the data
-                    try:
-                        Ggrid = np.vstack((Ggrid, Gcurve))
-                        yukgrid = np.vstack((yukgrid, yukcurve))
-                    except:
-                        Ggrid = Gcurve
-                        yukgrid = yukcurve
+def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
+                      cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
+                      width=0, nharmonics=10, harms=[], \
+                      ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
+                      max_file_per_pos=1000, userlims=[]):
+    '''Loops over a list of file names, loads each file, diagonalizes,
+       then performs an optimal filter using the cantilever drive and 
+       a theoretical force vs position to generate the filter/template.
+       The result of the optimal filtering is stored, and the data 
+       released from memory
 
-                # Make an interpolating object which takes advantage of 
-                # regular spacing of both the separation and the position
-                # along the cantilever
-                Ginterpfunc = interpolate.RectBivariateSpline(self.seps, self.posvec, Ggrid, \
-                                                              kx=spline_order, ky=spline_order)
-                yukinterpfunc = interpolate.RectBivariateSpline(self.seps, self.posvec, yukgrid, \
-                                                                kx=spline_order, ky=spline_order)
+       INPUTS: files, list of files names to extract data
+               cantind, cantilever electrode index
+               ax1, axis with different DC positions
+               ax2, 2nd axis with different DC positions
 
-                Gsplines[rbead][yuklambda] = Ginterpfunc
-                yuksplines[rbead][yuklambda] = yukinterpfunc
+       OUTPUTS: 
+    '''
+
+    #parts = data_dir.split('/')
+    #prefix = parts[-1]
+    #savepath = '/processed_data/grav_data/' + prefix + '_fildat.p'
+    #try:
+    #    fildat = pickle.load(open(savepath, 'rb'))
+    #    return fildat
+    #except:
+    #    print 'Loading data from: ', data_dir
+
+    fildat = {}
+    temp_gdat = {}
+    for fil_ind, fil in enumerate(files):
+        bu.progress_bar(fil_ind, len(files), suffix=' Sorting Files, Extracting Data')
+
+        ### Load data
+        df = bu.DataFile()
+        df.load(fil)
+
+        df.calibrate_stage_position()
+    
+        cantbias = df.electrode_settings['dc_settings'][0]
+        ax1pos = df.stage_settings[ax1 + ' DC']
+        ax2pos = df.stage_settings[ax2 + ' DC']
+
+
+        ### Transform cantilever coordinates to bead-centric 
+        ### coordinates
+        if ax1 == 'x' and ax2 == 'z':
+            newxpos = minsep + (maxthrow - ax1pos)
+            newheight = ax2pos - beadheight
+        elif ax1 =='z' and ax2 == 'x':
+            newxpos = minsep + (maxthrow - ax2pos)
+            newheight = ax1pos - beadheight
+        else:
+            print "Coordinate axes don't make sense for gravity data..."
+            print "Proceeding anyway, but results might be hard to interpret"
+            newxpos = ax1pos
+            newheight = ax2pos
+
+        if len(userlims):
+            if (newxpos < userlims[0][0]*1e6) or (newxpos > userlims[0][1]*1e6):
+                #print 'skipped x'
+                continue
+
+            if (newheight < userlims[2][0]*1e6) or (newheight > userlims[2][1]*1e6):
+                #print 'skipped z'
+                continue
+
+        ### Add this combination of positions to the output
+        ### data dictionary
+        if cantbias not in fildat.keys():
+            fildat[cantbias] = {}
+        if ax1pos not in fildat[cantbias].keys():
+            fildat[cantbias][ax1pos] = {}
+        if ax2pos not in fildat[cantbias][ax1pos].keys():
+            fildat[cantbias][ax1pos][ax2pos] = []
+
+        if len(fildat[cantbias][ax1pos][ax2pos]) >= max_file_per_pos:
+            continue
+
+        if fil_ind == 0 and plottf:
+            df.diagonalize(date=tfdate, maxfreq=tophatf, plot=True)
+        else:
+            df.diagonalize(date=tfdate, maxfreq=tophatf)
+
+
+        #if fil_ind == 0:
+        ginds, fund_ind, drive_freq, drive_ind = \
+                df.get_boolean_cantfilt(ext_cant_drive=ext_cant_drive, ext_cant_ind=ext_cant_ind, \
+                                        nharmonics=nharmonics, harms=harms, width=width)
+
+        datffts, diagdatffts, daterrs, diagdaterrs = \
+                    df.get_datffts_and_errs(ginds, drive_freq, noiseband=noiseband, plot=plotfilt, \
+                                            diag=diag)
+
+        df.get_force_v_pos()
+        binned = np.array(df.binned_data)
+        for resp in [0,1,2]:
+            binned[resp][1] = binned[resp][1] * df.conv_facs[resp]
+
+        drivevec = df.cant_data[drive_ind]
+        
+        mindrive = np.min(drivevec)
+        maxdrive = np.max(drivevec)
+
+        posvec = np.linspace(mindrive, maxdrive, 500)
+        ones = np.ones_like(posvec)
+
+        pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
+
+        fildat[cantbias][ax1pos][ax2pos].append((drivevec, posvec, pts, ginds, \
+                                                 datffts, diagdatffts, daterrs, diagdaterrs, \
+                                                 binned))
+
+    return fildat
+
+
+
+
+
+
+
+
+
+def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
+                       ignoreX=False, ignoreY=False, ignoreZ=False, plot_best_alpha=False):
+    '''Loops over the output from get_data_at_harms, fits each set of
+       data against the appropriate modified gravity template and compiles
+       the result into a dictionary
+
+       INPUTS: 
+
+       OUTPUTS: 
+    '''
+
+    outdat = {}
+    temp_gdat = {}
+    plot_forces = {}
+
+    biasvec = fildat.keys()
+    ax1vec = fildat[biasvec[0]].keys()
+    ax2vec = fildat[biasvec[0]][ax1vec[0]].keys()
+
+    for bias in biasvec:
+        outdat[bias] = {}
+        for ax1 in ax1vec:
+            outdat[bias][ax1] = {}
+            temp_gdat[ax1] = {}
+            plot_forces[ax1] = {}
+            for ax2 in ax2vec:
+                outdat[bias][ax1][ax2] = []
+                temp_gdat[ax1][ax2] = [[],[]]
+                temp_gdat[ax1][ax2][1] = [[] for i in range(len(lambdas))]
+                plot_forces[ax1][ax2] = [[],[]]
+                plot_forces[ax1][ax2][1] = [[] for i in range(len(lambdas))]
+
+
+    i = 0
+    totlen = len(biasvec) * len(ax1vec) * len(ax2vec)
+    for bias, ax1, ax2 in itertools.product(biasvec, ax1vec, ax2vec):
+        i += 1
+        suff = '%i / %i param combinations' % (i, totlen)
+        newline=False
+        if i == totlen:
+            newline=True
+
+        dat = fildat[bias][ax1][ax2]
+        outdat[bias][ax1][ax2] = []
+        
+        j = 0
+        for fil in dat:
+            drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr, binned_data = fil
+            start = time.time()
+
+            ######################################
+            ######################################
+
+            best_fit_alphas = np.zeros(len(lambdas))
+            diag_best_fit_alphas = np.zeros(len(lambdas))
+
+            for lambind, yuklambda in enumerate(lambdas):
+                j += 1
+                bu.progress_bar(j, len(lambdas) * len(dat), suffix=suff, newline=newline)
+
+                gfft = [[], [], []]
+                yukfft = [[], [], []]
+                gforce = [[], [], []]
+                yukforce = [[], [], []]
+
+                for resp in [0,1,2]:
+                    if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
+                        gfft[resp] = np.zeros(np.sum(ginds))
+                        yukfft[resp] = np.zeros(np.sum(ginds))
+                        continue
+
+                    if len(temp_gdat[ax1][ax2][0]):
+                        gfft[resp] = temp_gdat[ax1][ax2][0][resp]
+                        gforce[resp] = plot_forces[ax1][ax2][0][resp]
+                    else:
+                        gforcevec = gfuncs[resp](pts*1e-6)
+                        gforcefunc = interp.interp1d(posvec, gforcevec)
+                        gforcet = gforcefunc(drivevec)
+
+                        gforce[resp] = gforcevec
+                        gfft[resp] =  np.fft.rfft(gforcet)[ginds]
+
+                    if len(temp_gdat[ax1][ax2][1][lambind]):
+                        yukfft[resp] = temp_gdat[ax1][ax2][1][lambind][resp]
+                        yukforce[resp] = plot_forces[ax1][ax2][0][resp]
+                    else:
+                        yukforcevec = yukfuncs[resp][lambind](pts*1e-6)
+                        yukforcefunc = interp.interp1d(posvec, yukforcevec)
+                        yukforcet = yukforcefunc(drivevec)
+
+                        yukforce[resp] = yukforcevec
+                        yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
+
+                gfft = np.array(gfft)
+                yukfft = np.array(yukfft)
+                gforce = np.array(gforce)
+                yukforce = np.array(yukforce)
+
+                temp_gdat[ax1][ax2][0] = gfft
+                temp_gdat[ax1][ax2][1][lambind] = yukfft
+                plot_forces[ax1][ax2][0] = gforce
+                plot_forces[ax1][ax2][1][lambind] = yukforce
                 
-        self.splines = (Gsplines, yuksplines)
+
+                newalpha = 2 * np.mean( np.abs(datfft) ) / np.mean( np.abs(yukfft) ) * 10**(-4)
+                #print newalpha, ':', 
+                testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
 
 
-    def mod_grav_force(self, xarr, sep=10.0e-6, alpha=1., yuklambda=1.0e-6, rbead=2.43e-6, \
-                       verbose=False, nograv=False):
-        '''Returns a modified gravity force curve for a given separation,
-           alpha and lambda. Includes regular gravity
-               INPUTS: xarr [m], array of x points to compute force, x=0 center of cant.
-                       sep [m], bead cantilever separation
-                       alpha [abs], strength relative to gravity
-                       yuklambda [m], length scale of modifications 
-                       rbead [m], bead radius
-                       
-               OUTPUTS: numpy array [N], force along points in xarr.'''
+                chi_sqs = np.zeros(len(testalphas))
+                diagchi_sqs = np.zeros(len(testalphas))
 
-        # make sure rbead and yuklambda exist as keys
-        if rbead not in self.rbeads:
-            close_ind = np.argmin( np.abs(rbead - self.rbeads) )
-            new_rbead = self.rbeads[close_ind]
-            rbead = new_rbead
-            if verbose:
-                print "Couldn't find rbead you wanted... Using rbead = %0.3g" % new_rbead
+                for alphaind, testalpha in enumerate(testalphas):
 
-        if yuklambda not in self.lambdas:
-            close_ind = np.argmin( np.abs(yuklambda - self.lambdas) )
-            new_lambda = self.lambdas[close_ind]
-            yuklambda = new_lambda
-            if verbose:
-                print "Couldn't find scale you wanted... Using lambda = %0.3g" % new_lambda
+                    chi_sq = 0
+                    diagchi_sq = 0
+                    N = 0
+                
+                    for resp in [0,1,2]:
+                        if (ignoreX and resp == 0) or \
+                           (ignoreY and resp == 1) or \
+                           (ignoreZ and resp == 2):
+                            continue
+                        re_diff = datfft[resp].real - \
+                                  (gfft[resp].real + testalpha * yukfft[resp].real )
+                        im_diff = datfft[resp].imag - \
+                                  (gfft[resp].imag + testalpha * yukfft[resp].imag )
+                        if diag:
+                            diag_re_diff = diagdatfft[resp].real - \
+                                           (gfft[resp].real + testalpha * yukfft[resp].real )
+                            diag_im_diff = diagdatfft[resp].imag - \
+                                           (gfft[resp].imag + testalpha * yukfft[resp].imag )
 
-        # Identify splines for given rbead and yuklambda
-        Gfunc = self.splines[0][rbead][yuklambda]
-        yukfunc = self.splines[1][rbead][yuklambda]
-        
-        # Compute newtownian gravity and yukawa modification with alpha = 1
-        Gcurve = Gfunc(sep, xarr)
-        yukcurve = yukfunc(sep, xarr)
+                        #plt.plot(np.abs(re_diff))
+                        #plt.plot(daterr[resp])
+                        #plt.show()
 
-        # Compute the total force with given alpha
-        if nograv:
-            totforce = alpha * yukcurve
-        else:
-            totforce = Gcurve + alpha * yukcurve
+                        chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
+                                  np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
+                        if diag:
+                            diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
+                                                    (0.5*(diagdaterr[resp]**2)) ) + \
+                                            np.sum( np.abs(diag_im_diff)**2 / \
+                                                    (0.5*(diagdaterr[resp]**2)) ) )
 
-        # Reshape the output to match standard 1D numpy array shape
-        totforce_shaped = totforce.reshape( (len(xarr),) )
-        return totforce_shaped
+                        N += len(re_diff) + len(im_diff)
 
+                    chi_sqs[alphaind] = chi_sq / (N - 1)
+                    if diag:
+                        diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
 
+                max_chi = np.max(chi_sqs)
+                if diag:
+                    max_diagchi = np.max(diagchi_sqs)
 
-    def mod_grav_force_point(self, pos, sep=10., alpha=1., yuklambda=1.0e-6, rbead=2.43e-6, \
-                             verbose=False, nograv=False):
-        '''Returns the force at a particular point for a given separation, alpha,
-           lambda and bead radius. Includes regular gravity.
-               INPUTS: pos [m], position along cantilever to compute force, x=0 center
-                       sep [m], bead cantilever separation
-                       alpha [abs], strength relative to gravity
-                       yuklambda [m], length scale of modifications 
-                       rbead [m], bead radius
-                       
-               OUTPUTS: force [N], force at specified point.'''
+                max_alpha = np.max(testalphas)
 
-        # make sure rbead and yuklambda exist as keys
-        if rbead not in self.rbeads:
-            close_ind = np.argmin( np.abs(rbead - self.rbeads) )
-            new_rbead = self.rbeads[close_ind]
-            rbead = new_rbead
-            if verbose:
-                print "Couldn't find bead you wanted... Using rbead = %0.3g" % new_rbead
-
-        if yuklambda not in self.lambdas:
-            close_ind = np.argmin( np.abs(yuklambda - self.lambdas) )
-            new_lambda = self.lambdas[close_ind]
-            yuklambda = new_lambda
-            if verbose:
-                print "Couldn't find scale you wanted... Using lambda = %0.3g" % new_lambda
-            
-        # Identify splines for given rbead and yuklambda
-        Gfunc = self.splines[0][rbead][yuklambda]
-        yukfunc = self.splines[1][rbead][yuklambda]
-        
-        # Compute newtownian gravity and yukawa modification with alpha = 1
-        Gforce = Gfunc(sep, pos)
-        yukforce = yukfunc(sep, pos)
-        
-        # Compute the total force with given alpha
-        if nograv:
-            totforce = alpha * yukforce
-        else:
-            totforce = Gforce + alpha * yukforce
-
-
-        return totforce
-
-
+                p0 = [max_chi/max_alpha**2, 0, 1]
+                if diag:
+                    diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
     
-        
+                try:
+                    popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
+                                                p0=p0, maxfev=100000)
+                    if diag:
+                        diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
+                                                            p0=diag_p0, maxfev=1000000)
+                except:
+                    print "Couldn't fit"
+                    popt = [0,0,0]
+                    popt[2] = np.mean(chi_sqs)
+
+                best_fit_alphas[lambind] = -2.0 * popt[1] / popt[0]
+                if diag:
+                    diag_best_fit_alphas[lambind] = -2.0 * diagpopt[1] / diagpopt[0]
+
+                stop = time.time()
+                #print 'func eval time: ', stop-start
+                
+                if plot_best_alpha:
+
+                    fig_best, axarr_best = plt.subplots(3,1)
+                    for resp in [0,1,2]:
+                        axarr_best[resp].plot(posvec, (yukforce[resp]-np.mean(yukforce[resp]))*best_fit_alphas[lambind], \
+                                              color='r')
+                        axarr_best[resp].plot(binned_data[resp][0], binned_data[resp][1], color='k')
+                    plt.show()
+
+            outdat[bias][ax1][ax2].append([best_fit_alphas, diag_best_fit_alphas])
+
+    return outdat
+
+
+
+
+
+
+def fit_alpha_vs_sep_1height(alphadat, height, minsep=10.0, maxthrow=80.0, beadheight=40.0):
+    fits = {}
+
+    biasvec = alphadat.keys()
+    ax1vec = alphadat[biasvec[0]].keys()
+    ax2vec = alphadat[biasvec[0]][ax1vec[0]].keys()
+
+    ### Assume separations are encoded in ax1 and heights in ax2
+    seps = maxthrow + minsep - np.array(ax1vec)
+    heights = np.array(ax2vec)- beadheight
+
+    ax2ind = np.argmin(np.abs(heights - height))
+
+    testvec = [] 
+    ### Perform identical fits for each cantilever bias and height
+    for bias in biasvec:
+        fits[bias] = {}
+        for ax2pos in ax2vec:
+            if ax2pos != ax2vec[ax2ind]:
+                continue
+            fits[bias][ax2pos] = []
+
+            ### Fit alpha vs separation for each value of yuklambda
+            for lambind, yuklambda in enumerate(lambdas):
+                dat = []
+
+                ### Loop over all files at each separation and collect
+                ### the value of alpha for the current value of yuklambda
+                for ax1ind, ax1pos in enumerate(ax1vec):
+                    for fil in alphadat[bias][ax1pos][ax2pos]:
+                        dat.append([seps[ax1ind], fil[0][lambind]])
+
+                ### Sort data for a monotonically increasing separation
+                dat = np.array(dat)
+                sort_inds = np.argsort(dat[:,0])
+                dat = dat[sort_inds]
+
+                SCALE_FAC = 1.0*10**9
+
+                ### Fit alpha vs. separation (most naive fit with a line)
+                popt, pcov = opti.curve_fit(line, dat[:,0], dat[:,1] * (1.0 / SCALE_FAC), \
+                                            maxfev=10000)
+
+                testvec.append([popt[1]*SCALE_FAC, np.sqrt(pcov[1,1])*SCALE_FAC])
+
+                print popt * SCALE_FAC
+
+                plt.plot(dat[:,0], dat[:,1], '.', ms=5, label='Best Fit Alphas')
+                plt.plot(dat[:,0], line(dat[:,0], popt[0]*SCALE_FAC, popt[1]*SCALE_FAC), \
+                         label='Linear + Constant Fit')
+                plt.xlabel('Separation [um]')
+                plt.ylabel('Alpha [abs]')
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
+
+                ### Append the result to our output array
+                fits[bias][ax2pos].append(popt*SCALE_FAC)
+
+
+    testvec = np.array(testvec)
+    #plt.loglog(lambdas, np.abs(testvec[:,0]), label='Best fit alpha')
+    #plt.loglog(lambdas, 2*np.abs(testvec[:,1]), label='95% CL (assuming IID error)')
+    #plt.legend()
+    #plt.show()
+
+    alphas_bf = np.abs(testvec[:,0])
+    alphas_95cl = 2.0 * np.abs(testvec[:,1])
+
+    return alphas_bf, alphas_95cl, fits
+
+
+
+
+
+
+
+def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheight=40.0, \
+                        plot=False, scale_fac=1.0*10**9):
+
+    biasvec = alphadat.keys()
+    ax1vec = alphadat[biasvec[0]].keys()
+    ax2vec = alphadat[biasvec[0]][ax1vec[0]].keys()
+
+    ### Assume separations are encoded in ax1 and heights in ax2
+    seps = maxthrow + minsep - np.array(ax1vec)
+    heights = np.array(ax2vec)- beadheight
+
+    sort1 = np.argsort(seps)
+    sort2 = np.argsort(heights)
+
+    seps_sort = seps[sort1]
+    heights_sort = heights[sort2]
+    
+    heights_g, seps_g = np.meshgrid(heights_sort, seps_sort)
+
+    fits = {}
+    outdat = {}
+
+    testvec = []
+
+    ### Perform identical fits for each cantilever bias and height
+    for bias in biasvec:
+        fits[bias] = {}
+        outdat[bias] = {}
+
+        for lambind, yuklambda in enumerate(lambdas):
+
+            dat = [[[] for i in range(len(heights))] for j in range(len(seps))]
+            errs = [[[] for i in range(len(heights))] for j in range(len(seps))]
+
+            for ax1ind, ax1pos in enumerate(ax1vec):
+
+                ### Loop over all files at each separation and collect
+                ### the value of alpha for the current value of yuklambda
+                for ax2ind, ax2pos in enumerate(ax2vec):
+                    tempdat = []
+
+                    for fil in alphadat[bias][ax1pos][ax2pos]:
+                        tempdat.append(fil[0][lambind])
+
+                    dat[ax1ind][ax2ind] = np.mean(tempdat)
+                    errs[ax1ind][ax2ind] = np.std(tempdat)
+
+            dat = np.array(dat)
+            errs = np.array(errs)
+
+            dat = dat[sort1,:]
+            dat = dat[:,sort2]
+
+            errs = errs[sort1,:]
+            errs = errs[:,sort2]
+
+
+            '''
+            X = []
+            Z = []
+            F = []
+            E = []
+            for sepind, sep in enumerate(seps_sort):
+                for heightind, height in enumerate(heights_sort):
+                    X.append(sep)
+                    Z.append(height)
+                    F.append(dat[sepind,heightind])
+                    E.append(errs[sepind,heightind])
+
+            A = np.c_[Z, X, np.ones(len(X))] #, E]
+            res, residue, _, _ = linalg.lstsq(A, F)
+
+            Feval = res[0] * heights_g + res[1] * seps_g + res[2]
+
+            if plot:
+                fig = plt.figure()
+                ax = fig.gca(projection='3d')
+                ax.plot_surface(heights_g, seps_g, Feval, rstride=1, cstride=1, alpha=0.3)
+                ax.scatter(heights_g, seps_g, dat)
+                plt.show()
+            
+            x = res
+
+
+            '''
+
+            def func(params, fdat=dat, scale_fac=scale_fac):
+                funcval = params[0] * heights_g + params[1] * seps_g + params[2]
+                return (funcval*scale_fac - fdat).flatten()
+
+            res = opti.leastsq(func, [0.2*np.mean(dat), 0.2*np.mean(dat), 0], \
+                               full_output=1, maxfev=10000)
+
+            try:
+                x = res[0]
+                residue = linalg.inv(res[1])[2,2]
+            except:
+                2+2
+
+            print lambind, np.log10(np.mean(dat)), np.log10(np.abs(x[2]*scale_fac))
+            print 
+            #raw_input()
+
+            if plot:
+                vals = x[0] * heights_g + x[1] * seps_g + x[2]
+                vals = vals * scale_fac
+
+                fig = plt.figure()
+                ax = fig.gca(projection='3d')
+                ax.plot_surface(heights_g, seps_g, vals, rstride=1, cstride=1, alpha=0.3)
+                ax.scatter(heights_g, seps_g, dat)
+                #print x[2] * scale_fac
+                plt.show()
+            
+
+            fits[bias][lambind] = (x, residue)
+            outdat[bias][lambind] = (dat, errs)
+
+            testvec.append([x[2]*scale_fac, residue])
+
+    testvec = np.array(testvec)
+    testvec.shape
+
+    alphas_bf = np.array(testvec[:,0])
+    alphas_95cl = np.array(testvec[:,1]) * scale_fac
+
+    return fits, outdat, alphas_bf, alphas_95cl
 
 
 
