@@ -88,17 +88,17 @@ def ptarr(xarr, yarr, zarr):
 
 gfuncs, yukfuncs, lambdas, lims = build_mod_grav_funcs(theory_data_dir)
 
-lam25umind = np.argmin((lambdas-2.5e-5)**2)
+#lam25umind = np.argmin((lambdas-2.5e-5)**2)
  
-xpltarr = np.arange(lims[0][0], lims[0][1], 1e-7)
-ypltarr = np.arange(-4E-5, 4E-5, 1e-7)
-zpltarr = np.arange(lims[2][0], lims[2][1], 1e-7)
+#xpltarr = np.arange(lims[0][0], lims[0][1], 1e-7)
+#ypltarr = np.arange(-4E-5, 4E-5, 1e-7)
+#zpltarr = np.arange(lims[2][0], lims[2][1], 1e-7)
 
-ones = np.ones_like(ypltarr)
-pts = ptarr(2.5e-5*ones, ypltarr, 0.*ones)
+#ones = np.ones_like(ypltarr)
+#pts = ptarr(2.5e-5*ones, ypltarr, 0.*ones)
 
-plt.plot(ypltarr, yukfuncs[0][lam25umind](pts))
-plt.xlabel("displacement [m]")
-plt.ylabel("Fx[N]")
-plt.show()
+#plt.plot(ypltarr, yukfuncs[0][lam25umind](pts))
+#plt.xlabel("displacement [m]")
+#plt.ylabel("Fx[N]")
+#plt.show()
 

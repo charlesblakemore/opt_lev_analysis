@@ -19,25 +19,26 @@ reload(al2)
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
 
-recalculate = False
+recalculate = True
 calculate_limit = True
 save_name = "binned_force_data.npy"
 save_limit_data = "limit_data.npy"
 dat_dir = "/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um_2"
-n_file = 454
 increment = 1
 plt_file = 10
 plt_increment = 100
 ah5 = lambda fname: fname + '.h5'
 files = bu.sort_files_by_timestamp(bu.find_all_fnames(dat_dir))
+
+n_file = len(files)
 #files = map(ah5, files)
 p0 = [20., 40., 0.]
 sps = np.array(map(iu.getNanoStage, map(ah5, files)))
-ba0 = sps[:, 0]>79.
-ba1 = sps[:, 2]>24.
+ba0 = sps[:, 0]>70.
+ba1 = sps[:, 2]>20.
 force_data = np.zeros((n_file, 3, 2, 100))
 if recalculate:
-    for i, f in enumerate(files[::increment][:n_file]):
+    for i, f in enumerate(files[::increment]):
         bu.progress_bar(i, n_file)
         df = bu.DataFile()
         df.load(f)
@@ -68,15 +69,16 @@ def make_template(mean_data, yukfuncs, p0=p0, cf = 1.E6):
     template_pts = np.transpose(template_pts)
     fs = np.array([yukfuncs[0](template_pts), yukfuncs[1](template_pts), \
                    yukfuncs[2](template_pts)])
-    fs = map(matplotlib.mlab.detrend_mean, fs)
+    fs = map(matplotlib.mlab.detrend_linear, fs)
     return fs
 
 def fit_alpha(mean_data, sems, yukfuncs, p0 = p0, cf = 1.E6, \
               alpha_scale = 1E9, plt_best_fit = False, signif = 1.92):
+    mean_data[0, 1, :] = ss.detrend(mean_data[0, 1, :])
     fs = make_template(mean_data, yukfuncs, p0 = p0, cf = cf)
     n = np.shape(mean_data)[-1]
     def rcs(alpha):
-        return np.sum((ss.detrend(mean_data[0, 1, :]) - alpha*alpha_scale*fs[0])**2\
+        return np.sum((mean_data[0, 1, :] - alpha*alpha_scale*fs[0])**2\
                 /sems[0, 1, :]**2)/(n-1)
     res0 = ms(rcs)
     def delt_chi_sq(b):
@@ -144,13 +146,13 @@ decca = np.loadtxt(decca_path, delimiter = ',', skiprows = 1)
 plt.loglog(pre_decca[:, 0], pre_decca[:, 1], label = "pre decca")
 plt.loglog(decca[:, 0], decca[:, 1], label = "decca")
 plt.loglog(yf.lambdas[:n_cut], np.abs(lim_data[:n_cut, 0])*1E9, label = "background")
-plt.loglog(yf.lambdas[:n_cut], lim_data[:n_cut, 1]*1E9, label = "background fluctuations")
+#plt.loglog(yf.lambdas[:n_cut], lim_data[:n_cut, 1]*1E9, label = "background fluctuations")
 plt.legend()
 plt.grid()
 plt.xlabel("$\lambda$ [m]")
 plt.ylabel("|$\\alpha$|")
 plt.show()
-for i in np.arange(0, 6, 1):
+for i in np.arange(0, 4, 1):
     plt.plot(force_data[i, 0, 0, :], ss.detrend(force_data[i, 0, 1, :]), label = "t=" + str(i*10) + 's')
 
 
