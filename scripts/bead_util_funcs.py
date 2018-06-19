@@ -792,6 +792,7 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
     out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
     out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
+    out['sync'] = sync_dat_bin[off_ind:off_ind+nsamp]
 
     # Crop the quad arrays
     out['quad_time'] = fpga_dat['quad_time'][off_ind:off_ind+nsamp]

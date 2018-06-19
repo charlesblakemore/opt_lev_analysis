@@ -570,8 +570,9 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
 
                 phase_weights = np.zeros(len(npkeys)) + 1.
                 if weight_phase and (drive != 2 and resp != 2):
-                    ind = np.argmin(np.abs(npkeys - 50.))
-                    phase_weights[:ind] *= 0.05
+                    low_ind = np.argmin(np.abs(npkeys - 10.0))
+                    high_ind = np.argmin(np.abs(npkeys - 10.0))
+                    phase_weights[low_ind:ind] *= 0.05
 
                 # Fit the TF magnitude
                 try:
@@ -603,8 +604,14 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                                             damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
                                                          - unphase[b]) )
 
+                lowkey = np.argmin(np.abs(keys[b]-10.0))
+                highkey = np.argmin(np.abs(keys[b]-100.0))
+                avg = np.mean(unphase[b][lowkey:highkey])
+
+                mult = np.argmin(np.abs(avg - np.array([0, np.pi, -1.0*np.pi])))
+
                 #print drive, resp, phase_resids
-                mult = np.argmin(phase_resids)
+                #mult = np.argmin(phase_resids)
                 if mult == 2:
                     mult = -1
 
