@@ -5,7 +5,7 @@ from image_util import *
 from beam_profile import *
 
 path1 = '/data/20180529/imaging_tests/p0/image_grid_good'
-path3 = '/data/20180613/bead1/image_grids/after_drop/initial_position_large'
+path3 = '/data/20180618/bead1/image_grids/foreward1'
 path2 = '/data/20180613/bead1/image_grids/after_drop/foreward_w_profile_large2'
 pathy = '/data/20180613/bead1/image_grids/after_drop/initial_position_xmax'
 

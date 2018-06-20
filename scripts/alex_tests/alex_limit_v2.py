@@ -147,7 +147,9 @@ class GravFile(bu.DataFile):
         plt.ylabel("Force [N]")
         return f, axarr
 
-    def generate_template(self, yukfuncs_at_lam, p0):
+    def generate_template(self, yukfuncs_at_lam, p0, \
+                          stage_travel = [80., 80., 80.], \
+                          plt_template = False):
         '''given a data file generates a template of the expected 
            force in the time domain.'''
         #first get cantilever position vector in same coord system as 
@@ -156,16 +158,27 @@ class GravFile(bu.DataFile):
             self.get_harmonic_bins()
         pvec = np.zeros_like(self.cant_data)
         self.calibrate_stage_position()
-        pvec[0, :] = self.cant_data[0, :] - p0[0]
-        pvec[1, :] = self.cant_data[1, :] - p0[1]
+        pvec[0, :] = stage_travel[0] - self.cant_data[0, :] + p0[0]
+        pvec[1, :] = self.cant_data[1, :] - stage_travel[1]/2. + p0[1]
         pvec[2, :] = self.cant_data[2, :] - p0[2]
-        pts = np.stack(pvec*1e-6, axis = -1) #calibrate to m for yukfunc
-        template_x_fft = np.fft.rfft(yukfuncs_at_lam[0](pts))
-        template_y_fft = np.fft.rfft(yukfuncs_at_lam[1](pts))
-        template_z_fft = np.fft.rfft(yukfuncs_at_lam[2](pts))
-        template_fft = np.array([\
-                template_x_fft, template_y_fft, template_z_fft])
-        return template_fft[:, self.harmonic_bins]
+        pvec*=1e-6
+        pts = np.stack(pvec, axis = -1) #calibrate to m for yukfunc
+        try: 
+            template_x_fft = np.fft.rfft(yukfuncs_at_lam[0](pts))
+            template_y_fft = np.fft.rfft(yukfuncs_at_lam[1](pts))
+            template_z_fft = np.fft.rfft(yukfuncs_at_lam[2](pts))
+            template_fft = np.array([\
+                    template_x_fft, template_y_fft, template_z_fft])
+            return template_fft[:, self.harmonic_bins]
+
+        except ValueError:
+            print "warning out of bounds position"
+            plt.plot(pvec[0, :], label = "x")
+            plt.plot(pvec[1, :], label = 'y')
+            plt.plot(pvec[2, :], label = 'z')
+            plt.legend()
+            plt.show()
+            return np.zeros((3, len(self.harmonic_bins)))
 
     def plot_template(self, template, alpha, f, axarr, just_amp = True):
         '''plots template scalled by alpha'''

@@ -16,8 +16,9 @@ pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
 dat_dir_no_shield = "/data/20180308/bead2/grav_data/onepos_long"
 dat_dir_shield = \
         "/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um_2"
-p0_no_shield = [60., 0., 10.]
-p0_shield = [60., 0., 10.]
+#p0 = [s at 80um, y at 40um, z at bead height]
+p0_no_shield = [20., 0., 25.]
+p0_shield = [10., 0., 25.]
 #files_no_shield = bu.sort_files_by_timestamp(glob.glob(dat_dir_no_shield + "/*.h5"))
 
 files_shield = bu.sort_files_by_timestamp(bu.find_all_fnames(dat_dir_shield))
