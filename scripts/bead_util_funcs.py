@@ -18,6 +18,7 @@ import scipy
 import configuration
 import transfer_func_util as tf
 
+import warnings
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -543,10 +544,12 @@ def extract_quad(quad_dat, timestamp, verbose=False):
     for ind, dat in enumerate(quad_dat): ## % 12
         # Assemble time stamp from successive I32s, since
         # it's a 64 bit object
-        high = np.int32(quad_dat[ind])
-        low = np.int32(quad_dat[ind+1])
-        dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                    + low.astype(np.uint64)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.int32(quad_dat[ind])
+            low = np.int32(quad_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
 
         # Time stamp from FPGA is a U64 with the UNIX epoch 
         # time in nanoseconds, synced to the host's clock
@@ -620,10 +623,12 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     for ind, dat in enumerate(xyz_dat):
         # Assemble time stamp from successive I32s, since
         # it's a 64 bit object
-        high = np.int32(xyz_dat[ind])
-        low = np.int32(xyz_dat[ind+1])
-        dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                    + low.astype(np.uint64)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.int32(xyz_dat[ind])
+            low = np.int32(xyz_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
 
         # Time stamp from FPGA is a U64 with the UNIX epoch 
         # time in nanoseconds, synced to the host's clock
@@ -763,13 +768,23 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # digital pin is sampled: True->(I32+1), False->(I32-1)
     sync_dat = fpga_dat['sync']
 
+    #plt.plot(sync_dat)
+    #plt.show()
+
     sync_dat = sync_dat[:len(encode_bin) * 10]
     sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
 
     dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
 
+    # Find correct starting sample to sync with the DAQ by
+    # maximizing the correlation between the FPGA's digitized
+    # sync line and the encoded bits from the DAQ file.
+    # Because of how the DAQ tasks are setup, the sync bits come
+    # out for the first Nsync samples, and then again after 
+    # Nsamp_DAQ samples. Thus we take the maximum of the correlation
+    # found in the first half of the array corr
     corr = np.correlate(sync_dat_bin, encode_bin)
-    off_ind = np.argmax(corr)
+    off_ind = np.argmax(corr[:int(0.5*len(corr))])
 
     if plot_sync:
         # Make an array of indices for plotting
@@ -792,6 +807,7 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
     out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
     out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
+    out['sync'] = sync_dat_bin[off_ind:off_ind+nsamp]
 
     # Crop the quad arrays
     out['quad_time'] = fpga_dat['quad_time'][off_ind:off_ind+nsamp]

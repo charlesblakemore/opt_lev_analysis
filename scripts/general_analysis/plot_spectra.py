@@ -11,10 +11,8 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180613/bead1/tf_20180613_2/freq_comb_elec5'
-dir1 = '/data/20180613/bead1/dipole_vs_height/10V_unfilt'
-dir1 = '/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um'
-maxfiles = 50
+dir1 = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz'
+maxfiles = 500
 
 use_dir = True
 

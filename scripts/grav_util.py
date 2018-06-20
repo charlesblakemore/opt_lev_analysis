@@ -218,6 +218,20 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
 
 
 
+def save_fildat(outname, fildat):
+    pickle.dump(fildat, open(outname, 'wb'))
+
+
+def load_fildat(filename):
+    fildat = pickle.load(open(filename, 'rb'))
+    return fildat
+
+
+
+
+
+
+
 
 
 def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
@@ -263,157 +277,182 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
             newline=True
 
         dat = fildat[bias][ax1][ax2]
-        outdat[bias][ax1][ax2] = []
+
+        nfiles = len(dat)
+        filfac = 1.0 / float(nfiles)
+
+
+        drivevec_avg = np.zeros_like(dat[0][0])
+        posvec_avg = np.zeros_like(dat[0][1])
+        pts_avg = np.zeros_like(dat[0][2])
+
+        old_ginds = []
+
+        datfft_avg = np.zeros_like(dat[0][4])
+        diagdatfft_avg = np.zeros_like(dat[0][5])
+        daterr_avg = np.zeros_like(dat[0][6])
+        diagdaterr_avg = np.zeros_like(dat[0][7])
+        binned_avg = np.zeros_like(dat[0][8])
+
+        for fil in dat:
+            drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr, binned_data = fil
+            if not len(old_ginds):
+                old_ginds = ginds
+            np.testing.assert_array_equal(ginds, old_ginds, err_msg="notch filter inds don't match")
+            old_ginds = ginds
+
+            drivevec_avg += filfac * drivevec 
+            posvec_avg += filfac * posvec
+            pts_avg += filfac * pts
+            datfft_avg += filfac * datfft
+            diagdatfft_avg += filfac * diagdatfft
+            daterr_avg += filfac * daterr
+            diagdaterr_avg += filfac * diagdaterr
+            binned_avg += filfac * binned_data
 
 
         best_fit_alphas = np.zeros(len(lambdas))
+        best_fit_errs = np.zeros(len(lambdas))
         diag_best_fit_alphas = np.zeros(len(lambdas))
-        
-        j = 0
+
         for lambind, yuklambda in enumerate(lambdas):
+            bu.progress_bar(lambind, len(lambdas), suffix=suff, newline=newline)
 
-            for fil in dat:
-                drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr, binned_data = fil
-                start = time.time()
+            gfft = [[], [], []]
+            yukfft = [[], [], []]
+            gforce = [[], [], []]
+            yukforce = [[], [], []]
 
-                plt.plot(drivevec)
-                if j == 4:
-                    plt.show()
+            for resp in [0,1,2]:
+                if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
+                    gfft[resp] = np.zeros(np.sum(ginds))
+                    yukfft[resp] = np.zeros(np.sum(ginds))
+                    continue
 
-                j += 1
-                bu.progress_bar(j, len(lambdas) * len(dat), suffix=suff, newline=newline)
+                if len(temp_gdat[ax1][ax2][0]):
+                    gfft[resp] = temp_gdat[ax1][ax2][0][resp]
+                    gforce[resp] = plot_forces[ax1][ax2][0][resp]
+                else:
+                    gforcevec = gfuncs[resp](pts_avg*1e-6)
+                    gforcefunc = interp.interp1d(posvec_avg, gforcevec)
+                    gforcet = gforcefunc(drivevec_avg)
 
-                gfft = [[], [], []]
-                yukfft = [[], [], []]
-                gforce = [[], [], []]
-                yukforce = [[], [], []]
+                    gforce[resp] = gforcevec
+                    gfft[resp] =  np.fft.rfft(gforcet)[ginds]
+
+                if len(temp_gdat[ax1][ax2][1][lambind]):
+                    yukfft[resp] = temp_gdat[ax1][ax2][1][lambind][resp]
+                    yukforce[resp] = plot_forces[ax1][ax2][0][resp]
+                else:
+                    yukforcevec = yukfuncs[resp][lambind](pts_avg*1e-6)
+                    yukforcefunc = interp.interp1d(posvec_avg, yukforcevec)
+                    yukforcet = yukforcefunc(drivevec_avg)
+
+                    yukforce[resp] = yukforcevec
+                    yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
+
+            gfft = np.array(gfft)
+            yukfft = np.array(yukfft)
+            gforce = np.array(gforce)
+            yukforce = np.array(yukforce)
+
+            temp_gdat[ax1][ax2][0] = gfft
+            temp_gdat[ax1][ax2][1][lambind] = yukfft
+            plot_forces[ax1][ax2][0] = gforce
+            plot_forces[ax1][ax2][1][lambind] = yukforce
+
+
+            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 10**(-1)
+            #print newalpha, ':', 
+            testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
+
+
+            chi_sqs = np.zeros(len(testalphas))
+            diagchi_sqs = np.zeros(len(testalphas))
+
+            for alphaind, testalpha in enumerate(testalphas):
+
+                chi_sq = 0
+                diagchi_sq = 0
+                N = 0
 
                 for resp in [0,1,2]:
-                    if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
-                        gfft[resp] = np.zeros(np.sum(ginds))
-                        yukfft[resp] = np.zeros(np.sum(ginds))
+                    if (ignoreX and resp == 0) or \
+                       (ignoreY and resp == 1) or \
+                       (ignoreZ and resp == 2):
                         continue
-
-                    if len(temp_gdat[ax1][ax2][0]):
-                        gfft[resp] = temp_gdat[ax1][ax2][0][resp]
-                        gforce[resp] = plot_forces[ax1][ax2][0][resp]
-                    else:
-                        gforcevec = gfuncs[resp](pts*1e-6)
-                        gforcefunc = interp.interp1d(posvec, gforcevec)
-                        gforcet = gforcefunc(drivevec)
-
-                        gforce[resp] = gforcevec
-                        gfft[resp] =  np.fft.rfft(gforcet)[ginds]
-
-                    if len(temp_gdat[ax1][ax2][1][lambind]):
-                        yukfft[resp] = temp_gdat[ax1][ax2][1][lambind][resp]
-                        yukforce[resp] = plot_forces[ax1][ax2][0][resp]
-                    else:
-                        yukforcevec = yukfuncs[resp][lambind](pts*1e-6)
-                        yukforcefunc = interp.interp1d(posvec, yukforcevec)
-                        yukforcet = yukforcefunc(drivevec)
-
-                        yukforce[resp] = yukforcevec
-                        yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
-
-                gfft = np.array(gfft)
-                yukfft = np.array(yukfft)
-                gforce = np.array(gforce)
-                yukforce = np.array(yukforce)
-
-                temp_gdat[ax1][ax2][0] = gfft
-                temp_gdat[ax1][ax2][1][lambind] = yukfft
-                plot_forces[ax1][ax2][0] = gforce
-                plot_forces[ax1][ax2][1][lambind] = yukforce
-                
-
-                newalpha = 2 * np.mean( np.abs(datfft) ) / np.mean( np.abs(yukfft) ) * 10**(-1)
-                #print newalpha, ':', 
-                testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
-
-
-                chi_sqs = np.zeros(len(testalphas))
-                diagchi_sqs = np.zeros(len(testalphas))
-
-                for alphaind, testalpha in enumerate(testalphas):
-
-                    chi_sq = 0
-                    diagchi_sq = 0
-                    N = 0
-                
-                    for resp in [0,1,2]:
-                        if (ignoreX and resp == 0) or \
-                           (ignoreY and resp == 1) or \
-                           (ignoreZ and resp == 2):
-                            continue
-                        re_diff = datfft[resp].real - \
-                                  (gfft[resp].real + testalpha * yukfft[resp].real )
-                        im_diff = datfft[resp].imag - \
-                                  (gfft[resp].imag + testalpha * yukfft[resp].imag )
-                        if diag:
-                            diag_re_diff = diagdatfft[resp].real - \
-                                           (gfft[resp].real + testalpha * yukfft[resp].real )
-                            diag_im_diff = diagdatfft[resp].imag - \
-                                           (gfft[resp].imag + testalpha * yukfft[resp].imag )
-
-                        #plt.plot(np.abs(re_diff))
-                        #plt.plot(daterr[resp])
-                        #plt.show()
-
-                        chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr[resp]**2)) ) + \
-                                  np.sum( np.abs(im_diff)**2 / (0.5*(daterr[resp]**2)) ) )
-                        if diag:
-                            diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
-                                                    (0.5*(diagdaterr[resp]**2)) ) + \
-                                            np.sum( np.abs(diag_im_diff)**2 / \
-                                                    (0.5*(diagdaterr[resp]**2)) ) )
-
-                        N += len(re_diff) + len(im_diff)
-
-                    chi_sqs[alphaind] = chi_sq / (N - 1)
+                    re_diff = datfft_avg[resp].real - \
+                              (gfft[resp].real + testalpha * yukfft[resp].real )
+                    im_diff = datfft_avg[resp].imag - \
+                              (gfft[resp].imag + testalpha * yukfft[resp].imag )
                     if diag:
-                        diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
+                        diag_re_diff = diagdatfft_avg[resp].real - \
+                                       (gfft[resp].real + testalpha * yukfft[resp].real )
+                        diag_im_diff = diagdatfft_avg[resp].imag - \
+                                       (gfft[resp].imag + testalpha * yukfft[resp].imag )
 
-                max_chi = np.max(chi_sqs)
-                if diag:
-                    max_diagchi = np.max(diagchi_sqs)
-
-                max_alpha = np.max(testalphas)
-
-                p0 = [max_chi/max_alpha**2, 0, 1]
-                if diag:
-                    diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
-    
-                try:
-                    #plt.plot(testalphas, chi_sqs)
+                    #plt.plot(np.abs(re_diff))
+                    #plt.plot(daterr[resp])
                     #plt.show()
-                    popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
-                                                p0=p0, maxfev=100000)
+
+                    chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr_avg[resp]**2)) ) + \
+                              np.sum( np.abs(im_diff)**2 / (0.5*(daterr_avg[resp]**2)) ) )
                     if diag:
-                        diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
-                                                            p0=diag_p0, maxfev=1000000)
-                except:
-                    print "Couldn't fit"
-                    popt = [0,0,0]
-                    popt[2] = np.mean(chi_sqs)
+                        diagchi_sq += ( np.sum( np.abs(diag_re_diff)**2 / \
+                                                (0.5*(diagdaterr_avg[resp]**2)) ) + \
+                                        np.sum( np.abs(diag_im_diff)**2 / \
+                                                (0.5*(diagdaterr_avg[resp]**2)) ) )
 
-                best_fit_alphas[lambind] = -0.5 * popt[1] / popt[0]
+                    N += len(re_diff) + len(im_diff)
+
+                chi_sqs[alphaind] = chi_sq / (N - 1)
                 if diag:
-                    diag_best_fit_alphas[lambind] = -0.5 * diagpopt[1] / diagpopt[0]
+                    diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
 
-                stop = time.time()
-                #print 'func eval time: ', stop-start
-                
-                if plot_best_alpha:
+            max_chi = np.max(chi_sqs)
+            if diag:
+                max_diagchi = np.max(diagchi_sqs)
 
-                    fig_best, axarr_best = plt.subplots(3,1)
-                    for resp in [0,1,2]:
-                        yforce = (yukforce[resp]-np.mean(yukforce[resp])) * best_fit_alphas[lambind]
-                        axarr_best[resp].plot(posvec, yforce, color='r')
-                        axarr_best[resp].plot(binned_data[resp][0], binned_data[resp][1], color='k')
-                    plt.show()
+            max_alpha = np.max(testalphas)
 
-            outdat[bias][ax1][ax2].append([best_fit_alphas, diag_best_fit_alphas])
+            p0 = [max_chi/max_alpha**2, 0, 1]
+            if diag:
+                diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
+
+            try:
+                #plt.plot(testalphas, chi_sqs)
+                #plt.show()
+                popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
+                                            p0=p0, maxfev=100000)
+                if diag:
+                    diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
+                                                        p0=diag_p0, maxfev=1000000)
+            except:
+                print "Couldn't fit"
+                popt = [0,0,0]
+                popt[2] = np.mean(chi_sqs)
+
+            best_fit = -0.5 * popt[1] / popt[0]
+            fit_err = best_fit * np.sqrt( (pcov[1,1] / popt[1]**2) + (pcov[0,0] / popt[0]**2) )
+
+            best_fit_alphas[lambind] = best_fit
+            best_fit_errs[lambind] = fit_err
+            if diag:
+                diag_best_fit_alphas[lambind] = -0.5 * diagpopt[1] / diagpopt[0]
+
+            stop = time.time()
+            #print 'func eval time: ', stop-start
+
+            if plot_best_alpha:
+
+                fig_best, axarr_best = plt.subplots(3,1)
+                for resp in [0,1,2]:
+                    yforce = (yukforce[resp]-np.mean(yukforce[resp])) * best_fit_alphas[lambind]
+                    axarr_best[resp].plot(posvec_avg, yforce, color='r')
+                    axarr_best[resp].plot(binned_avg[resp][0], binned_avg[resp][1], color='k')
+                plt.show()
+
+        outdat[bias][ax1][ax2] = [best_fit_alphas, best_fit_errs, diag_best_fit_alphas]
 
     return outdat
 
@@ -422,77 +461,20 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
 
 
 
-def fit_alpha_vs_sep_1height(alphadat, height, minsep=10.0, maxthrow=80.0, beadheight=40.0):
-    fits = {}
+def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
+    dump = {}
+    dump['alphadat'] = alphadat
+    dump['lambdas'] = lambdas
+    dump['minsep'] = minsep
+    dump['maxthrow'] = maxthrow
+    dump['beadheight'] = beadheight
 
-    biasvec = alphadat.keys()
-    ax1vec = alphadat[biasvec[0]].keys()
-    ax2vec = alphadat[biasvec[0]][ax1vec[0]].keys()
-
-    ### Assume separations are encoded in ax1 and heights in ax2
-    seps = maxthrow + minsep - np.array(ax1vec)
-    heights = np.array(ax2vec)- beadheight
-
-    ax2ind = np.argmin(np.abs(heights - height))
-
-    testvec = [] 
-    ### Perform identical fits for each cantilever bias and height
-    for bias in biasvec:
-        fits[bias] = {}
-        for ax2pos in ax2vec:
-            if ax2pos != ax2vec[ax2ind]:
-                continue
-            fits[bias][ax2pos] = []
-
-            ### Fit alpha vs separation for each value of yuklambda
-            for lambind, yuklambda in enumerate(lambdas):
-                dat = []
-
-                ### Loop over all files at each separation and collect
-                ### the value of alpha for the current value of yuklambda
-                for ax1ind, ax1pos in enumerate(ax1vec):
-                    for fil in alphadat[bias][ax1pos][ax2pos]:
-                        dat.append([seps[ax1ind], fil[0][lambind]])
-
-                ### Sort data for a monotonically increasing separation
-                dat = np.array(dat)
-                sort_inds = np.argsort(dat[:,0])
-                dat = dat[sort_inds]
-
-                SCALE_FAC = 1.0*10**9
-
-                ### Fit alpha vs. separation (most naive fit with a line)
-                popt, pcov = opti.curve_fit(line, dat[:,0], dat[:,1] * (1.0 / SCALE_FAC), \
-                                            maxfev=10000)
-
-                testvec.append([popt[1]*SCALE_FAC, np.sqrt(pcov[1,1])*SCALE_FAC])
-
-                print popt * SCALE_FAC
-
-                plt.plot(dat[:,0], dat[:,1], '.', ms=5, label='Best Fit Alphas')
-                plt.plot(dat[:,0], line(dat[:,0], popt[0]*SCALE_FAC, popt[1]*SCALE_FAC), \
-                         label='Linear + Constant Fit')
-                plt.xlabel('Separation [um]')
-                plt.ylabel('Alpha [abs]')
-                plt.legend()
-                plt.tight_layout()
-                plt.show()
-
-                ### Append the result to our output array
-                fits[bias][ax2pos].append(popt*SCALE_FAC)
+    pickle.dump(dump, open(outname, 'wb'))
 
 
-    testvec = np.array(testvec)
-    #plt.loglog(lambdas, np.abs(testvec[:,0]), label='Best fit alpha')
-    #plt.loglog(lambdas, 2*np.abs(testvec[:,1]), label='95% CL (assuming IID error)')
-    #plt.legend()
-    #plt.show()
-
-    alphas_bf = np.abs(testvec[:,0])
-    alphas_95cl = 2.0 * np.abs(testvec[:,1])
-
-    return alphas_bf, alphas_95cl, fits
-
+def load_alphadat(filename):
+    stuff = pickle.load(open(filename, 'rb'))
+    return stuff
 
 
 
@@ -538,13 +520,11 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
                 ### Loop over all files at each separation and collect
                 ### the value of alpha for the current value of yuklambda
                 for ax2ind, ax2pos in enumerate(ax2vec):
-                    tempdat = []
 
-                    for fil in alphadat[bias][ax1pos][ax2pos]:
-                        tempdat.append(fil[0][lambind])
+                    tempdat = alphadat[bias][ax1pos][ax2pos]
 
-                    dat[ax1ind][ax2ind] = np.mean(tempdat)
-                    errs[ax1ind][ax2ind] = np.std(tempdat)
+                    dat[ax1ind][ax2ind] = tempdat[0][lambind]
+                    errs[ax1ind][ax2ind] = tempdat[1][lambind]
 
             dat = np.array(dat)
             errs = np.array(errs)
@@ -560,9 +540,9 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
             errs_sc = errs * (1.0 / scale_fac)
 
 
-            def func(params, fdat=dat_sc):
+            def func(params, fdat=dat_sc, ferrs=errs_sc):
                 funcval = params[0] * heights_g + params[1] * seps_g + params[2]
-                return (funcval - fdat).flatten()
+                return ((funcval - fdat) / ferrs).flatten()
 
             res = opti.leastsq(func, [0.2*np.mean(dat_sc), 0.2*np.mean(dat_sc), 0], \
                                full_output=1, maxfev=10000)
@@ -573,34 +553,43 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
             except:
                 2+2
 
-            print lambind, np.log10(np.mean(dat)), np.log10(np.abs(x[2]*scale_fac))
-            print 
-            #raw_input()
+
+            deplaned = dat - scale_fac * (x[0] * heights_g + x[1] * seps_g + x[2])
+            deplaned_avg = np.mean(deplaned)
+            deplaned_std = np.std(deplaned)
 
             if plot:
+                major_ticks = np.arange(15, 21, 1)
+
                 vals = x[0] * heights_g + x[1] * seps_g + x[2]
                 vals = vals * scale_fac
 
                 fig = plt.figure()
                 ax = fig.gca(projection='3d')
-                ax.plot_surface(heights_g, seps_g, vals, rstride=1, cstride=1, alpha=0.3)
-                ax.scatter(heights_g, seps_g, dat)
-                #print x[2] * scale_fac
+                ax.plot_surface(heights_g, seps_g, vals, rstride=1, cstride=1, alpha=0.3, \
+                                color='r')
+                ax.scatter(heights_g, seps_g, dat, label='Best-Fit Alphas')
+                ax.legend()
+                ax.set_xlabel('Z-position [um]')
+                ax.set_ylabel('X-separation [um]')
+                ax.set_yticks(major_ticks)
+                ax.set_zlabel('Alpha [arb]')
                 plt.show()
             
 
             fits[bias][lambind] = (x, residue)
             outdat[bias][lambind] = (dat, errs)
 
-            testvec.append([x[2]*scale_fac, residue])
+            testvec.append([np.abs(x[2]*scale_fac), deplaned_avg, deplaned_std])
 
     testvec = np.array(testvec)
     testvec.shape
 
-    alphas_bf = np.array(testvec[:,0])
-    alphas_95cl = np.array(testvec[:,1]) * scale_fac
+    alphas_1 = np.array(testvec[:,0])
+    alphas_2 = np.array(testvec[:,1])
+    alphas_3 = np.array(testvec[:,2])
 
-    return fits, outdat, alphas_bf, alphas_95cl
+    return fits, outdat, alphas_1, alphas_2, alphas_3
 
 
 

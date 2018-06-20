@@ -163,7 +163,7 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
 
 
 def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
-             amp_gain = 1., bandwidth=1.0):
+             amp_gain = 1., bandwidth=1.0, first_file=0):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    plate_sep, face-to-face separation of electrodes
@@ -175,13 +175,27 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
 
     # Loop over all the files and extract the response at the drive frequency
     step_cal_vec = []
-    print "Processing %i files..." % len(fobjs),
+    print "Processing %i files..." % len(fobjs)
     sys.stdout.flush()
+    old_step_resp = 0.0
+    nfiles = len(fobjs)
     for find, fobj in enumerate(fobjs):
-        print find,
+        bu.progress_bar(find, nfiles)
         sys.stdout.flush()
         step_resp = find_step_cal_response(fobj, bandwidth=bandwidth)
-        step_cal_vec.append(step_resp)
+        if find < first_file:
+            old_step_resp = step_resp
+            continue
+        # Check for data with crazy large correlations, assumed to be outlier
+        elif step_resp > 2.0 * old_step_resp and find != 0 and find < nfiles-20:
+            continue
+            #plt.loglog(np.abs(np.fft.rfft(fobj.pos_data[0])))
+            #plt.figure()
+            #plt.plot(fobj.sync_data)
+            #plt.show()
+        else:
+            step_cal_vec.append(step_resp)
+        old_step_resp = step_resp
     print
     step_cal_vec = np.array(step_cal_vec)
     

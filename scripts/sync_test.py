@@ -14,22 +14,19 @@ import configuration as config
 import time
 
 
-dirname = '/data/20180605/bead1/discharge/coarse2/'
+dirname = '/data/20180618/bead1/discharge/fine3/'
 
-files = bu.find_all_fnames(dirname, exclude_fpga=True)
+files = bu.find_all_fnames(dirname)
+
+#files = ['/data/20180618/bead1/discharge/fine3/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_56.h5']
+
+print files[:5]
 
 for filname in files[:1000]:
     df = bu.DataFile()
-    df.load(filname)
+    df.load(filname, plot_sync = True)
 
-    print df.quad_time[0]
-    print df.pos_time[0]
-    print np.uint64(df.daqmx_time[0])
-
-    diff1 = np.abs(float(df.quad_time[0]) - df.daqmx_time[0])
-    diff2 = np.abs(float(df.pos_time[0]) - df.daqmx_time[0])
-
-    print 'diffs', diff1*(10**(-9)), diff2*(10**(-9))
+    print filname
 
     posdat_range = np.max(df.pos_data[0]) - np.min(df.pos_data[0])
     cantdat_range = np.max(df.electrode_data[3]) - np.min(df.electrode_data[3])
@@ -42,9 +39,9 @@ for filname in files[:1000]:
 
     fig, ax = plt.subplots(1,1)
     #ax.plot((df.pos_data[2]-np.mean(df.pos_data[2])) * fac)
-    ax.plot(df.pos_time, (df.pos_data[0] - np.mean(df.pos_data[0])) * fac, '-', \
+    ax.plot((df.pos_data[0] - np.mean(df.pos_data[0]))[:1500] * fac, '-', \
             lw=3, label='X')
-    ax.plot(df.daqmx_time, df.electrode_data[3], label='Elec')
+    ax.plot(df.electrode_data[3][:1500], label='Elec')
 
     #fig2, ax2 = plt.subplots(1,1)
     #ax2.plot(df.pos_data[0])
