@@ -21,6 +21,10 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+confidence_level = 0.95
+chi2dist = stats.chi2(1)
+# factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
+con_val = 0.5 * chi2dist.ppf(confidence_level)
 
 
 
@@ -40,6 +44,28 @@ def const(x, a):
 def flicker(x, a):
     return a * (1. / x)
 
+def solve_parabola(yvalue, popt, larger=True):
+    '''Computes the two xvalues corresponding to a given
+       yvalue in the equation: y = ax^2 + bx + c, where the
+       parameters are given as popt = [a,b,c]. 
+
+       Returns the larger value (usually the value > 0) by
+       default, although this can be changed with a single
+       boolean flag: larger.'''
+    a, b, c = popt
+    soln1 = (-b + np.sqrt(b**2 - 4.0*a*(c-yvalue))) / (2.0*a)
+    soln2 = (-b - np.sqrt(b**2 - 4.0*a*(c-yvalue))) / (2.0*a)
+    if soln1 > soln2:
+        if larger:
+            soln = soln1
+        else:
+            soln = soln2
+    else:
+        if larger:
+            soln = soln2
+        else:
+            soln = soln1
+    return soln
 
 
 
@@ -315,6 +341,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
         best_fit_errs = np.zeros(len(lambdas))
         diag_best_fit_alphas = np.zeros(len(lambdas))
 
+        old_datfft = datfft_avg
+
         for lambind, yuklambda in enumerate(lambdas):
             bu.progress_bar(lambind, len(lambdas), suffix=suff, newline=newline)
 
@@ -362,7 +390,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
             plot_forces[ax1][ax2][1][lambind] = yukforce
 
 
-            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 10**(-1)
+            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 2.0*10**(-1)
             #print newalpha, ':', 
             testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
 
@@ -420,8 +448,9 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
 
             try:
-                #plt.plot(testalphas, chi_sqs)
-                #plt.show()
+                #if yuklambda == lambdas[0] or yuklambda == lambdas[-1]:
+                #    plt.plot(testalphas, chi_sqs)
+                #    plt.show()
                 popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
                                             p0=p0, maxfev=100000)
                 if diag:
@@ -433,7 +462,12 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 popt[2] = np.mean(chi_sqs)
 
             best_fit = -0.5 * popt[1] / popt[0]
-            fit_err = best_fit * np.sqrt( (pcov[1,1] / popt[1]**2) + (pcov[0,0] / popt[0]**2) )
+            min_chi = parabola(best_fit, *popt)
+            chi95 = min_chi + con_val
+            alpha95 = solve_parabola(chi95, popt)
+            fit_err = alpha95 - best_fit
+
+            #fit_err = best_fit * np.sqrt( (pcov[1,1] / popt[1]**2) + (pcov[0,0] / popt[0]**2) )
 
             best_fit_alphas[lambind] = best_fit
             best_fit_errs[lambind] = fit_err
@@ -482,7 +516,7 @@ def load_alphadat(filename):
 
 
 def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheight=40.0, \
-                        plot=False, scale_fac=1.0*10**9):
+                        plot=False, scale_fac=1.0*10**9, weight_planar=True):
 
     biasvec = alphadat.keys()
     ax1vec = alphadat[biasvec[0]].keys()
@@ -535,9 +569,17 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
             errs = errs[sort1,:]
             errs = errs[:,sort2]
 
+            #if lambind == 0:
+            #    first_dat = dat
+                
+            #print type(dat[0,0])
+
+            scale_fac = np.mean(dat)
 
             dat_sc = dat * (1.0 / scale_fac)
             errs_sc = errs * (1.0 / scale_fac)
+            if not weight_planar:
+                errs_sc = np.ones_like(dat_sc)
 
 
             def func(params, fdat=dat_sc, ferrs=errs_sc):
@@ -555,11 +597,24 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
 
 
             deplaned = dat - scale_fac * (x[0] * heights_g + x[1] * seps_g + x[2])
+            deplaned_wconst = deplaned + scale_fac * x[2]
+
             deplaned_avg = np.mean(deplaned)
-            deplaned_std = np.std(deplaned)
+            deplaned_std = np.std(deplaned) / dat.size
+
+            ### DEBUG CLAUSE: checks to make sure alphadat isn't changing
+            ### crazily between different values of lambda
+            #if lambind == 0:
+            #    old_dat = dat
+            #    diff = 0.0
+            #else:
+            #    diff = (dat - old_dat) / dat
+            #    old_dat = dat
+            #print lambind, np.mean(dat), np.mean(diff), x[2]
 
             if plot:
-                major_ticks = np.arange(15, 21, 1)
+                
+                major_ticks = np.arange(15, 36, 5)
 
                 vals = x[0] * heights_g + x[1] * seps_g + x[2]
                 vals = vals * scale_fac
@@ -568,12 +623,24 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
                 ax = fig.gca(projection='3d')
                 ax.plot_surface(heights_g, seps_g, vals, rstride=1, cstride=1, alpha=0.3, \
                                 color='r')
-                ax.scatter(heights_g, seps_g, dat, label='Best-Fit Alphas')
+                ax.scatter(heights_g, seps_g, dat, label='Best-fit alphas')
+                ax.scatter(heights_g, seps_g, errs, label='Errors for weighting in planar fit')
                 ax.legend()
                 ax.set_xlabel('Z-position [um]')
                 ax.set_ylabel('X-separation [um]')
                 ax.set_yticks(major_ticks)
                 ax.set_zlabel('Alpha [arb]')
+
+                fig2 = plt.figure()
+                ax2 = fig2.gca(projection='3d')
+                ax2.scatter(heights_g, seps_g, deplaned_wconst, label='De-planed')
+                ax2.legend()
+                ax2.set_xlabel('Z-position [um]')
+                ax2.set_ylabel('X-separation [um]')
+                ax2.set_yticks(major_ticks)
+                ax2.set_zlabel('Alpha [arb]')
+                print np.mean(deplaned_wconst), np.log10(np.mean(deplaned_wconst))
+
                 plt.show()
             
 
