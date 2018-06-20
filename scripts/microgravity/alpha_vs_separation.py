@@ -27,30 +27,30 @@ warnings.filterwarnings("ignore")
 
 minsep = 15       # um
 maxthrow = 80     # um
-beadheight = 25   # um
+beadheight = 20   # um
 
 #data_dir = '/data/20180314/bead1/grav_data/ydrive_6sep_1height_shield-2Vac-2200Hz_cant-0mV'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
 #data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
-data_dir = '/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um_2'
+data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um'
 
 split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
-save_alphadat = False
-load_alphadat = True
+save_alphadat = True
+load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
-save_fildat = False
-load_fildat = True
+save_fildat = True
+load_fildat = False
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
 
 
-savepath = '/sensitivities/20180613_grav-shield_1.npy'
-save = False
+savepath = '/sensitivities/20180618_grav-shield_1.npy'
+save = True
 load = False
 file_inds = (0, 2000)
 max_file_per_pos = 10
