@@ -791,7 +791,6 @@ def make_tf_array(freqs, Hfunc):
     for drive in [0,1,2]:
         for resp in [0,1,2]:
             Harr[:,drive,resp] = Hfunc(resp, drive, freqs)
-
     Hout = np.linalg.inv(Harr)
     return Hout
 

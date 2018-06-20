@@ -18,7 +18,7 @@ dirname = '/data/20180618/bead1/discharge/fine3/'
 
 files = bu.find_all_fnames(dirname)
 
-files = ['/data/20180618/bead1/discharge/fine3/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_56.h5']
+#files = ['/data/20180618/bead1/discharge/fine3/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_56.h5']
 
 print files[:5]
 

@@ -26,11 +26,11 @@ import configuration as config
 
 
 
-dir1 = '/data/20180613/bead1/dipole_vs_height/10V_70um_17hz'
+dir1 = '/data/20180618/bead1/dipole_vs_height/10V_70um_17Hz_3'
 start_file = 0
-maxfiles = 60 # Many more than necessary
+maxfiles = 6000
 ax1_lab = 'z'
-nbins = 50
+nbins = 30
 tophatf = 300  # Top-hat filter frequency used in diagonalization
 
 plot_title = ''
@@ -289,7 +289,7 @@ datafiles = datafiles[start_file:start_file+maxfiles]
 
 force_dic, diag_force_dic, fits= \
             get_force_curve_dictionary(datafiles, ax1=ax1_lab, diag=diag, \
-                                               fit_xdat=fit_xdat, fit_zdat=fit_zdat)
+                                       fit_xdat=fit_xdat, fit_zdat=fit_zdat, plottf=False)
 
 if fit_xdat:
     xdat = fits['x'][0]
@@ -335,8 +335,14 @@ for biasind, bias in enumerate(cantV):
     stage_settings.sort()
     stage_settings = np.array(stage_settings)
 
+    nsettings = len(stage_settings)
+    if nsettings < 10:
+        colors = ['C' + str(i) for i in range(nsettings)]
+    else:
+        colors = bu.get_color_map(nsettings, cmap='jet')
+
     for posind, pos in enumerate(stage_settings):
-        color = 'C' + str(posind)
+        color = colors[posind]
         lab = str(pos) + ' um'
 
         if fit_xdat:
@@ -472,8 +478,9 @@ for arrind, arr in enumerate(axarrs):
     arr[2,0].set_xlabel('Distance From Cantilever [um]', fontsize=10)
     arr[2,1].set_xlabel('Distance From Cantilever [um]', fontsize=10)
 
+    rdict = {0: 'X', 1: 'Y', 2: 'Z'}
     for resp in [0,1,2]:
-        arr[resp,0].set_ylabel('Force [fN]')
+        arr[resp,0].set_ylabel(rdict[resp] + ' Force [fN]')
         plt.setp(arr[resp,0].get_xticklabels(), fontsize=10, visible=True)
         plt.setp(arr[resp,0].get_yticklabels(), fontsize=10, visible=True)
         plt.setp(arr[resp,1].get_xticklabels(), fontsize=10, visible=True)
