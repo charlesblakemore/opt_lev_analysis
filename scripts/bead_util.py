@@ -463,9 +463,11 @@ class DataFile:
                 plt.xlabel('Frequency [Hz]')
 
                 plt.figure()
-                plt.plot(datfft[ginds].real * normfac, label='real')
-                plt.plot(datfft[ginds].imag * normfac, label='imag')
-                plt.plot(np.sqrt(2)*daterrs[resp] * normfac, label='errs')
+                plt.plot(freqs[ginds], datfft[ginds].real * normfac, label='real')
+                plt.plot(freqs[ginds], datfft[ginds].imag * normfac, label='imag')
+                plt.plot(freqs[ginds], np.sqrt(2)*daterrs[resp] * normfac, label='errs')
+                plt.ylabel('Force [N]')
+                plt.xlabel('Frequency [Hz]')
                 plt.legend()
                 plt.show()
 

@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore")
 
 ####################  Rough Stage Position  ######################
 
-minsep = 15       # um
+minsep = 20     # um
 maxthrow = 80     # um
 beadheight = 20   # um
 
@@ -51,8 +51,8 @@ split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
-save_alphadat = False
-load_alphadat = True
+save_alphadat = True
+load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
 save_fildat = False
@@ -213,9 +213,9 @@ if diag:
     fig2, ax2 = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
 
 if not plot_just_current:
-    ax.loglog(lambdas, alphas_1, linewidth=2, label='Constant From Planar Fit')
-    ax.loglog(lambdas, np.abs(alphas_2), linewidth=2, label='Mean of De-Planed Data')
-    ax.loglog(lambdas, alphas_3, linewidth=2, label='Std. Dev. of De-Planed Data')
+    ax.loglog(lambdas, alphas_1, linewidth=2, label='Size of Apparent Background')
+    #ax.loglog(lambdas, np.abs(alphas_2), linewidth=2, label='Mean of De-Planed Data')
+    ax.loglog(lambdas, 2*alphas_3, linewidth=2, label='95% CL at Noise Limit')
 
 ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
 ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')

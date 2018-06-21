@@ -279,6 +279,11 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
     ax1vec = fildat[biasvec[0]].keys()
     ax2vec = fildat[biasvec[0]][ax1vec[0]].keys()
 
+    #if ignoreX and ignoreY and not ignoreZ:
+    #    nax2 = len(ax2vec)
+    #    mid = int(np.floor(0.5 * nax2))
+    #    ax2vec = np.concatenate((ax2vec[:mid-1], ax2vec[mid+2:]))
+
     for bias in biasvec:
         outdat[bias] = {}
         for ax1 in ax1vec:
@@ -355,6 +360,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
                     gfft[resp] = np.zeros(np.sum(ginds))
                     yukfft[resp] = np.zeros(np.sum(ginds))
+                    gforce[resp] = np.zeros(len(posvec_avg))
+                    yukforce[resp] = np.zeros(len(posvec_avg))
                     continue
 
                 if len(temp_gdat[ax1][ax2][0]):
@@ -390,9 +397,9 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
             plot_forces[ax1][ax2][1][lambind] = yukforce
 
 
-            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 2.0*10**(-1)
+            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 1.0*10**(-1)
             #print newalpha, ':', 
-            testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
+            testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
 
 
             chi_sqs = np.zeros(len(testalphas))
@@ -448,9 +455,10 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
 
             try:
-                #if yuklambda == lambdas[0] or yuklambda == lambdas[-1]:
-                #    plt.plot(testalphas, chi_sqs)
-                #    plt.show()
+                if yuklambda == lambdas[0] or yuklambda == lambdas[-1] and plot_best_alpha:
+                    plt.plot(testalphas, chi_sqs)
+                    plt.ylabel('Reduced $\chi^2$ Statistic')
+                    plt.xlabel('$\\alpha$ Parameter')
                 popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
                                             p0=p0, maxfev=100000)
                 if diag:
@@ -479,11 +487,17 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
 
             if plot_best_alpha:
 
-                fig_best, axarr_best = plt.subplots(3,1)
+                fig_best, axarr_best = plt.subplots(3,1,sharex='all',sharey='all')
+                lab_dict = {0: 'X', 1: 'Y', 2: 'Z'}
                 for resp in [0,1,2]:
+                    ylab = lab_dict[resp] + ' Force [N]'
+                    axarr_best[resp].set_ylabel(ylab)
                     yforce = (yukforce[resp]-np.mean(yukforce[resp])) * best_fit_alphas[lambind]
-                    axarr_best[resp].plot(posvec_avg, yforce, color='r')
-                    axarr_best[resp].plot(binned_avg[resp][0], binned_avg[resp][1], color='k')
+                    axarr_best[resp].plot(posvec_avg, yforce, color='r', label='Best-Fit Force Curve')
+                    axarr_best[resp].plot(binned_avg[resp][0], binned_avg[resp][1], color='k', \
+                                          label='Averaged Response at One Position')
+                axarr_best[2].set_xlabel('Y-position [um]')
+                axarr_best[0].legend()
                 plt.show()
 
         outdat[bias][ax1][ax2] = [best_fit_alphas, best_fit_errs, diag_best_fit_alphas]
