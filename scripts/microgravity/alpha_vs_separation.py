@@ -23,17 +23,29 @@ warnings.filterwarnings("ignore")
 
 
 ##################################################################
-######################## Script Params ###########################
+#######################  Script Params  ##########################
+##################################################################
 
-minsep = 15       # um
+
+####################  Rough Stage Position  ######################
+
+minsep = 20     # um
 maxthrow = 80     # um
 beadheight = 20   # um
+
+
+
+#############  Data Directories and Save/Load params  ############
+
+theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 
 #data_dir = '/data/20180314/bead1/grav_data/ydrive_6sep_1height_shield-2Vac-2200Hz_cant-0mV'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
 #data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
-data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um'
+data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz_2'
+file_inds = (0, 30000)
+max_file_per_pos = 1000
 
 split = data_dir.split('/')
 name = split[-1]
@@ -43,54 +55,64 @@ save_alphadat = True
 load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
-save_fildat = True
-load_fildat = False
+save_fildat = False
+load_fildat = True
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
 
-
+# These saves and loads don't do much currently
 savepath = '/sensitivities/20180618_grav-shield_1.npy'
 save = True
 load = False
-file_inds = (0, 2000)
-max_file_per_pos = 10
 
-theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
-#theory_data_dir = '/data/grav_sim_data/1um_spacing_x-0-p80_y-m250-p250_z-m20-p20/'
+
+
+###########  File filtering/spectral analysis params  ############
 
 tfdate = ''
 diag = False
-
-confidence_level = 0.95
-
-lamb_range = (1.7e-6, 1e-4)
-
-
-userlims = [(5e-6, 50e-6), (-240e-6, 240e-6), (-10e-6, 10e-6)]
-#userlims = [(5e-6, 20e-6), (-240e-6, 240e-6), (-5e-6, 0e-6)]
-#userlims = []
-
 tophatf = 300   # Hz, doesn't reconstruct data above this frequency
 nharmonics = 10
 harms = [2,3,4,5,6,7,8,9]
-
-plotfilt = False
-plot_just_current = False
-figtitle = ''
+noiseband = 10
 
 ignoreX = False
 ignoreY = False
 ignoreZ = False
 
-compute_min_alpha = False
 
-noiseband = 10
 
-##################################################################
-################# Constraints to plot against ####################
+##########  Fit Ranges for lambda, attractor position  ###########
+
+lamb_range = (1.7e-6, 1e-4)
+
+userlims = [(5e-6, 50e-6), (-240e-6, 240e-6), (-10e-6, 10e-6)]
+#userlims = [(5e-6, 20e-6), (-240e-6, 240e-6), (-5e-6, 0e-6)]
+#userlims = []
+
+
+
+######################  Plotting Params  #########################
+
+plotfilt = False
+plot_best_alpha = False
+plot_planar_fit = False
+
+plot_just_current = False
+figtitle = ''
 
 alpha_plot_lims = (1000, 10**17)
 lambda_plot_lims = (10**(-8), 10**(-3))
+
+
+
+
+
+
+
+##################################################################
+################# Constraints to plot against ####################
+##################################################################
 
 
 #limitdata_path = '/home/charles/opt_lev_analysis/gravity_sim/gravity_sim_v1/data/' + \
@@ -117,8 +139,6 @@ limitlab2 = 'With Decca 2'
 
 
 
-
-height = 25.0
 
 
 if not plot_just_current:
@@ -153,7 +173,7 @@ if not plot_just_current:
 
         alphadat = gu.find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
                                          ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ, \
-                                         plot_best_alpha=False, diag=diag)
+                                         plot_best_alpha=plot_best_alpha, diag=diag)
 
         if save_alphadat:
             gu.save_alphadat(alphadat_filname, alphadat, lambdas, minsep, maxthrow, beadheight)
@@ -169,31 +189,27 @@ if not plot_just_current:
         
 
     
-    fits, outdat, alphas_1, alphas_2, alphas_3 = gu.fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
-                                                                  maxthrow=maxthrow, beadheight=beadheight, \
-                                                                  plot=False, scale_fac=1.0*10**9)
-    
-
-    #alphas_bf, alphas_95cl, fits = \
-    #            fit_alpha_vs_sep_1height(alphadat, height, minsep=minsep, maxthrow=maxthrow, \
-    #                                     beadheight=beadheight)
+    fits, outdat, alphas_1, alphas_2, alphas_3 = \
+                    gu.fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
+                                           maxthrow=maxthrow, beadheight=beadheight, \
+                                           plot=plot_planar_fit, scale_fac=1.0*10**9, \
+                                           weight_planar=False)
 
 
 
 
 
 
-
-
+#### Plots all the limts
 
 fig, ax = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
 if diag:
     fig2, ax2 = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
 
 if not plot_just_current:
-    ax.loglog(lambdas, alphas_1, linewidth=2, label='Constant From Planar Fit')
-    ax.loglog(lambdas, np.abs(alphas_2), linewidth=2, label='Mean of De-Planed Data')
-    ax.loglog(lambdas, alphas_3, linewidth=2, label='Std. Dev. of De-Planed Data')
+    ax.loglog(lambdas, alphas_1, linewidth=2, label='Size of Apparent Background')
+    #ax.loglog(lambdas, np.abs(alphas_2), linewidth=2, label='Mean of De-Planed Data')
+    ax.loglog(lambdas, 2*alphas_3, linewidth=2, label='95% CL at Noise Limit')
 
 ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
 ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')

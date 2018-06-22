@@ -21,10 +21,15 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+confidence_level = 0.95
+chi2dist = stats.chi2(1)
+# factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
+con_val = 0.5 * chi2dist.ppf(confidence_level)
 
 
 
 # Various fitting functions
+# pretty self explanatory so there are few comments
 def parabola(x, a, b, c):
     return a * x**2 + b * x + c
 
@@ -40,6 +45,25 @@ def const(x, a):
 def flicker(x, a):
     return a * (1. / x)
 
+
+def solve_parabola(yvalue, popt):
+    '''Computes the two xvalues corresponding to a given
+       yvalue in the equation: y = ax^2 + bx + c.
+
+       INPUTS:   yvalue, solution you're looking for
+                 popt, list [a,b,c] paramters of parabola
+
+       OUTPUTS:  soln, tuple with solution (x_small, x_large)
+    '''
+    a, b, c = popt
+    soln1 = (-b + np.sqrt(b**2 - 4.0*a*(c-yvalue))) / (2.0*a)
+    soln2 = (-b - np.sqrt(b**2 - 4.0*a*(c-yvalue))) / (2.0*a)
+    if soln1 > soln2:
+        soln = (soln2, soln1)
+    else:
+        soln = (soln1, soln2)
+
+    return soln
 
 
 
@@ -99,31 +123,62 @@ def build_mod_grav_funcs(theory_data_dir):
 
 def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
-                      tfdate='', tophatf=1000, width=0, nharmonics=10, harms=[], \
+                      tfdate='', tophatf=1000, width=0, harms=[], nharmonics=10, \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
                       max_file_per_pos=1000, userlims=[], noiseband=10):
     '''Loops over a list of file names, loads each file, diagonalizes,
-       then performs an optimal filter using the cantilever drive and 
-       a theoretical force vs position to generate the filter/template.
-       The result of the optimal filtering is stored, and the data 
-       released from memory
+       then applies a notch filter using the attractor drive. The response
+       at the attractor's fundamental + harmonics is returned
 
-       INPUTS: files, list of files names to extract data
-               cantind, cantilever electrode index
-               ax1, axis with different DC positions
-               ax2, 2nd axis with different DC positions
+       INPUTS: files,      list of files names to extract data
+               minsep,     minimum separation between face of cantilever and bead center
+               maxthrow,   maximum extension of cantilever (for bootstrapped separation)
+               beadheight, height of microspphere in attractor coordinates
+               cantind,    cantilever electrode index
+               ax1,        string ['x', 'y', 'z'] first axis to index in output
+               ax2,        string scond axis to index in output dictionary
+               diag,       boolean: use diagonalized data?
+               plottf,     boolean: show applied transfer function
+               tfdate,     optional string to specify using a tf from a different date
+                              leave empty if you want to use the standard tf
+               tophatf,    top-hat filter frequency for diagonalization/reconstruction
+               width,      width of notch filter in Hz. 0 for single bin notch filter
+               harms,      list of harmonics to include in filter. 1 is fundamental
+               nharmonics, if harms is empty, the script generates this many harmonics 
+                              including the fundamental
+               userlims,   limits on the spatial coordinates, outside of which it doesn't
+                              analyze the dta
+               plotfilt,   boolean to plot the result of the filtering (used to debug)
+               ext_cant_drive,  boolean specifying if an external driver was used to position
+                                  the attractor. The script uses the auto-generated stage 
+                                  parameters otherwise
+               ext_cant_ind,     index of the external attractor drive {0: x, 1: y, 2: z}
+               max_file_per_pos,  maximum number of files to include per position
+                                    if you want to select subsets for statistics
 
-       OUTPUTS: 
+       OUTPUTS:   fildat,  a big ass dictionary with everything you want, and a bunch of 
+                             stuff you probably don't want. Has three levels of keys:
+                             1st keys (fildat.keys()): cantilever biases
+                             2nd keys (fildat[keys1[0]].keys()): ax1 positions
+                             3rd keys (fildat[keys1[0]][keys2[0].keys()): ax2 positions
+
+                             each entry for all three keys has a list of tuples, one tuple
+                             for each file. Each tuple has the following elements:
+
+                             drivevec, relevant cantilever drive as numpy array
+                             posvec,   vector of bead positions relative to origin fixed at 
+                                         center of the cantilever's front face
+                             pts,      points array for mod_grav_funcs input
+                             ginds,    fft frequeny indices of notch filter. if all the data
+                                         is syncrhonized, these should be exactly the same 
+                                         for all data arrays and files
+                             datffts,  averaged value of dataffts at freqs[ginds]
+                             diagdatffts, averaged value of diagonalized dataffts at freqs[ginds]
+                             daterrs,  errors on averaged datffts at freqs[ginds]
+                             diagdaterrs, errors on averaged  diagonalized dataffts at freqs[ginds]
+                             binned, force_v_pos curves for plotting and qualitative checks
     '''
 
-    #parts = data_dir.split('/')
-    #prefix = parts[-1]
-    #savepath = '/processed_data/grav_data/' + prefix + '_fildat.p'
-    #try:
-    #    fildat = pickle.load(open(savepath, 'rb'))
-    #    return fildat
-    #except:
-    #    print 'Loading data from: ', data_dir
 
     fildat = {}
     temp_gdat = {}
@@ -176,34 +231,37 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
         if len(fildat[cantbias][ax1pos][ax2pos]) >= max_file_per_pos:
             continue
 
+
+        ### Diagonalize the data and plot if desired
         if fil_ind == 0 and plottf:
             df.diagonalize(date=tfdate, maxfreq=tophatf, plot=True)
         else:
             df.diagonalize(date=tfdate, maxfreq=tophatf)
 
 
-        #if fil_ind == 0:
+        ### Build the notch filter from the attractor drive
         ginds, fund_ind, drive_freq, drive_ind = \
                 df.get_boolean_cantfilt(ext_cant_drive=ext_cant_drive, ext_cant_ind=ext_cant_ind, \
                                         nharmonics=nharmonics, harms=harms, width=width)
 
+        ### Apply notch filter, extract data, and errors
         datffts, diagdatffts, daterrs, diagdaterrs = \
                     df.get_datffts_and_errs(ginds, drive_freq, noiseband=noiseband, plot=plotfilt, \
                                             diag=diag)
 
+        ### Get the binned data and calibrate the non-diagonalized data
         df.get_force_v_pos()
         binned = np.array(df.binned_data)
         for resp in [0,1,2]:
             binned[resp][1] = binned[resp][1] * df.conv_facs[resp]
 
+        ### Analyze the attractor drive and build the relevant position vectors
+        ### for the bead
         drivevec = df.cant_data[drive_ind]
-        
         mindrive = np.min(drivevec)
         maxdrive = np.max(drivevec)
-
         posvec = np.linspace(mindrive, maxdrive, 500)
         ones = np.ones_like(posvec)
-
         pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
 
         fildat[cantbias][ax1pos][ax2pos].append((drivevec, posvec, pts, ginds, \
@@ -219,10 +277,13 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
 
 
 def save_fildat(outname, fildat):
+    '''Pretty self explanatory. It's just a wrapper for a pickling, but if 
+       what we save ever gets more complicated, this function can accomodate.'''
     pickle.dump(fildat, open(outname, 'wb'))
 
 
 def load_fildat(filename):
+    '''Same shit as save_fildat().'''
     fildat = pickle.load(open(filename, 'rb'))
     return fildat
 
@@ -234,15 +295,33 @@ def load_fildat(filename):
 
 
 
-def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
+def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
                        ignoreX=False, ignoreY=False, ignoreZ=False, plot_best_alpha=False):
     '''Loops over the output from get_data_at_harms, fits each set of
        data against the appropriate modified gravity template and compiles
        the result into a dictionary
 
-       INPUTS: 
+       INPUTS:  fildat,    object from get_data_at_harms() function above
+                gfuncs,    interpolating functions for regular gravity around attractor
+                yukfuncs,  interpolating functions for yukawa modified gravity around attractor
+                lambdas,   array of lambda values to use
+                diag,      boolean to use diagonalized data. not fully realized
+                ignoreX,   boolean to ignore X data in least-squared minimization
+                ignoreY,   boolean to ignore Y data in least-squared minimization
+                ignoreZ,   boolean to ignore Z data in least-squared minimization
+                plot_best_alpha,  boolean to plot the best fit alpha and the minimization
+                                    that produced that best fit (debug)
 
-       OUTPUTS: 
+       OUTPUTS: alphadat, another big ass dictionary! Has three levels of keys:
+                             1st keys (alphadat.keys()): cantilever biases
+                             2nd keys (alphadat[keys1[0]].keys()): ax1 positions
+                             3rd keys (alphadat[keys1[0]][keys2[0].keys()): ax2 positions
+
+                             each entry for all three keys has a list with the following:
+                             best_fit_alphas,  array of best fit alphas with same indexing
+                                                 as the lambdas supplied to this function
+                             best_fit_errs,    95%CL on best_fit being consistent with 0 
+                             diag_best_fit_lphas, self-explanatory
     '''
 
     outdat = {}
@@ -252,6 +331,11 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
     biasvec = fildat.keys()
     ax1vec = fildat[biasvec[0]].keys()
     ax2vec = fildat[biasvec[0]][ax1vec[0]].keys()
+
+    #if ignoreX and ignoreY and not ignoreZ:
+    #    nax2 = len(ax2vec)
+    #    mid = int(np.floor(0.5 * nax2))
+    #    ax2vec = np.concatenate((ax2vec[:mid-1], ax2vec[mid+2:]))
 
     for bias in biasvec:
         outdat[bias] = {}
@@ -315,6 +399,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
         best_fit_errs = np.zeros(len(lambdas))
         diag_best_fit_alphas = np.zeros(len(lambdas))
 
+        old_datfft = datfft_avg
+
         for lambind, yuklambda in enumerate(lambdas):
             bu.progress_bar(lambind, len(lambdas), suffix=suff, newline=newline)
 
@@ -327,6 +413,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
                     gfft[resp] = np.zeros(np.sum(ginds))
                     yukfft[resp] = np.zeros(np.sum(ginds))
+                    gforce[resp] = np.zeros(len(posvec_avg))
+                    yukforce[resp] = np.zeros(len(posvec_avg))
                     continue
 
                 if len(temp_gdat[ax1][ax2][0]):
@@ -362,9 +450,9 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
             plot_forces[ax1][ax2][1][lambind] = yukforce
 
 
-            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 10**(-1)
+            newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 1.0*10**(-1)
             #print newalpha, ':', 
-            testalphas = np.linspace(-1.0*newalpha, newalpha, 21)
+            testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
 
 
             chi_sqs = np.zeros(len(testalphas))
@@ -420,8 +508,10 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
 
             try:
-                #plt.plot(testalphas, chi_sqs)
-                #plt.show()
+                if yuklambda == lambdas[0] or yuklambda == lambdas[-1] and plot_best_alpha:
+                    plt.plot(testalphas, chi_sqs)
+                    plt.ylabel('Reduced $\chi^2$ Statistic')
+                    plt.xlabel('$\\alpha$ Parameter')
                 popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
                                             p0=p0, maxfev=100000)
                 if diag:
@@ -433,7 +523,13 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
                 popt[2] = np.mean(chi_sqs)
 
             best_fit = -0.5 * popt[1] / popt[0]
-            fit_err = best_fit * np.sqrt( (pcov[1,1] / popt[1]**2) + (pcov[0,0] / popt[0]**2) )
+            min_chi = parabola(best_fit, *popt)
+            chi95 = min_chi + con_val
+            soln = solve_parabola(chi95, popt)
+            alpha95 = soln[np.argmax(np.abs(soln))] # select the larger (worse) solution
+            fit_err = alpha95 - best_fit
+
+            #fit_err = best_fit * np.sqrt( (pcov[1,1] / popt[1]**2) + (pcov[0,0] / popt[0]**2) )
 
             best_fit_alphas[lambind] = best_fit
             best_fit_errs[lambind] = fit_err
@@ -445,11 +541,17 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
 
             if plot_best_alpha:
 
-                fig_best, axarr_best = plt.subplots(3,1)
+                fig_best, axarr_best = plt.subplots(3,1,sharex='all',sharey='all')
+                lab_dict = {0: 'X', 1: 'Y', 2: 'Z'}
                 for resp in [0,1,2]:
+                    ylab = lab_dict[resp] + ' Force [N]'
+                    axarr_best[resp].set_ylabel(ylab)
                     yforce = (yukforce[resp]-np.mean(yukforce[resp])) * best_fit_alphas[lambind]
-                    axarr_best[resp].plot(posvec_avg, yforce, color='r')
-                    axarr_best[resp].plot(binned_avg[resp][0], binned_avg[resp][1], color='k')
+                    axarr_best[resp].plot(posvec_avg, yforce, color='r', label='Best-Fit Force Curve')
+                    axarr_best[resp].plot(binned_avg[resp][0], binned_avg[resp][1], color='k', \
+                                          label='Averaged Response at One Position')
+                axarr_best[2].set_xlabel('Y-position [um]')
+                axarr_best[0].legend()
                 plt.show()
 
         outdat[bias][ax1][ax2] = [best_fit_alphas, best_fit_errs, diag_best_fit_alphas]
@@ -462,6 +564,19 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, diag=False, \
 
 
 def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
+    '''Saves all information relevant to the last step of the analysis. This
+       way you can modify your statistical interpretation without reloading 
+       possibly thousands of files.
+
+       INPUTS:   outname,     output filename
+                 alphadat,    output from find_alpha_vs_file()
+                 lambdas,     array of lambda values given to find_alpha_vs_file()
+                 minsep,      separation at maximum throw
+                 maxthrow,    maximum throw of attractor (toward bead)
+                 beadheight,  height of bead in cantilever coordinates
+
+       OUTPUTS:  soln, tuple with solution (x_small, x_large).
+    '''
     dump = {}
     dump['alphadat'] = alphadat
     dump['lambdas'] = lambdas
@@ -473,6 +588,8 @@ def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
 
 
 def load_alphadat(filename):
+    '''Loads the pickled alphadat and returns the dictionary. The keys make
+       sense so there's really no reason to unpack more'''
     stuff = pickle.load(open(filename, 'rb'))
     return stuff
 
@@ -482,7 +599,26 @@ def load_alphadat(filename):
 
 
 def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheight=40.0, \
-                        plot=False, scale_fac=1.0*10**9):
+                        plot=False, weight_planar=True):
+    '''Takes the best_fit_alphas vs height and separation, and fits them to a plane,
+       for each value of lambda. Extracts some idea of sensitivity from this fit
+
+       INPUTS:   alphadat,       output from find_alpha_vs_file()
+                 lambdas,        array of lambda values given to find_alpha_vs_file()
+                 minsep,         separation at maximum throw
+                 maxthrow,       maximum throw of attractor (toward bead)
+                 beadheight,     height of bead in cantilever coordinates
+                 plot,           boolean to plot planar fitting for debug
+                 weight_planar,  weight the planar fit by the confidence 
+                                    level on the best fit alpha
+
+       OUTPUTS:  fits,     
+                 outdat, 
+                 lambdas, 
+                 alphas_1,      HAVEN'T FINALIZED THESE. COMMENTS TO COME
+                 alphas_2, 
+                 alphas_3, 
+    '''
 
     biasvec = alphadat.keys()
     ax1vec = alphadat[biasvec[0]].keys()
@@ -492,12 +628,11 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
     seps = maxthrow + minsep - np.array(ax1vec)
     heights = np.array(ax2vec)- beadheight
 
+    ### Sort the heights and separations and build a grid
     sort1 = np.argsort(seps)
     sort2 = np.argsort(heights)
-
     seps_sort = seps[sort1]
     heights_sort = heights[sort2]
-    
     heights_g, seps_g = np.meshgrid(heights_sort, seps_sort)
 
     fits = {}
@@ -510,6 +645,7 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
         fits[bias] = {}
         outdat[bias] = {}
 
+        ### Fit to a plane for each value of lambda
         for lambind, yuklambda in enumerate(lambdas):
 
             dat = [[[] for i in range(len(heights))] for j in range(len(seps))]
@@ -529,21 +665,28 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
             dat = np.array(dat)
             errs = np.array(errs)
 
+            ### Since the data dictionary was indexed by cantilever settings 
+            ### rather than actual bead positions, we have to sort the data
+            ### to match the sorted separations and heights
             dat = dat[sort1,:]
             dat = dat[:,sort2]
 
             errs = errs[sort1,:]
             errs = errs[:,sort2]
 
+            scale_fac = np.mean(dat)
 
             dat_sc = dat * (1.0 / scale_fac)
             errs_sc = errs * (1.0 / scale_fac)
+            if not weight_planar:
+                errs_sc = np.ones_like(dat_sc)
 
-
+            ### Defined a funciton to minize via least-squared optimization
             def func(params, fdat=dat_sc, ferrs=errs_sc):
                 funcval = params[0] * heights_g + params[1] * seps_g + params[2]
                 return ((funcval - fdat) / ferrs).flatten()
 
+            ### Optimize the previously defined function
             res = opti.leastsq(func, [0.2*np.mean(dat_sc), 0.2*np.mean(dat_sc), 0], \
                                full_output=1, maxfev=10000)
 
@@ -554,12 +697,26 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
                 2+2
 
 
+            ### Deplane the data and extract some statistics
             deplaned = dat - scale_fac * (x[0] * heights_g + x[1] * seps_g + x[2])
+            deplaned_wconst = deplaned + scale_fac * x[2]
+
             deplaned_avg = np.mean(deplaned)
-            deplaned_std = np.std(deplaned)
+            deplaned_std = np.std(deplaned) / dat.size
+
+            ### DEBUG CLAUSE: checks to make sure alphadat isn't changing
+            ### crazily between different values of lambda
+            #if lambind == 0:
+            #    old_dat = dat
+            #    diff = 0.0
+            #else:
+            #    diff = (dat - old_dat) / dat
+            #    old_dat = dat
+            #print lambind, np.mean(dat), np.mean(diff), x[2]
 
             if plot:
-                major_ticks = np.arange(15, 21, 1)
+                
+                major_ticks = np.arange(15, 36, 5)
 
                 vals = x[0] * heights_g + x[1] * seps_g + x[2]
                 vals = vals * scale_fac
@@ -568,12 +725,24 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
                 ax = fig.gca(projection='3d')
                 ax.plot_surface(heights_g, seps_g, vals, rstride=1, cstride=1, alpha=0.3, \
                                 color='r')
-                ax.scatter(heights_g, seps_g, dat, label='Best-Fit Alphas')
+                ax.scatter(heights_g, seps_g, dat, label='Best-fit alphas')
+                ax.scatter(heights_g, seps_g, errs, label='Errors for weighting in planar fit')
                 ax.legend()
                 ax.set_xlabel('Z-position [um]')
                 ax.set_ylabel('X-separation [um]')
                 ax.set_yticks(major_ticks)
                 ax.set_zlabel('Alpha [arb]')
+
+                fig2 = plt.figure()
+                ax2 = fig2.gca(projection='3d')
+                ax2.scatter(heights_g, seps_g, deplaned_wconst, label='De-planed')
+                ax2.legend()
+                ax2.set_xlabel('Z-position [um]')
+                ax2.set_ylabel('X-separation [um]')
+                ax2.set_yticks(major_ticks)
+                ax2.set_zlabel('Alpha [arb]')
+                print np.mean(deplaned_wconst), np.log10(np.mean(deplaned_wconst))
+
                 plt.show()
             
 
