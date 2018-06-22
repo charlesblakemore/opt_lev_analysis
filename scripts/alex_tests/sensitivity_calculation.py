@@ -18,8 +18,8 @@ reload(al2)
 
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
-s = 4.0 #separation in um
-fn = 1.e-19 #force noise in N/rt(Hz)
+s = 15.0 #separation in um
+fn = 5.e-17 #force noise in N/rt(Hz)
 tint = 1e5
 
 
