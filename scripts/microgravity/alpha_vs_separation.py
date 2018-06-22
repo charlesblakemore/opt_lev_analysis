@@ -194,19 +194,13 @@ if not plot_just_current:
                                            maxthrow=maxthrow, beadheight=beadheight, \
                                            plot=plot_planar_fit, scale_fac=1.0*10**9, \
                                            weight_planar=False)
-    
-
-    #alphas_bf, alphas_95cl, fits = \
-    #            fit_alpha_vs_sep_1height(alphadat, height, minsep=minsep, maxthrow=maxthrow, \
-    #                                     beadheight=beadheight)
 
 
 
 
 
 
-
-
+#### Plots all the limts
 
 fig, ax = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
 if diag:
