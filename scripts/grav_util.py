@@ -82,7 +82,7 @@ def build_mod_grav_funcs(theory_data_dir):
                 lambdas, np.array with all lambdas from the simulation
     '''
 
-    # Load modified gravity curves from simulation output
+    ### Load modified gravity curves from simulation output
     Gdata = np.load(theory_data_dir + 'Gravdata.npy')
     yukdata = np.load(theory_data_dir + 'yukdata.npy')
     lambdas = np.load(theory_data_dir + 'lambdas.npy')
@@ -94,17 +94,17 @@ def build_mod_grav_funcs(theory_data_dir):
         lambdas = lambdas[::-1]
         yukdata = np.flip(yukdata, 0)
 
-    # Find limits to avoid out of range erros in interpolation
+    ### Find limits to avoid out of range erros in interpolation
     xlim = (np.min(xpos), np.max(xpos))
     ylim = (np.min(ypos), np.max(ypos))
     zlim = (np.min(zpos), np.max(zpos))
 
-    # Build interpolating functions for regular gravity
+    ### Build interpolating functions for regular gravity
     gfuncs = [0,0,0]
     for resp in [0,1,2]:
         gfuncs[resp] = interp.RegularGridInterpolator((xpos, ypos, zpos), Gdata[:,:,:,resp])
 
-    # Build interpolating functions for yukawa-modified gravity
+    ### Build interpolating functions for yukawa-modified gravity
     yukfuncs = [[],[],[]]
     for resp in [0,1,2]:
         for lambind, yuklambda in enumerate(lambdas):
@@ -191,6 +191,7 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
 
         df.calibrate_stage_position()
     
+        ### Extract the relevant position and bias
         cantbias = df.electrode_settings['dc_settings'][0]
         ax1pos = df.stage_settings[ax1 + ' DC']
         ax2pos = df.stage_settings[ax2 + ' DC']
@@ -249,7 +250,7 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                     df.get_datffts_and_errs(ginds, drive_freq, noiseband=noiseband, plot=plotfilt, \
                                             diag=diag)
 
-        ### Get the binned data and calibrate the non-diagonalized data
+        ### Get the binned data and calibrate the non-diagonalized part
         df.get_force_v_pos()
         binned = np.array(df.binned_data)
         for resp in [0,1,2]:
@@ -351,6 +352,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
                 plot_forces[ax1][ax2][1] = [[] for i in range(len(lambdas))]
 
 
+    ### Iterate over all paramter combinations
     i = 0
     totlen = len(biasvec) * len(ax1vec) * len(ax2vec)
     for bias, ax1, ax2 in itertools.product(biasvec, ax1vec, ax2vec):
@@ -365,7 +367,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
         nfiles = len(dat)
         filfac = 1.0 / float(nfiles)
 
-
+        ### Initialize average arrays 
         drivevec_avg = np.zeros_like(dat[0][0])
         posvec_avg = np.zeros_like(dat[0][1])
         pts_avg = np.zeros_like(dat[0][2])
@@ -378,6 +380,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
         diagdaterr_avg = np.zeros_like(dat[0][7])
         binned_avg = np.zeros_like(dat[0][8])
 
+        ### Loop over all files at this combination of parameters and add them
+        ### to the averaged array
         for fil in dat:
             drivevec, posvec, pts, ginds, datfft, diagdatfft, daterr, diagdaterr, binned_data = fil
             if not len(old_ginds):
@@ -401,6 +405,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
 
         old_datfft = datfft_avg
 
+        ### Loop over lambda values and fit the averaged response of this combination
+        ### of parameters to modified gravity, finding the best-fit value of alpha
         for lambind, yuklambda in enumerate(lambdas):
             bu.progress_bar(lambind, len(lambdas), suffix=suff, newline=newline)
 
@@ -409,6 +415,9 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
             gforce = [[], [], []]
             yukforce = [[], [], []]
 
+            ### Compute the hypothetical modified gravity response for this attractor-bead
+            ### positioning. Convert this F(y) -> F(t) with the known cantilever y(t) by 
+            ### by interpolating F vs y data and then sampling said interpolating function
             for resp in [0,1,2]:
                 if (ignoreX and resp == 0) or (ignoreY and resp == 1) or (ignoreZ and resp == 2):
                     gfft[resp] = np.zeros(np.sum(ginds))
@@ -444,31 +453,40 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
             gforce = np.array(gforce)
             yukforce = np.array(yukforce)
 
+            ### Add these to arrays so we don't have to recompute every time
             temp_gdat[ax1][ax2][0] = gfft
             temp_gdat[ax1][ax2][1][lambind] = yukfft
             plot_forces[ax1][ax2][0] = gforce
             plot_forces[ax1][ax2][1][lambind] = yukforce
 
 
+            ### Compute appropriate limts for the parameter alpha in our eventual
+            ### least-squared minimization to find the best-fit alpha
             newalpha = 2 * np.mean( np.abs(datfft_avg) ) / np.mean( np.abs(yukfft) ) * 1.0*10**(-1)
-            #print newalpha, ':', 
             testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
 
 
             chi_sqs = np.zeros(len(testalphas))
             diagchi_sqs = np.zeros(len(testalphas))
 
+            ### At each value of the 'testalpha', compute a reduced chi^2 statistic
+            ### and compile these statistics into an array
             for alphaind, testalpha in enumerate(testalphas):
 
+                ### Initialize the non-reduced chi^2 and Ndof variables
                 chi_sq = 0
                 diagchi_sq = 0
-                N = 0
+                Ndof = 0
 
+                ### Loop over X, Y and Z resposnes
                 for resp in [0,1,2]:
                     if (ignoreX and resp == 0) or \
                        (ignoreY and resp == 1) or \
                        (ignoreZ and resp == 2):
                         continue
+
+                    ### Compute the difference between the data and the expected modified
+                    ### gravity at this position and with this value of lambda
                     re_diff = datfft_avg[resp].real - \
                               (gfft[resp].real + testalpha * yukfft[resp].real )
                     im_diff = datfft_avg[resp].imag - \
@@ -483,6 +501,8 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
                     #plt.plot(daterr[resp])
                     #plt.show()
 
+                    ### Add the difference of the real and imaginary components of the 
+                    ### bead's response, normalized by the error
                     chi_sq += ( np.sum( np.abs(re_diff)**2 / (0.5*(daterr_avg[resp]**2)) ) + \
                               np.sum( np.abs(im_diff)**2 / (0.5*(daterr_avg[resp]**2)) ) )
                     if diag:
@@ -491,16 +511,18 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
                                         np.sum( np.abs(diag_im_diff)**2 / \
                                                 (0.5*(diagdaterr_avg[resp]**2)) ) )
 
-                    N += len(re_diff) + len(im_diff)
+                    Ndof += len(re_diff) + len(im_diff)
 
-                chi_sqs[alphaind] = chi_sq / (N - 1)
+                ### Reduce chi^2 by (Ndof - 1)
+                chi_sqs[alphaind] = chi_sq / (Ndof - 1)
                 if diag:
-                    diagchi_sqs[alphaind] = diagchi_sq / (N - 1)
+                    diagchi_sqs[alphaind] = diagchi_sq / (Ndof - 1)
 
+            ### Compute the max value of the statistic found in order to make a reasonable
+            ### first guess as to the parameters of the parabola
             max_chi = np.max(chi_sqs)
             if diag:
                 max_diagchi = np.max(diagchi_sqs)
-
             max_alpha = np.max(testalphas)
 
             p0 = [max_chi/max_alpha**2, 0, 1]
@@ -508,10 +530,13 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
                 diag_p0 = [max_diagchi/max_alpha**2, 0, 1]
 
             try:
+                ### Plot the reduced chi^2 vs alpha if the debug flag plot_best_alpha is True
                 if yuklambda == lambdas[0] or yuklambda == lambdas[-1] and plot_best_alpha:
                     plt.plot(testalphas, chi_sqs)
                     plt.ylabel('Reduced $\chi^2$ Statistic')
                     plt.xlabel('$\\alpha$ Parameter')
+
+                ### Try fitting reduced chi^2 vs. alpha to a parabola to extract the minimum
                 popt, pcov = opti.curve_fit(parabola, testalphas, chi_sqs, \
                                             p0=p0, maxfev=100000)
                 if diag:
@@ -522,6 +547,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
                 popt = [0,0,0]
                 popt[2] = np.mean(chi_sqs)
 
+            ### Get all the important information from the fit
             best_fit = -0.5 * popt[1] / popt[0]
             min_chi = parabola(best_fit, *popt)
             chi95 = min_chi + con_val
