@@ -23,7 +23,7 @@ recalculate = True
 calculate_limit = True
 save_name = "binned_force_data.npy"
 save_limit_data = "limit_data.npy"
-dat_dir = "/data/20180613/bead1/grav_data/shield/X70-80um_Z15-25um_2"
+dat_dir = "/data/20180618/bead1/grav_data/no_shield/X60-80um_Z20-30um_17Hz"
 increment = 1
 plt_file = 10
 plt_increment = 100
@@ -34,8 +34,8 @@ n_file = len(files)
 #files = map(ah5, files)
 p0 = [20., 40., 0.]
 sps = np.array(map(iu.getNanoStage, map(ah5, files)))
-ba0 = sps[:, 0]>70.
-ba1 = sps[:, 2]>20.
+ba0 = sps[:, 0]>79.
+ba1 = sps[:, 2]>24.
 force_data = np.zeros((n_file, 3, 2, 100))
 if recalculate:
     for i, f in enumerate(files[::increment]):
