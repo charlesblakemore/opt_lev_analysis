@@ -733,8 +733,8 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
-           'xyz_time': xyz_time, 'xyz': xyz, 'fb': xyz_fb, \
-           'quad_time': quad_time, 'amp': amp, \
+           'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
+           'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
     return out
@@ -807,6 +807,7 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # Crop the xyz arrays
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
     out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
+    out['xy_2'] = fpga_dat['xy_2'][:,off_ind:off_ind+nsamp]
     out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
     out['sync'] = sync_dat_bin[off_ind:off_ind+nsamp]
 

@@ -176,6 +176,7 @@ class DataFile:
 
         ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
         self.pos_data = fpga_dat['xyz']
+        self.pos_data_2 = fpga_dat['xy_2']
         self.pos_time = fpga_dat['xyz_time']
         self.pos_fb = fpga_dat['fb']
 
