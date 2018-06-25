@@ -9,7 +9,6 @@ import configuration as config
 import scipy.signal as signal
 import scipy.optimize as optimize
 
-import sklearn.cluster as cluster
 
 #######################################################
 # Core module for handling calibrations, both the step 

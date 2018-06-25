@@ -11,21 +11,19 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180605/bead1/overnight'
+dir1 = r'C:\Data\20180618\bead1'
 maxfiles = 200
 
-use_dir = False
+use_dir =False
 
 #allfiles = [r'C:\Data\20180611\bead6\1_4mbar_zcool_init.h5',\
 #            r'C:\Data\20180611\bead6\1_4mbar_zcool_low1.h5', \
 #            r'C:\Data\20180611\bead6\1_4mbar_zcool_low2.h5']
 
-allfiles = [r'C:\Data\20180611\bead6\1_4mbar_xyzcool.h5',\
-            r'C:\Data\20180611\bead6\turbombar_xyzcool_pumped.h5', \
-            r'C:\Data\20180611\bead6\post_pump3\turbombar_xyzcool_pumped_0.h5']
+allfiles = [r'C:\Data\20180624\signal_test']
 
 labels = []
-labels = ['1.4 mbar', 'Post-Pump', 'Much Later']
+#labels = ['1.4 mbar', 'Post-Pump', 'Much Later']
 matplotlib_colors = False
 
 data_axes = [0,1,2]

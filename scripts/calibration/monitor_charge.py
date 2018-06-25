@@ -15,7 +15,7 @@ import configuration as config
 import time
 
 
-dirname = r'\Data\20180611\bead6\discharge\coarse2'
+dirname = r'C:\Data\20180618\bead1\discharge\fine3'
 live = True
 
 elec_ind = 3
@@ -23,17 +23,18 @@ pos_ind = 0  # {0: x, 1: y, 2: z}
 
 ts = 5
 
+SCALE = 10**5
 
 ########
 
 max_corr = []
 inphase_corr = []
 
-#plt.ion()
+plt.ion()
 
-#fig, ax = plt.subplots(1,1)
-#ax.plot(max_corr)
-#ax.plot(inphase_corr)
+fig, ax = plt.subplots(1,1)
+ax.plot(max_corr)
+ax.plot(inphase_corr)
 
 old_mrf = ''
 
@@ -45,28 +46,29 @@ if live:
         files = bu.sort_files_by_timestamp(files)
 
         try:
-            mrf = files[0]
+            mrf = files[-2]
         except:
             mrf = ''
 
         if mrf != old_mrf:
 
             print mrf
-            raw_input()
+            
             df = bu.DataFile()
             df.load(mrf)
 
             drive = df.electrode_data[elec_ind]
             resp = df.pos_data[pos_ind]
 
-            print drive
-            plt.plot(drive, label='Drive')
-            plt.show()
-            print resp
-            raw_input()
-            plt.plot(resp * (np.max(drive) / np.max(resp)), label='Resp')
-            plt.figure()
-
+            #print drive
+            #plt.plot(drive, label='Drive')
+            #plt.show()
+            #print resp
+            #raw_input()
+            #plt.plot(resp * (np.max(drive) / np.max(resp)), label='Resp')
+            #plt.figure()
+            #plt.show()
+            
             freqs = np.fft.rfftfreq(len(resp), d=1.0/df.fsamp)
             fft = np.fft.rfft(resp)
             dfft = np.fft.rfft(drive)
@@ -77,17 +79,17 @@ if live:
             damp = np.abs(dfft)
             dphase = np.angle(dfft)
 
-            plt.loglog(freqs, amp)
-            plt.loglog(freqs, damp * np.max(amp) / np.max(damp))
-            plt.show()
+            #plt.loglog(freqs, amp)
+            #plt.loglog(freqs, damp * np.max(amp) / np.max(damp))
+            #plt.show()
 
-            ind = np.argmax(amp[1:]) + 1
+            ind = np.argmax(damp[1:]) + 1
 
             drive_freq = freqs[ind]
 
             corr = amp[ind] / damp[ind]
-            max_corr.append(corr)
-            inphase_corr.append( (corr * np.exp( 1.0j * (phase[ind] - dphase[ind]) )).real )
+            max_corr.append(corr / SCALE)
+            inphase_corr.append( (corr * np.exp( 1.0j * (phase[ind] - dphase[ind]) )).real / SCALE )
 
             ax.clear()
 
@@ -98,6 +100,8 @@ if live:
             plt.draw()
     
             old_mrf = mrf
+            np.savetxt( os.path.join(dirname, "current_corr.txt"), \
+                        [corr / SCALE,] )
 
         time.sleep(ts)
 
@@ -114,6 +118,11 @@ else:
         drive = df.electrode_data[elec_ind]
         resp = df.pos_data[pos_ind]
 
+        plt.plot(drive)
+        plt.figure()
+        plt.plot(resp)
+        plt.show()
+        
         if len(resp) != len(drive):
             continue
 
@@ -135,15 +144,15 @@ else:
         max_corr.append(corr)
         inphase_corr.append( (corr * np.exp( 1.0j * (phase[ind] - dphase[ind]) )).real )
     
-        ax.clear()
+        #ax.clear()
     
-        ax.plot(max_corr)
-        plt.pause(0.001)
-        ax.plot(inphase_corr)
-        plt.pause(0.001)
-        plt.draw()
+        #ax.plot(max_corr)
+        #plt.pause(0.001)
+        #ax.plot(inphase_corr)
+        #plt.pause(0.001)
+        #plt.draw()
 
-        time.sleep(ts)
+        #time.sleep(ts)
         
         
 

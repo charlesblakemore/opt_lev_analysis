@@ -519,71 +519,36 @@ def extract_quad(quad_dat, timestamp, verbose=False):
         timestamp = timestamp * (10.0**(-9))
         diff_thresh = 60.0
 
-    writing_data = False
-    quad_ind = 0
+    for ind, dat in enumerate(quad_dat): ## % 12
+        # Assemble time stamp from successive I32s, since
+        # it's a 64 bit object
+        high = np.int32(quad_dat[ind])
+        low = np.int32(quad_dat[ind+1])
+        dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                    + low.astype(np.uint64)
 
-    quad_time = []
-    amp = [[], [], [], [], []]
-    phase = [[], [], [], [], []]
-    for ind, dat in enumerate(quad_dat):
+        # Time stamp from FPGA is a U64 with the UNIX epoch 
+        # time in nanoseconds, synced to the host's clock
+        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            if verbose:
+                print "found timestamp  : ", float(dattime) * 10**(-9)
+                print "comparison time  : ", timestamp 
+            break
 
-        # Data in the 'quad' FIFO comes through as:
-        # time_MSB -> time_LSB ->
-        # amp0     -> amp1     -> amp2   -> amp3   -> amp4   ->
-        # phase0   -> phase1   -> phase2 -> phase3 -> phase4 ->
-        # and then repeats. Amplitude and phase variables are 
-        # arbitrarily scaled so thinking of them as 32-bit integers
-        # is okay. We just care about the bits anyway. The amplitude
-        # is unsigned, so we get an extra bit of precision there
-        if writing_data:
-            if quad_ind == 0 and ind != (len(quad_dat) - 1):
-                high = np.uint32(quad_dat[ind])
-                low = np.uint32(quad_dat[ind+1])
-                dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                           + low.astype(np.uint64)
-                quad_time.append(dattime)
-            elif quad_ind == 2:
-                amp[0].append(dat.astype(np.uint32))
-            elif quad_ind == 3:
-                amp[1].append(dat.astype(np.uint32))
-            elif quad_ind == 4:
-                amp[2].append(dat.astype(np.uint32))
-            elif quad_ind == 5:
-                amp[3].append(dat.astype(np.uint32))
-            elif quad_ind == 6:
-                amp[4].append(dat.astype(np.uint32))
-            elif quad_ind == 7:
-                phase[0].append(dat)
-            elif quad_ind == 8:
-                phase[1].append(dat)
-            elif quad_ind == 9:
-                phase[2].append(dat)
-            elif quad_ind == 10:
-                phase[3].append(dat)
-            elif quad_ind == 11:
-                phase[4].append(dat)
+    # Once the timestamp has been found, select each dataset
+    # wit thhe appropriate decimation of the primary array
+    quad_time_high = np.int32(quad_dat[ind::12])
+    quad_time_low = np.int32(quad_dat[ind+1::12])
+    if len(quad_time_low) != len(quad_time_high):
+        quad_time_high = quad_time_high[:-1]
+    quad_time = quad_time_high.astype(np.uint64) << np.uint64(32) \
+                  + quad_time_low.astype(np.uint64)
+
+    amp = [quad_dat[ind+2::12], quad_dat[ind+3::12], quad_dat[ind+4::12], \
+           quad_dat[ind+5::12], quad_dat[ind+6::12]]
+    phase = [quad_dat[ind+7::12], quad_dat[ind+8::12], quad_dat[ind+9::12], \
+             quad_dat[ind+10::12], quad_dat[ind+11::12]]
             
-            quad_ind += 1
-            quad_ind = quad_ind % 12
-
-                # Check for the timestamp
-        if not writing_data and quad_ind == 0:
-            # Assemble time stamp from successive I32s, since
-            # it's a 64 bit object
-            high = np.int32(quad_dat[ind])
-            low = np.int32(quad_dat[ind+1])
-            dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                        + low.astype(np.uint64)
-
-            # Time stamp from FPGA is a U64 with the UNIX epoch 
-            # time in nanoseconds, synced to the host's clock
-            if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
-                if verbose:
-                    print "found timestamp  : ", float(dattime) * 10**(-9)
-                    print "comparison time  : ", timestamp 
-                quad_time.append(dattime)
-                quad_ind += 1
-                writing_data = True
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
@@ -630,83 +595,62 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
         timestamp = timestamp * (10.0**(-9))
         diff_thresh = 60.0
 
-    writing_data = False
-    xyz_ind = 0
-
-    xyz_time = []
-    xyz = [[], [], []]
-    xyz_fb = [[], [], []]
-    sync = []
 
     for ind, dat in enumerate(xyz_dat):
+        # Assemble time stamp from successive I32s, since
+        # it's a 64 bit object
+        high = np.int32(xyz_dat[ind])
+        low = np.int32(xyz_dat[ind+1])
+        dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                    + low.astype(np.uint64)
 
-        # Data in the 'xyz' FIFO comes through as:
-        # time_MSB -> time_LSB ->
-        # X        -> Y        -> Z   -> 
-        # and then repeats. Position  variables are 
-        # arbitrarily scaled so thinking of them as 32-bit integers
-        # is okay. We just care about the bits anyway
-        if writing_data:
-            if xyz_ind == 0 and ind != (len(xyz_dat) - 1):
-                high = np.uint32(xyz_dat[ind])
-                low = np.uint32(xyz_dat[ind+1])
-                dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                           + low.astype(np.uint64)
-                xyz_time.append(dattime)
-            elif xyz_ind == 2:
-                xyz[0].append(dat)
-            elif xyz_ind == 3:
-                xyz[1].append(dat)
-            elif xyz_ind == 4:
-                xyz[2].append(dat)
-            elif xyz_ind == 5:
-                sync.append(dat)
-            elif xyz_ind == 6:
-                xyz_fb[0].append(dat)
-            elif xyz_ind == 7:
-                xyz_fb[1].append(dat)
-            elif xyz_ind == 8:
-                xyz_fb[2].append(dat)
-            
-            xyz_ind += 1
-            xyz_ind = xyz_ind % 9
+        # Time stamp from FPGA is a U64 with the UNIX epoch 
+        # time in nanoseconds, synced to the host's clock
+        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
+            if verbose:
+                print "found timestamp  : ", float(dattime) * 10**(-9)
+                print "comparison time  : ", timestamp 
+            break
 
-        # Check for the timestamp
-        if not writing_data and xyz_ind == 0:
-            # Assemble time stamp from successive I32s, since
-            # it's a 64 bit object
-            high = np.int32(xyz_dat[ind])
-            low = np.int32(xyz_dat[ind+1])
-            dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                        + low.astype(np.uint64)
+    # Once the timestamp has been found, select each dataset
+    # wit thhe appropriate decimation of the primary array
+    xyz_time_high = np.int32(xyz_dat[tind::9])
+    xyz_time_low = np.int32(xyz_dat[tind+1::9])
+    if len(xyz_time_low) != len(xyz_time_high):
+        xyz_time_high = xyz_time_high[:-1]
 
-            # Time stamp from FPGA is a U64 with the UNIX epoch 
-            # time in nanoseconds, synced to the host's clock
-            if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
-                if verbose:
-                    print "found timestamp  : ", float(dattime) * 10**(-9)
-                    print "comparison time  : ", timestamp 
-                xyz_time.append(dattime)
-                xyz_ind += 1
-                writing_data = True
+    xyz_time = xyz_time_high.astype(np.uint64) << np.uint64(32) \
+                  + xyz_time_low.astype(np.uint64)
+
+    xyz = [xyz_dat[tind+2::9], xyz_dat[tind+3::9], xyz_dat[tind+4::9]]
+    xyz_fb = [xyz_dat[tind+6::9], xyz_dat[tind+7::9], xyz_dat[tind+8::9]]
+    
+    sync = np.int32(xyz_dat[tind+5::9])
+
+    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
+    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
+    #plt.show()
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
-    # read out is a multiple of 9 (2 time + X + Y + Z + Sync +
-    # Xfb + Yfb + Zfb) so the Zfb channel usually  ends up with less samples.
+    # read out is a multiple of 5 (2 time + X + Y + Z) so the Z
+    # channel usually  ends up with less samples.
     # The following is coded very generally
 
     min_len = 10.0**9  # Assumes we never more than 1 billion samples
     for ind in [0,1,2]:
         if len(xyz[ind]) < min_len:
             min_len = len(xyz[ind])
+        if len(xyz_fb[ind]) < min_len:
+            min_len = len(xyz_fb[ind])
 
     # Re-size everything by the minimum length and convert to numpy array
     xyz_time = np.array(xyz_time[:min_len])
     sync = np.array(sync[:min_len])
     for ind in [0,1,2]:
         xyz[ind]    = xyz[ind][:min_len]
-        xyz_fb[ind] = xyz_fb[ind][:min_len] 
+        xyz_fb[ind] = xyz_fb[ind][:min_len]
     xyz = np.array(xyz)
     xyz_fb = np.array(xyz_fb)
 
@@ -749,15 +693,20 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
             if verbose:
                 print "couldn't close file, not sure if it's open"
 
-    # Use subroutines to handle each type of data
-    # raw_time, raw_dat = extract_raw(dat0, timestamp)
-    raw_time, raw_dat = (None, None)
-    quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-    xyz_time, xyz, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+    if len(dat1):
+        # Use subroutines to handle each type of data
+        # raw_time, raw_dat = extract_raw(dat0, timestamp)
+        raw_time, raw_dat = (None, None)
+        quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
+        xyz_time, xyz, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+    else:
+        raw_time, raw_dat = (None, None)
+        quad_time, amp, phase = (None, None, None)
+        xyz_time, xyz, xyz_fb, sync = (None, None, None, None)
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
-           'xyz_time': xyz_time, 'xyz': xyz, 'fb': xyz_fb,\
+           'xyz_time': xyz_time, 'xyz': xyz, 'fb': xyz_fb, \
            'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
@@ -766,11 +715,17 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
 
 
 def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
-                            encode_len=500, plot_synch=False):
+                            encode_len=500, plot_sync=False):
     '''Align the psuedo-random bits the DAQ card spits out to the FPGA
        to synchronize the acquisition of the FPGA.'''
 
     out = {}
+    notNone = False
+    for key in fpga_dat:
+        if type(fpga_dat[key]) != type(None):
+            notNone = True
+    if not notNone:
+        return fpga_dat
 
     # The FIFOs to read the raw data aren't even setup yet
     # so this is just some filler code
@@ -778,6 +733,8 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     out['raw_dat'] = fpga_dat['raw_dat']
 
     # Cutoff irrelevant zeros
+    if len(encode_bin) < encode_len:
+        encode_len = len(encode_bin)
     encode_bin = np.array(encode_bin[:encode_len])
 
     # Load the I32 representation of the synchronization data
@@ -785,20 +742,26 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # digital pin is sampled: True->(I32+1), False->(I32-1)
     sync_dat = fpga_dat['sync']
 
+    sync_dat = sync_dat[:len(encode_bin) * 10]
     sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
 
-    corr = np.correlate(sync_dat, encode_bin)
+    dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
+
+    corr = np.correlate(sync_dat_bin, encode_bin)
     off_ind = np.argmax(corr)
 
-    if plot_synch:
+    if plot_sync:
         # Make an array of indices for plotting
         inds = np.linspace(0,encode_len-1,encode_len)
         dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
 
-        plt.step(inds, encode_bin, lw=2.5, where='pre', label='encode_bits')
-        plt.step(dat_inds-off_ind, sync_dat, where='pre', label='aligned_data')
+        plt.step(inds, encode_bin, lw=1.5, where='pre', label='encode_bits', \
+                 linestyle='dotted')
+        plt.step(dat_inds-off_ind, sync_dat_bin, where='pre', label='aligned_data', \
+                 alpha=0.5)
         plt.xlim(-5, encode_len+10)
 
+        plt.legend()
         plt.show()
 
     # Find the xyz and quad timestamps that match the daqmx first 
