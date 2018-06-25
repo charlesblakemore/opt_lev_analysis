@@ -650,7 +650,7 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
                   + xyz_time_low.astype(np.uint64)
 
     xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
-    xy_2 = [xyz_dat[tind+2::11], xyz+dat[tind+3::11]]
+    xy_2 = [xyz_dat[tind+2::11], xyz_dat[tind+3::11]]
     xyz_fb = [xyz_dat[tind+8::11], xyz_dat[tind+9::11], xyz_dat[tind+10::11]]
     
     sync = np.int32(xyz_dat[tind+7::11])
