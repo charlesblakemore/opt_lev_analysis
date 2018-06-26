@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 from image_util import *
 from beam_profile import *
 
-path_to_measure = '/data/20180618/bead1/image_grids/nobead_as_close_as_possible_150V_150V'
-path_with_profile = '/data/20180613/bead1/image_grids/after_drop/foreward_w_profile_large2'
+path_to_measure = '/data/20180622/image_grids/image_grid_beam_crossing_foreward1_good'
+path_with_profile = '/data/20180622/image_grids/image_grid_beam_crossing'
 
 
-profile_path = '/data/20180613/bead1/image_grids/after_drop/xprofile'
+profile_path = '/data/20180622/image_grids/image_grid_beam_crossing_profile_good'
 
 
 
