@@ -173,7 +173,7 @@ class DataFile:
                 self.encode_bits = []
 
             fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                               self.encode_bits, plot_sync=True)
+                                               self.encode_bits, plot_sync=plot_sync)
             self.sync_data = fpga_dat['sync']
 
 
