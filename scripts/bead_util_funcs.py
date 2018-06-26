@@ -671,6 +671,9 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
             min_len = len(xyz[ind])
         if len(xyz_fb[ind]) < min_len:
             min_len = len(xyz_fb[ind])
+        if ind != 2:
+            if len(xy_2[ind]) < min_len:
+                min_len = len(xy_2[ind])
 
     # Re-size everything by the minimum length and convert to numpy array
     xyz_time = np.array(xyz_time[:min_len])
@@ -678,8 +681,11 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     for ind in [0,1,2]:
         xyz[ind]    = xyz[ind][:min_len]
         xyz_fb[ind] = xyz_fb[ind][:min_len]
+        if ind != 2:
+            xy_2[ind] = xy_2[ind][:min_len]
     xyz = np.array(xyz)
     xyz_fb = np.array(xyz_fb)
+    xy_2 = np.array(xy_2)
 
     return xyz_time, xyz, xy_2, xyz_fb, sync
 
@@ -725,11 +731,11 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
         raw_time, raw_dat = (None, None)
         quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-        xyz_time, xyz, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+        xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
     else:
         raw_time, raw_dat = (None, None)
         quad_time, amp, phase = (None, None, None)
-        xyz_time, xyz, xyz_fb, sync = (None, None, None, None)
+        xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
