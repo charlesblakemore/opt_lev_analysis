@@ -15,6 +15,8 @@ import configuration as config
 dir1 = '/data/20180618/bead1/tf_20180618/freq_comb_elec5_10V'
 dir1 = '/data/20180618/bead1/discharge/fine3/'
 
+dir1 = '/data/20180625/bead1/grav_data/no_shield/X60-80um_Z15-25um_17Hz'
+
 
 files = bu.find_all_fnames(dir1)[200:]
 

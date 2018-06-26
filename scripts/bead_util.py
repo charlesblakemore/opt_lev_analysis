@@ -162,6 +162,7 @@ class DataFile:
             imgrid = False
 
         if not imgrid:
+            
             fpga_fname = fname[:-3] + '_fpga.h5'
 
             fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
@@ -171,9 +172,9 @@ class DataFile:
             except:
                 self.encode_bits = []
 
-                fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                                   self.encode_bits, plot_sync=plot_sync)
-                self.sync_data = fpga_dat['sync']
+            fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
+                                               self.encode_bits, plot_sync=True)
+            self.sync_data = fpga_dat['sync']
 
 
             ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])

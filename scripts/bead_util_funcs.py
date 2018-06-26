@@ -783,6 +783,8 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
 
     dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
 
+    print nsamp
+
     # Find correct starting sample to sync with the DAQ by
     # maximizing the correlation between the FPGA's digitized
     # sync line and the encoded bits from the DAQ file.
