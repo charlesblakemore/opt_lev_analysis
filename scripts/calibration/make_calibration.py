@@ -24,7 +24,7 @@ step_cal_dir = '/data/20180618/bead1/discharge/fine3'
 max_file = 500
 
 
-fake_step_cal = False
+fake_step_cal = True
 vpn = 1.0e14
 
 tf_cal_dir = '/data/20180618/bead1/tf_20180618/'

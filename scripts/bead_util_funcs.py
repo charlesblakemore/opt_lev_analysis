@@ -641,18 +641,19 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    xyz_time_high = np.int32(xyz_dat[tind::9])
-    xyz_time_low = np.int32(xyz_dat[tind+1::9])
+    xyz_time_high = np.int32(xyz_dat[tind::11])
+    xyz_time_low = np.int32(xyz_dat[tind+1::11])
     if len(xyz_time_low) != len(xyz_time_high):
         xyz_time_high = xyz_time_high[:-1]
 
     xyz_time = xyz_time_high.astype(np.uint64) << np.uint64(32) \
                   + xyz_time_low.astype(np.uint64)
 
-    xyz = [xyz_dat[tind+2::9], xyz_dat[tind+3::9], xyz_dat[tind+4::9]]
-    xyz_fb = [xyz_dat[tind+6::9], xyz_dat[tind+7::9], xyz_dat[tind+8::9]]
+    xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
+    xy_2 = [xyz_dat[tind+2::11], xyz_dat[tind+3::11]]
+    xyz_fb = [xyz_dat[tind+8::11], xyz_dat[tind+9::11], xyz_dat[tind+10::11]]
     
-    sync = np.int32(xyz_dat[tind+5::9])
+    sync = np.int32(xyz_dat[tind+7::11])
 
     #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
     #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
@@ -680,7 +681,7 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     xyz = np.array(xyz)
     xyz_fb = np.array(xyz_fb)
 
-    return xyz_time, xyz, xyz_fb, sync
+    return xyz_time, xyz, xy_2, xyz_fb, sync
 
 
 
@@ -732,8 +733,8 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
 
     # Assemble the output as a human readable dictionary
     out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
-           'xyz_time': xyz_time, 'xyz': xyz, 'fb': xyz_fb, \
-           'quad_time': quad_time, 'amp': amp, \
+           'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
+           'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
     return out
@@ -806,6 +807,7 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # Crop the xyz arrays
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
     out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
+    out['xy_2'] = fpga_dat['xy_2'][:,off_ind:off_ind+nsamp]
     out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
     out['sync'] = sync_dat_bin[off_ind:off_ind+nsamp]
 
