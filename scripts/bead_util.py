@@ -135,6 +135,7 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
+
         dat, attribs = getdata(fname)
         if plot_raw_dat:
             for n in range(20):
@@ -142,11 +143,11 @@ class DataFile:
             plt.legend()
             plt.show()
 
-        if len(dat) == 0:
-            self.badfile = True
-            return 
-        else:
-            self.badfile = False
+        #if len(dat) == 0:
+        #    self.badfile = True
+        #    return 
+        #else:
+        #    self.badfile = False
         
         self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
         self.fsamp = attribs["Fsamp"]
@@ -155,46 +156,53 @@ class DataFile:
         self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
                                * (10**9) + self.time
 
-        fpga_fname = fname[:-3] + '_fpga.h5'
-
-        fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
-        
         try:
-            self.encode_bits = attribs["encode_bits"]
+            imgrid = attribs["imgrid"]
         except:
-            self.encode_bits = []
+            imgrid = False
 
-        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                           self.encode_bits, plot_sync=plot_sync)
-        self.sync_data = fpga_dat['sync']
+        if not imgrid:
+            fpga_fname = fname[:-3] + '_fpga.h5'
+
+            fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
+        
+            try:
+                self.encode_bits = attribs["encode_bits"]
+            except:
+                self.encode_bits = []
+
+                fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
+                                                   self.encode_bits, plot_sync=plot_sync)
+                self.sync_data = fpga_dat['sync']
+
+
+            ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+            self.pos_data = fpga_dat['xyz']
+            self.pos_data_2 = fpga_dat['xy_2']
+            self.pos_time = fpga_dat['xyz_time']
+            self.pos_fb = fpga_dat['fb']
+
+            #print self.pos_data
+
+            # Load quadrant and backscatter amplitudes and phases
+            self.amp = fpga_dat['amp']
+            self.phase = fpga_dat['phase']
+            self.quad_time = fpga_dat['quad_time']
+
+            x2 = (self.amp[0] + self.amp[1]) - (self.amp[2] + self.amp[3])
+            y2 = (self.amp[0] + self.amp[2]) - (self.amp[1] + self.amp[3])
+            quad_sum = np.zeros_like(self.amp[0])
+            for ind in [0,1,2,3]:
+                quad_sum += self.amp[ind]
+            self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
+                                        y2.astype(np.float64)/quad_sum, \
+                                        self.pos_data[2]])
 
         #print attribs
         self.fname = fname
         #print fname
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
-
-        ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
-        self.pos_data = fpga_dat['xyz']
-        self.pos_data_2 = fpga_dat['xy_2']
-        self.pos_time = fpga_dat['xyz_time']
-        self.pos_fb = fpga_dat['fb']
-
-        #print self.pos_data
-
-        # Load quadrant and backscatter amplitudes and phases
-        self.amp = fpga_dat['amp']
-        self.phase = fpga_dat['phase']
-        self.quad_time = fpga_dat['quad_time']
-
-        x2 = (self.amp[0] + self.amp[1]) - (self.amp[2] + self.amp[3])
-        y2 = (self.amp[0] + self.amp[2]) - (self.amp[1] + self.amp[3])
-        quad_sum = np.zeros_like(self.amp[0])
-        for ind in [0,1,2,3]:
-            quad_sum += self.amp[ind]
-        self.pos_data_2 = np.array([x2.astype(np.float64)/quad_sum, \
-                                    y2.astype(np.float64)/quad_sum, \
-                                    self.pos_data[2]])
 
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
         self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])

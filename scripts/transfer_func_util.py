@@ -189,7 +189,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         for fobj in fobjs:
 
             dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis. 
-            data_fft = np.fft.rfft(fobj.pos_fb)
+            data_fft = np.fft.rfft(fobj.pos_data)
 
             N = np.shape(fobj.pos_data)[1]#number of samples
             fsamp = fobj.fsamp
