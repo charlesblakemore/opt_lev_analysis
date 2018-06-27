@@ -43,7 +43,7 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
 #data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
-data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz_2'
+data_dir = '/data/20180625/bead1/grav_data/no_shield/X60-80um_Z15-25um_17Hz'
 file_inds = (0, 30000)
 max_file_per_pos = 1000
 
@@ -51,18 +51,18 @@ split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
-save_alphadat = True
+save_alphadat = False
 load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
 save_fildat = False
-load_fildat = True
+load_fildat = False
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
 
 # These saves and loads don't do much currently
 savepath = '/sensitivities/20180618_grav-shield_1.npy'
-save = True
+save = False
 load = False
 
 
@@ -171,7 +171,7 @@ if not plot_just_current:
             fildat = gu.load_fildat(fildat_filname)
 
 
-        alphadat = gu.find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
+        alphadat = gu.find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, \
                                          ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ, \
                                          plot_best_alpha=plot_best_alpha, diag=diag)
 

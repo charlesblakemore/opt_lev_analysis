@@ -17,6 +17,8 @@ import calib_util as cal
 import transfer_func_util as tf
 import configuration as config
 
+sys.path.append('../microgravity')
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -125,7 +127,7 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       tfdate='', tophatf=1000, width=0, harms=[], nharmonics=10, \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
-                      max_file_per_pos=1000, userlims=[], noiseband=10):
+                      max_file_per_pos=1000, userlims=[], noiseband=10, fake_alpha = 1E10, fake_lambda = 25E-6):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then applies a notch filter using the attractor drive. The response
        at the attractor's fundamental + harmonics is returned
@@ -155,6 +157,8 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                ext_cant_ind,     index of the external attractor drive {0: x, 1: y, 2: z}
                max_file_per_pos,  maximum number of files to include per position
                                     if you want to select subsets for statistics
+               fake_alpha, alpha for software injection of signal. to turn off signal set to 0. 
+               fake_lambda, lambda to use for software signal injection 
 
        OUTPUTS:   fildat,  a big ass dictionary with everything you want, and a bunch of 
                              stuff you probably don't want. Has three levels of keys:
@@ -245,6 +249,17 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                 df.get_boolean_cantfilt(ext_cant_drive=ext_cant_drive, ext_cant_ind=ext_cant_ind, \
                                         nharmonics=nharmonics, harms=harms, width=width)
 
+        
+        ### Analyze the attractor drive and build the relevant position vectors
+        ### for the bead
+        drivevec = df.cant_data[drive_ind]
+        mindrive = np.min(drivevec)
+        maxdrive = np.max(drivevec)
+        posvec = np.linspace(mindrive, maxdrive, 500)
+        ones = np.ones_like(posvec)
+        pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
+        
+
         ### Apply notch filter, extract data, and errors
         datffts, diagdatffts, daterrs, diagdaterrs = \
                     df.get_datffts_and_errs(ginds, drive_freq, noiseband=noiseband, plot=plotfilt, \
@@ -256,14 +271,6 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
         for resp in [0,1,2]:
             binned[resp][1] = binned[resp][1] * df.conv_facs[resp]
 
-        ### Analyze the attractor drive and build the relevant position vectors
-        ### for the bead
-        drivevec = df.cant_data[drive_ind]
-        mindrive = np.min(drivevec)
-        maxdrive = np.max(drivevec)
-        posvec = np.linspace(mindrive, maxdrive, 500)
-        ones = np.ones_like(posvec)
-        pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
 
         fildat[cantbias][ax1pos][ax2pos].append((drivevec, posvec, pts, ginds, \
                                                  datffts, diagdatffts, daterrs, diagdaterrs, \
