@@ -121,7 +121,7 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
-def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
+def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5, ax_disc=0.5, \
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       tfdate='', tophatf=1000, width=0, harms=[], nharmonics=10, \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
@@ -179,8 +179,13 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                              binned, force_v_pos curves for plotting and qualitative checks
     '''
 
+    ax_keys = {'x': 0, 'y': 1, 'z': 2}
 
     fildat = {}
+    ax1vec = []
+    Nax1 = {}
+    ax2vec = []
+    Nax2 = {}
     temp_gdat = {}
     for fil_ind, fil in enumerate(files):
         bu.progress_bar(fil_ind, len(files), suffix=' Sorting Files, Extracting Data')
@@ -193,8 +198,14 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
     
         ### Extract the relevant position and bias
         cantbias = df.electrode_settings['dc_settings'][0]
-        ax1pos = df.stage_settings[ax1 + ' DC']
-        ax2pos = df.stage_settings[ax2 + ' DC']
+
+        #ax1pos = df.stage_settings[ax1 + ' DC']
+        ax1pos = np.mean(df.cant_data[ax_keys[ax1]])
+        ax1pos = round(ax1pos, 1)
+
+        #ax2pos = df.stage_settings[ax2 + ' DC']
+        ax2pos = np.mean(df.cant_data[ax_keys[ax2]])
+        ax2pos = round(ax2pos, 1)
 
 
         ### Transform cantilever coordinates to bead-centric 
@@ -224,12 +235,92 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
         ### data dictionary
         if cantbias not in fildat.keys():
             fildat[cantbias] = {}
-        if ax1pos not in fildat[cantbias].keys():
-            fildat[cantbias][ax1pos] = {}
-        if ax2pos not in fildat[cantbias][ax1pos].keys():
-            fildat[cantbias][ax1pos][ax2pos] = []
+            Nax1[cantbias] = {}
+            Nax2[cantbias] = {}
 
-        if len(fildat[cantbias][ax1pos][ax2pos]) >= max_file_per_pos:
+        ax1_is_new = False
+        if len(ax1vec):
+            close_ind = np.argmin( np.abs( np.array(ax1vec) - ax1pos ) )
+            if np.abs(ax1vec[close_ind] - ax1pos) < ax_disc:
+                old_ax1key = ax1vec[close_ind]
+                oldN = Nax1[cantbias][old_ax1key]
+
+                new_ax1key = (old_ax1key * oldN + ax1pos) / (oldN + 1.0)
+                new_ax1key = round(new_ax1key, 1)
+
+                if old_ax1key != new_ax1key:
+                    ax1vec[close_ind] = new_ax1key
+
+                    fildat[cantbias][new_ax1key] = fildat[cantbias][old_ax1key]
+                    Nax1[cantbias][new_ax1key] = oldN + 1.0
+
+                    del Nax1[cantbias][old_ax1key]
+                    del fildat[cantbias][old_ax1key]
+                    
+            else:
+                ax1_is_new = True
+        else:
+            ax1_is_new = True
+
+        if ax1_is_new:
+            fildat[cantbias][ax1pos] = {}
+            Nax1[cantbias][ax1pos] = 1
+            new_ax1key = ax1pos
+            ax1vec.append(new_ax1key)
+            ax1vec.sort()
+            
+
+        #ax2keys = fildat[cantbias][new_ax1key].keys()
+
+        ax2_is_new = False
+        if len(ax2vec):
+            close_ind = np.argmin( np.abs( np.array(ax2vec) - ax2pos ) )
+            if np.abs(ax2vec[close_ind] - ax2pos) < ax_disc:
+
+                old_ax2key = ax2vec[close_ind]
+                oldN = Nax2[cantbias][old_ax2key]
+
+                new_ax2key = (old_ax2key * oldN + ax2pos) / (oldN + 1.0)
+                new_ax2key = round(new_ax2key, 1)
+
+                new_combo = False
+                if old_ax2key not in fildat[cantbias][new_ax1key].keys():
+                    fildat[cantbias][new_ax1key][new_ax2key] = []
+
+                if old_ax2key != new_ax2key:
+                    ax2vec[close_ind] = new_ax2key
+
+                    Nax2[cantbias][new_ax2key] = oldN + 1.0
+                    del Nax2[cantbias][old_ax2key]
+
+                    for ax1key in ax1vec:
+                        ax2keys = fildat[cantbias][ax1key].keys()
+                        if old_ax2key in ax2keys:
+                            fildat[cantbias][ax1key][new_ax2key] = fildat[cantbias][ax1key][old_ax2key]
+                            del fildat[cantbias][ax1key][old_ax2key]
+
+            else:
+                ax2_is_new = True
+        else:
+            ax2_is_new = True
+
+        if ax2_is_new:
+            fildat[cantbias][new_ax1key][ax2pos] = []
+            Nax2[cantbias][ax2pos] = 1
+            new_ax2key = ax2pos
+            ax2vec.append(new_ax2key)
+            ax2vec.sort()
+
+        #print new_ax1key
+        #print new_ax2key
+        #
+        #print fildat[cantbias].keys()
+        #for ax1thing in fildat[cantbias].keys():
+        #    string = '%0.1f' % ax1thing
+        #    print string, fildat[cantbias][ax1thing].keys()
+        #raw_input()
+
+        if len(fildat[cantbias][new_ax1key][new_ax2key]) >= max_file_per_pos:
             continue
 
 
@@ -258,16 +349,16 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
 
         ### Analyze the attractor drive and build the relevant position vectors
         ### for the bead
-        drivevec = df.cant_data[drive_ind]
+        drivevec = df.cant_data[drive_ind] - np.mean(df.cant_data[drive_ind])
         mindrive = np.min(drivevec)
         maxdrive = np.max(drivevec)
         posvec = np.linspace(mindrive, maxdrive, 500)
         ones = np.ones_like(posvec)
         pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
 
-        fildat[cantbias][ax1pos][ax2pos].append((drivevec, posvec, pts, ginds, \
-                                                 datffts, diagdatffts, daterrs, diagdaterrs, \
-                                                 binned))
+        fildat[cantbias][new_ax1key][new_ax2key].append((drivevec, posvec, pts, ginds, \
+                                                         datffts, diagdatffts, daterrs, diagdaterrs, \
+                                                         binned))
 
     return fildat
 

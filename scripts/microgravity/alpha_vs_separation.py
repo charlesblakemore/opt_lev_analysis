@@ -33,7 +33,13 @@ minsep = 20     # um
 maxthrow = 80     # um
 beadheight = 20   # um
 
-
+### Following Alex's convention, we define the rough stage position in
+### in the following way:
+### p0 = [p0x, p0y, p0z]
+###   p0x = center of bead to attractor face separation
+###   p0y = center of bead relative to ycant = 40um  (0 if bead centered at y=40)
+###   p0z = number from dipole_vs_height.py
+p0 = []
 
 #############  Data Directories and Save/Load params  ############
 
@@ -43,8 +49,11 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
 #data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
-data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz_2'
-file_inds = (0, 30000)
+#data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz_2'
+
+data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
+
+file_inds = (0, 81)
 max_file_per_pos = 1000
 
 split = data_dir.split('/')
@@ -55,8 +64,8 @@ save_alphadat = True
 load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
-save_fildat = False
-load_fildat = True
+save_fildat = True
+load_fildat = False #True
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
 
@@ -96,7 +105,7 @@ userlims = [(5e-6, 50e-6), (-240e-6, 240e-6), (-10e-6, 10e-6)]
 
 plotfilt = False
 plot_best_alpha = False
-plot_planar_fit = False
+plot_planar_fit = True
 
 plot_just_current = False
 figtitle = ''
@@ -171,7 +180,7 @@ if not plot_just_current:
             fildat = gu.load_fildat(fildat_filname)
 
 
-        alphadat = gu.find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, lims, \
+        alphadat = gu.find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, \
                                          ignoreX=ignoreX, ignoreY=ignoreY, ignoreZ=ignoreZ, \
                                          plot_best_alpha=plot_best_alpha, diag=diag)
 
@@ -192,8 +201,7 @@ if not plot_just_current:
     fits, outdat, alphas_1, alphas_2, alphas_3 = \
                     gu.fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
                                            maxthrow=maxthrow, beadheight=beadheight, \
-                                           plot=plot_planar_fit, scale_fac=1.0*10**9, \
-                                           weight_planar=False)
+                                           plot=plot_planar_fit, weight_planar=False)
 
 
 

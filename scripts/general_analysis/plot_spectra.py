@@ -11,14 +11,13 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz'
+dir1 = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
 maxfiles = 500
 
-use_dir = True
+use_dir = False
 
-allfiles = ['/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_60.h5',\
-            '/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_70.h5',\
-            '/data/20180613/bead1/discharge/fine2/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_80.h5']
+allfiles = ['/data/20180625/bead1/discharge/fine4/turbombar_xyzcool_pumped_2_elec3_10000mV41Hz0mVdc_108.h5', \
+            '/data/20180625/bead1/1_5mbar_xzcool.h5']
 
 #labs = ['1','2', '3']
 
@@ -49,12 +48,26 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = True
+fullNFFT = False
 
 #window = mlab.window_hanning
 window = mlab.window_none
 
 ###########################################################
+
+
+shit = {}
+
+shit['xfreq'] = []
+shit['x'] = []
+
+shit['yfreq'] = []
+shit['y'] = []
+
+shit['zfreq'] = []
+shit['z'] = []
+
+posdic = {0: 'x', 1: 'y', 2: 'z'}
 
 
 outvec1 = []
@@ -121,9 +134,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         df = bu.DataFile()
         df.load(fil)
 
-        if df.badfile:
-            continue
-
         if len(other_axes):
             df.load_other_data()
 
@@ -148,7 +158,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         for axind, ax in enumerate(data_axes):
 
             try:
-                fac = df.conv_facs[ax]
+                fac = df.conv_facs[ax] * (1.0 / 0.12e-12)
             except:
                 fac = 1.0
             if fullNFFT:
@@ -168,7 +178,11 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
             fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
 
-            
+            key = posdic[ax]
+            key2 = key + 'freq'
+            shit[key].append(np.sqrt(psd)*fac)
+            shit[key2].append(freqs)
+
             dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                     NFFT=NFFT, window=window)
 
@@ -258,3 +272,5 @@ allfiles = allfiles[:maxfiles]
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
                   fb_axes=fb_axes)
+
+pickle.dump(shit, open('/processed_data/ichep_spectra.p', 'wb'))
