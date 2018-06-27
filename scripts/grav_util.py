@@ -123,7 +123,7 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
-def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
+def get_data_at_harms(files, p0_bead=[20,0,20], ax_disc=0.5, \
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       tfdate='', tophatf=1000, width=0, harms=[], nharmonics=10, \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
@@ -183,8 +183,13 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                              binned, force_v_pos curves for plotting and qualitative checks
     '''
 
+    ax_keys = {'x': 0, 'y': 1, 'z': 2}
 
     fildat = {}
+    ax1vec = []
+    Nax1 = {}
+    ax2vec = []
+    Nax2 = {}
     temp_gdat = {}
     for fil_ind, fil in enumerate(files):
         bu.progress_bar(fil_ind, len(files), suffix=' Sorting Files, Extracting Data')
@@ -197,23 +202,110 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
     
         ### Extract the relevant position and bias
         cantbias = df.electrode_settings['dc_settings'][0]
-        ax1pos = df.stage_settings[ax1 + ' DC']
-        ax2pos = df.stage_settings[ax2 + ' DC']
+
+        #ax1pos = df.stage_settings[ax1 + ' DC']
+        ax1pos = np.mean(df.cant_data[ax_keys[ax1]])
+        ax1pos = round(ax1pos, 1)
+
+        #ax2pos = df.stage_settings[ax2 + ' DC']
+        ax2pos = np.mean(df.cant_data[ax_keys[ax2]])
+        ax2pos = round(ax2pos, 1)
+
+
+        ### Add this combination of positions to the output
+        ### data dictionary
+        if cantbias not in fildat.keys():
+            fildat[cantbias] = {}
+            Nax1[cantbias] = {}
+            Nax2[cantbias] = {}
+
+        ax1_is_new = False
+        if len(ax1vec):
+            close_ind = np.argmin( np.abs( np.array(ax1vec) - ax1pos ) )
+            if np.abs(ax1vec[close_ind] - ax1pos) < ax_disc:
+                old_ax1key = ax1vec[close_ind]
+                oldN = Nax1[cantbias][old_ax1key]
+
+                new_ax1key = (old_ax1key * oldN + ax1pos) / (oldN + 1.0)
+                new_ax1key = round(new_ax1key, 1)
+
+                if old_ax1key != new_ax1key:
+                    ax1vec[close_ind] = new_ax1key
+
+                    fildat[cantbias][new_ax1key] = fildat[cantbias][old_ax1key]
+                    Nax1[cantbias][new_ax1key] = oldN + 1.0
+
+                    del Nax1[cantbias][old_ax1key]
+                    del fildat[cantbias][old_ax1key]
+                    
+            else:
+                ax1_is_new = True
+        else:
+            ax1_is_new = True
+
+        if ax1_is_new:
+            fildat[cantbias][ax1pos] = {}
+            Nax1[cantbias][ax1pos] = 1
+            new_ax1key = ax1pos
+            ax1vec.append(new_ax1key)
+            ax1vec.sort()
+            
+
+        #ax2keys = fildat[cantbias][new_ax1key].keys()
+
+        ax2_is_new = False
+        if len(ax2vec):
+            close_ind = np.argmin( np.abs( np.array(ax2vec) - ax2pos ) )
+            if np.abs(ax2vec[close_ind] - ax2pos) < ax_disc:
+
+                old_ax2key = ax2vec[close_ind]
+                oldN = Nax2[cantbias][old_ax2key]
+
+                new_ax2key = (old_ax2key * oldN + ax2pos) / (oldN + 1.0)
+                new_ax2key = round(new_ax2key, 1)
+
+                new_combo = False
+                if old_ax2key not in fildat[cantbias][new_ax1key].keys():
+                    fildat[cantbias][new_ax1key][new_ax2key] = []
+
+                if old_ax2key != new_ax2key:
+                    ax2vec[close_ind] = new_ax2key
+
+                    Nax2[cantbias][new_ax2key] = oldN + 1.0
+                    del Nax2[cantbias][old_ax2key]
+
+                    for ax1key in ax1vec:
+                        ax2keys = fildat[cantbias][ax1key].keys()
+                        if old_ax2key in ax2keys:
+                            fildat[cantbias][ax1key][new_ax2key] = fildat[cantbias][ax1key][old_ax2key]
+                            del fildat[cantbias][ax1key][old_ax2key]
+
+            else:
+                ax2_is_new = True
+        else:
+            ax2_is_new = True
+
+        if ax2_is_new:
+            fildat[cantbias][new_ax1key][ax2pos] = []
+            Nax2[cantbias][ax2pos] = 1
+            new_ax2key = ax2pos
+            ax2vec.append(new_ax2key)
+            ax2vec.sort()
 
 
         ### Transform cantilever coordinates to bead-centric 
         ### coordinates
         if ax1 == 'x' and ax2 == 'z':
-            newxpos = minsep + (maxthrow - ax1pos)
-            newheight = ax2pos - beadheight
+            newxpos = p0_bead[0] + (80 - new_ax1key)
+            newheight = new_ax2key - p0_bead[2]
         elif ax1 =='z' and ax2 == 'x':
-            newxpos = minsep + (maxthrow - ax2pos)
-            newheight = ax1pos - beadheight
+            newxpos = p0_bead[0] + (80 - new_ax2key)
+            newheight = beadheight - new_ax2key 
         else:
             print "Coordinate axes don't make sense for gravity data..."
             print "Proceeding anyway, but results might be hard to interpret"
-            newxpos = ax1pos
-            newheight = ax2pos
+            newxpos = new_ax1key
+            newheight = new_ax2key
 
         if len(userlims):
             if (newxpos < userlims[0][0]*1e6) or (newxpos > userlims[0][1]*1e6):
@@ -224,16 +316,8 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
                 #print 'skipped z'
                 continue
 
-        ### Add this combination of positions to the output
-        ### data dictionary
-        if cantbias not in fildat.keys():
-            fildat[cantbias] = {}
-        if ax1pos not in fildat[cantbias].keys():
-            fildat[cantbias][ax1pos] = {}
-        if ax2pos not in fildat[cantbias][ax1pos].keys():
-            fildat[cantbias][ax1pos][ax2pos] = []
 
-        if len(fildat[cantbias][ax1pos][ax2pos]) >= max_file_per_pos:
+        if len(fildat[cantbias][new_ax1key][new_ax2key]) >= max_file_per_pos:
             continue
 
 
@@ -271,10 +355,18 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5,\
         for resp in [0,1,2]:
             binned[resp][1] = binned[resp][1] * df.conv_facs[resp]
 
+        ### Analyze the attractor drive and build the relevant position vectors
+        ### for the bead
+        drivevec = df.cant_data[drive_ind] - np.mean(df.cant_data[drive_ind]) + p0_bead[1]
+        mindrive = np.min(drivevec)
+        maxdrive = np.max(drivevec)
+        posvec = np.linspace(mindrive, maxdrive, 500)
+        ones = np.ones_like(posvec)
+        pts = np.stack((newxpos*ones, posvec, newheight*ones), axis=-1)
 
-        fildat[cantbias][ax1pos][ax2pos].append((drivevec, posvec, pts, ginds, \
-                                                 datffts, diagdatffts, daterrs, diagdaterrs, \
-                                                 binned))
+        fildat[cantbias][new_ax1key][new_ax2key].append((drivevec, posvec, pts, ginds, \
+                                                         datffts, diagdatffts, daterrs, diagdaterrs, \
+                                                         binned))
 
     return fildat
 
@@ -596,7 +688,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
 
 
 
-def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
+def save_alphadat(outname, alphadat, lambdas, p0_bead):
     '''Saves all information relevant to the last step of the analysis. This
        way you can modify your statistical interpretation without reloading 
        possibly thousands of files.
@@ -613,9 +705,7 @@ def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
     dump = {}
     dump['alphadat'] = alphadat
     dump['lambdas'] = lambdas
-    dump['minsep'] = minsep
-    dump['maxthrow'] = maxthrow
-    dump['beadheight'] = beadheight
+    dump['p0_bead'] = p0_bead
 
     pickle.dump(dump, open(outname, 'wb'))
 
@@ -631,7 +721,7 @@ def load_alphadat(filename):
 
 
 
-def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheight=40.0, \
+def fit_alpha_vs_alldim(alphadat, lambdas, p0_bead=[20,0,20], \
                         plot=False, weight_planar=True):
     '''Takes the best_fit_alphas vs height and separation, and fits them to a plane,
        for each value of lambda. Extracts some idea of sensitivity from this fit
@@ -658,8 +748,8 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
     ax2vec = alphadat[biasvec[0]][ax1vec[0]].keys()
 
     ### Assume separations are encoded in ax1 and heights in ax2
-    seps = maxthrow + minsep - np.array(ax1vec)
-    heights = np.array(ax2vec)- beadheight
+    seps = 80 + p0_bead[0] - np.array(ax1vec)
+    heights = p0_bead[2] - np.array(ax2vec) 
 
     ### Sort the heights and separations and build a grid
     sort1 = np.argsort(seps)

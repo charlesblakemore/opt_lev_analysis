@@ -15,10 +15,10 @@ import configuration as config
 dir1 = '/data/20180618/bead1/tf_20180618/freq_comb_elec5_10V'
 dir1 = '/data/20180618/bead1/discharge/fine3/'
 
-dir1 = '/data/20180625/bead1/grav_data/no_shield/X60-80um_Z15-25um_17Hz'
+dir1 = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
 
 
-files = bu.find_all_fnames(dir1)[200:]
+files = bu.find_all_fnames(dir1)
 
 for file in files:
     df = bu.DataFile()
@@ -26,16 +26,16 @@ for file in files:
 
     freqs = np.fft.rfftfreq(len(df.amp[0]), d=1.0/df.fsamp)
 
-
     plt.figure(1)
-    plt.loglog(freqs, np.abs(np.fft.rfft(df.pos_data_2[0])) * 1000, label='offline X')
-    plt.loglog(freqs, np.abs(np.fft.rfft(df.pos_data[0])), label='FPGA X')
+    plt.loglog(freqs, np.abs(np.fft.rfft(df.pos_data_3[0])) * 1000, label='offline X')
+    plt.loglog(freqs, np.abs(np.fft.rfft(df.pos_data_2[0])) * 1000, label='FPGA X2')
+    plt.loglog(freqs, np.abs(np.fft.rfft(df.pos_data[0])), label='FPGA X1')
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('sqrt(PSD) [arb]')
     plt.legend()
 
     plt.figure(4)
-    plt.loglog(freqs, np.abs(np.fft.rfft(df.electrode_data[3])))
+    plt.loglog(freqs, np.abs(np.fft.rfft(df.cant_data[1])))
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('sqrt(PSD) [arb]')
 

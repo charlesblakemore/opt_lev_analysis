@@ -33,7 +33,13 @@ minsep = 20     # um
 maxthrow = 80     # um
 beadheight = 20   # um
 
-
+### Following Alex's convention, we define the rough stage position in
+### in the following way:
+### p0_bead = [p0x, p0y, p0z]
+###   p0x = center of bead to attractor face separation
+###   p0y = center of bead relative to ycant = 40um  (0 if bead centered at y=40)
+###   p0z = number from dipole_vs_height.py
+p0_bead = [20, 0, 20]
 
 #############  Data Directories and Save/Load params  ############
 
@@ -43,19 +49,35 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
 #data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
+<<<<<<< HEAD
 data_dir = '/data/20180625/bead1/grav_data/no_shield/X60-80um_Z15-25um_17Hz'
 file_inds = (0, 30000)
+=======
+#data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz_2'
+
+data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
+
+file_inds = (0, 81)
+>>>>>>> 61ea8ca40405f16309c021f08f54bea11bc025c0
 max_file_per_pos = 1000
 
 split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
+<<<<<<< HEAD
 save_alphadat = False
 load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
 save_fildat = False
+=======
+save_alphadat = True 
+load_alphadat = False
+alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
+
+save_fildat = True 
+>>>>>>> 61ea8ca40405f16309c021f08f54bea11bc025c0
 load_fildat = False
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
@@ -158,8 +180,7 @@ if not plot_just_current:
 
     if not load_alphadat:
         if not load_fildat:
-            fildat = gu.get_data_at_harms(datafiles, minsep=minsep, maxthrow=maxthrow, \
-                                          beadheight=beadheight, plotfilt=plotfilt, \
+            fildat = gu.get_data_at_harms(datafiles, p0_bead=p0_bead, ax_disc=0.5, plotfilt=plotfilt, \
                                           cantind=0, ax1='x', ax2='z', diag=diag, plottf=False, \
                                           nharmonics=nharmonics, harms=harms, \
                                           ext_cant_drive=True, ext_cant_ind=1, \
@@ -176,24 +197,20 @@ if not plot_just_current:
                                          plot_best_alpha=plot_best_alpha, diag=diag)
 
         if save_alphadat:
-            gu.save_alphadat(alphadat_filname, alphadat, lambdas, minsep, maxthrow, beadheight)
+            gu.save_alphadat(alphadat_filname, alphadat, lambdas, p0_bead)
 
     else:
         stuff = gu.load_alphadat(alphadat_filname)
 
         alphadat = stuff['alphadat']
         lambdas = stuff['lambdas']
-        minsep = stuff['minsep']
-        maxthrow = stuff['maxthrow']
-        beadheight = stuff['beadheight']
+        p0_bead = stuff['p0_bead']
         
 
     
     fits, outdat, alphas_1, alphas_2, alphas_3 = \
-                    gu.fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
-                                           maxthrow=maxthrow, beadheight=beadheight, \
-                                           plot=plot_planar_fit, scale_fac=1.0*10**9, \
-                                           weight_planar=False)
+                    gu.fit_alpha_vs_alldim(alphadat, lambdas, p0_bead=p0_bead, \
+                                           plot=plot_planar_fit, weight_planar=False)
 
 
 
