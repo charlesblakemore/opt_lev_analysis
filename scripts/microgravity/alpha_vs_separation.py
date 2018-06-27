@@ -53,7 +53,7 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 
 data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
 
-file_inds = (0, 81)
+file_inds = (0, 3000000)
 max_file_per_pos = 1000
 
 split = data_dir.split('/')
