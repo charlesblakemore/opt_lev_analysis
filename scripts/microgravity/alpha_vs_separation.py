@@ -35,11 +35,11 @@ beadheight = 20   # um
 
 ### Following Alex's convention, we define the rough stage position in
 ### in the following way:
-### p0 = [p0x, p0y, p0z]
+### p0_bead = [p0x, p0y, p0z]
 ###   p0x = center of bead to attractor face separation
 ###   p0y = center of bead relative to ycant = 40um  (0 if bead centered at y=40)
 ###   p0z = number from dipole_vs_height.py
-p0 = []
+p0_bead = [20, 0, 20]
 
 #############  Data Directories and Save/Load params  ############
 
@@ -105,7 +105,7 @@ userlims = [(5e-6, 50e-6), (-240e-6, 240e-6), (-10e-6, 10e-6)]
 
 plotfilt = False
 plot_best_alpha = False
-plot_planar_fit = True
+plot_planar_fit = False
 
 plot_just_current = False
 figtitle = ''
@@ -167,8 +167,7 @@ if not plot_just_current:
 
     if not load_alphadat:
         if not load_fildat:
-            fildat = gu.get_data_at_harms(datafiles, minsep=minsep, maxthrow=maxthrow, \
-                                          beadheight=beadheight, plotfilt=plotfilt, \
+            fildat = gu.get_data_at_harms(datafiles, p0_bead=p0_bead, ax_disc=0.5, plotfilt=plotfilt, \
                                           cantind=0, ax1='x', ax2='z', diag=diag, plottf=False, \
                                           nharmonics=nharmonics, harms=harms, \
                                           ext_cant_drive=True, ext_cant_ind=1, \

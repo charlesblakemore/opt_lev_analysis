@@ -121,7 +121,7 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
-def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5, ax_disc=0.5, \
+def get_data_at_harms(files, p0_bead=[20,0,20], ax_disc=0.5, \
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       tfdate='', tophatf=1000, width=0, harms=[], nharmonics=10, \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
@@ -208,29 +208,6 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5, ax_disc=0.5, 
         ax2pos = round(ax2pos, 1)
 
 
-        ### Transform cantilever coordinates to bead-centric 
-        ### coordinates
-        if ax1 == 'x' and ax2 == 'z':
-            newxpos = minsep + (maxthrow - ax1pos)
-            newheight = ax2pos - beadheight
-        elif ax1 =='z' and ax2 == 'x':
-            newxpos = minsep + (maxthrow - ax2pos)
-            newheight = ax1pos - beadheight
-        else:
-            print "Coordinate axes don't make sense for gravity data..."
-            print "Proceeding anyway, but results might be hard to interpret"
-            newxpos = ax1pos
-            newheight = ax2pos
-
-        if len(userlims):
-            if (newxpos < userlims[0][0]*1e6) or (newxpos > userlims[0][1]*1e6):
-                #print 'skipped x'
-                continue
-
-            if (newheight < userlims[2][0]*1e6) or (newheight > userlims[2][1]*1e6):
-                #print 'skipped z'
-                continue
-
         ### Add this combination of positions to the output
         ### data dictionary
         if cantbias not in fildat.keys():
@@ -311,14 +288,30 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5, ax_disc=0.5, 
             ax2vec.append(new_ax2key)
             ax2vec.sort()
 
-        #print new_ax1key
-        #print new_ax2key
-        #
-        #print fildat[cantbias].keys()
-        #for ax1thing in fildat[cantbias].keys():
-        #    string = '%0.1f' % ax1thing
-        #    print string, fildat[cantbias][ax1thing].keys()
-        #raw_input()
+
+        ### Transform cantilever coordinates to bead-centric 
+        ### coordinates
+        if ax1 == 'x' and ax2 == 'z':
+            newxpos = p0_bead[0] + (80 - new_ax1key)
+            newheight = new_ax2key - p0_bead[2]
+        elif ax1 =='z' and ax2 == 'x':
+            newxpos = p0_bead[0] + (80 - new_ax2key)
+            newheight = beadheight - new_ax2key 
+        else:
+            print "Coordinate axes don't make sense for gravity data..."
+            print "Proceeding anyway, but results might be hard to interpret"
+            newxpos = new_ax1key
+            newheight = new_ax2key
+
+        if len(userlims):
+            if (newxpos < userlims[0][0]*1e6) or (newxpos > userlims[0][1]*1e6):
+                #print 'skipped x'
+                continue
+
+            if (newheight < userlims[2][0]*1e6) or (newheight > userlims[2][1]*1e6):
+                #print 'skipped z'
+                continue
+
 
         if len(fildat[cantbias][new_ax1key][new_ax2key]) >= max_file_per_pos:
             continue
@@ -349,7 +342,7 @@ def get_data_at_harms(files, minsep=20, maxthrow=80, beadheight=5, ax_disc=0.5, 
 
         ### Analyze the attractor drive and build the relevant position vectors
         ### for the bead
-        drivevec = df.cant_data[drive_ind] - np.mean(df.cant_data[drive_ind])
+        drivevec = df.cant_data[drive_ind] - np.mean(df.cant_data[drive_ind]) + p0_bead[1]
         mindrive = np.min(drivevec)
         maxdrive = np.max(drivevec)
         posvec = np.linspace(mindrive, maxdrive, 500)
@@ -715,7 +708,7 @@ def load_alphadat(filename):
 
 
 
-def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheight=40.0, \
+def fit_alpha_vs_alldim(alphadat, lambdas, p0_bead=[20,0,20], \
                         plot=False, weight_planar=True):
     '''Takes the best_fit_alphas vs height and separation, and fits them to a plane,
        for each value of lambda. Extracts some idea of sensitivity from this fit
@@ -742,8 +735,8 @@ def fit_alpha_vs_alldim(alphadat, lambdas, minsep=10.0, maxthrow=80.0, beadheigh
     ax2vec = alphadat[biasvec[0]][ax1vec[0]].keys()
 
     ### Assume separations are encoded in ax1 and heights in ax2
-    seps = maxthrow + minsep - np.array(ax1vec)
-    heights = np.array(ax2vec)- beadheight
+    seps = maxthrow + p0_bead[0] - np.array(ax1vec)
+    heights = p0_bead[2] - np.array(ax2vec) 
 
     ### Sort the heights and separations and build a grid
     sort1 = np.argsort(seps)
