@@ -29,17 +29,13 @@ warnings.filterwarnings("ignore")
 
 ####################  Rough Stage Position  ######################
 
-minsep = 20     # um
-maxthrow = 80     # um
-beadheight = 20   # um
-
 ### Following Alex's convention, we define the rough stage position in
 ### in the following way:
 ### p0_bead = [p0x, p0y, p0z]
 ###   p0x = center of bead to attractor face separation
 ###   p0y = center of bead relative to ycant = 40um  (0 if bead centered at y=40)
 ###   p0z = number from dipole_vs_height.py
-p0_bead = [20, 0, 20]
+p0_bead = [11, 0, 20]
 
 #############  Data Directories and Save/Load params  ############
 
@@ -60,18 +56,19 @@ split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
+
 save_alphadat = True 
-load_alphadat = False
+load_alphadat = False #True
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
-save_fildat = True 
-load_fildat = False
+save_fildat = False
+load_fildat = True
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
 
 # These saves and loads don't do much currently
 savepath = '/sensitivities/20180618_grav-shield_1.npy'
-save = True
+save = False
 load = False
 
 
@@ -104,8 +101,8 @@ userlims = [(5e-6, 50e-6), (-240e-6, 240e-6), (-10e-6, 10e-6)]
 ######################  Plotting Params  #########################
 
 plotfilt = False
-plot_best_alpha = False
-plot_planar_fit = False
+plot_best_alpha = True
+plot_planar_fit = True
 
 plot_just_current = False
 figtitle = ''

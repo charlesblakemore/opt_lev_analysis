@@ -332,6 +332,69 @@ class DataFile:
 
         return drive_ind
 
+    def generate_yuk_template(self, yukfuncs_at_lambda, p0, stage_travel = [80., 80., 80.],\
+                                plt_pvec = False, plt_template = False, cf = 1E-6):
+        '''generates a template for the expected force in the time domain. takes a tuple
+            of interpolating funcs for the force at a particular lambda and a vector, p0,
+            that gives the displacement '''
+
+        self.calibrate_stage_position()
+        pvec = np.zeros_like(self.cant_data)
+        pvec[0, :] = stage_travel[0] - self.cant_data[0, :] + p0[0]
+        pvec[1, :] = self.cant_data[1, :] - stage_travel[1]/2. + p0[1]
+        pvec[2, :] = self.cant_data[2, :] - p0[2]
+        pvec *= cf
+
+        pts = np.stack(pvec, axis = -1)
+        
+        fx = yukfuncs_at_lambda[0](pts)
+        fy = yukfuncs_at_lambda[1](pts)
+        fz = yukfuncs_at_lambda[2](pts)
+
+        if plt_pvec:
+            plt.plot(pvec[0, :], label = "X")
+            plt.plot(pvec[1, :], label = "Y")
+            plt.plot(pvec[2, :], label = "Z")
+            plt.legend()
+            plt.show()
+
+        if plt_template:
+            plt.plot(fx, label = "fx")
+            plt.plot(fy, label = "fy")
+            plt.plot(fz, label = "fz")
+            plt.legend()
+            plt.show()
+
+        return np.array([fx, fy, fz])
+
+
+    def inject_fake_signal(self, yukfuncs_at_lambda, p0, fake_alpha = 1E10, make_plot = False):
+        '''injects a fake signal into the data at a particular alpha and lambda. 
+            needs p0 = [min separation at 80um extent, y difference between center of cantilever 
+            and bead when cantilever is set to 40 um, bead height in nanopositiong stage coordinates].'''
+        
+        self.calibrate_stage_position()
+        try:
+            cf = self.conv_facs
+        except AttributeError:
+            self.diagonalize()
+            cf = self.conv_facs
+    
+        fs = fake_alpha*self.generate_yuk_template(yukfuncs_at_lambda, p0, \
+                plt_pvec = make_plot, plt_template =make_plot)
+
+        #add fake signal to position data using 1/cf to calibrate out of force units
+        self.pos_data = self.pos_data.astype(float) #cast to floats for math
+        self.pos_data[0] += fs[0]/cf[0]
+        self.pos_data[1] += fs[1]/cf[1]
+        self.pos_data[2] += fs[2]/cf[2]
+
+        #no calibration required for diag data    
+        self.diag_pos_data[0] += fs[0]
+        self.diag_pos_data[1] += fs[1]
+        self.diag_pos_data[2] += fs[2]
+        
+
 
     def build_cant_filt(self, cant_fft, freqs, nharmonics=10, width=0, harms=[]):
         '''Identify the fundamental drive frequency and make a notch filter
@@ -407,7 +470,7 @@ class DataFile:
 
     def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False):   
         '''Applies a cantilever notch filter and returns the filtered data
-           with an error estimate based on the neighboring bins of the PSD
+           with an error estimate based on the neighboring bins of the PSD.
 
            INPUTS: ginds, boolean cantilever drive notch filter
                    drive_freq, cantilever drive freq
@@ -418,7 +481,6 @@ class DataFile:
                     diagdaterrs, diag errors from surrounding bins
         ''' 
 
-        datffts = [[], [], []]
         daterrs = [[], [], []]
 
         if diag:
@@ -436,7 +498,8 @@ class DataFile:
             just_one = True
         else:
             just_one = False
-
+        
+        datffts = np.zeros((3, np.sum(ginds)))
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
