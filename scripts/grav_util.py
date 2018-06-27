@@ -673,7 +673,7 @@ def find_alpha_vs_file(fildat, gfuncs, yukfuncs, lambdas, diag=False, \
 
 
 
-def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
+def save_alphadat(outname, alphadat, lambdas, p0_bead):
     '''Saves all information relevant to the last step of the analysis. This
        way you can modify your statistical interpretation without reloading 
        possibly thousands of files.
@@ -690,9 +690,7 @@ def save_alphadat(outname, alphadat, lambdas, minsep, maxthrow, beadheight):
     dump = {}
     dump['alphadat'] = alphadat
     dump['lambdas'] = lambdas
-    dump['minsep'] = minsep
-    dump['maxthrow'] = maxthrow
-    dump['beadheight'] = beadheight
+    dump['p0_bead'] = p0_bead
 
     pickle.dump(dump, open(outname, 'wb'))
 
@@ -735,7 +733,7 @@ def fit_alpha_vs_alldim(alphadat, lambdas, p0_bead=[20,0,20], \
     ax2vec = alphadat[biasvec[0]][ax1vec[0]].keys()
 
     ### Assume separations are encoded in ax1 and heights in ax2
-    seps = maxthrow + p0_bead[0] - np.array(ax1vec)
+    seps = 80 + p0_bead[0] - np.array(ax1vec)
     heights = p0_bead[2] - np.array(ax2vec) 
 
     ### Sort the heights and separations and build a grid

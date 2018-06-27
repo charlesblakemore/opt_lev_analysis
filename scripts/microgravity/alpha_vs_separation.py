@@ -60,12 +60,12 @@ split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
-save_alphadat = True
+save_alphadat = True 
 load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
-save_fildat = True
-load_fildat = False #True
+save_fildat = True 
+load_fildat = False
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
 
@@ -184,22 +184,19 @@ if not plot_just_current:
                                          plot_best_alpha=plot_best_alpha, diag=diag)
 
         if save_alphadat:
-            gu.save_alphadat(alphadat_filname, alphadat, lambdas, minsep, maxthrow, beadheight)
+            gu.save_alphadat(alphadat_filname, alphadat, lambdas, p0_bead)
 
     else:
         stuff = gu.load_alphadat(alphadat_filname)
 
         alphadat = stuff['alphadat']
         lambdas = stuff['lambdas']
-        minsep = stuff['minsep']
-        maxthrow = stuff['maxthrow']
-        beadheight = stuff['beadheight']
+        p0_bead = stuff['p0_bead']
         
 
     
     fits, outdat, alphas_1, alphas_2, alphas_3 = \
-                    gu.fit_alpha_vs_alldim(alphadat, lambdas, minsep=minsep, \
-                                           maxthrow=maxthrow, beadheight=beadheight, \
+                    gu.fit_alpha_vs_alldim(alphadat, lambdas, p0_bead=p0_bead, \
                                            plot=plot_planar_fit, weight_planar=False)
 
 
