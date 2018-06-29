@@ -352,9 +352,9 @@ class DataFile:
         fz = yukfuncs_at_lambda[2](pts)
 
         if plt_pvec:
-            plt.plot(pvec[0, :], label = "X")
-            plt.plot(pvec[1, :], label = "Y")
-            plt.plot(pvec[2, :], label = "Z")
+            plt.plot(pts[:, 0], label = "X")
+            plt.plot(pts[:, 1], label = "Y")
+            plt.plot(pts[:, 2], label = "Z")
             plt.legend()
             plt.show()
 

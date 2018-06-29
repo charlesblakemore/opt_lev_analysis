@@ -19,33 +19,45 @@ reload(al2)
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
 
+calculate_sps = False
 recalculate = True
 calculate_limit = True
+
 save_name = "binned_force_data.npy"
 save_limit_data = "limit_data.npy"
-dat_dir = "/data/20180618/bead1/grav_data/no_shield/X60-80um_Z20-30um_17Hz"
+dat_dir = "/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz"
 increment = 1
 plt_file = 10
 plt_increment = 100
 ah5 = lambda fname: fname + '.h5'
-files = bu.sort_files_by_timestamp(bu.find_all_fnames(dat_dir))
-
+files = bu.find_all_fnames(dat_dir)
+if calculate_sps:
+    sps = np.array(map(iu.getNanoStage, map(ah5, files)))
+    np.save("sps.npy", sps)
+else:
+    sps = np.load("sps.npy")
+ba0 = sps[:, 0]>74.
+ba1 = sps[:, 2]>24.
+files = np.array(files)
+files = files[ba0*ba1]
+#files = files[:100]
+lam25umind = np.argmin((yf.lambdas - 25E-6)**2)
 n_file = len(files)
 #files = map(ah5, files)
-p0 = [20., 40., 0.]
-sps = np.array(map(iu.getNanoStage, map(ah5, files)))
-ba0 = sps[:, 0]>79.
-ba1 = sps[:, 2]>24.
-force_data = np.zeros((n_file, 3, 2, 100))
+p0 = [20., 0., 25.]
+force_data = [] #np.zeros((n_file, 3, 2, 100))
 if recalculate:
-    for i, f in enumerate(files[::increment]):
+    for i, f in enumerate(files):
         bu.progress_bar(i, n_file)
         df = bu.DataFile()
         df.load(f)
         df.diagonalize()
+        df.inject_fake_signal(yf.yukfuncs[:, lam25umind], p0, fake_alpha = 5E10, make_plot = False)
         df.calibrate_stage_position()
         df.get_force_v_pos()
-        force_data[i, :, :, :] = df.diag_binned_data
+        force_data.append(df.diag_binned_data)
+    
+    force_data = np.array(force_data)
     np.save(save_name, force_data)
 
 else:
@@ -59,16 +71,17 @@ def plot_contours(force_data, bin_width = 80./100.):
     plt.show()
 
 
-def make_template(mean_data, yukfuncs, p0=p0, cf = 1.E6):
+def make_template(mean_data, yukfuncs, p0=p0, cf = 1.E6, stage_travel = [80., 80., 80.]):
 
-    template_pts = np.copy(mean_data[:, 0, :])
-    template_pts[0, :] = np.ones_like(template_pts[0, :])*p0[0]
-    template_pts[1, :] -= p0[1]
-    template_pts[2, :] = np.ones_like(template_pts[2, :])*p0[2]
-    template_pts/= cf
-    template_pts = np.transpose(template_pts)
-    fs = np.array([yukfuncs[0](template_pts), yukfuncs[1](template_pts), \
-                   yukfuncs[2](template_pts)])
+    pvec = np.zeros_like(mean_data[:, 0, :])
+    pvec[0, :] = np.zeros_like(mean_data[1, 0, :]) + p0[0]
+    pvec[1, :] = mean_data[1, 0, :] - stage_travel[1]/2. + p0[1]
+    pvec[2, :] = np.zeros_like(mean_data[1, 0, :])
+    pvec/= cf
+    plt.show()
+    pts = np.stack(pvec, axis = -1)
+    fs = np.array([yukfuncs[0](pts), yukfuncs[1](pts), \
+                   yukfuncs[2](pts)])
     fs = map(matplotlib.mlab.detrend_linear, fs)
     return fs
 
@@ -123,7 +136,7 @@ def fit_alpha_individual_files(force_data, sems, yukfuncs, p0=p0, cf = 1.E6,\
         plt.show()
     return aes
 #force data inds : [file, direction, drive/response, bin #]
-force_data = force_data[ba0*ba1, :, :, :]
+#force_data = force_data[ba0*ba1, :, :, :]
 mean_data = np.mean(force_data, axis = 0)
 sems = sem(force_data, axis = 0)
 

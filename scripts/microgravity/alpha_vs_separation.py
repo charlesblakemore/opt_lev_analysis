@@ -49,35 +49,19 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #data_dir = '/data/20180524/bead1/grav_data/many_sep_many_h'
 
 #data_dir = '/data/20180613/bead1/grav_data/no_shield/X60-80um_Z20-30um'
-<<<<<<< HEAD
 data_dir = '/data/20180625/bead1/grav_data/no_shield/X60-80um_Z15-25um_17Hz'
 file_inds = (0, 30000)
-=======
-#data_dir = '/data/20180618/bead1/grav_data/shield/X60-80um_Z15-25um_17Hz_2'
-
-data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
-
-file_inds = (0, 81)
->>>>>>> 61ea8ca40405f16309c021f08f54bea11bc025c0
 max_file_per_pos = 1000
 
 split = data_dir.split('/')
 name = split[-1]
 date = split[2]
 
-<<<<<<< HEAD
 save_alphadat = False
 load_alphadat = False
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
 save_fildat = False
-=======
-save_alphadat = True 
-load_alphadat = False
-alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
-
-save_fildat = True 
->>>>>>> 61ea8ca40405f16309c021f08f54bea11bc025c0
 load_fildat = False
 fildat_filname = '/processed_data/fildat/' + date + '_' + name + '.fildat'
 
