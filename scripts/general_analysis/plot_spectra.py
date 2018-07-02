@@ -56,22 +56,8 @@ window = mlab.window_none
 ###########################################################
 
 
-shit = {}
-
-shit['xfreq'] = []
-shit['x'] = []
-
-shit['yfreq'] = []
-shit['y'] = []
-
-shit['zfreq'] = []
-shit['z'] = []
-
 posdic = {0: 'x', 1: 'y', 2: 'z'}
 
-
-outvec1 = []
-outvec2 = []
 
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
@@ -165,23 +151,11 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 NFFT = len(df.pos_data[ax])
             else:
                 NFFT = userNFFT
-
-            outvec1.append(df.pos_data[ax] * fac)
-            if ax == 0:
-                freqs = np.fft.rfftfreq(len(df.pos_data[ax]), d=1.0/df.fsamp)
-                outvec2.append(freqs)
-            fft = np.fft.rfft(df.pos_data[ax]*fac)
-            outvec2.append(fft)
-
+        
             psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
             fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
-
-            key = posdic[ax]
-            key2 = key + 'freq'
-            shit[key].append(np.sqrt(psd)*fac)
-            shit[key2].append(freqs)
 
             dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                     NFFT=NFFT, window=window)

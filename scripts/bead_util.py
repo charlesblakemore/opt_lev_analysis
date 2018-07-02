@@ -190,8 +190,23 @@ class DataFile:
             self.phase = fpga_dat['phase']
             self.quad_time = fpga_dat['quad_time']
 
-            x2 = (self.amp[0] + self.amp[1]) - (self.amp[2] + self.amp[3])
-            y2 = (self.amp[0] + self.amp[2]) - (self.amp[1] + self.amp[3])
+            ####### Quadrant diode indices  
+            #######    ___________
+            #######   |     |     |
+            #######   |  2  |  0  |
+            #######   |_____|_____|
+            #######   |     |     |
+            #######   |  3  |  1  |
+            #######   |_____|_____|
+            #######
+            right = self.amp[0] + self.amp[1]
+            left = self.amp[2] + self.amp[3]
+            top = self.amp[0] + self.amp[2]
+            bottom = self.amp[1] + self.amp[3]
+    
+            x2 = right - left
+            y2 = top - bottom
+    
             quad_sum = np.zeros_like(self.amp[0])
             for ind in [0,1,2,3]:
                 quad_sum += self.amp[ind]

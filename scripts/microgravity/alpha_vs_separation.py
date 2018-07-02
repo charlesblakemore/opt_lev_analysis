@@ -57,8 +57,8 @@ name = split[-1]
 date = split[2]
 
 
-save_alphadat = True 
-load_alphadat = False #True
+save_alphadat = False 
+load_alphadat = True
 alphadat_filname = '/processed_data/alphadat/' + date + '_' + name + '.alphadat'
 
 save_fildat = False
@@ -101,8 +101,8 @@ userlims = [(5e-6, 50e-6), (-240e-6, 240e-6), (-10e-6, 10e-6)]
 ######################  Plotting Params  #########################
 
 plotfilt = False
-plot_best_alpha = True
-plot_planar_fit = True
+plot_best_alpha = False
+plot_planar_fit = False
 
 plot_just_current = False
 figtitle = ''

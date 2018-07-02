@@ -510,6 +510,35 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
 
 
 
+def print_quadrant_indices():
+    outstr = '\n'
+    outstr += '     Quadrant diode indices:      \n'
+    outstr += '   (looking at sensing elements)  \n'
+    outstr += '                                  \n'
+    outstr += '                                  \n'
+    outstr += '              top                 \n'
+    outstr += '          ___________             \n'
+    outstr += '         |     |     |            \n'
+    outstr += '         |  2  |  0  |            \n'
+    outstr += '  left   |_____|_____|   right    \n'
+    outstr += '         |     |     |            \n'
+    outstr += '         |  3  |  1  |            \n'
+    outstr += '         |_____|_____|            \n'
+    outstr += '                                  \n'
+    outstr += '             bottom               \n'
+    outstr += '\n'
+    print  outstr
+            
+            
+            
+            
+            
+
+            
+            #######
+
+
+
 
 
 
@@ -806,9 +835,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
 
         plt.legend()
         plt.show()
-
-    # Find the xyz and quad timestamps that match the daqmx first 
-    # sample timestamp
 
     # Crop the xyz arrays
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
