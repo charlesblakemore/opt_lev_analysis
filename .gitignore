@@ -1,6 +1,7 @@
 .*
 *.pyc
 *.npy
+*.p
 *~
 /gravity_sim/**/test_masses/**/*
 /gravity_sim/**/data/**/*

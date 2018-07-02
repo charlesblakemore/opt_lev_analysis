@@ -3,8 +3,20 @@ import matplotlib.pyplot as plt
 import bead_util as bu
 import grav_util as gu
 
+reprocess = False
+save_name = "badict.p"
+
 dat_dir = "/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz"
 
-files = bu.find_all_fnames(dat_dir)
+if reprocess:
 
-badict = gu.get_data_at_harms(files)
+    files = bu.find_all_fnames(dat_dir)
+    badict = gu.get_data_at_harms(files)
+    gu.save_fildat(save_name, badict)
+
+else:
+
+    badict = gu.load_fildat(save_name)
+
+
+

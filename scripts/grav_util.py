@@ -1,8 +1,10 @@
-import sys, time, itertools
+import sys, time, itertools, copy
 
 import dill as pickle
 
 import numpy as np
+import pandas as pd
+
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -16,6 +18,9 @@ import bead_util as bu
 import calib_util as cal
 import transfer_func_util as tf
 import configuration as config
+
+
+
 
 sys.path.append('../microgravity')
 
@@ -123,11 +128,12 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
-def get_data_at_harms(files, p0_bead=[20,0,20], ax_disc=0.5, \
+def get_data_at_harms(files, p0_bead=[16,0,20], ax_disc=0.5, \
                       cantind=0, ax1='x', ax2='z', diag=True, plottf=False, \
                       tfdate='', tophatf=1000, width=0, harms=[], nharmonics=10, \
                       ext_cant_drive=False, ext_cant_ind=1, plotfilt=False, \
-                      max_file_per_pos=1000, userlims=[], noiseband=10, fake_alpha = 1E10, fake_lambda = 25E-6):
+                      max_file_per_pos=1000, userlims=[], noiseband=10, \
+                      fake_alpha = 1E10, fake_lambda = 25E-6):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then applies a notch filter using the attractor drive. The response
        at the attractor's fundamental + harmonics is returned
@@ -371,9 +377,86 @@ def get_data_at_harms(files, p0_bead=[20,0,20], ax_disc=0.5, \
     return fildat
 
 
+class Filedat_at_harms:
+    '''class for storing the data at each file inside of the dictionary for different biases and positions'''
+
+    def __init__(self, tup):
+        
+        self.drivevec = tup[0]
+        self.posvec = tup[1]
+        self.pts = tup[2]
+        self.ginds = tup[3]
+        self.datffts = tup[4]
+        self.diagdatffts = tup[5]
+        self.daterrs = tup[6]
+        self.diagdaterrs = tup[7]
+        self.binned = tup[8]
+    
+    def get_sig_power(self):
+        
+        self.sigamp = np.sqrt(np.sum(np.abs(self.datffts)**2, axis = -1)) 
+        self.sigerrs = np.sqrt(np.sum(np.abs(self.daterrs)**2, axis = -1))
+
+    def get_temp(self, yukfuncs):
+        #assume cantilever driven along y axis
+        xs = np.median(self.pts[:, 0])*np.ones_like(self.drive_vec)
+        ys = self.drivevec
+        zs = np.median(self.pts[:, 1])*np.ones_like(self.drive_vec)
+        pts = np.stack([xs, ys, zs], axis = -1)
+        fx = yukfuncs[0](pts)
+        fy = yukfuncs[1](pts)
+        fz = yukfuncs[2](pts)
+
+
+def tupi(arr, labels =\
+        ["drivevec", "posvec", "pts", "ginds", "datffts", "diagdatffts",\
+        "daterrs", "diagdaterrs", "binned"]):
+    '''takes entry in the tuple corresponding to a datafile and converts 
+    it to a dictionary with labeled entries'''
+    out_dict = {}
+    for i, l in enumerate(labels):
+        out_dict[l] = arr[i]
+
+    return(out_dict)
+
+
+def apply_operation_to_file(fildat, fun, name = "newentry", replace = False):
+    '''Takes a filedate dictionary object and applies fun to the entry for each file. 
+       If replace is false the, result of the operation is added as a new entry to the 
+       dictionary. If replace is true, the entry for each file is replaced by the result 
+       of fun.'''
+    out_dict = copy.deepcopy(fildat)
+    not_fil_dicts = False
+    for v in fildat.keys():
+        for x in fildat[v].keys():
+            for z in fildat[v][x].keys():
+                if replace:
+                    out_dict[v][x][z] = map(fun, out_dict[v][x][z])
+                else:
+                    for dic in out_dict[v][x][z]:
+                        try:
+                            dic[name] = fun(dic)
+                        except TypeError:
+                            not_fil_dicts = True
+    if not_fil_dicts:
+        print "file data not converted to dictionary"
+    return out_dict
 
 
 
+
+def filedat_tup_to_dict(fildat):
+    '''takes the dictionary returned by get_data_at_harms and converts the tuple
+    into a dictionary with labeled comumns.'''
+    return apply_operation_to_file(fildat, tupi, replace = True)
+
+def compute_background_amp(fildat):
+    return
+    
+    
+
+
+    
 
 
 def save_fildat(outname, fildat):
