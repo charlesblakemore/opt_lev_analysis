@@ -528,15 +528,34 @@ def print_quadrant_indices():
     outstr += '             bottom               \n'
     outstr += '\n'
     print  outstr
-            
-            
-            
-            
-            
 
-            
-            #######
 
+
+def print_electrode_indices():
+    outstr = '\n'
+    outstr += '        Electrode face indices:            \n'
+    outstr += '                                           \n'
+    outstr += '                                           \n'
+    outstr += '                  top (1)                  \n'
+    outstr += '                               back(4)     \n'
+    outstr += '                  +---------+  cantilever  \n'
+    outstr += '                 /         /|              \n'
+    outstr += '                /    1    / |              \n'
+    outstr += '               /         /  |              \n'
+    outstr += '   left (6)   +---------+   |   right (5)  \n'
+    outstr += '   input      |         | 5 |   output     \n'
+    outstr += '              |         |   +              \n'
+    outstr += '              |    3    |  /               \n'
+    outstr += '              |         | /                \n'
+    outstr += '              |         |/                 \n'
+    outstr += ' front (3)    +---------+                  \n'
+    outstr += ' bead dropper                              \n'
+    outstr += '                 bottom (2)                \n'
+    outstr += '                                           \n'
+    outstr += '                                           \n'
+    outstr += '      cantilever (0),   shield (7)         \n'
+    outstr += '\n'
+    print  outstr
 
 
 

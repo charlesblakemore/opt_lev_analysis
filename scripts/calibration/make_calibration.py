@@ -100,7 +100,10 @@ for fil_ind, filname in enumerate(tf_cal_files):
     tf_file_objs.append(df)
 
 # Build the uncalibrated TF: Vresp / Vdrive
-Hout, Hnoise = tf.build_uncalibrated_H(tf_file_objs, fix_HF = False)
+allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False)
+
+Hout = allH['Hout']
+Hnoise = all['Hnoise']
 
 # Calibrate the transfer function to Vresp / Newton_drive
 # for a particular charge step calibration

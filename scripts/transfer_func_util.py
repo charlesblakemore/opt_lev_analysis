@@ -160,7 +160,7 @@ def make_extrapolator(interpfunc, pts=10, order=1, inverse=(False, False)):
 
 
 def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 1., \
-                         fix_HF=False):
+                         plot_qpd_response=False, drop_bad_bins=True):
     '''Generates a transfer function from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    average_first, boolean specifying whether to average responses
@@ -179,184 +179,222 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
     Hout = {}
     Hout_noise = {}
 
+    Hout_amp = {}
+    Hout_phase = {}
+    Hout_fb = {}
+
     Hout_counts = {}
 
-    if average_first:
-        avg_drive_fft = {}
-        avg_data_fft = {}
-        counts = {}
 
-        for fobj in fobjs:
+    avg_drive_fft = {}
+    avg_data_fft = {}
+    avg_fb_fft = {}
+    avg_side_fft = {}
 
-            dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis. 
-            data_fft = np.fft.rfft(fobj.pos_data)
+    avg_amp_fft = {}
+    avg_phase_fft = {}
 
-            N = np.shape(fobj.pos_data)[1]#number of samples
-            fsamp = fobj.fsamp
+    counts = {}
 
-            fft_freqs = np.fft.rfftfreq(N, d=1.0/fsamp)
+    if plot_qpd_response:
+        ampfig, amp_axarr = plt.subplots(5,3,sharex=True,sharey=True,dpi=150,figsize=(6,8))
+        phasefig, phase_axarr = plt.subplots(5,3,sharex=True,sharey=True,dpi=150,figsize=(6,8))
+        sidefig, side_axarr = plt.subplots(4,3,sharex=True,sharey=True,dpi=150,figsize=(6,7))
+        fbfig, fb_axarr = plt.subplots(3,3,sharex=True,sharey=True,dpi=150,figsize=(6,6))
+        posfig, pos_axarr = plt.subplots(3,3,sharex=True,sharey=True,dpi=150,figsize=(6,6))
+        drivefig, drive_axarr = plt.subplots(8,3,sharex=True,sharey=True,dpi=150,figsize=(6,8))
 
-            dpsd = np.abs(dfft)**2 * 2./(N*fobj.fsamp) #psd for all electrode drives   
-            inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
-            eind = np.unique(inds[0])[0]
+    filind = 0
+    for fobj in fobjs:
 
-            if eind not in avg_drive_fft:
-                avg_drive_fft[eind] = np.zeros(dfft.shape, dtype=np.complex128)
-                avg_data_fft[eind] = np.zeros(data_fft.shape, dtype=np.complex128)
-                counts[eind] = 0.
+        dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis. 
+        data_fft = np.fft.rfft(fobj.pos_data)
+        data_fft_2 = np.fft.rfft(fobj.pos_data_3)
+        amp_fft = np.fft.rfft(fobj.amp)
+        phase_fft = np.fft.rfft(fobj.phase)
+        fb_fft = np.fft.rfft(fobj.pos_fb)
 
-            avg_drive_fft[eind] += dfft
-            avg_data_fft[eind] += data_fft
-            counts[eind] += 1.
+        left = fobj.amp[2] + fobj.amp[3]
+        right = fobj.amp[0] + fobj.amp[1]
+        top = fobj.amp[2] + fobj.amp[0]
+        bot = fobj.amp[3] + fobj.amp[1]
+        side_fft = np.fft.rfft(np.array([right, left, top, bot]))
 
-        for eind in counts.keys():
-            avg_drive_fft[eind] = avg_drive_fft[eind] / counts[eind]
-            avg_data_fft[eind] = avg_data_fft[eind] / counts[eind]
+        N = np.shape(fobj.pos_data)[1]#number of samples
+        fsamp = fobj.fsamp
 
-        for eind in avg_drive_fft.keys():
-            # First find drive-frequency bins above a fixed threshold
-            dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*fsamp)
-            #datpsd = np.abs(avg_data_fft[eind])**2 * 2. / (N*fsamp)
-            #plt.loglog(fft_freqs, dpsd[eind])
-            #plt.loglog(fft_freqs, np.ones(len(dpsd[eind])) * dpsd_thresh)
-            #plt.figure()
-            #plt.loglog(fft_freqs, datpsd[config.elec_map[eind]])
-            #plt.show()
-            inds = np.where(dpsd > dpsd_thresh)
+        fft_freqs = np.fft.rfftfreq(N, d=1.0/fsamp)
 
-            # Extract the frequency indices
-            finds = inds[1]
+        dpsd = np.abs(dfft)**2 * 2./(N*fobj.fsamp) #psd for all electrode drives   
+        inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
+        eind = np.unique(inds[0])[0]
 
-            # Ignore DC and super low frequencies
-            mfreq = 1.0
-            b = finds > np.argmin(np.abs(fft_freqs - mfreq))
+        if eind not in avg_drive_fft:
+            avg_drive_fft[eind] = np.zeros(dfft.shape, dtype=np.complex128)
+            avg_data_fft[eind] = np.zeros(data_fft.shape, dtype=np.complex128)
+            avg_amp_fft[eind] = np.zeros(amp_fft.shape, dtype=np.complex128)
+            avg_phase_fft[eind] = np.zeros(phase_fft.shape, dtype=np.complex128)
+            avg_fb_fft[eind] = np.zeros(fb_fft.shape, dtype=np.complex128)
+            avg_side_fft[eind] = np.zeros(side_fft.shape, dtype=np.complex128)
+            counts[eind] = 0.
 
-            freqs = fft_freqs[finds[b]]
+        avg_drive_fft[eind] += dfft
+        avg_data_fft[eind] += data_fft
+        avg_amp_fft[eind] += amp_fft
+        avg_phase_fft[eind] += phase_fft
+        avg_fb_fft[eind] += fb_fft
+        avg_side_fft[eind] += side_fft
 
-            # Compute FFT of each response divided by FFT of each drive.
-            # This is way more information than we need for a single drive freq
-            # and electrode pair, but it allows a nice vectorization
-            Hmatst = np.einsum('ij, kj -> ikj', \
-                                 avg_data_fft[eind], 1. / avg_drive_fft[eind])
+        counts[eind] += 1.
 
-            # Extract the TF, (response / drive), where the drive was above a 
-            # fixed threshold.
-            Hmatst_good = Hmatst[:,:,finds[b]]
+    for eind in counts.keys():
+        avg_drive_fft[eind] = avg_drive_fft[eind] / counts[eind]
+        avg_data_fft[eind] = avg_data_fft[eind] / counts[eind]
+        avg_amp_fft[eind] = avg_amp_fft[eind] / counts[eind]
+        avg_phase_fft[eind] = avg_phase_fft[eind] / counts[eind]
+        avg_fb_fft[eind] = avg_fb_fft[eind] / counts[eind]
+        avg_side_fft[eind] = avg_side_fft[eind] / counts[eind]
 
-            # Generate an integer by which to roll the data_fft to compute the noise
-            # limit of the TF measurement
-            shift = int(0.5 * (finds[b][1] - finds[b][0]))
-            randadd = np.random.choice(np.arange(-int(0.1*shift), \
-                                                 int(0.1*shift)+1, 1))
-            shift = shift + randadd
-            rolled_data_fft = np.roll(avg_data_fft[eind], shift, axis=-1)
-
-            # Compute the Noise TF
-            Hmatst_noise = np.einsum('ij, kj -> ikj', \
-                                     rolled_data_fft, 1. / avg_drive_fft[eind])
-            Hmatst_noise = Hmatst_noise[:,:,finds[b]]
-
-            # Map the 3x7xNfreq arrays to dictionaries with keys given by the drive
-            # frequencies and values given by 3x3 complex-values TF matrices
-            outind = config.elec_map[eind]
-            for i, freq in enumerate(freqs):
-                if freq not in Hout:
-                    if i != 0 and fix_HF:
-                        sep = freq - freqs[i-1]
-                        # Clause to ignore this particular frequency response if an
-                        # above threshold response is found not on a drive bin. Sometimes
-                        # random noise components pop up or some power leaks to a 
-                        # neighboring bin
-                        if sep < 0.9 * (freqs[1] - freqs[0]):
-                            continue
-                    Hout[freq] = np.zeros((3,3), dtype=np.complex128)
-                    Hout_noise[freq] = np.zeros((3,3), dtype=np.complex128)
-
-                # Add the response from this drive freq/electrode pair to the TF matrix
-                Hout[freq][:,outind] += Hmatst_good[:,eind,i]
-                Hout_noise[freq][:,outind] += Hmatst_noise[:,eind,i]
-
-            # This next bit of code goes over the computed transfer function and cleans it
-            # up a little. Drive frequencies were chosen with a paricular linear spacing
-            # so if we somehow found a drive/response pair that was closely or incorrectly
-            # spaced, we sum the TF matrices over those closely spaced frequencies.
-            # 
-            # Often, this error seemed to result when the code would find an above threshold
-            # drive in one channel at a particular frequency, but NOT in the other channels
-            # thus it would generate a pair of matrices like
-            #                      [[0., 0., a]                        [[d, g, 0.]
-            # Hout = { ..., 41 Hz:  [0., 0., b]     ,   41.0000001 Hz:  [e, h, 0.]    , .... }
-            #                       [0., 0., c]]                        [f, i, 0.]]
-            # And thus we sum over these closely spaced matrices and take the average of 
-            # frequencies as a new key
+    poslabs = {0: 'X', 1: 'Y', 2: 'Z'}
+    sidelabs = {0: 'Right', 1: 'Left', 2: 'Top', 3: 'Bottom'}
+    quadlabs = {0: 'Top Right', 1: 'Bottom Right', 2: 'Top Left', 3: 'Bottom Left', 4: 'Backscatter'}
 
 
-    if not average_first:
-        for obj in dir_obj.fobjs:
-            einds = obj.H.electrodes
-            finds = obj.H.finds
-            freqs = obj.fft_freqs[finds]
+    for eind in avg_drive_fft.keys():
+        # First find drive-frequency bins above a fixed threshold
+        dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*fsamp)
+        inds = np.where(dpsd > dpsd_thresh)
 
-            for i, freq in enumerate(freqs):
-                if freq not in Hout:
-                    Hout[freq] = np.zeros((3,3), dtype=np.complex128)
-                    Hout_noise[freq] = np.zeros((3,3), dtype=np.complex128)
-                    Hout_counts[freq] = np.zeros(3)
+        # Extract the frequency indices
+        finds = inds[1]
 
-                outind = emap(einds[i])
-                Hout[freq][:,outind] += obj.H.Hmats[:,einds[i],i]
-                Hout_noise[freq][:,outind] += obj.noiseH.Hmats[:,einds[i],i]
-                Hout_counts[freq][outind] += 1
+        # Ignore DC and super low frequencies
+        mfreq = 1.0
+        b = finds > np.argmin(np.abs(fft_freqs - mfreq))
 
-        # Compute the average transfer function
-        for key in Hout.keys():
-            for i in [0,1,2]:
-                Hout[key][:,i] = Hout[key][:,i] / Hout_counts[key][i]
-                Hout_noise[key][:,i] = Hout_noise[key][:,i] / Hout_counts[key][i]
+        freqs = fft_freqs[finds[b]]
 
+        # Compute FFT of each response divided by FFT of each drive.
+        # This is way more information than we need for a single drive freq
+        # and electrode pair, but it allows a nice vectorization
+        Hmatst = np.einsum('ij, kj -> ikj', \
+                             avg_data_fft[eind], 1. / avg_drive_fft[eind])
 
-    #if fix_HF:
-    #    keys = Hout.keys()
-    #    keys.sort()
-    #
-    #    freqsep = keys[1] - keys[0]
-    #    freqsep = freqsep * 0.9
-    #
-    #    curr_sum = np.zeros((3,3), dtype=np.complex128)
-    #    curr_freqs = []
-    #    count = 0
-    #    fixing = False
-    #
-    #    for i, key in enumerate(keys):
-    #
-    #        if key == keys[0]:
-    #            continue
-    #
-    #        if ((keys[i] - keys[i-1]) < freqsep) and not fixing:
-    #            fixing = True
-    #            curr_freqs.append(keys[i-1])
-    #            curr_sum += Hout[keys[i-1]]
-    #            count += 1
-    #
-    #        if fixing:
-    #            curr_freqs.append(keys[i])
-    #            curr_sum += Hout[keys[i]]
-    #            count += 1
-    #            if i == len(keys) - 1:
-    #                continue
-    #            else:
-    #                if keys[i+1] - keys[i] >= freqsep:
-    #                    fixing = False
-    #
-    #                for freq in curr_freqs:
-    #                    del Hout[freq]
-    #
-    #                    newfreq = np.mean(curr_freqs)
-    #                    Hout[newfreq] = curr_sum
-    #                    curr_freqs = []
-    #                    curr_sum = np.zeros((3,3), dtype=np.complex128)
+        outind = config.elec_map[eind]
+
+        if plot_qpd_response:
+            
+            for elec in [0,1,2,3,4,5,6,7]:
+                drive_axarr[elec,outind].loglog(fft_freqs, \
+                                                np.abs(avg_drive_fft[eind][elec]), alpha=0.75)
+                drive_axarr[elec,outind].loglog(fft_freqs[inds[1]], \
+                                                np.abs(avg_drive_fft[eind][elec])[inds[1]], alpha=0.75)
+                if outind == 0:
+                    drive_axarr[elec,outind].set_ylabel('Elec ' + str(elec))
+                if elec == 7:
+                    drive_axarr[elec,outind].set_xlabel('Frequency [Hz]')
 
 
+            for resp in [0,1,2,3,4]:
+                amp_axarr[resp,outind].loglog(fft_freqs[inds[1]], \
+                                              np.abs(avg_amp_fft[eind][resp])[inds[1]], alpha=0.75)
+                phase_axarr[resp,outind].loglog(fft_freqs[inds[1]], \
+                                                np.abs(avg_phase_fft[eind][resp])[inds[1]], alpha=0.75)
+                if outind == 0:
+                    amp_axarr[resp,outind].set_ylabel(quadlabs[resp])
+                    phase_axarr[resp,outind].set_ylabel(quadlabs[resp])
+                if resp == 4:
+                    amp_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+                    phase_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+
+                if resp in [0,1,2,3]:
+                    side_axarr[resp,outind].loglog(fft_freqs[inds[1]], \
+                                                   np.abs(avg_side_fft[eind][resp])[inds[1]], alpha=0.75)
+                    if outind == 0:
+                        side_axarr[resp,outind].set_ylabel(sidelabs[resp])
+                    if resp == 3:
+                        side_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+
+                if resp in [0,1,2]:
+                    pos_axarr[resp,outind].loglog(fft_freqs[inds[1]], \
+                                                  np.abs(avg_data_fft[eind][resp])[inds[1]], alpha=0.75)
+                    fb_axarr[resp,outind].loglog(fft_freqs[inds[1]], \
+                                                  np.abs(avg_fb_fft[eind][resp])[inds[1]], alpha=0.75)
+                    if outind == 0:
+                        pos_axarr[resp,outind].set_ylabel(poslabs[resp])
+                        fb_axarr[resp,outind].set_ylabel(poslabs[resp] + ' FB')
+                    if resp == 2:
+                        pos_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+                        fb_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+            
+            drivefig.suptitle('Drive Amplitude vs. Frequency', fontsize=16)
+            ampfig.suptitle('QPD Amplitudes vs. Frequency', fontsize=16)
+            phasefig.suptitle('QPD Phases vs. Frequency', fontsize=16)
+            sidefig.suptitle('Half QPD Amplitudes', fontsize=16)
+            posfig.suptitle('XYZ vs. Frequency', fontsize=16)
+            fbfig.suptitle('XYZ Feedback vs. Frequency', fontsize=16)
+            
+            for axarr in [amp_axarr, phase_axarr, side_axarr, pos_axarr, fb_axarr, drive_axarr]:
+                for drive in [0,1,2]:
+                    axarr[0,drive].set_title(poslabs[drive] + ' Drive')
+                plt.tight_layout()
+
+            for fig in [ampfig, phasefig, sidefig, posfig, fbfig, drivefig]:
+                fig.subplots_adjust(top=0.90)
+            
+
+        Hmat_fb = np.einsum('ij, kj -> ikj', \
+                            avg_fb_fft[eind], 1. / avg_drive_fft[eind])
+        Hmat_amp = np.einsum('ij, kj -> ikj', \
+                             avg_amp_fft[eind], 1. / avg_drive_fft[eind])
+        Hmat_phase = np.einsum('ij, kj -> ikj', \
+                               avg_phase_fft[eind], 1. / avg_drive_fft[eind])
+
+        # Extract the TF, (response / drive), where the drive was above a 
+        # fixed threshold.
+        Hmatst_good = Hmatst[:,:,finds[b]]
+        Hmat_amp_good = Hmat_amp[:,:,finds[b]]
+        Hmat_phase_good = Hmat_phase[:,:,finds[b]]
+
+        # Generate an integer by which to roll the data_fft to compute the noise
+        # limit of the TF measurement
+        shift = int(0.5 * (finds[b][1] - finds[b][0]))
+        randadd = np.random.choice(np.arange(-int(0.1*shift), \
+                                             int(0.1*shift)+1, 1))
+        shift = shift + randadd
+        rolled_data_fft = np.roll(avg_data_fft[eind], shift, axis=-1)
+
+        # Compute the Noise TF
+        Hmatst_noise = np.einsum('ij, kj -> ikj', \
+                                 rolled_data_fft, 1. / avg_drive_fft[eind])
+        Hmatst_noise = Hmatst_noise[:,:,finds[b]]
+
+        # Map the 3x7xNfreq arrays to dictionaries with keys given by the drive
+        # frequencies and values given by 3x3 complex-values TF matrices
+        outind = config.elec_map[eind]
+        for i, freq in enumerate(freqs):
+            if freq not in Hout:
+                if i != 0 and drop_bad_bins:
+                    sep = freq - freqs[i-1]
+                    # Clause to ignore this particular frequency response if an
+                    # above threshold response is found not on a drive bin. Sometimes
+                    # random noise components pop up or some power leaks to a 
+                    # neighboring bin
+                    if sep < 0.9 * (freqs[1] - freqs[0]):
+                        continue
+                Hout[freq] = np.zeros((3,3), dtype=np.complex128)
+                Hout_noise[freq] = np.zeros((3,3), dtype=np.complex128)
+                Hout_amp[freq] = np.zeros((5,3), dtype=np.complex128)
+                Hout_phase[freq] = np.zeros((5,3), dtype=np.complex128)
+
+            # Add the response from this drive freq/electrode pair to the TF matrix
+            Hout[freq][:,outind] += Hmatst_good[:,eind,i]
+            Hout_noise[freq][:,outind] += Hmatst_noise[:,eind,i]
+            Hout_amp[freq][:,outind] += Hmat_amp[:,eind,i]
+            Hout_phase[freq][:,outind] += Hmat_phase[:,eind,i]
+
+    if plot_qpd_response:
+        plt.show()
 
     first_mats = []
     freqs = Hout.keys()
@@ -373,7 +411,10 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
             for freq in freqs:
                 Hout[freq][:,drive] = Hout[freq][:,drive] * (-1)
 
-    return Hout, Hout_noise
+    out_dict = {'Hout': Hout, 'Hout_amp': Hout_amp, 'Hout_phase': Hout_phase, \
+                'Hout_noise': Hout_noise}
+
+    return out_dict
 
 
 
