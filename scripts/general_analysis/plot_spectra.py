@@ -16,8 +16,8 @@ maxfiles = 500
 
 use_dir = False
 
-allfiles = ['/data/20180625/bead1/discharge/fine4/turbombar_xyzcool_pumped_2_elec3_10000mV41Hz0mVdc_108.h5', \
-            '/data/20180625/bead1/1_5mbar_xzcool.h5']
+allfiles = \
+['/data/20180704/bead1/grav_data/shield/turbo_mbar_xyzcool_stage-X77um-Y40um-Z25um_Ydrive40umAC-17Hz_0.h5']
 
 #labs = ['1','2', '3']
 
@@ -48,7 +48,7 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = False
+fullNFFT = True
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -144,7 +144,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         for axind, ax in enumerate(data_axes):
 
             try:
-                fac = df.conv_facs[ax] * (1.0 / 0.12e-12)
+                fac = df.conv_facs[ax]# * (1.0 / 0.12e-12)
             except:
                 fac = 1.0
             if fullNFFT:
