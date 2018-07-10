@@ -245,7 +245,12 @@ class FileData:
            Calibrate the microsphere response with th transfer function.'''
 
         df = bu.DataFile()
-        df.load(fname)
+        try:
+            df.load(fname)
+            self.badfile = False
+        except:
+            self.badfile = True
+            return
         
         df.calibrate_stage_position()
         df.diagonalize(date=tfdate, maxfreq=tophatf, plot=plot_tf)
@@ -254,8 +259,6 @@ class FileData:
         self.fsamp = df.fsamp
         self.nsamp = df.nsamp
         self.df = df
-
-        self.drivevec = df.cant_data[1]
 
         self.data_closed = False
         
@@ -372,13 +375,17 @@ class AggregateData:
             bu.progress_bar(name_ind, Nnames, suffix=suff)
 
             # Initialize FileData obj, extract the data, then close the big file
-            new_obj = FileData(name, tophatf=tophatf)
-            new_obj.extract_data()#harms=harms)
-            new_obj.load_position_and_bias()
+            try:
+                new_obj = FileData(name, tophatf=tophatf)
+                new_obj.extract_data()#harms=harms)
+                new_obj.load_position_and_bias()
 
-            new_obj.close_datafile()
+                new_obj.close_datafile()
             
-            self.file_data_objs.append(new_obj)
+                self.file_data_objs.append(new_obj)
+
+            except:
+                continue
 
         self.grav_loaded = False
 
