@@ -8,15 +8,14 @@ from beam_profile import *
 
 #path_to_measure = '/data/20180625/bead1/imgrids/init_pos'
 #path_to_measure = '/data/20180625/bead1/imgrids/close1'
-path_to_measure = '/data/20180625/bead1/imgrids/close3'
-
+path_to_measure = '/data/20180704/bead1/imgrids/imgrid_forward_72'
 ###
 
 
 ### Calibration files
-path_with_profile = '/data/20180622/image_grids/image_grid_beam_crossing'
+path_with_profile = '/data/20180625/bead1/imgrids/image_grid_final_forward'
 
-profile_path = '/data/20180622/image_grids/image_grid_beam_crossing_profile_good'
+profile_path = '/data/20180625/bead1/imgrids/image_grid_final_forward_profile'
 
 
 ig_data = ImageGrid(path_to_measure)

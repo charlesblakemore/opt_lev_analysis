@@ -417,27 +417,25 @@ def tupi(arr, labels =\
     for i, l in enumerate(labels):
         out_dict[l] = arr[i]
 
-    return(out_dict)
+    return out_dict
 
 
-def apply_operation_to_file(fildat, fun, name = "newentry", replace = False):
+def apply_operation_to_file(fildat, fun, name, *args):
     '''Takes a filedate dictionary object and applies fun to the entry for each file. 
        If replace is false the, result of the operation is added as a new entry to the 
        dictionary. If replace is true, the entry for each file is replaced by the result 
        of fun.'''
+    fun2 = lambda x: fun(x, *args)
     out_dict = copy.deepcopy(fildat)
     not_fil_dicts = False
     for v in fildat.keys():
         for x in fildat[v].keys():
             for z in fildat[v][x].keys():
-                if replace:
-                    out_dict[v][x][z] = map(fun, out_dict[v][x][z])
-                else:
-                    for dic in out_dict[v][x][z]:
-                        try:
-                            dic[name] = fun(dic)
-                        except TypeError:
-                            not_fil_dicts = True
+                for dic in out_dict[v][x][z]:
+                    try:
+                        fun2(dic)
+                    except TypeError:
+                        not_fil_dicts = True
     if not_fil_dicts:
         print "file data not converted to dictionary"
     return out_dict
@@ -448,15 +446,71 @@ def apply_operation_to_file(fildat, fun, name = "newentry", replace = False):
 def filedat_tup_to_dict(fildat):
     '''takes the dictionary returned by get_data_at_harms and converts the tuple
     into a dictionary with labeled comumns.'''
-    return apply_operation_to_file(fildat, tupi, replace = True)
+    out_dict = copy.deepcopy(fildat)
+    for v in fildat.keys():
+        for x in fildat[v].keys():
+            for z in fildat[v][x].keys():
+                out_dict[v][x][z] = map(tupi, out_dict[v][x][z])
+    return out_dict
 
-def compute_background_amp(fildat):
-    return
-    
-    
+def compute_rms_amp(dic, keys):
+    '''computes the rms for each vector in dic labeled by key in keys . 
+       Adds new key value pair to the dictionay with the rms'''
+    for key in keys:
+        rms = np.sqrt(np.sum(np.abs(dic[key])**2, axis = -1))
+        dic[key + "_rms"] = rms
+     
+def generate_template_fft(dic, yukfuncs, make_plot = False, \
+                          out_key = 'yuk_fft', full_fft = False):
+    '''generate yukaway template for the dictionary corresponding to each data file.
+       Assumes the drive is in the y direction'''
 
-
+    xs = np.median(dic['pts'][:, 0])*np.ones_like(dic['drivevec'])
+    ys = dic['drivevec']
+    zs = np.median(dic['pts'][:, 1])*np.ones_like(dic['drivevec'])
+    pts = np.stack([xs, ys, zs], axis = -1)
+    pts*=1E-6 #convert to um
+    fx = yukfuncs[0](pts)
+    fy = yukfuncs[1](pts)
+    fz = yukfuncs[2](pts)
+    if make_plot:
+        plt.plot(xs, label = "x")
+        plt.plot(ys, label = "y")
+        plt.plot(zs, label = "z")
+        plt.legend()
+        plt.xlabel("sample")
+        plt.ylabel('displcement [m]')
+        plt.show()
+        
+        plt.plot(fx, label = "fx")
+        plt.plot(fy, label = "fy")
+        plt.plot(fz, label = "fz")
+        plt.legend()
+        plt.xlabel("sample")
+        plt.ylabel('force [N]')
+        plt.show()
     
+    farr = np.array([fx, fy, fz])
+    
+    if full_fft:
+        dic[out_key] = np.fft.rfft(farr, axis = -1)
+
+    else:
+        dic[out_key] = np.fft.rfft(farr, axis = -1)[:, dic['ginds']]
+
+def compute_yuk_templates(fildat, yfs):
+    not_fil_dicts = False
+    for v in fildat.keys():
+        for x in fildat[v].keys():
+            for z in fildat[v][x].keys():
+                for dic in fildat[v][x][z]:
+                    try:
+                        generate_template_fft(dic, yfs)
+                    except TypeError:
+                        not_fil_dicts = True
+    if not_fil_dicts:
+        print "file data not converted to dictionary"
+
 
 
 def save_fildat(outname, fildat):
