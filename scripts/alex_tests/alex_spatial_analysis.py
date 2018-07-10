@@ -25,7 +25,7 @@ calculate_limit = True
 
 save_name = "binned_force_data.npy"
 save_limit_data = "limit_data.npy"
-dat_dir = "/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz"
+dat_dir = "/data/20180625/bead1/nobead/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term"
 increment = 1
 plt_file = 10
 plt_increment = 100
@@ -52,10 +52,14 @@ if recalculate:
         df = bu.DataFile()
         df.load(f)
         df.diagonalize()
-        df.inject_fake_signal(yf.yukfuncs[:, lam25umind], p0, fake_alpha = 5E10, make_plot = False)
+        #df.inject_fake_signal(yf.yukfuncs[:, lam25umind], p0, fake_alpha = 5E10, make_plot = False)
         df.calibrate_stage_position()
         df.get_force_v_pos()
-        force_data.append(df.diag_binned_data)
+        df.binned_data = np.array(df.binned_data)
+        df.conv_facs = np.array(df.conv_facs)
+        df.binned_data[:, 1, :] = \
+                np.einsum('ij,i->ij', df.binned_data[:, 1, :], df.conv_facs)
+        force_data.append(df.binned_data)
     
     force_data = np.array(force_data)
     np.save(save_name, force_data)
