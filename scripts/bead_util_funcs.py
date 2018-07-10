@@ -58,7 +58,7 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
     '''
     
     if len(suffix):
-        max_bar_len = 80 - len(suffix) - 15
+        max_bar_len = 80 - len(suffix) - 17
         if bar_len > max_bar_len:
             bar_len = max_bar_len
 
@@ -70,8 +70,18 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
 
         percents = round(100.0 * count / float(total), 1)
         bar = '#' * filled_len + '-' * (bar_len - filled_len)
+    
+    # This next bit writes the current progress bar to stdout, changing
+    # the string slightly depending on the value of percents (1, 2 or 3 digits), 
+    # so the final length of the displayed string stays constant.
+    if count == total - 1:
+        sys.stdout.write('[%s] %s%s ... %s\r' % (bar, percents, '%', suffix))
+    else:
+        if percents < 10:
+            sys.stdout.write('[%s]   %s%s ... %s\r' % (bar, percents, '%', suffix))
+        else:
+            sys.stdout.write('[%s]  %s%s ... %s\r' % (bar, percents, '%', suffix))
 
-    sys.stdout.write('[%s] %s%s ... %s\r' % (bar, percents, '%', suffix))
     sys.stdout.flush()
     
     if (count == total - 1) and newline:
@@ -537,7 +547,7 @@ def print_electrode_indices():
     outstr += '                                           \n'
     outstr += '                                           \n'
     outstr += '                  top (1)                  \n'
-    outstr += '                               back(4)     \n'
+    outstr += '                               back (4)    \n'
     outstr += '                  +---------+  cantilever  \n'
     outstr += '                 /         /|              \n'
     outstr += '                /    1    / |              \n'

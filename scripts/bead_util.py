@@ -454,19 +454,19 @@ class DataFile:
         return drivefilt, fund_ind, drive_freq
     
 
-    def get_boolean_cantfilt(self, ext_cant_drive=False, ext_cant_ind=1, \
+    def get_boolean_cantfilt(self, ext_cant=(False,1), ext_cant_drive=False, ext_cant_ind=1, \
                              nharmonics=10, harms=[], width=0):
         '''Builds a boolean notch filter for the cantilever drive
 
-           INPUTS: ext_cant_drive, bool to specify whether cantilever drive
-                                   is from an external source
-                   ext_cant_ind, index being driven externally
+           INPUTS: ext_cant, tuple with bool specifying if an external drive
+                             was used for the cantilever, and the axis of that
+                             external drive (so we know which mon signal)
 
            OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''
 
         drive_ind = self.get_cant_drive_ax()
-        if ext_cant_drive:
-            drive_ind = ext_cant_ind
+        if ext_cant[0]:
+            drive_ind = ext_cant[1]
 
         drivevec = self.cant_data[drive_ind]
         drivefft = np.fft.rfft(drivevec)
@@ -480,10 +480,15 @@ class DataFile:
         # Apply filter by indexing with a boolean array
         ginds = drivefilt > 0
 
-        return ginds, fund_ind, drive_freq, drive_ind
+        outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
+                  'drive_ind': drive_ind}
+
+        return outdic
+        #return ginds, fund_ind, drive_freq, drive_ind
 
 
-    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False):   
+    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False, \
+                             drive_ind=1):   
         '''Applies a cantilever notch filter and returns the filtered data
            with an error estimate based on the neighboring bins of the PSD.
 
@@ -514,7 +519,8 @@ class DataFile:
         else:
             just_one = False
         
-        datffts = np.zeros((3, np.sum(ginds)))
+        datffts = np.zeros((3, np.sum(ginds)), dtype=np.complex128)
+        driveffts = np.zeros((3, np.sum(ginds)), dtype=np.complex128)
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
@@ -522,7 +528,12 @@ class DataFile:
             datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
             datffts[resp] = datfft[ginds]
             daterrs[resp] = np.zeros_like(datffts[resp])
-            
+
+            drivefft = np.fft.rfft(self.cant_data[drive_ind])
+            driveffts[resp] = drivefft[ginds]
+
+            ### OKAY UP TO HERE
+
             if diag:
                 diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
                 diagdatffts[resp] = diagdatfft[ginds]
@@ -569,6 +580,7 @@ class DataFile:
                 plt.show()
 
         datffts = np.array(datffts)
+        driveffts = np.array(driveffts)
         daterrs = np.array(daterrs)
         if diag:
             diagdatffts = np.array(diagdatffts)
@@ -578,7 +590,11 @@ class DataFile:
             diagdatffts = np.zeros_like(datffts)
             diagdaterrs = np.zeros_like(daterrs)
 
-        return datffts, diagdatffts, daterrs, diagdaterrs
+        outdic = {'datffts': datffts, 'diagdatffts': diagdatffts, \
+                  'daterrs': daterrs, 'diagdaterrs': diagdaterrs, \
+                  'driveffts': driveffts}
+
+        return outdic
 
 
     def detrend_poly(self, order=1, plot=False):
