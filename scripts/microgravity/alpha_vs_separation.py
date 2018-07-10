@@ -146,7 +146,12 @@ limitlab2 = 'With Decca 2'
 
 
 if not plot_just_current:
-    gfuncs, yukfuncs, lambdas, lims = gu.build_mod_grav_funcs(theory_data_dir)
+    grav_funcs = gu.build_mod_grav_funcs(theory_data_dir)
+    gfuncs = grav_funcs['gfuncs']
+    yukfuncs = grav_funcs['yukfuncs']
+    lambdas = grav_funcs['lambdas']
+    lims = grav_funcs['lims']
+    grav_funcs.clear()
     print "Loaded grav sim data"
 
     datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])

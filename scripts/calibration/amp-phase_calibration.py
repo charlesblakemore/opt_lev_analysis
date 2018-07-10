@@ -35,7 +35,7 @@ for fil_ind, filname in enumerate(tf_cal_files):
     tf_file_objs.append(df)
 
 
-allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False)
+allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=True)
 
 Hout = allH['Hout']
 Hamp = allH['Hout_amp']

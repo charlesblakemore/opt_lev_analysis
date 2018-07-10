@@ -328,11 +328,11 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
                         fb_axarr[resp,outind].set_xlabel('Frequency [Hz]')
             
             drivefig.suptitle('Drive Amplitude vs. Frequency', fontsize=16)
-            ampfig.suptitle('QPD Amplitudes vs. Frequency', fontsize=16)
-            phasefig.suptitle('QPD Phases vs. Frequency', fontsize=16)
-            sidefig.suptitle('Half QPD Amplitudes', fontsize=16)
-            posfig.suptitle('XYZ vs. Frequency', fontsize=16)
-            fbfig.suptitle('XYZ Feedback vs. Frequency', fontsize=16)
+            ampfig.suptitle('ASD of Demod. Carrier Amp vs. Frequency', fontsize=16)
+            phasefig.suptitle('ASD of Demod. Carrier Phase vs. Frequency', fontsize=16)
+            sidefig.suptitle('ASD of Sum of Neighboring QPD Carrier Amplitudes', fontsize=16)
+            posfig.suptitle('ASD of XYZ vs. Frequency', fontsize=16)
+            fbfig.suptitle('ASD of XYZ Feedback vs. Frequency', fontsize=16)
             
             for axarr in [amp_axarr, phase_axarr, side_axarr, pos_axarr, fb_axarr, drive_axarr]:
                 for drive in [0,1,2]:

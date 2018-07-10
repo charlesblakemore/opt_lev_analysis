@@ -306,7 +306,7 @@ def get_data_at_harms(files, p0_bead=[16,0,20], ax_disc=0.5, \
             newheight = new_ax2key - p0_bead[2]
         elif ax1 =='z' and ax2 == 'x':
             newxpos = p0_bead[0] + (80 - new_ax2key)
-            newheight = beadheight - new_ax2key 
+            newheight = new_ax1key - p0_bead[2] 
         else:
             print "Coordinate axes don't make sense for gravity data..."
             print "Proceeding anyway, but results might be hard to interpret"
