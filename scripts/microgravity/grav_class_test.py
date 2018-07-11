@@ -30,7 +30,11 @@ data_dir = '/data/20180704/bead1/grav_data/shield_1s_1h/'
 
 datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
-load = True
+load = False
+analyze_subset = True
+N = 10
+if analyze_subset:
+    datafiles = datafiles[:N]
 parts = data_dir.split('/')
 agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-1]  + '.agg'
 #agg_path = '/processed_data/aggdat/size_test_100.agg'

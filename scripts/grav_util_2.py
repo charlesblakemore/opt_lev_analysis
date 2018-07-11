@@ -600,8 +600,8 @@ class AggregateData:
             fsamp = file_data_obj.fsamp
             ginds = file_data_obj.ginds
             driveffts = file_data_obj.driveffts
-            dataffts = file_data_obj.dataffts
-            dataerrs = file_data_obj.dataerrs
+            dataffts = file_data_obj.datffts
+            dataerrs = file_data_obj.daterrs
 
             ## Get sep and height from axis positions
             xpos = self.p0_bead[0] + (80 - file_data_obj.ax1pos)
@@ -612,8 +612,9 @@ class AggregateData:
 
             drivevec = file_data_obj.rebuild_drive()
 
+            
             full_ones = np.ones_like(drivevec)
-            full_pts = np.stack((xpos*ones, drivevec, height*ones), axis=-1)
+            full_pts = np.stack((xpos*full_ones, drivevec, height*full_ones), axis=-1)
 
             ## Include normal gravity in fit
             gfft = [[], [], []]
@@ -621,7 +622,7 @@ class AggregateData:
                 if ignoreXYZ[resp]:
                     gfft[resp] = np.zeros(np.sum(ginds))
                     continue
-                gforcet = gfuncs[resp](full_pts*1.0e-6)
+                gforcet = self.gfuncs[resp](full_pts*1.0e-6)
                 gfft[resp] = np.fft.rfft(gforcet)[ginds]
             gfft = np.array(gfft)
 
@@ -635,11 +636,11 @@ class AggregateData:
                     if ignoreXYZ[resp]:
                         yukfft[resp] = np.zeros(np.sum(ginds))
                         continue
-                    yukforcet = yukfuncs[resp][lambind](full_pts*1.0e-6)
+                    yukforcet = self.yukfuncs[resp][lambind](full_pts*1.0e-6)
                     yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
                 yukfft = np.array(yukfft)
             
-                newalpha = 2.0 * np.mean( np.abs(datffts[0]) ) / np.mean( np.abs(yukfft[0]) ) * 1.5*10**(-1)
+                newalpha = 2.0 * np.mean( np.abs(dataffts[0]) ) / np.mean( np.abs(yukfft[0]) ) * 1.5*10**(-1)
                 testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
 
                 chi_sqs = get_chi2_vs_param_complex(dataffts, dataerrs, ignoreXYZ, yukfft, testalphas)
