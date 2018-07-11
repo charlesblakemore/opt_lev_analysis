@@ -258,6 +258,7 @@ class FileData:
         self.time = df.time
         self.fsamp = df.fsamp
         self.nsamp = df.nsamp
+        self.phi_cm = df.phi_cm
         self.df = df
 
         self.data_closed = False
@@ -585,7 +586,7 @@ class AggregateData:
             print "Must load theory data first..."
             return
         
-        Nobj = len(self.files_data_objs)
+        Nobj = len(self.file_data_objs)
 
         times = []
         outdat = []
