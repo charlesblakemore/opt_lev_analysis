@@ -199,6 +199,7 @@ class DataFile:
             #######   |  3  |  1  |
             #######   |_____|_____|
             #######
+
             right = self.amp[0] + self.amp[1]
             left = self.amp[2] + self.amp[3]
             top = self.amp[0] + self.amp[2]
@@ -213,6 +214,9 @@ class DataFile:
             self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
                                         y2.astype(np.float64)/quad_sum, \
                                         self.pos_data[2]])
+
+
+            self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
 
         #print attribs
         self.fname = fname
