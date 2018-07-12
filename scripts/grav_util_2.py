@@ -5,6 +5,7 @@ import dill as pickle
 import numpy as np
 import pandas as pd
 
+from scipy.optimize import curve_fit
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -65,7 +66,9 @@ def flicker(x, a):
     return a * (1. / x)
 
 
-
+def gauss(x, A, mu, sigma, scale = 1.):
+    "standard gaussian pdf"
+    return A/np.sqrt(2.*np.pi*(sigma*scale)**2)*np.exp(-1.*(x*scale-mu*scale)**2/(2*(sigma*scale)**2))
 
 
 
@@ -223,6 +226,20 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
+def plot_histogram_fit(data):
+    '''plots histogram of data and shows fit to gaussian'''
+    bins, xo = np.histogram(data)
+    fbool = bins>30.
+    bin_cents = (xo[1:] + xo[:-1])/2.
+    p0 =[np.std(data)*max(bins)*np.sqrt(2.*np.pi), np.mean(data), np.std(data)]
+    popt, pcov = curve_fit(gauss, bin_cents[fbool], bins[fbool], sigma = np.sqrt(bins[fbool]), p0 = p0)
+    plt.hist(data)
+    lab = "$\mu$ = " + str(popt[1]) + " +/- " + str(np.sqrt(pcov[1][1]))
+    plt.plot(bin_cents, gauss(bin_cents, *popt),'r' , label = lab, linewidth = 2)
+    plt.legend()
+    plt.show()
+
+    return
 
 
 
@@ -578,7 +595,7 @@ class AggregateData:
 
 
 
-    def find_alpha_vs_time(self, ignoreXYZ=(0,0,0)):
+    def find_alpha_vs_time(self, ignoreXYZ=(0,0,0), single_lambda = True, lambda_value = 25E-6):
         
         print "Computing alpha as a function of time..."
 
@@ -590,12 +607,13 @@ class AggregateData:
 
         times = []
         outdat = []
+        phis = []
 
         for objind, file_data_obj in enumerate(self.file_data_objs):
             bu.progress_bar(objind, Nobj, suffix='Fitting Alpha vs. Time')
 
             times.append(file_data_obj.time)
-
+            phis.append(file_data_obj.phi_cm)
             nsamp = file_data_obj.nsamp 
             fsamp = file_data_obj.fsamp
             ginds = file_data_obj.ginds
@@ -626,11 +644,20 @@ class AggregateData:
                 gfft[resp] = np.fft.rfft(gforcet)[ginds]
             gfft = np.array(gfft)
 
-            best_fit_alphas = np.zeros(len(self.lambdas))
-            best_fit_errs = np.zeros(len(self.lambdas))
+            ## Loop over lambdas and
+            lambda_inds = np.arange(len(self.lambdas))
+            if single_lambda:
+                lind  = np.argmin((lambda_value - self.lambdas)**2)
+                lambda_inds = [lambda_inds[lind]]
+                n_lam = 1
+            else:
+                n_lam = len(self.lambdas)
 
-            ## Loop over lambdas and 
-            for lambind, yuklambda in enumerate(self.lambdas):
+            best_fit_alphas = np.zeros(n_lam)
+            best_fit_errs = np.zeros(n_lam)
+
+
+            for i, lambind in enumerate(lambda_inds):
                 yukfft = [[], [], []]
                 for resp in [0,1,2]:
                     if ignoreXYZ[resp]:
@@ -646,12 +673,12 @@ class AggregateData:
                 chi_sqs = get_chi2_vs_param_complex(dataffts, dataerrs, ignoreXYZ, yukfft, testalphas)
                 fit_result = fit_parabola_to_chi2(testalphas, chi_sqs)
 
-                best_fit_alphas[lambind] = fit_result['best_fit_param']
-                best_fit_errs[lambind] = fit_result['param95']
+                best_fit_alphas[i] = fit_result['best_fit_param']
+                best_fit_errs[i] = fit_result['param95']
 
             outdat.append([best_fit_alphas, best_fit_errs])
 
-        return times, outdat
+        return times, outdat, phis
                 
 
 
@@ -922,3 +949,6 @@ class AggregateData:
         plt.tight_layout()
 
         plt.show()
+
+
+

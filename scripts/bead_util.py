@@ -150,6 +150,8 @@ class DataFile:
         #    self.badfile = False
         
         self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
+        #print(self.time)
+        
         self.fsamp = attribs["Fsamp"]
         self.nsamp = len(dat[:,0])
 

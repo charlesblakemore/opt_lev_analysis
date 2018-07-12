@@ -26,13 +26,15 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
 #data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term'
 
-data_dir = '/data/20180704/bead1/grav_data/shield_1s_1h/'
+data_dir = '/data/20180704/bead1/grav_data/shield'
 
 datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
-load = False
-analyze_subset = True
-N = 10
+load = True
+analyze_subset = False
+fit_spatial_alpha = True
+N = 1000
+
 if analyze_subset:
     datafiles = datafiles[:N]
 parts = data_dir.split('/')
@@ -68,9 +70,10 @@ else:
     agg_dat.save(agg_path)
 
     ## Extract a limit
-    agg_dat.fit_alpha_vs_alldim()
+    if fit_spatial_alpha:
+        agg_dat.fit_alpha_vs_alldim()
 
-    agg_dat.save(agg_path)
+        agg_dat.save(agg_path)
 
-    agg_dat.plot_alpha_dict()
-    agg_dat.plot_sensitivity()
+        agg_dat.plot_alpha_dict()
+        agg_dat.plot_sensitivity()
