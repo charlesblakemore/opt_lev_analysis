@@ -19,7 +19,7 @@ import bead_util as bu
 import calib_util as cal
 import transfer_func_util as tf
 import configuration as config
-
+import pandas as pd
 
 sys.path.append('../microgravity')
 
@@ -245,13 +245,6 @@ def plot_histogram_fit(data):
 
 
 
-
-
-
-
-
-
-
 class FileData:
     '''A class to store data from a single file, only
        what is relevant for higher level analysis.'''
@@ -356,7 +349,10 @@ class FileData:
             ax2pos = np.mean(self.df.cant_data[ax_keys[ax2]])
             self.ax2pos = round(ax2pos, 1)
         
-
+    
+    def fit_alpha_xyz(self, yukfuncs):
+        '''fits x, y, and z force data sepretly to return a vector of alphas.'''
+        return
 
 
     def close_datafile(self):
@@ -725,6 +721,7 @@ class AggregateData:
             binned_avg = np.zeros_like(objs[0].binned)
             old_ginds = []
 
+            #average over integrateions at the same position
             for obj in objs:
                 xpos += filfac * (self.p0_bead[0] + (80 - obj.ax1pos))
                 height += filfac * (obj.ax2pos - self.p0_bead[2])
@@ -748,7 +745,7 @@ class AggregateData:
             ones = np.ones_like(posvec_avg)
             pts = np.stack((xpos*ones, posvec_avg, height*ones), axis=-1)
 
-            ## Include normal gravity in fit
+            ## Include normal gravity in fit. But why???
             gfft = [[], [], []]
             for resp in [0,1,2]:
                 if ignoreXYZ[resp]:
@@ -789,14 +786,32 @@ class AggregateData:
                 best_fit_alphas[lambind] = fit_result['best_fit_param']
                 best_fit_errs[lambind] = fit_result['param95']
 
+            #Create DataFrame to store the output of each fit 
+            DataFrame_alphas = pd.DataFrame.from_records(\
+                    {"total_alpha":best_fit_alphas, "total_alpha_error":best_fit_errs}, index = self.lambdas)
+            DataFramei = pd.DataFrame.from_records(\
+                    [[bias, ax1, ax2, DataFrame_alphas]], index = [i], columns = ["bias", "ax1", "ax2", "alphas"])
+            
+            if i != 1:
+                DataFrameTot.append(DataFramei)
+            else:
+                DataFrameTot = DataFramei
+
             alpha_dict[bias][ax1][ax2] = [best_fit_alphas, best_fit_errs]
 
         print 'Done!'
-            
+        self.DataFrame = DataFrameTot    
         self.alpha_dict = alpha_dict
 
 
+   # def alpha_dict_to_DataFrame(self, alpha_dict):
+    #    '''generates a pandas data frame from the alpha_dict for further processing. 
+     #      For the time being, assums that the data is rectangular'''
 
+      #  vs = alpha_dict.keys()
+      #  xs = alpha_dict[vs[0]].keys()
+      #  zs = alpha_dict[xs[0]].keys()
+      #  lams = self.lambdas
 
 
 
@@ -922,6 +937,8 @@ class AggregateData:
         ax.set_ylabel('X-separation [um]')
         ax.set_zlabel('Alpha [arb]')
         plt.show()
+
+    
 
 
 

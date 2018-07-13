@@ -30,10 +30,11 @@ data_dir = '/data/20180704/bead1/grav_data/shield'
 
 datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
-load = True
-analyze_subset = False
+load = False
+analyze_subset = True
 fit_spatial_alpha = True
-N = 1000
+save = False 
+N = 100
 
 if analyze_subset:
     datafiles = datafiles[:N]
@@ -58,7 +59,8 @@ else:
     agg_dat = gu.AggregateData(datafiles, p0_bead=[16,0,20])
     agg_dat.load_grav_funcs(theory_data_dir)
 
-    agg_dat.save(agg_path)
+    if save:
+        agg_dat.save(agg_path)
 
 
     ## Get height/sep grid
