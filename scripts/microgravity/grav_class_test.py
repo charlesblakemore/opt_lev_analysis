@@ -74,8 +74,8 @@ else:
     ## Extract a limit
     if fit_spatial_alpha:
         agg_dat.fit_alpha_vs_alldim()
-
-        agg_dat.save(agg_path)
+        if save:
+            agg_dat.save(agg_path)
 
         agg_dat.plot_alpha_dict()
         agg_dat.plot_sensitivity()

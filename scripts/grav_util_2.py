@@ -4,6 +4,7 @@ import dill as pickle
 
 import numpy as np
 import pandas as pd
+import scipy
 
 from scipy.optimize import curve_fit
 
@@ -242,8 +243,24 @@ def plot_histogram_fit(data):
     return
 
 
+def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
+    '''wrapper for scipy.optimize.minimize to fit a sum of templates to the data. returns the maximum liklihood template coefficients and the covariance matrix determined 
+    from the inverse Hessian matrix returned by the fitting subroutine'''
+    def NLL(arr):
+        return (1./2.)*np.sum((np.einsum('i, ij->j', arr, templates) - data)**2/weights**2)
+    x0 = x0*np.ones(len(templates))
+    res = scipy.optimize.minimize(NLL, x0, method = method)
+    return res.x, res.hess_inv, res.success  
 
-
+def fit_2_templates(templates, data, weights, method = 'BFGS', x0 = 0):
+    '''wrapper for scipy.optimize.minimize to fit a sum of templates to the data. returns the maximum liklihood template coefficients and the covariance matrix determined 
+    from the inverse Hessian matrix returned by the fitting subroutine'''
+    def NLL(arr):
+        return (1./2.)*np.sum(\
+            (arr[0]*templates[0] + arr[1]*templates[1] - data)**2/weights**2)
+    x0 = x0*np.ones(len(templates))
+    res = scipy.optimize.minimize(NLL, x0, method = method)
+    return res.x, res.hess_inv, res.success  
 
 class FileData:
     '''A class to store data from a single file, only
@@ -697,6 +714,7 @@ class AggregateData:
                     alpha_dict[bias][ax1key][ax2key] = []
 
         i = 0
+        DataFrameTot = pd.DataFrame
         totlen = len(self.agg_dict.keys()) * len(self.ax1vec) * len(self.ax2vec)
         for bias, ax1, ax2 in itertools.product(self.agg_dict.keys(), self.ax1vec, self.ax2vec):
             i += 1
@@ -788,14 +806,17 @@ class AggregateData:
 
             #Create DataFrame to store the output of each fit 
             DataFrame_alphas = pd.DataFrame.from_records(\
-                    {"total_alpha":best_fit_alphas, "total_alpha_error":best_fit_errs}, index = self.lambdas)
+                    [[best_fit_alphas, best_fit_errs]], columns = ["total_alpha", "total_alpha_error"], index = self.lambdas)
             DataFramei = pd.DataFrame.from_records(\
                     [[bias, ax1, ax2, DataFrame_alphas]], index = [i], columns = ["bias", "ax1", "ax2", "alphas"])
-            
+       
+                
             if i != 1:
-                DataFrameTot.append(DataFramei)
-            else:
+                DataFrameTot = pd.concat([DataFrameTot, DataFramei])
+            elif i== 1:
                 DataFrameTot = DataFramei
+            else:
+                print "wtf is going on"
 
             alpha_dict[bias][ax1][ax2] = [best_fit_alphas, best_fit_errs]
 
