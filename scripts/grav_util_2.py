@@ -252,15 +252,6 @@ def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
     res = scipy.optimize.minimize(NLL, x0, method = method)
     return res.x, res.hess_inv, res.success  
 
-def fit_2_templates(templates, data, weights, method = 'BFGS', x0 = 0):
-    '''wrapper for scipy.optimize.minimize to fit a sum of templates to the data. returns the maximum liklihood template coefficients and the covariance matrix determined 
-    from the inverse Hessian matrix returned by the fitting subroutine'''
-    def NLL(arr):
-        return (1./2.)*np.sum(\
-            (arr[0]*templates[0] + arr[1]*templates[1] - data)**2/weights**2)
-    x0 = x0*np.ones(len(templates))
-    res = scipy.optimize.minimize(NLL, x0, method = method)
-    return res.x, res.hess_inv, res.success  
 
 class FileData:
     '''A class to store data from a single file, only
