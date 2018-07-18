@@ -253,6 +253,12 @@ def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
     return res.x, res.hess_inv, res.success  
 
 
+def norm(dirbynarr):
+    '''computes the rms norm alond the last axis of dirbynarr'''
+    return np.sqrt(np.sum(np.abs(dirbynarr)**2, axis = -1))
+
+
+
 class FileData:
     '''A class to store data from a single file, only
        what is relevant for higher level analysis.'''
@@ -356,11 +362,64 @@ class FileData:
 
             ax2pos = np.mean(self.df.cant_data[ax_keys[ax2]])
             self.ax2pos = round(ax2pos, 1)
-        
+
+
+
+    def generate_pts(self, p0, attractor_travel = 80.):
+        '''generates pts arry for determining gravitational template.'''
+        xpos = p0[0] + (attractor_travel - self.ax1pos)
+        height = self.ax2pos - p0[2]
+            
+        ones = np.ones_like(self.posvec)
+        pts = np.stack((xpos*ones, self.posvec, height*ones), axis=-1)
+
+        drivevec = self.rebuild_drive()
+
+        full_ones = np.ones_like(drivevec)
+        full_pts = np.stack((xpos*full_ones, drivevec, height*full_ones), axis=-1)
+
+        return full_pts
     
-    def fit_alpha_xyz(self, yukfuncs):
-        '''fits x, y, and z force data sepretly to return a vector of alphas.'''
-        return
+    def fit_alpha_xyz(self, tempsxyz, diag = False, \
+                      columns = ["fit coefs", "sigmas", "fit success"]):
+        '''fits x, y, and z force data sepretly. Returns a pandas Series object containing
+           the results of the fit.'''
+        if diag:
+            dat = self.diagdatffts
+            sigmas = self.diagdaterrs
+        else:
+            dat = self.datffts
+            sigmas = self.daterrs
+        
+        #first normalize data and template so fitter does not shit itself.
+        ndat = norm(dat)
+        ns_temps = np.array(map(norm, tempsxyz))
+        datned = np.einsum("i, ij->ij", 1./ndat, dat)
+        sigmasned = np.einsum("i, ij->ij", 1./ndat, sigmas)
+        tempsn = np.einsum("ij, ijk->ijk", 1./ns_temps, tempsxyz)
+        #extend imaginary templates and data to a real vector twice the length 
+        datnt = np.concatenate((np.real(datned), np.imag(datned)), axis = -1)
+        tempst = np.concatenate((np.real(tempsn), np.imag(tempsn)), axis = -1)
+        #error may laread have factor of sqrt(2). Need to check
+        sigmast = np.concatenate((sigmasned/np.sqrt(2), sigmasned/np.sqrt(2)), axis = -1)
+        #loop over directions and compute independent alpha for each direction
+        df = pd.DataFrame()
+        for i in range(len(dat)):
+            x, hess_inv, success = \
+                    fit_templates(tempst[:, i, :], datnt[i, :], sigmast[i, :])
+            sigs_fit = np.sqrt(np.diag(hess_inv))
+            #undo normalization
+            x *= ndat[i]
+            x = np.einsum("i, i", 1./ns_temps[:, i], x)
+            sigs_fit *= ndat[i]
+            sigs_fit = np.einsum("i, i", 1./ns_temps[:, i], sigs_fit)
+            dfi = pd.DataFrame([[x, sigs_fit, success]], columns = [c +" " + str(i) for c in columns])
+            df = pd.concat([df, dfi], axis = 1, sort = False)
+        
+        return df
+
+
+
 
 
     def close_datafile(self):
@@ -599,7 +658,7 @@ class AggregateData:
 
 
 
-    def find_alpha_vs_time(self, ignoreXYZ=(0,0,0), single_lambda = True, lambda_value = 25E-6):
+    def find_alpha_vs_time(self, single_lambda = True, lambda_value = 25E-6):
         
         print "Computing alpha as a function of time..."
 
@@ -609,44 +668,16 @@ class AggregateData:
         
         Nobj = len(self.file_data_objs)
 
-        times = []
-        outdat = []
-        phis = []
 
         for objind, file_data_obj in enumerate(self.file_data_objs):
             bu.progress_bar(objind, Nobj, suffix='Fitting Alpha vs. Time')
 
-            times.append(file_data_obj.time)
-            phis.append(file_data_obj.phi_cm)
-            nsamp = file_data_obj.nsamp 
-            fsamp = file_data_obj.fsamp
-            ginds = file_data_obj.ginds
-            driveffts = file_data_obj.driveffts
-            dataffts = file_data_obj.datffts
-            dataerrs = file_data_obj.daterrs
+            t = file_data_obj.time
+            phi = file_data_obj.phi_cm
 
             ## Get sep and height from axis positions
-            xpos = self.p0_bead[0] + (80 - file_data_obj.ax1pos)
-            height = file_data_obj.ax2pos - self.p0_bead[2]
-            
-            ones = np.ones_like(file_data_obj.posvec)
-            pts = np.stack((xpos*ones, file_data_obj.posvec, height*ones), axis=-1)
 
-            drivevec = file_data_obj.rebuild_drive()
-
-            
-            full_ones = np.ones_like(drivevec)
-            full_pts = np.stack((xpos*full_ones, drivevec, height*full_ones), axis=-1)
-
-            ## Include normal gravity in fit
-            gfft = [[], [], []]
-            for resp in [0,1,2]:
-                if ignoreXYZ[resp]:
-                    gfft[resp] = np.zeros(np.sum(ginds))
-                    continue
-                gforcet = self.gfuncs[resp](full_pts*1.0e-6)
-                gfft[resp] = np.fft.rfft(gforcet)[ginds]
-            gfft = np.array(gfft)
+            full_pts  = file_data_obj.generate_pts(self.p0_bead)
 
             ## Loop over lambdas and
             lambda_inds = np.arange(len(self.lambdas))
@@ -656,9 +687,6 @@ class AggregateData:
                 n_lam = 1
             else:
                 n_lam = len(self.lambdas)
-
-            best_fit_alphas = np.zeros(n_lam)
-            best_fit_errs = np.zeros(n_lam)
 
 
             for i, lambind in enumerate(lambda_inds):
@@ -671,18 +699,12 @@ class AggregateData:
                     yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
                 yukfft = np.array(yukfft)
             
-                newalpha = 2.0 * np.mean( np.abs(dataffts[0]) ) / np.mean( np.abs(yukfft[0]) ) * 1.5*10**(-1)
-                testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
+                dfl = file_data_obj.fit_alpha_xyz([yukfft])
 
-                chi_sqs = get_chi2_vs_param_complex(dataffts, dataerrs, ignoreXYZ, yukfft, testalphas)
-                fit_result = fit_parabola_to_chi2(testalphas, chi_sqs)
-
-                best_fit_alphas[i] = fit_result['best_fit_param']
-                best_fit_errs[i] = fit_result['param95']
 
             outdat.append([best_fit_alphas, best_fit_errs])
 
-        return times, outdat, phis
+        return 
                 
 
 
