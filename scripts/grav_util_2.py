@@ -242,6 +242,12 @@ def plot_histogram_fit(data):
 
     return
 
+def extend_complex(arr):
+    '''extends an array of complex numbers with shape (..., n) to a real array 
+       with shape (..., 2n) by concatenating the real and imaginary parts along 
+       the last axis.'''
+    return np.concatenate((np.real(arr), np.imag(arr)), axis = -1)
+
 
 def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
     '''wrapper for scipy.optimize.minimize to fit a sum of templates to the data. returns the maximum liklihood template coefficients and the covariance matrix determined 
@@ -658,7 +664,7 @@ class AggregateData:
 
 
 
-    def find_alpha_vs_time(self, single_lambda = True, lambda_value = 25E-6):
+    def find_alpha_vs_time(self, br_temps = [], single_lambda = True, lambda_value = 25E-6):
         
         print "Computing alpha as a function of time..."
 
@@ -668,7 +674,7 @@ class AggregateData:
         
         Nobj = len(self.file_data_objs)
 
-
+        dft = pd.DataFrame()
         for objind, file_data_obj in enumerate(self.file_data_objs):
             bu.progress_bar(objind, Nobj, suffix='Fitting Alpha vs. Time')
 
@@ -692,19 +698,17 @@ class AggregateData:
             for i, lambind in enumerate(lambda_inds):
                 yukfft = [[], [], []]
                 for resp in [0,1,2]:
-                    if ignoreXYZ[resp]:
-                        yukfft[resp] = np.zeros(np.sum(ginds))
-                        continue
                     yukforcet = self.yukfuncs[resp][lambind](full_pts*1.0e-6)
-                    yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
+                    yukfft[resp] = np.fft.rfft(yukforcet)[file_data_obj.ginds]
                 yukfft = np.array(yukfft)
             
-                dfl = file_data_obj.fit_alpha_xyz([yukfft])
+                dfl = file_data_obj.fit_alpha_xyz([yukfft] + br_temps)
+                dfl["lambda"] = self.lambdas[lambind]
+                index = [[objind], [lambind]]
+                dfl.index = index
+                dft = dft.append(dfl)
 
-
-            outdat.append([best_fit_alphas, best_fit_errs])
-
-        return 
+        return dft
                 
 
 
