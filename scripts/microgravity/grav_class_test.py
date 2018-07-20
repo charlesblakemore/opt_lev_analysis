@@ -26,14 +26,21 @@ theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
 #data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
 #data_dir = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term'
 
-data_dir = '/data/20180704/bead1/grav_data/shield/'
+data_dir = '/data/20180704/bead1/grav_data/shield'
 
 datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
+
+
+#############################
+#############################
+
 load = False
 parts = data_dir.split('/')
-agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-1]  + '.agg'
-#agg_path = '/processed_data/aggdat/size_test_100.agg'
+if data_dir[-1] == '':
+    agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-2]  + '.agg'
+else:
+    agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-1]  + '.agg'
 
 if load:
     agg_dat = pickle.load(open(agg_path, 'rb'))
