@@ -36,6 +36,13 @@ datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 #############################
 
 load = False
+analyze_subset = True
+fit_spatial_alpha = True
+save = False 
+N = 100
+
+if analyze_subset:
+    datafiles = datafiles[:N]
 parts = data_dir.split('/')
 if data_dir[-1] == '':
     agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-2]  + '.agg'
@@ -59,7 +66,8 @@ else:
     agg_dat = gu.AggregateData(datafiles, p0_bead=[16,0,20])
     agg_dat.load_grav_funcs(theory_data_dir)
 
-    agg_dat.save(agg_path)
+    if save:
+        agg_dat.save(agg_path)
 
 
     ## Get height/sep grid
@@ -71,9 +79,10 @@ else:
     agg_dat.save(agg_path)
 
     ## Extract a limit
-    agg_dat.fit_alpha_vs_alldim()
+    if fit_spatial_alpha:
+        agg_dat.fit_alpha_vs_alldim()
+        if save:
+            agg_dat.save(agg_path)
 
-    agg_dat.save(agg_path)
-
-    agg_dat.plot_alpha_dict()
-    agg_dat.plot_sensitivity()
+        agg_dat.plot_alpha_dict()
+        agg_dat.plot_sensitivity()
