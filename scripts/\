@@ -254,14 +254,14 @@ def extend_complex(arr):
        the last axis.'''
     return np.concatenate((np.real(arr), np.imag(arr)), axis = -1)
 
-def white_noise(sigmas):
+def white_noise(s, sigmas):
     '''generates an fft white noise realization with a shape and distribution consistent 
        with sigmas'''
     s = np.shape(sigmas)
     nr = np.random.randn(s[0], s[1])/(np.sqrt(2))
     nim = 1.j*np.random.randn(s[0], s[1])/(np.sqrt(2))
     nc = nr + nim
-    return np.einsum('ij, ij->ij', sigmas, nc)
+    realize = np.einsum('ij, ij->ij', fd.daterrs, nc)
 
 
 def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
@@ -271,9 +271,7 @@ def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
         return (1./2.)*np.sum((np.einsum('i, ij->j', arr, templates) - data)**2/weights**2)
     x0 = x0*np.ones(len(templates))
     res = scipy.optimize.minimize(NLL, x0, method = method)
-    return res.x, res.hess_inv, res.success, res.fun  
-
-
+    return res.x, res.hess_inv, res.success  
 
 
 def norm(dirbynarr):
@@ -404,8 +402,8 @@ class FileData:
         return full_pts
     
     def fit_alpha_xyz(self, tempsxyz, diag = False, \
-                      columns = ["fit coefs", "sigmas", "fit success", "NLL_min"], \
-                      inject = [], fake_signal = False):
+                      columns = ["fit coefs", "sigmas", "fit success"], \
+                      inject = [], white_noise = False):
         '''fits x, y, and z force data sepretly. Returns a pandas Series object containing
            the results of the fit. If there is an injection template, it is added to the data.
            if white noise is True, replaces the data with a signal drawn from a distribution 
@@ -417,10 +415,10 @@ class FileData:
         else:
             dat = self.datffts
             sigmas = self.daterrs
-        if fake_signal:
-            dat = white_noise(sigmas)
-        if len(inject):
-            dat += inject
+        if inject:
+            dat = inject
+        if white_noise:
+            s = np.shape()
         
         #first normalize data and template so fitter does not shit itself.
         ndat = norm(dat)
@@ -436,15 +434,15 @@ class FileData:
         #loop over directions and compute independent alpha for each direction
         df = pd.DataFrame()
         for i in range(len(dat)):
-            x, hess_inv, success, NLL_min = \
+            x, hess_inv, success = \
                     fit_templates(tempst[:, i, :], datnt[i, :], sigmast[i, :])
             sigs_fit = np.sqrt(np.diag(hess_inv))
             #undo normalization
             x *= ndat[i]
-            x = np.einsum("i, i->i", 1./ns_temps[:, i], x)
+            x = np.einsum("i, i", 1./ns_temps[:, i], x)
             sigs_fit *= ndat[i]
-            sigs_fit = np.einsum("i, i->i", 1./ns_temps[:, i], sigs_fit)
-            dfi = pd.DataFrame([[x, sigs_fit, success, NLL_min]], columns = [c +" " + str(i) for c in columns])
+            sigs_fit = np.einsum("i, i", 1./ns_temps[:, i], sigs_fit)
+            dfi = pd.DataFrame([[x, sigs_fit, success]], columns = [c +" " + str(i) for c in columns])
             df = pd.concat([df, dfi], axis = 1, sort = False)
         
         return df
@@ -687,8 +685,7 @@ class AggregateData:
 
 
     def AggregateDataMC(self, br_temps = [], single_lambda = True, \
-            lambda_value = 25E-6, fake_lambda = 25E-6, fake_alpha = 1E9, white_noise = True, 
-            same_noise = False, n_fake = 10):
+            lambda_value = 25E-6, fake_lambda = 25E-6, fake_alpha = 1E9, white_noise = True):
         """Analyzes the data with a fake signal injected. If white noise is True, replaces measured
            signal with white noise drawn from a distribution consistent with the errors"""
 
@@ -697,30 +694,13 @@ class AggregateData:
             return
         
         Nobj = len(self.file_data_objs)
+        lambda_inds = np.arange(len(self.lambdas))
         dft = pd.DataFrame()
         lambind_inj = np.argmin((fake_lambda - self.lambdas)**2)
 
-        lambda_inds = np.arange(len(self.lambdas))
-        if single_lambda:
-            lind  = np.argmin((lambda_value - self.lambdas)**2)
-            lambda_inds = [lambda_inds[lind]]
-            n_lam = 1
-        else:
-            n_lam = len(self.lambdas)
-
-        #deal with MC from data vs totally fake case
-        if n_fake:
-            objinds = range(n_fake)
-        else:
-            objinds = range(len(self.file_data_objs))
-
         #first loop over files
-        for objind in objinds:
+        for objind, file_data_obj in enumerate(self.file_data_objs):
 
-            if n_fake:
-                file_data_obj = self.file_data_objs[0]
-            else:
-                file_data_obj = self.file_data_objs[objind]
             #get file specific information
             bu.progress_bar(objind, Nobj, suffix='Fitting Alpha vs. Time')
             t = file_data_obj.time
@@ -728,16 +708,18 @@ class AggregateData:
 
             ## Get sep and height from axis positi
             full_pts  = file_data_obj.generate_pts(self.p0_bead)
-            yukfft_inj = yukfft_template(self.yukfuncs, file_data_obj.ginds, lambind_inj, full_pts)
 
+            if single_lambda:
+                lind  = np.argmin((lambda_value - self.lambdas)**2)
+                lambda_inds = [lambda_inds[lind]]
+                n_lam = 1
+            else:
+                n_lam = len(self.lambdas)
 
             #now loop over lambdas
             for i, lambind in enumerate(lambda_inds):
-                if same_noise:
-                    file_data_obj.daterrs = np.ones_like(file_data_obj.daterrs)*10**-12
                 yukfft = yukfft_template(self.yukfuncs, file_data_obj.ginds, lambind, full_pts)
-                dfl = file_data_obj.fit_alpha_xyz([yukfft] + br_temps, \
-                        inject = fake_alpha*yukfft_inj, fake_signal = white_noise)
+                dfl = file_data_obj.fit_alpha_xyz([yukfft] + br_temps)
                 dfl["lambda"] = self.lambdas[lambind]
                 index = [[objind], [lambind]]
                 dfl.index = index
