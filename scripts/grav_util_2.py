@@ -99,19 +99,47 @@ def solve_parabola(yvalue, popt):
 
 
 def get_chi2_vs_param(data, data_err, ignore_ax, template, params):
+    '''Computes the chi^2 square for a particular combination of
+       template, data, and errors. These arrays are assumed to have
+       identical indexing and the 'independent variable' is ignored.
+
+       INPUTS:   data,      D by N array of real-valued data points, with D
+                            dimensions (e.g. D=3 => X, Y, Z) and N points
+                 data_err,  standard deviation of observations in data,
+                            with same shape as data
+                 ignore_ax, D-length tuple or list of bool specifying whether
+                            to ignore an axis when computing chi^2
+                 template,  D by N array of real-valued template points
+                 params,    M-length array of template amplitudes over 
+                            which to compute the chi^2 score
+
+       OUTPUTS (packed in a dictionary):  
+                 chi_sqs,      M-length array of associated chi^2 scores
+                 red_chi_sqs,  chi_sqs array reduced by: 1 / (Ndof - 1)
+                 Ndof,         DOF in associated fit
+    '''
+    Nax = data.shape[0]
     chi_sqs = np.zeros(len(params))
+    red_chi_sqs = np.zeros(len(params))
+    old_Ndof = 0
     for param_ind, param in enumerate(params):
         chi_sq = 0
         Ndof = 0
-        Nax = data.shape[0]
         for ax in range(Nax):
             if ignore_ax[ax]:
                 continue
             diff = data[ax] - (param * template[ax])
             chi_sq += np.sum( np.abs(diff)**2 / (data_err[ax]**2) )
             Ndof += len(diff)
-        chi_sqs[param_ind] = chi_sq / (Ndof - 1)
-    return chi_sqs
+        chi_sqs[param_ind] = chi_sq
+        red_chi_sqs[param_ind] = chi_sq / (Ndof - 1)
+
+        if old_Ndof != 0:
+            assert old_Ndof == Ndof
+        old_Ndof = Ndof
+
+    outdic = {'chi_sqs': chi_sqs, 'red_chi_sqs': red_chi_sqs, 'Ndof': Ndof}
+    return outdic
 
 
 
@@ -119,8 +147,31 @@ def get_chi2_vs_param(data, data_err, ignore_ax, template, params):
 
 
 def get_chi2_vs_param_complex(data, data_err, ignore_ax, template, params):
+    '''Computes the chi^2 square for a particular combination of
+       template, data, and errors. These arrays are assumed to have
+       identical indexing and the 'independent variable' is ignored.
+       This version handles complex-valued data and treats the real 
+       and imaginary components as independent DOFs
+
+       INPUTS:   data,      D by N array of complex-valued data points, with D
+                            dimensions (e.g. D=3 => X, Y, Z) and N points
+                 data_err,  standard deviation of observations in data,
+                            with same shape as data
+                 ignore_ax, D-length tuple or list of bool specifying whether
+                            to ignore an axis when computing chi^2
+                 template,  D by N array of complex-valued template points
+                 params,    M-length array of template amplitudes over 
+                            which to compute the chi^2 score
+
+       OUTPUTS (packed in a dictionary):  
+                 chi_sqs,      M-length array of associated chi^2 scores
+                 red_chi_sqs,  chi_sqs array reduced by: 1 / (Ndof - 1)
+                 Ndof,         DOF in associated fit
+    '''
     Nax = data.shape[0]
     chi_sqs = np.zeros(len(params))
+    red_chi_sqs = np.zeros(len(params))
+    old_Ndof = 0
     for param_ind, param in enumerate(params):
         chi_sq = 0
         Ndof = 0
@@ -132,8 +183,15 @@ def get_chi2_vs_param_complex(data, data_err, ignore_ax, template, params):
             chi_sq += np.sum( np.abs(re_diff)**2 / (0.5 * (data_err[ax]**2)) ) \
                       + np.sum( np.abs(im_diff)**2 / (0.5 * (data_err[ax]**2)) )
             Ndof += len(re_diff) + len(im_diff)
-        chi_sqs[param_ind] = chi_sq / (Ndof - 1)
-    return chi_sqs
+        chi_sqs[param_ind] = chi_sq
+        red_chi_sqs[param_ind] = chi_sq / (Ndof - 1)
+
+        if old_Ndof != 0:
+            assert old_Ndof == Ndof
+        old_Ndof = Ndof
+
+    outdic = {'chi_sqs': chi_sqs, 'red_chi_sqs': red_chi_sqs, 'Ndof': Ndof}
+    return outdic
 
 
 
@@ -385,6 +443,12 @@ class FileData:
 
             ax2pos = np.mean(self.df.cant_data[ax_keys[ax2]])
             self.ax2pos = round(ax2pos, 1)
+        else:
+            print 'ERROR: load_position_and_bias()'
+            print 'Whatchu doin boi?! The bu.DataFile() object is closed.'
+            time.sleep(1)
+            print '(press enter when you\'re ready to get a real Python error)'
+            raw_input()
 
 
 
@@ -402,11 +466,12 @@ class FileData:
         full_pts = np.stack((xpos*full_ones, drivevec, height*full_ones), axis=-1)
 
         return full_pts
+
     
     def fit_alpha_xyz(self, tempsxyz, diag = False, \
                       columns = ["fit coefs", "sigmas", "fit success", "NLL_min"], \
                       inject = [], fake_signal = False):
-        '''fits x, y, and z force data sepretly. Returns a pandas Series object containing
+        '''fits x, y, and z force data separately. Returns a pandas Series object containing
            the results of the fit. If there is an injection template, it is added to the data.
            if white noise is True, replaces the data with a signal drawn from a distribution 
            consistent with errorbars.'''
@@ -898,41 +963,18 @@ class AggregateData:
                 newalpha = 2.0 * np.mean( np.abs(datfft_avg[0]) ) / np.mean( np.abs(yukfft[0]) ) * 1.5*10**(-1)
                 testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
 
-                chi_sqs = get_chi2_vs_param_complex(datfft_avg, daterr_avg, ignoreXYZ, yukfft, testalphas)
+                chi_sq_dat = get_chi2_vs_param_complex(datfft_avg, daterr_avg, ignoreXYZ, yukfft, testalphas)
+                chi_sqs = chi_sq_dat['red_chi_sqs']
                 fit_result = fit_parabola_to_chi2(testalphas, chi_sqs)
 
                 best_fit_alphas[lambind] = fit_result['best_fit_param']
                 best_fit_errs[lambind] = fit_result['param95']
 
-            #Create DataFrame to store the output of each fit 
-            DataFrame_alphas = pd.DataFrame.from_records(\
-                    [[best_fit_alphas, best_fit_errs]], columns = ["total_alpha", "total_alpha_error"], index = self.lambdas)
-            DataFramei = pd.DataFrame.from_records(\
-                    [[bias, ax1, ax2, DataFrame_alphas]], index = [i], columns = ["bias", "ax1", "ax2", "alphas"])
-       
-                
-            if i != 1:
-                DataFrameTot = pd.concat([DataFrameTot, DataFramei])
-            elif i== 1:
-                DataFrameTot = DataFramei
-            else:
-                print "wtf is going on"
-
             alpha_dict[bias][ax1][ax2] = [best_fit_alphas, best_fit_errs]
 
-        print 'Done!'
-        self.DataFrame = DataFrameTot    
+        print 'Done!'   
         self.alpha_dict = alpha_dict
 
-
-   # def alpha_dict_to_DataFrame(self, alpha_dict):
-    #    '''generates a pandas data frame from the alpha_dict for further processing. 
-     #      For the time being, assums that the data is rectangular'''
-
-      #  vs = alpha_dict.keys()
-      #  xs = alpha_dict[vs[0]].keys()
-      #  zs = alpha_dict[xs[0]].keys()
-      #  lams = self.lambdas
 
 
 
