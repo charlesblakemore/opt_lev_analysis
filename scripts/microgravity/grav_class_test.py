@@ -30,6 +30,11 @@ data_dir = '/data/20180704/bead1/grav_data/shield'
 
 datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
+
+
+#############################
+#############################
+
 load = False
 analyze_subset = True
 fit_spatial_alpha = True
@@ -39,8 +44,10 @@ N = 100
 if analyze_subset:
     datafiles = datafiles[:N]
 parts = data_dir.split('/')
-agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-1]  + '.agg'
-#agg_path = '/processed_data/aggdat/size_test_100.agg'
+if data_dir[-1] == '':
+    agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-2]  + '.agg'
+else:
+    agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-1]  + '.agg'
 
 if load:
     agg_dat = pickle.load(open(agg_path, 'rb'))
