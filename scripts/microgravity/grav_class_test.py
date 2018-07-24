@@ -47,7 +47,7 @@ N = 100
 if analyze_subset:
     datafiles = datafiles[:N]
 parts = data_dir.split('/')
-if data_dir[-1] == '':
+if parts[-1] == '':
     agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-2]  + '.agg'
 else:
     agg_path = '/processed_data/aggdat/' + parts[2] + '_' + parts[-1]  + '.agg'
