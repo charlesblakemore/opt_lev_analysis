@@ -398,7 +398,8 @@ class FileData:
             return
 
         ## Get the notch filter
-        cantfilt = self.df.get_boolean_cantfilt(ext_cant=ext_cant, nharmonics=nharmonics, harms=harms, width=width)
+        cantfilt = self.df.get_boolean_cantfilt(ext_cant=ext_cant, nharmonics=nharmonics, \
+                                                harms=harms, width=width)
         self.ginds = cantfilt['ginds']
         self.fund_ind = cantfilt['fund_ind']
         self.drive_freq = cantfilt['drive_freq']
@@ -539,7 +540,7 @@ class AggregateData:
        has some methods that work on each object in a loop.'''
 
     
-    def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500):
+    def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[]):
         
         self.fnames = fnames
         self.p0_bead = p0_bead
@@ -554,7 +555,7 @@ class AggregateData:
             # Initialize FileData obj, extract the data, then close the big file
             try:
                 new_obj = FileData(name, tophatf=tophatf)
-                new_obj.extract_data()#harms=harms)
+                new_obj.extract_data(harms=harms)
                 new_obj.load_position_and_bias()
 
                 new_obj.close_datafile()

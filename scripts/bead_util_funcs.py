@@ -1,4 +1,4 @@
-import h5py, os, re, glob, time, sys, fnmatch
+import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -173,7 +173,8 @@ def make_all_pardirs(path):
 
 
 
-def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True):
+def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
+                    exclude_fpga=True):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -211,6 +212,8 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True):
     if sort:
         # Sort files based on final index
         files.sort(key = find_str)
+    elif sort_time:
+        files = sort_files_by_timestamp(files)
 
     if len(files) == 0:
         print "DIDN'T FIND ANY FILES :("
@@ -225,7 +228,11 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True):
 
 def sort_files_by_timestamp(files):
     '''Pretty self-explanatory function.'''
-    files = [(get_hdf5_time(path), path) for path in files]
+    try:
+        files = [(get_hdf5_time(path), path) for path in files]
+    except:
+        print 'BAD HDF5 TIMESTAMPS'
+        files = []
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -318,6 +325,8 @@ def getdata(fname, gain_error=1.0):
 
     return dat, attribs
 
+
+
 def get_hdf5_time(fname):
     try:
         f = h5py.File(fname,'r')
@@ -328,8 +337,32 @@ def get_hdf5_time(fname):
     except (KeyError, IOError):
         print "Warning, got no keys for: ", fname
         attribs = {}
-
+        
     return attribs["Time"]
+
+
+def sudo_call(fn, *args):
+    with open("/home/charles/some_test.py", "wb") as f:
+        f.write( inspect.getsource(fn) )
+        f.write( "%s(*%r)" % (fn.__name__,args) )
+    out = subprocess.check_output("sudo python /home/charles/some_test.py", shell=True)
+    print out
+
+
+def fix_time(fname, time):
+    '''THIS SCRIPT ONLY WORKS AS ROOT OR A SUDOER. It usually runs
+       via the script above, which creates a subroutine. Thus, this 
+       function needs to be completely self-sufficient, which is why
+       it reimports h5py.'''
+    try:
+        import h5py
+        f = h5py.File(fname, 'r+')
+        f['beads/data/pos_data'].attrs.create("Time", time)
+        f.close()
+        print "Fixed time."
+    except:
+        print "Couldn't fix the time..."
+
 
 def labview_time_to_datetime(lt):
     '''Convert a labview timestamp (i.e. time since 1904) to a  
@@ -594,7 +627,7 @@ def extract_quad(quad_dat, timestamp, verbose=False):
         # This threshold is used to identify the timestamp 
         # in the stream of I32s
         timestamp = time.time()
-        diff_thresh = 31.0 * 24.0 * 3600.0
+        diff_thresh = 365.0 * 24.0 * 3600.0
     else:
         timestamp = timestamp * (10.0**(-9))
         diff_thresh = 60.0
@@ -604,8 +637,8 @@ def extract_quad(quad_dat, timestamp, verbose=False):
         # it's a 64 bit object
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            high = np.int32(quad_dat[ind])
-            low = np.int32(quad_dat[ind+1])
+            high = np.uint32(quad_dat[ind])
+            low = np.uint32(quad_dat[ind+1])
             dattime = (high.astype(np.uint64) << np.uint64(32)) \
                       + low.astype(np.uint64)
 
@@ -619,11 +652,11 @@ def extract_quad(quad_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    quad_time_high = np.int32(quad_dat[ind::12])
-    quad_time_low = np.int32(quad_dat[ind+1::12])
+    quad_time_high = np.uint32(quad_dat[ind::12])
+    quad_time_low = np.uint32(quad_dat[ind+1::12])
     if len(quad_time_low) != len(quad_time_high):
         quad_time_high = quad_time_high[:-1]
-    quad_time = quad_time_high.astype(np.uint64) << np.uint64(32) \
+    quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
                   + quad_time_low.astype(np.uint64)
 
     amp = [quad_dat[ind+2::12], quad_dat[ind+3::12], quad_dat[ind+4::12], \
@@ -668,11 +701,11 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     
     if timestamp == 0.0:
         # if no timestamp given, use current time
-        # and set the timing threshold for 1 month.
+        # and set the timing threshold for 1 year.
         # This threshold is used to identify the timestamp 
         # in the stream of I32s
         timestamp = time.time()
-        diff_thresh = 31.0 * 24.0 * 3600.0
+        diff_thresh = 365.0 * 24.0 * 3600.0
     else:
         timestamp = timestamp * (10.0**(-9))
         diff_thresh = 60.0
@@ -683,8 +716,8 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
         # it's a 64 bit object
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            high = np.int32(xyz_dat[ind])
-            low = np.int32(xyz_dat[ind+1])
+            high = np.uint32(xyz_dat[ind])
+            low = np.uint32(xyz_dat[ind+1])
             dattime = (high.astype(np.uint64) << np.uint64(32)) \
                       + low.astype(np.uint64)
 
@@ -699,12 +732,12 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    xyz_time_high = np.int32(xyz_dat[tind::11])
-    xyz_time_low = np.int32(xyz_dat[tind+1::11])
+    xyz_time_high = np.uint32(xyz_dat[tind::11])
+    xyz_time_low = np.uint32(xyz_dat[tind+1::11])
     if len(xyz_time_low) != len(xyz_time_high):
         xyz_time_high = xyz_time_high[:-1]
 
-    xyz_time = xyz_time_high.astype(np.uint64) << np.uint64(32) \
+    xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
 
     xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
