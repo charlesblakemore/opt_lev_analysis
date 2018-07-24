@@ -1,4 +1,4 @@
-import h5py, os, re, glob, time, sys, fnmatch
+import h5py, os, re, glob, time, sys, fnmatch, inspect
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -74,6 +74,8 @@ class DataFile:
             # is driven and 0 otherwise
         self.cant_calibrated = False
 
+        
+
     def load_only_attribs(self, fname):
         dat, attribs = getdata(fname)
         if len(dat) == 0:
@@ -86,7 +88,8 @@ class DataFile:
         self.date = fname.split('/')[2]
 
         self.fsamp = attribs["Fsamp"]
-        self.time = labview_time_to_datetime(attribs["Time"])
+        self.time = attribs["Time"]
+
         try:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
@@ -149,9 +152,17 @@ class DataFile:
         #else:
         #    self.badfile = False
         
+        self.fname = fname
+        #print fname
+
         self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
-        #print(self.time)
-        
+
+        if self.time == 0:
+            print 'Bad time...', self.time
+            self.FIX_TIME = True
+        else:
+            self.FIX_TIME = False
+
         self.fsamp = attribs["Fsamp"]
         self.nsamp = len(dat[:,0])
 
@@ -176,8 +187,19 @@ class DataFile:
 
             fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
                                                self.encode_bits, plot_sync=plot_sync)
-            self.sync_data = fpga_dat['sync']
 
+            # IT CAN ONLY FIX THE TIME ATTRIB IF THE PARENT SCRIPT IS EXECUTED
+            # AS ROOT OR ANY SUPERUSER
+            if self.FIX_TIME:
+
+                self.time = fpga_dat['xyz_time'][0]
+                assert self.time != 0
+
+                print 'New (good) time...', self.time
+
+                sudo_call(fix_time, self.fname, self.time)
+
+            self.sync_data = fpga_dat['sync']
 
             ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
             self.pos_data = fpga_dat['xyz']
@@ -221,8 +243,6 @@ class DataFile:
             self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
 
         #print attribs
-        self.fname = fname
-        #print fname
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
