@@ -173,8 +173,16 @@ def fit_parabola_to_chi2(params, chi_sqs, plot=False):
     return outdic
 
 
-
-
+def plot_temp_fit(dat, temps, fit_coefs, errs, series_label = '', axobj = ''):
+    '''Plots data with errors and the template scaled by fit'''
+    x = np.arange(len(dat))
+    fit  = np.einsum('i, ij->j', fit_coefs, temps)
+    if axobj:
+        axobj.errorbar(x, dat, errs, fmt = 'o', label = series_label + 'data')
+        axobj.plot(x, fit, 'x', label = series_label + 'fit')
+    else:
+        plt.errorbar(x, dat, errs, fmt = 'o', label = series_label + 'data')
+        plt.plot(x, fit, 'x', label = series_label + 'fit')
 
 def build_mod_grav_funcs(theory_data_dir):
     '''Loads data from the output of /data/grav_sim_data/process_data.py
@@ -279,7 +287,6 @@ def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
 def norm(dirbynarr):
     '''computes the rms norm alond the last axis of dirbynarr'''
     return np.sqrt(np.sum(np.abs(dirbynarr)**2, axis = -1))
-
 
 
 class FileData:
@@ -405,7 +412,8 @@ class FileData:
     
     def fit_alpha_xyz(self, tempsxyz, diag = False, \
                       columns = ["fit coefs", "sigmas", "fit success", "NLL_min"], \
-                      inject = [], fake_signal = False):
+                      inject = [], fake_signal = False, plot_fit = False, \
+                      dir_labels = ['x', 'y', 'z']):
         '''fits x, y, and z force data sepretly. Returns a pandas Series object containing
            the results of the fit. If there is an injection template, it is added to the data.
            if white noise is True, replaces the data with a signal drawn from a distribution 
@@ -435,6 +443,8 @@ class FileData:
         sigmast = np.concatenate((sigmasned/np.sqrt(2), sigmasned/np.sqrt(2)), axis = -1)
         #loop over directions and compute independent alpha for each direction
         df = pd.DataFrame()
+        if plot_fit:
+            f, axarr = plt.subplots(3, 1, sharex = True)
         for i in range(len(dat)):
             x, hess_inv, success, NLL_min = \
                     fit_templates(tempst[:, i, :], datnt[i, :], sigmast[i, :])
@@ -446,7 +456,23 @@ class FileData:
             sigs_fit = np.einsum("i, i->i", 1./ns_temps[:, i], sigs_fit)
             dfi = pd.DataFrame([[x, sigs_fit, success, NLL_min]], columns = [c +" " + str(i) for c in columns])
             df = pd.concat([df, dfi], axis = 1, sort = False)
-        
+            if plot_fit:
+                tempsxyz = np.array(tempsxyz)
+                dati_re = np.real(dat[i])
+                dati_im = np.imag(dat[i])
+                tempsi_re = np.real(tempsxyz[:, i, :])
+                tempsi_im = np.imag(tempsxyz[:, i, :])
+                plot_temp_fit(dati_re, tempsi_re, x, sigmas[i]/np.sqrt(2), 
+                        series_label = 're '+ dir_labels[i] , axobj = axarr[i])
+
+                plot_temp_fit(dati_im, tempsi_im, x, sigmas[i]/np.sqrt(2), 
+                        series_label = 'im '+ dir_labels[i] , axobj = axarr[i])
+                axarr[i].legend()
+                if i == 2:
+                    plt.xlabel("harmonic")
+                    plt.ylabel("Fourier amplitude [N*Hz]")
+                    plt.show()
+
         return df
 
 
@@ -685,10 +711,46 @@ class AggregateData:
         self.agg_dict = agg_dict
 
 
+    def makeTemplates(self, ginds, pts, s = [3, 11]):
+        '''Given a set of points, makes a Yukawa template for each lambda.'''
+        temp_dat = np.zeros([len(self.lambdas)] + s, dtype = complex)
+        for lambind in range(len(self.lambdas)):
+            temp_dat[lambind, :, :] = yukfft_template(self.yukfuncs, ginds, lambind, pts)
+        return temp_dat
+    
+    def getDataFrames(self):
+        """Churns over the data making a DataFrame storing file level data
+        At the harmonic level, and a Data frame of unique templates."""
 
-    def AggregateDataMC(self, br_temps = [], single_lambda = True, \
-            lambda_value = 25E-6, fake_lambda = 25E-6, fake_alpha = 1E9, white_noise = True, 
-            same_noise = False, n_fake = 10):
+        if not self.grav_loaded:
+            print "Must load theory data first..."
+            return
+        
+        Nobj = len(self.file_data_objs)
+        dft = pd.DataFrame(columns = ["ax1pos", "ax2pos", "time", "phi", "fft_data", "fft_errors"])
+        df_templates = pd.DataFrame(columns = ["ax1pos", "ax2pos", "templates"])
+        objinds = np.arange(len(self.file_data_objs))
+        temp_indx = 0
+        #first loop over files
+        for objind in objinds:
+            #create data frame holding info from ith file data object
+            file_data_obj = self.file_data_objs[objind]
+            dft.loc[objind] = [file_data_obj.ax1pos, file_data_obj.ax2pos, file_data_obj.time, \
+                    file_data_obj.phi_cm, file_data_obj.datffts, file_data_obj.daterrs]
+
+            #get file specific information
+            ## Get sep and height from axis positi
+            if not sum((dft["ax1pos"] == file_data_obj.ax1pos)*(dft["ax2pos"] == file_data_obj.ax2pos)) or temp_indx == 0:
+                full_pts  = file_data_obj.generate_pts(self.p0_bead)
+                temp_dat = self.makeTemplates(file_data_obj.ginds, full_pts)
+                df_templates.loc[temp_indx] = [file_data_obj.ax1pos, file_data_obj.ax2pos, temp_dat]
+                temp_indx += 1
+
+        return pd.Series([dft, df_templates], index = ["data", "templates"])
+
+    def AnalyzeData(self, br_temps = [], single_lambda = True, fit_beta = False, \
+            lambda_value = 25E-6, fake_lambda = 25E-6, fake_alpha = 0, noise_data = False, 
+            same_noise = False, n_fake = 0, same_noise_level = 1E-12):
         """Analyzes the data with a fake signal injected. If white noise is True, replaces measured
            signal with white noise drawn from a distribution consistent with the errors"""
 
@@ -734,11 +796,21 @@ class AggregateData:
             #now loop over lambdas
             for i, lambind in enumerate(lambda_inds):
                 if same_noise:
-                    file_data_obj.daterrs = np.ones_like(file_data_obj.daterrs)*10**-12
+                    file_data_obj.daterrs = np.ones_like(file_data_obj.daterrs)*same_noise_level
                 yukfft = yukfft_template(self.yukfuncs, file_data_obj.ginds, lambind, full_pts)
-                dfl = file_data_obj.fit_alpha_xyz([yukfft] + br_temps, \
-                        inject = fake_alpha*yukfft_inj, fake_signal = white_noise)
+                ##Beware!!!! generating new noise realization for each lambda which is not 
+                #realistic. Need to fix
+                if fit_beta:
+                    temps = np.array([np.conj(yukfft)] + br_temps)
+                else:
+                    temps = np.array([np.conj(yukfft)] + br_temps)
+
+                dfl = file_data_obj.fit_alpha_xyz(temps, \
+                        inject = fake_alpha*yukfft_inj, fake_signal = noise_data)
+                #figure out which information to keep track of in data frame
                 dfl["lambda"] = self.lambdas[lambind]
+                dfl["ax1pos"] = file_data_obj.ax1pos
+                dfl["ax2pos"] = file_data_obj.ax2pos
                 index = [[objind], [lambind]]
                 dfl.index = index
                 dft = dft.append(dfl)
