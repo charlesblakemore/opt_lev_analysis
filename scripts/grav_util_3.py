@@ -48,6 +48,7 @@ chi2dist = stats.chi2(1)
 con_val = 0.5 * chi2dist.ppf(confidence_level)
 
 
+ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 
 # Various fitting functions
 # pretty self explanatory so there are few comments
@@ -67,9 +68,179 @@ def flicker(x, a):
     return a * (1. / x)
 
 
-def gauss(x, A, mu, sigma, scale = 1.):
+def gauss(x, A, mu, sigma):
     "standard gaussian pdf"
-    return A/np.sqrt(2.*np.pi*(sigma*scale)**2)*np.exp(-1.*(x*scale-mu*scale)**2/(2*(sigma*scale)**2))
+    prefac = A / np.sqrt( 2.0 * np.pi * sigma**2 )
+    exp = -1.0 * (x - mu)**2 / (2 * sigma**2)
+    return prefac * np.exp(exp)
+
+
+
+def null(A, eps=1.0e-15):
+    '''Given a matrix A (which can be incredibly sparse), computes
+       the set of vectors that span the null space of the matrix A
+
+       INPUTS:   A,   Input matrix, assumed NxN dimensional. Can be a list of
+                      lists, or a 2-dimensional ndarray
+                 eps, error (relative to a vector with compoenents of 
+                      order unity) accepted for an inner product to be
+                      to be considered 0.
+
+       OUTPUTS:  null_space, MxN dimensional ndarry with M basis vectors that 
+                             span the null of A
+    '''
+    
+    B = np.array(A)
+    if np.sum(B) == 0:
+        return B
+
+    C = np.zeros_like(B)
+
+    u, s, vh = scipy.linalg.svd(B)
+    null_mask = (s <= eps)
+    null_space = scipy.compress(null_mask, vh, axis=0)
+    return null_space
+
+
+
+
+def make_basis_from_template_vec(template_vec):
+    '''Uses SVD decomposition to make a set of N, linearly
+       independent basis-vectors from a single N-dimensional
+       input vector.
+
+       INPUTS:   template_vec, iterable object with N-components
+                               assumed complex-valued. 
+
+       OUTPUTS (dictionary with entries keyed by strings):
+            key: 'real_basis', ndarray with rows given by spanning
+                               basis vectors for the real components
+            key: 'imag_basis', ndarray with rows given by spanning
+                               basis vectors for the imaginary comp.
+    '''
+    template_vec = np.array(template_vec)
+
+    ### Extract real and imaginary to consider them independently
+    reals = template_vec.real
+    imags = template_vec.imag
+
+    real_norm = np.linalg.norm(reals)
+    imag_norm = np.linalg.norm(imags)
+
+    zeros = np.zeros_like(reals)
+    
+    ### Build up the matrix of basis vectors with our single, known
+    ### vector and the rest zeros (large null space)
+    real_rows = [reals / real_norm]
+    if imag_norm != 0: 
+        # if template_vec is real, then imag_norm = 0. we don't
+        # want any divide-by-zero errors do we
+        imag_rows = [imags / imag_norm]
+    else:
+        imag_rows = [imags]
+
+    ### Add the zero vectors
+    for dim in range(len(reals)-1):
+        real_rows.append(zeros)
+        imag_rows.append(zeros)
+
+    ### Compute a set of linearly independent vectors that span
+    ### the null of the given matrices
+    real_basis = null(real_rows) * real_norm
+    imag_basis = null(imag_rows) * imag_norm
+    
+    ### Append the real and imaginary components of the given input
+    ### vector in order to complete the spanning basis
+    real_basis = np.append([reals], real_basis, axis=0)
+    imag_basis = np.append([imags], imag_basis, axis=0)
+
+    outdict = {'real_basis': real_basis, 'imag_basis': imag_basis}
+    return outdict
+
+
+
+
+def projection(u, v):
+    '''Project the real vector v onto the real vector u.'''
+    cross_term = np.inner(u, v)
+    self_term = np.inner(u, u)
+
+    return (cross_term / self_term) * np.array(u)
+
+
+
+
+def gram_schmidt(basis, normalize=True, plot=False):
+    '''Performs the gram_schmidt procedure to transform the NxN 
+       dimensional input basis (assumed to span R^N) to an orthogonal
+       basis, with an option to normalize
+
+       INPUTS:   basis, NxN dimensional object with the first index
+                        indexing the basis vectors
+                 normalize, optional argument to normalize the output
+
+       OUTPUTS:  orthogonal_basis, NxN ndarray
+    '''
+    N = basis.shape[0]
+    orthogonal_basis = []
+    for i in range(N):
+
+        temp_vec = np.array(basis[i])
+
+        ### Loop over all new basis vectors created so far and subtract 
+        ### the projection of the current, old basis vector on those 
+        ### new basis vectors to obtain the next orthogonal basis vector
+        ###
+        ### First orthogonal basis vector is just the first vector of our
+        ### original basis (i.e. likely a template vector)
+
+        for new_vec in orthogonal_basis:
+            temp_vec -= projection( new_vec, np.array(basis[i]) )
+        orthogonal_basis.append(temp_vec)
+
+    ### Normalize if desired
+    if normalize:
+        orthonormal_basis = []
+        for vec in orthogonal_basis:
+            orthonormal_basis.append(vec / np.linalg.norm(vec))
+    
+    ### Plot basis (via imshow) and a matrix of inner products to 
+    ### demonstrate orthogonality
+    if plot:
+        plt.subplot(131)
+        plt.imshow(basis)
+        plt.title('Original Basis')
+        plt.colorbar()
+        plt.subplot(132)
+        plt.imshow(orthogonal_basis)
+        plt.title('Orthogonal Basis')
+        plt.colorbar()
+        plt.subplot(133)
+        plt.imshow(orthogonal_basis - basis)
+        plt.title('Diff')
+        plt.colorbar()
+
+        if normalize:
+            ident_basis = orthonormal_basis
+        else:
+            ident_basis = orthogonal_basis
+
+        ident = np.zeros((N,N))
+        for i in range(N):
+            for j in range(N):
+                ident[i,j] = np.inner(ident_basis[i], ident_basis[j])
+        
+        plt.figure()
+        plt.title('Matrix of Inner Products')
+        plt.imshow(ident)
+        plt.colorbar()
+        plt.show()
+
+    outdict = {'orthogonal': np.array(orthogonal_basis)}
+    if normalize:
+        outdict['orthonormal'] = np.array(orthonormal_basis)
+
+    return outdict
 
 
 
@@ -231,16 +402,6 @@ def fit_parabola_to_chi2(params, chi_sqs, plot=False):
     return outdic
 
 
-def plot_temp_fit(dat, temps, fit_coefs, errs, series_label = '', axobj = ''):
-    '''Plots data with errors and the template scaled by fit'''
-    x = np.arange(len(dat))
-    fit  = np.einsum('i, ij->j', fit_coefs, temps)
-    if axobj:
-        axobj.errorbar(x, dat, errs, fmt = 'o', label = series_label + 'data')
-        axobj.plot(x, fit, 'x', label = series_label + 'fit')
-    else:
-        plt.errorbar(x, dat, errs, fmt = 'o', label = series_label + 'data')
-        plt.plot(x, fit, 'x', label = series_label + 'fit')
 
 
 def build_mod_grav_funcs(theory_data_dir):
@@ -294,62 +455,9 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
-def yukfft_template(yukfuncs, ginds, lambind, full_pts):
-    '''Generates a 3d frequency domain yukawa template for fitting.'''
-    yukfft = [[], [], []]
-    for resp in [0,1,2]:
-        yukforcet = yukfuncs[resp][lambind](full_pts*1.0e-6)
-        yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
-    return np.array(yukfft)
 
 
 
-def plot_histogram_fit(data):
-    '''plots histogram of data and shows fit to gaussian'''
-    bins, xo = np.histogram(data)
-    fbool = bins>30.
-    bin_cents = (xo[1:] + xo[:-1])/2.
-    p0 =[np.std(data)*max(bins)*np.sqrt(2.*np.pi), np.mean(data), np.std(data)]
-    popt, pcov = curve_fit(gauss, bin_cents[fbool], bins[fbool], sigma = np.sqrt(bins[fbool]), p0 = p0)
-    plt.hist(data)
-    lab = "$\mu$ = " + str(popt[1]) + " +/- " + str(np.sqrt(pcov[1][1]))
-    plt.plot(bin_cents, gauss(bin_cents, *popt),'r' , label = lab, linewidth = 2)
-    plt.legend()
-    plt.show()
-
-    return
-
-def extend_complex(arr):
-    '''extends an array of complex numbers with shape (..., n) to a real array 
-       with shape (..., 2n) by concatenating the real and imaginary parts along 
-       the last axis.'''
-    return np.concatenate((np.real(arr), np.imag(arr)), axis = -1)
-
-def white_noise(sigmas):
-    '''generates an fft white noise realization with a shape and distribution consistent 
-       with sigmas'''
-    s = np.shape(sigmas)
-    nr = np.random.randn(s[0], s[1])/(np.sqrt(2))
-    nim = 1.j*np.random.randn(s[0], s[1])/(np.sqrt(2))
-    nc = nr + nim
-    return np.einsum('ij, ij->ij', sigmas, nc)
-
-
-def fit_templates(templates, data, weights, method = 'BFGS', x0 = 0):
-    '''wrapper for scipy.optimize.minimize to fit a sum of templates to the data. returns the maximum liklihood template coefficients and the covariance matrix determined 
-    from the inverse Hessian matrix returned by the fitting subroutine'''
-    def NLL(arr):
-        return (1./2.)*np.sum((np.einsum('i, ij->j', arr, templates) - data)**2/weights**2)
-    x0 = x0*np.ones(len(templates))
-    res = scipy.optimize.minimize(NLL, x0, method = method)
-    return res.x, res.hess_inv, res.success, res.fun  
-
-
-
-
-def norm(dirbynarr):
-    '''computes the rms norm alond the last axis of dirbynarr'''
-    return np.sqrt(np.sum(np.abs(dirbynarr)**2, axis = -1))
 
 
 class FileData:
@@ -364,6 +472,7 @@ class FileData:
         df = bu.DataFile()
         try:
             df.load(fname)
+            self.fname = fname
             self.badfile = False
         except:
             self.badfile = True
@@ -381,6 +490,8 @@ class FileData:
         self.data_closed = False
         
 
+
+
     def rebuild_drive(self, mean_pos=40.0):
 
         ## Transform ginds array to array of indices for drive freq
@@ -397,6 +508,7 @@ class FileData:
         drivevec = np.fft.irfft(full_drive_fft)[self.drive_ind]
 
         return drivevec + mean_pos
+
 
 
 
@@ -421,10 +533,10 @@ class FileData:
         ## Apply the notch filter
         fftdat = self.df.get_datffts_and_errs(self.ginds, self.drive_freq, noiseband=noiseband, \
                                               plot=plot_harm_extraction)
-        self.datffts = fftdat['datffts']
-        self.daterrs = fftdat['daterrs']
-        self.diagdatffts = fftdat['diagdatffts']
-        self.diagdaterrs = fftdat['diagdaterrs']
+        self.datfft = fftdat['datffts']
+        self.daterr = fftdat['daterrs']
+        self.diagdatfft = fftdat['diagdatffts']
+        self.diagdaterr = fftdat['diagdaterrs']
 
         self.driveffts = fftdat['driveffts']
 
@@ -480,73 +592,6 @@ class FileData:
 
         return full_pts
 
-    
-    def fit_alpha_xyz(self, tempsxyz, diag = False, \
-                      columns = ["fit coefs", "sigmas", "fit success", "NLL_min"], \
-                      inject = [], fake_signal = False, plot_fit = False, \
-                      dir_labels = ['x', 'y', 'z']):
-        '''fits x, y, and z force data separately. Returns a pandas Series object containing
-           the results of the fit. If there is an injection template, it is added to the data.
-           if white noise is True, replaces the data with a signal drawn from a distribution 
-           consistent with errorbars.'''
-
-        if diag:
-            dat = self.diagdatffts
-            sigmas = self.diagdaterrs
-        else:
-            dat = self.datffts
-            sigmas = self.daterrs
-        if fake_signal:
-            dat = white_noise(sigmas)
-        if len(inject):
-            dat += inject
-        
-        #first normalize data and template so fitter does not shit itself.
-        ndat = norm(dat)
-        ns_temps = np.array(map(norm, tempsxyz))
-        datned = np.einsum("i, ij->ij", 1./ndat, dat)
-        sigmasned = np.einsum("i, ij->ij", 1./ndat, sigmas)
-        tempsn = np.einsum("ij, ijk->ijk", 1./ns_temps, tempsxyz)
-        #extend imaginary templates and data to a real vector twice the length 
-        datnt = np.concatenate((np.real(datned), np.imag(datned)), axis = -1)
-        tempst = np.concatenate((np.real(tempsn), np.imag(tempsn)), axis = -1)
-        #error may laread have factor of sqrt(2). Need to check
-        sigmast = np.concatenate((sigmasned/np.sqrt(2), sigmasned/np.sqrt(2)), axis = -1)
-        #loop over directions and compute independent alpha for each direction
-        df = pd.DataFrame()
-        if plot_fit:
-            f, axarr = plt.subplots(3, 1, sharex = True)
-        for i in range(len(dat)):
-            x, hess_inv, success, NLL_min = \
-                    fit_templates(tempst[:, i, :], datnt[i, :], sigmast[i, :])
-            sigs_fit = np.sqrt(np.diag(hess_inv))
-            #undo normalization
-            x *= ndat[i]
-            x = np.einsum("i, i->i", 1./ns_temps[:, i], x)
-            sigs_fit *= ndat[i]
-            sigs_fit = np.einsum("i, i->i", 1./ns_temps[:, i], sigs_fit)
-            dfi = pd.DataFrame([[x, sigs_fit, success, NLL_min]], columns = [c +" " + str(i) for c in columns])
-            df = pd.concat([df, dfi], axis = 1, sort = False)
-            if plot_fit:
-                tempsxyz = np.array(tempsxyz)
-                dati_re = np.real(dat[i])
-                dati_im = np.imag(dat[i])
-                tempsi_re = np.real(tempsxyz[:, i, :])
-                tempsi_im = np.imag(tempsxyz[:, i, :])
-                plot_temp_fit(dati_re, tempsi_re, x, sigmas[i]/np.sqrt(2), 
-                        series_label = 're '+ dir_labels[i] , axobj = axarr[i])
-
-                plot_temp_fit(dati_im, tempsi_im, x, sigmas[i]/np.sqrt(2), 
-                        series_label = 'im '+ dir_labels[i] , axobj = axarr[i])
-                axarr[i].legend()
-                if i == 2:
-                    plt.xlabel("harmonic")
-                    plt.ylabel("Fourier amplitude [N*Hz]")
-                    plt.show()
-
-        return df
-
-
 
 
 
@@ -557,8 +602,35 @@ class FileData:
         self.df = bu.DataFile()
 
 
+        
+    def save(self):
+        parts = self.fname.split('.')
+        if len(parts) > 2:
+            print "Bad file name... too many periods/extensions"
+            return
+        else:
+            savepath = '/processed_data/fildat' + parts[0] + '.fildat'
+            bu.make_all_pardirs(savepath)
+            pickle.dump(self, open(savepath, 'wb'))
 
 
+
+    def load(self):
+        parts = self.fname.split('.')
+        if len(parts) > 2:
+            print "Bad file name... too many periods/extensions"
+            return
+        else:
+            loadpath = '/processed_data/fildat' + parts[0] + '.fildat'
+            
+            #try:
+            old_class = pickle.load( open(loadpath, 'rb') )
+            
+            ### Load all of the class attributes
+            self.__dict__.update(old_class.__dict__)
+
+            # except:
+            #     print "Couldn't find previously saved fildat"
 
 
 
@@ -571,7 +643,8 @@ class AggregateData:
        has some methods that work on each object in a loop.'''
 
     
-    def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[]):
+    def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[], \
+                 reload_dat=False):
         
         self.fnames = fnames
         self.p0_bead = p0_bead
@@ -584,22 +657,29 @@ class AggregateData:
             bu.progress_bar(name_ind, Nnames, suffix=suff)
 
             # Initialize FileData obj, extract the data, then close the big file
-            try:
-                new_obj = FileData(name, tophatf=tophatf)
+            new_obj = FileData(name, tophatf=tophatf)
+            if new_obj.badfile:
+                continue
+
+            if not reload_dat:
+                new_obj.load()
+            else:
                 new_obj.extract_data(harms=harms)
                 new_obj.load_position_and_bias()
 
                 new_obj.close_datafile()
-            
-                self.file_data_objs.append(new_obj)
 
-            except:
-                continue
+            new_obj.save()
+
+            self.file_data_objs.append(new_obj)
 
         self.grav_loaded = False
 
         self.alpha_dict = ''
         self.agg_dict = ''
+        self.avg_dict = ''
+
+        self.ginds = ''
 
 
     def save(self, savepath):
@@ -608,10 +688,28 @@ class AggregateData:
             print "Bad file name... too many periods/extensions"
             return
         else:
-            savepath = parts[0] + '.agg'
+            if parts[1] != 'agg':
+                print 'Changing file extension on save: %s -> .agg' % parts[1]
+                savepath = parts[0] + '.agg'
             self.clear_grav_funcs()
             pickle.dump(self, open(savepath, 'wb'))
             self.reload_grav_funcs()
+
+
+    def load(self, loadpath):
+        parts = loadpath.split('.')
+        if len(parts) > 2:
+            print "Bad file name... too many periods/extensions"
+            return
+        else:
+            print 'Loading aggregate data... ',
+            sys.stdout.flush()
+            if parts[1] != 'agg':
+                print 'Changing file extension to match autosave: %s -> .agg' % parts[1]
+                loadpath = parts[0] + '.agg'
+            old_class = pickle.load( open(loadpath, 'rb') )
+            self.__dict__.update(old_class.__dict__)
+            print 'Done!'
 
             
     def load_grav_funcs(self, theory_data_dir, verbose=True):
@@ -643,6 +741,50 @@ class AggregateData:
         self.grav_loaded = False
 
 
+
+    def make_templates(self, posvec, drivevec, ax1pos, ax2pos, ginds, \
+                       single_lambda=False, single_lambind=0):
+        
+        xpos = self.p0_bead[0] + (80 - ax1pos)
+        height = ax2pos - self.p0_bead[2]
+
+        ones = np.ones_like(posvec)
+        pts = np.stack((xpos*ones, posvec, height*ones), axis=-1)
+
+        ## Include normal gravity in fit. But why???
+        gfft = [[], [], []]
+        for resp in [0,1,2]:
+                    
+            gforce = self.gfuncs[resp](pts*1.0e-6)
+            gforce_func = interp.interp1d(posvec, gforce)
+
+            gforcet = gforce_func(drivevec)
+            gfft[resp] = np.fft.rfft(gforcet)[ginds]
+
+        gfft = np.array(gfft)
+
+        yuks = []
+        for lambind, yuklambda in enumerate(self.lambdas):
+
+            if single_lambda and (lambind != single_lambind):
+                continue
+
+            yukfft = [[], [], []]
+            for resp in [0,1,2]:
+                yukforce = self.yukfuncs[resp][lambind](pts*1.0e-6)
+                yukforce_func = interp.interp1d(posvec, yukforce)
+
+                yukforcet = yukforce_func(drivevec)
+                yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
+            yukfft = np.array(yukfft)
+
+            yuks.append(yukfft)
+
+        outdict = {'gfft': gfft, 'yukffts': yuks}
+        return outdict
+
+
+
     def bin_rough_stage_positions(self, ax_disc=0.5):
         '''Loops over the preprocessed file_data_objs and organizes them by rough stage position,
            discretizing the rough stage position by a user-controlled parameter. Unfortunately,
@@ -662,6 +804,9 @@ class AggregateData:
         Nax2 = {}
 
         for file_data_obj in self.file_data_objs:
+            if type(self.ginds) == str:
+                self.ginds = file_data_obj.ginds
+
             bias = file_data_obj.cantbias
             ax1pos = file_data_obj.ax1pos
             ax2pos = file_data_obj.ax2pos
@@ -782,14 +927,117 @@ class AggregateData:
         self.agg_dict = agg_dict
 
 
-    def makeTemplates(self, ginds, pts, s = [3, 11]):
-        '''Given a set of points, makes a Yukawa template for each lambda.'''
-        temp_dat = np.zeros([len(self.lambdas)] + s, dtype = complex)
-        for lambind in range(len(self.lambdas)):
-            temp_dat[lambind, :, :] = yukfft_template(self.yukfuncs, ginds, lambind, pts)
-        return temp_dat
+
+    def average_resp_by_coordinate(self):
+        '''Once data has been binned, average together the response and drive
+           for every file at a given (height, sep)'''
     
-    def getDataFrames(self):
+        avg_dict = {}
+        for bias in self.agg_dict.keys():
+            avg_dict[bias] = {}
+            for ax1key in self.ax1vec:
+                avg_dict[bias][ax1key] = {}
+                for ax2key in self.ax2vec:
+                    avg_dict[bias][ax1key][ax2key] = {}
+
+        suff = 'Averaging response at each position'
+        i = 0
+        totlen = len(self.agg_dict.keys()) * len(self.ax1vec) * len(self.ax2vec)
+        for bias, ax1, ax2 in itertools.product(self.agg_dict.keys(), self.ax1vec, self.ax2vec):
+            i += 1
+            newline=False
+            if i == totlen:
+                newline=True
+            bu.progress_bar(i, totlen, newline=newline, suffix=suff)
+
+            ### Pull out fileData() objects at the same position
+            objs = self.agg_dict[bias][ax1][ax2]
+
+            nfiles = len(objs)
+            filfac = 1.0 / float(nfiles)
+
+            xpos = 0.0
+            height = 0.0
+
+            ### Initialize average arrays 
+            drivevec_avg = np.zeros_like(objs[0].rebuild_drive())
+            posvec_avg = np.zeros_like(objs[0].posvec)
+            datfft_avg = np.zeros_like(objs[0].datfft)
+            daterr_avg = np.zeros_like(objs[0].daterr)
+            binned_avg = np.zeros_like(objs[0].binned)
+            old_ginds = []
+
+            ### Average over integrations at the same position
+            for objind, obj in enumerate(objs):
+
+                ### Assumes all data files haves same nsamp, fsamp
+                if objind == 0:
+                    self.ginds = obj.ginds
+                    self.nsamp = obj.nsamp
+                    self.fsamp = obj.fsamp
+
+                xpos += filfac * (self.p0_bead[0] + (80 - obj.ax1pos))
+                height += filfac * (obj.ax2pos - self.p0_bead[2])
+
+                if not len(old_ginds):
+                    old_ginds = obj.ginds
+                np.testing.assert_array_equal(obj.ginds, old_ginds, \
+                                              err_msg='notch filter changes between files...')
+                old_ginds = obj.ginds
+
+                drivevec = obj.rebuild_drive()
+                drivevec_avg += filfac * drivevec
+
+                posvec_avg += filfac * obj.posvec
+                datfft_avg += filfac * obj.datfft
+                daterr_avg += filfac * obj.daterr
+                binned_avg += filfac * obj.binned
+
+            ### Store the data for each position, including the full drivevec
+            ### array, as there should only be ~100 different positions. It may be
+            ### the case that we only need one drivevec for the whole thing, but 
+            ### I have yet to demonstrate that
+            avg_dict[bias][ax1][ax2]['drivevec'] = drivevec_avg
+            avg_dict[bias][ax1][ax2]['posvec'] = posvec_avg
+            avg_dict[bias][ax1][ax2]['datfft'] = datfft_avg
+            avg_dict[bias][ax1][ax2]['daterr'] = daterr_avg
+            avg_dict[bias][ax1][ax2]['binned'] = binned_avg
+
+        self.avg_dict = avg_dict
+
+        print
+
+
+
+
+    def get_dataframes_averaged(self):
+        '''Collects response into a DataFrame object for each coordinate,
+           which is many averaged integrations.'''
+
+        file_data_avg = pd.DataFrame(columns = ["ax1pos", "ax2pos", \
+                                                "fft_data", "fft_errors"] )
+        template_data = pd.DataFrame(columns = ["ax1pos", "ax2pos", "templates"])
+        
+        i = 0
+        for ax1ind, ax1pos in enumerate(self.ax1vec):
+            for ax2ind, ax2pos in enumerate(self.ax2vec):
+
+                avg_dat = self.avg_dict[self.biasvec[0]][ax1pos][ax2pos]
+                file_data_avg.loc[i] = [ax1pos, ax2pos, avg_dat['datfft'], avg_dat['daterr']]
+
+                templates = self.make_templates(avg_dat['posvec'], avg_dat['drivevec'], \
+                                                ax1pos, ax2pos, self.ginds)
+
+                template_data.loc[i] = [ax1pos, ax2pos, templates]
+                i += 1
+
+        self.avg_dataframes = file_data_avg
+        self.template_dataframes = template_data
+
+    
+
+
+    def get_dataframes_raw(self):
         """Churns over the data making a DataFrame storing file level data
         At the harmonic level, and a Data frame of unique templates."""
 
@@ -798,95 +1046,22 @@ class AggregateData:
             return
         
         Nobj = len(self.file_data_objs)
+
         dft = pd.DataFrame(columns = ["ax1pos", "ax2pos", "time", "phi", "fft_data", "fft_errors"])
         df_templates = pd.DataFrame(columns = ["ax1pos", "ax2pos", "templates"])
-        objinds = np.arange(len(self.file_data_objs))
+
         temp_indx = 0
         #first loop over files
-        for objind in objinds:
-            #create data frame holding info from ith file data object
-            file_data_obj = self.file_data_objs[objind]
-            dft.loc[objind] = [file_data_obj.ax1pos, file_data_obj.ax2pos, file_data_obj.time, \
-                    file_data_obj.phi_cm, file_data_obj.datffts, file_data_obj.daterrs]
+        for objind, file_data_obj in enumerate(self.file_data_objs):
 
-            #get file specific information
-            ## Get sep and height from axis positi
-            if not sum((dft["ax1pos"] == file_data_obj.ax1pos)*(dft["ax2pos"] == file_data_obj.ax2pos)) or temp_indx == 0:
-                full_pts  = file_data_obj.generate_pts(self.p0_bead)
-                temp_dat = self.makeTemplates(file_data_obj.ginds, full_pts)
-                df_templates.loc[temp_indx] = [file_data_obj.ax1pos, file_data_obj.ax2pos, temp_dat]
-                temp_indx += 1
+            #create data frame holding info from ith file data object
+            dft.loc[objind] = [file_data_obj.ax1pos, file_data_obj.ax2pos, file_data_obj.time, \
+                    file_data_obj.phi_cm, file_data_obj.datfft, file_data_obj.daterr]
 
         return pd.Series([dft, df_templates], index = ["data", "templates"])
 
-    def AnalyzeData(self, br_temps = [], single_lambda = True, fit_beta = False, \
-            lambda_value = 25E-6, fake_lambda = 25E-6, fake_alpha = 0, noise_data = False, 
-            same_noise = False, n_fake = 0, same_noise_level = 1E-12):
-        """Analyzes the data with a fake signal injected. If white noise is True, replaces measured
-           signal with white noise drawn from a distribution consistent with the errors"""
-
-        if not self.grav_loaded:
-            print "Must load theory data first..."
-            return
-        
-        Nobj = len(self.file_data_objs)
-        dft = pd.DataFrame()
-        lambind_inj = np.argmin((fake_lambda - self.lambdas)**2)
-
-        lambda_inds = np.arange(len(self.lambdas))
-        if single_lambda:
-            lind  = np.argmin((lambda_value - self.lambdas)**2)
-            lambda_inds = [lambda_inds[lind]]
-            n_lam = 1
-        else:
-            n_lam = len(self.lambdas)
-
-        #deal with MC from data vs totally fake case
-        if n_fake:
-            objinds = range(n_fake)
-        else:
-            objinds = range(len(self.file_data_objs))
-
-        #first loop over files
-        for objind in objinds:
-
-            if n_fake:
-                file_data_obj = self.file_data_objs[0]
-            else:
-                file_data_obj = self.file_data_objs[objind]
-            #get file specific information
-            bu.progress_bar(objind, Nobj, suffix='Fitting Alpha vs. Time')
-            t = file_data_obj.time
-            phi = file_data_obj.phi_cm
-
-            ## Get sep and height from axis positi
-            full_pts  = file_data_obj.generate_pts(self.p0_bead)
-            yukfft_inj = yukfft_template(self.yukfuncs, file_data_obj.ginds, lambind_inj, full_pts)
 
 
-            #now loop over lambdas
-            for i, lambind in enumerate(lambda_inds):
-                if same_noise:
-                    file_data_obj.daterrs = np.ones_like(file_data_obj.daterrs)*same_noise_level
-                yukfft = yukfft_template(self.yukfuncs, file_data_obj.ginds, lambind, full_pts)
-                ##Beware!!!! generating new noise realization for each lambda which is not 
-                #realistic. Need to fix
-                if fit_beta:
-                    temps = np.array([np.conj(yukfft)] + br_temps)
-                else:
-                    temps = np.array([np.conj(yukfft)] + br_temps)
-
-                dfl = file_data_obj.fit_alpha_xyz(temps, \
-                        inject = fake_alpha*yukfft_inj, fake_signal = noise_data)
-                #figure out which information to keep track of in data frame
-                dfl["lambda"] = self.lambdas[lambind]
-                dfl["ax1pos"] = file_data_obj.ax1pos
-                dfl["ax2pos"] = file_data_obj.ax2pos
-                index = [[objind], [lambind]]
-                dfl.index = index
-                dft = dft.append(dfl)
-
-        return dft
 
 
 
@@ -940,7 +1115,221 @@ class AggregateData:
 
 
 
-    def find_mean_alpha_vs_position(self, ignoreXYZ=(0,0,0)):
+    def find_alpha_xyz_from_templates(self, plot=False, plot_basis=False):
+
+        print 'Finding alpha for each coordinate via an FFT template fitting algorithm...'
+        
+        if not self.grav_loaded:
+            print "FAILED: Must load thoery data first!"
+            try:
+                self.reload_grav_funcs()
+                print "UN-FAILED: Loaded dat therory dat!"
+            except:
+                return
+
+        alpha_xyz_dict = {}
+        for bias in self.agg_dict.keys():
+            alpha_xyz_dict[bias] = {}
+            for ax1key in self.ax1vec:
+                alpha_xyz_dict[bias][ax1key] = {}
+                for ax2key in self.ax2vec:
+                    alpha_xyz_dict[bias][ax1key][ax2key] = []
+
+        ### Progress bar shit
+        i = 0
+        totlen = len(self.agg_dict.keys()) * len(self.ax1vec) * len(self.ax2vec)
+        for bias, ax1, ax2 in itertools.product(self.agg_dict.keys(), self.ax1vec, self.ax2vec):
+            
+            ### Progress bar shit
+            i += 1
+            suff = '%i / %i position combinations' % (i, totlen)
+            newline=False
+            if i == totlen:
+                newline=True
+
+            file_data_objs = self.agg_dict[bias][ax1][ax2]
+
+            j = 0
+            totlen_2 = len(file_data_objs) * len(self.lambdas)
+            for objind, obj in enumerate(file_data_objs):
+                
+                alpha_xyz_dict[bias][ax1][ax2].append([])
+
+                drivevec = obj.rebuild_drive()
+                posvec = obj.posvec
+                datfft = obj.datfft
+                daterr = obj.daterr
+                binned = obj.binned
+
+
+                ## Loop over lambdas and do the template analysis for each value of lambda
+                for lambind, yuklambda in enumerate(self.lambdas):
+                    ### Progress bar shit
+                    bu.progress_bar(j, totlen_2, suffix=suff, newline=newline)
+                    j += 1
+    
+                    amps = [[], [], []]
+                    errs = [[], [], []]
+                    templates = self.make_templates(posvec, drivevec, ax1, ax2, self.ginds, \
+                                                    single_lambda=True, single_lambind=lambind)
+
+                    if plot and i == 0:
+                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False)
+
+                    for resp in [0,1,2]:
+
+                        ### Get the modified gravity fft template, with alpha = 1
+                        yukfft = templates['yukffts'][0][resp]
+
+                        template_vec = np.concatenate((yukfft.real, yukfft.imag))
+
+                        c_datfft = datfft[resp] #+ 1.0e15 * yukfft
+                        data_vec = np.concatenate((c_datfft.real, c_datfft.imag))
+                        err_vec = np.concatenate((daterr[resp].real, daterr[resp].imag))
+
+                        ### Compute an 2*Nharmonic-dimensional basis for the real and 
+                        ### imaginary components of our template signal yukfft, where
+                        ### the template itself will be one of the orthogonal basis vectors
+                        bases = make_basis_from_template_vec(template_vec)
+
+                        ### The SVD decomposition above should produce an orthonormal basis
+                        ### but this function is included to demonstrate that
+                        ortho_basis = gram_schmidt(bases['real_basis'], plot=plot_basis)['orthogonal']
+
+                        ### Loop over our orthogonal basis vectors and compute the inner 
+                        ### product of the data and the basis vector
+                        #c_amps = np.sqrt( np.einsum('ij,j->i', ortho_basis, data_vec) )
+                        #c_errs = np.sqrt( np.einsum('ij,j->i', ortho_basis, err_vec) )
+                        for k in range(len(ortho_basis)):
+                            amps[resp].append( np.inner( ortho_basis[k], data_vec) )
+                            errs[resp].append( np.inner( ortho_basis[k], err_vec ) )
+
+                        ### Normalize the amplitudes to units of alpha (convert previous inner
+                        ### products to positive-definite projections)
+                        amps[resp] = amps[resp] / np.inner(template_vec, template_vec)
+                        errs[resp] = np.abs(errs[resp]) / np.inner(template_vec, template_vec)
+                        if plot and i == 0:
+                            axarr[resp].errorbar(range(len(amps[resp])), \
+                                                 amps[resp], errs[resp], fmt='o')
+
+                    if plot and i == 0:
+                        plt.show()
+
+                    alpha_xyz_dict[bias][ax1][ax2][objind].append([amps, errs])
+
+        print 'Done!'   
+        self.alpha_xyz_dict = alpha_xyz_dict
+
+
+
+
+
+
+    def find_alpha_xyz_from_templates_avg(self, plot=False, plot_basis=False):
+
+        print
+        print 'Finding alpha for each coordinate via an FFT'
+        print 'template fitting algorithm'
+        
+        if not self.grav_loaded:
+            print "FAILED: Must load thoery data first!"
+            try:
+                self.reload_grav_funcs()
+                print "UN-FAILED: Loaded dat therory dat!"
+            except:
+                return
+
+        if type(self.avg_dict) == str:
+            self.average_resp_by_coordinate()
+
+        alpha_xyz_dict = {}
+        for bias in self.avg_dict.keys():
+            alpha_xyz_dict[bias] = {}
+            for ax1key in self.ax1vec:
+                alpha_xyz_dict[bias][ax1key] = {}
+                for ax2key in self.ax2vec:
+                    alpha_xyz_dict[bias][ax1key][ax2key] = []
+
+        i = 0
+        totlen = len(self.avg_dict.keys()) * len(self.ax1vec) * len(self.ax2vec)
+        for bias, ax1, ax2 in itertools.product(self.avg_dict.keys(), self.ax1vec, self.ax2vec):
+            ### Progress bar shit
+            i += 1
+            suff = '%i / %i position combinations' % (i, totlen)
+            newline=False
+            if i == totlen:
+                newline=True
+
+            avg_dat = self.avg_dict[bias][ax1][ax2]
+
+            drivevec_avg = avg_dat['drivevec']
+            posvec_avg = avg_dat['posvec']
+            datfft_avg = avg_dat['datfft']
+            daterr_avg = avg_dat['daterr']
+            binned_avg = avg_dat['binned']
+
+
+            ## Loop over lambdas and do the template analysis for each value of lambda
+            for lambind, yuklambda in enumerate(self.lambdas):
+                bu.progress_bar(lambind, len(self.lambdas), suffix=suff, newline=newline)
+
+                amps = [[], [], []]
+                errs = [[], [], []]
+                templates = self.make_templates(posvec_avg, drivevec_avg, ax1, ax2, self.ginds, \
+                                                single_lambda=True, single_lambind=lambind)
+
+                if plot and i == 0:
+                    fig, axarr = plt.subplots(3,1,sharex=True,sharey=False)
+
+                for resp in [0,1,2]:
+
+                    ### Get the modified gravity fft template, with alpha = 1
+                    yukfft = templates['yukffts'][0][resp]
+                
+                    template_vec = np.concatenate((yukfft.real, yukfft.imag))
+
+                    c_datfft = datfft_avg[resp] #+ 1.0e15 * yukfft
+                    data_vec = np.concatenate((c_datfft.real, c_datfft.imag))
+                    err_vec = np.concatenate((daterr_avg[resp].real, daterr_avg[resp].imag))
+
+                    ### Compute an 2*Nharmonic-dimensional basis for the real and 
+                    ### imaginary components of our template signal yukfft, where
+                    ### the template itself will be one of the orthogonal basis vectors
+                    bases = make_basis_from_template_vec(template_vec)
+
+                    ### The SVD decomposition above should produce an orthonormal basis
+                    ### but this function is included to demonstrate that
+                    ortho_basis = gram_schmidt(bases['real_basis'], plot=plot_basis)['orthogonal']
+
+                    ### Loop over our orthogonal basis vectors and compute the inner 
+                    ### product of the data and the basis vector
+                    #c_amps = np.sqrt( np.einsum('ij,j->i', ortho_basis, data_vec) )
+                    #c_errs = np.sqrt( np.einsum('ij,j->i', ortho_basis, err_vec) )
+                    for j in range(len(ortho_basis)):
+                        amps[resp].append( np.inner( ortho_basis[j], data_vec) )
+                        errs[resp].append( np.inner( ortho_basis[j], err_vec ) )
+
+                    ### Normalize the amplitudes to units of alpha (convert previous inner
+                    ### products to positive-definite projections)
+                    amps[resp] = amps[resp] / np.inner(template_vec, template_vec)
+                    errs[resp] = np.abs(errs[resp]) / np.inner(template_vec, template_vec)
+                    if plot and i == 0:
+                        axarr[resp].errorbar(range(len(amps[resp])), \
+                                             amps[resp], errs[resp], fmt='o')
+
+                if plot and i == 0:
+                    plt.show()
+
+                alpha_xyz_dict[bias][ax1][ax2].append([amps, errs])
+
+        print 'Done!'   
+        self.alpha_xyz_dict_avg = alpha_xyz_dict
+
+
+
+
+
+    def find_mean_alpha_vs_position_avg(self, ignoreXYZ=(0,0,0)):
 
         print 'Finding alpha vs. height/separation...'
         
@@ -948,8 +1337,11 @@ class AggregateData:
             print "FAILED: Must load thoery data first!"
             return
 
+        if type(self.avg_dict) == str:
+            self.average_resp_by_coordinate()
+
         alpha_dict = {}
-        for bias in self.agg_dict.keys():
+        for bias in self.avg_dict.keys():
             alpha_dict[bias] = {}
             for ax1key in self.ax1vec:
                 alpha_dict[bias][ax1key] = {}
@@ -957,90 +1349,36 @@ class AggregateData:
                     alpha_dict[bias][ax1key][ax2key] = []
 
         i = 0
-        totlen = len(self.agg_dict.keys()) * len(self.ax1vec) * len(self.ax2vec)
-        for bias, ax1, ax2 in itertools.product(self.agg_dict.keys(), self.ax1vec, self.ax2vec):
+        totlen = len(self.avg_dict.keys()) * len(self.ax1vec) * len(self.ax2vec)
+        for bias, ax1, ax2 in itertools.product(self.avg_dict.keys(), self.ax1vec, self.ax2vec):
+            ### Progress bar shit
             i += 1
             suff = '%i / %i position combinations' % (i, totlen)
             newline=False
             if i == totlen:
                 newline=True
 
-            objs = self.agg_dict[bias][ax1][ax2]
+            avg_dat = self.avg_dict[bias][ax1][ax2]
 
-            nfiles = len(objs)
-            filfac = 1.0 / float(nfiles)
-
-            xpos = 0.0
-            height = 0.0
-
-            ### Initialize average arrays 
-            drivevec_avg = np.zeros_like(objs[0].rebuild_drive())
-            posvec_avg = np.zeros_like(objs[0].posvec)
-            datfft_avg = np.zeros_like(objs[0].datffts)
-            daterr_avg = np.zeros_like(objs[0].daterrs)
-            binned_avg = np.zeros_like(objs[0].binned)
-            old_ginds = []
-
-            #average over integrateions at the same position
-            for obj in objs:
-                xpos += filfac * (self.p0_bead[0] + (80 - obj.ax1pos))
-                height += filfac * (obj.ax2pos - self.p0_bead[2])
-
-                if not len(old_ginds):
-                    old_ginds = obj.ginds
-                np.testing.assert_array_equal(obj.ginds, old_ginds, err_msg='notch filter changes between files...')
-                old_ginds = obj.ginds
-
-                drivevec = obj.rebuild_drive()
-                drivevec_avg += filfac * drivevec
-
-                posvec_avg += filfac * obj.posvec
-                datfft_avg += filfac * obj.datffts
-                daterr_avg += filfac * obj.daterrs
-                binned_avg += filfac * obj.binned
-
-            full_ones = np.ones_like(drivevec_avg)
-            full_pts = np.stack((xpos*full_ones, drivevec_avg, height*full_ones), axis=-1)
-
-            ones = np.ones_like(posvec_avg)
-            pts = np.stack((xpos*ones, posvec_avg, height*ones), axis=-1)
-
-            ## Include normal gravity in fit. But why???
-            gfft = [[], [], []]
-            for resp in [0,1,2]:
-                if ignoreXYZ[resp]:
-                    gfft[resp] = np.zeros(np.sum(old_ginds))
-                    continue
-                gforcet = self.gfuncs[resp](full_pts*1.0e-6)
-                gfft[resp] = np.fft.rfft(gforcet)[old_ginds]
-            gfft = np.array(gfft)
+            drivevec_avg = avg_dat['drivevec_avg']
+            posvec_avg = avg_dat['posvec_avg']
+            datfft_avg = avg_dat['datfft']
+            daterr_avg = avg_dat['daterr']
+            binned_avg = avg_dat['binned']
 
             best_fit_alphas = np.zeros(len(self.lambdas))
             best_fit_errs = np.zeros(len(self.lambdas))
 
-            ## Loop over lambdas and 
-            
+            ## Loop over lambdas and             
             for lambind, yuklambda in enumerate(self.lambdas):
                 bu.progress_bar(lambind, len(self.lambdas), suffix=suff, newline=newline)
-                
 
-                yukfft = [[], [], []]
-                start_yuk2 = time.time()
-                for resp in [0,1,2]:
-                    if ignoreXYZ[resp]:
-                        yukfft[resp] = np.zeros(np.sum(old_ginds))
-                        continue
-                    yukforce = self.yukfuncs[resp][lambind](pts*1.0e-6)
-                    yukforce_func = interp.interp1d(posvec_avg, yukforce)
-
-                    yukforcet = yukforce_func(drivevec_avg)
-                    yukfft[resp] = np.fft.rfft(yukforcet)[old_ginds]
-                yukfft2 = np.array(yukfft)
-            
-                newalpha = 2.0 * np.mean( np.abs(datfft_avg[0]) ) / np.mean( np.abs(yukfft[0]) ) * 1.5*10**(-1)
+                newalpha = 2.0 * np.mean( np.abs(datfft_avg[0]) ) / \
+                           np.mean( np.abs(yukfft[0]) ) * 1.5*10**(-1)
                 testalphas = np.linspace(-1.0*newalpha, newalpha, 51)
 
-                chi_sq_dat = get_chi2_vs_param_complex(datfft_avg, daterr_avg, ignoreXYZ, yukfft, testalphas)
+                chi_sq_dat = get_chi2_vs_param_complex(datfft_avg, daterr_avg, ignoreXYZ, \
+                                                       yukfft, testalphas)
                 chi_sqs = chi_sq_dat['red_chi_sqs']
                 fit_result = fit_parabola_to_chi2(testalphas, chi_sqs)
 
@@ -1055,7 +1393,314 @@ class AggregateData:
 
 
 
-    def fit_alpha_vs_alldim(self, weight_planar=True):
+
+
+
+
+
+
+
+    def fit_alpha_xyz_vs_alldim(self, weight_planar=True):
+
+        if not self.grav_loaded:
+            try:
+                self.reload_grav_funcs()
+            except:
+                print 'No grav funcs... Tried to reload but no filename'
+
+        alpha_xyz_best_fit = [[[[] for k in range(2 * np.sum(self.ginds))] \
+                                    for resp in [0,1,2]] \
+                                   for yuklambda in self.lambdas]
+
+        ### Assume separations are encoded in ax1 and heights in ax2
+        seps = 80 + self.p0_bead[0] - np.array(self.ax1vec)
+        heights = self.p0_bead[2] - np.array(self.ax2vec) 
+        
+        ### Sort the heights and separations and build a grid
+        sort1 = np.argsort(seps)
+        sort2 = np.argsort(heights)
+        seps_sort = seps[sort1]
+        heights_sort = heights[sort2]
+        heights_g, seps_g = np.meshgrid(heights_sort, seps_sort)
+
+        ### Progress bar shit
+        ind = 0
+        totlen = len(self.lambdas) * (2 * np.sum(self.ginds)) * 3
+
+        for bias in self.biasvec:
+            ### Doesn't actually handle different biases correctly, although the
+            ### data is structured such that if different biases are present
+            ### they will be in distinct datasets
+
+            for lambind, yuklambda in enumerate(self.lambdas):
+
+                for resp in [0,1,2]:
+
+                    dat = []
+                    errs = []
+                    for k in range(2 * np.sum(self.ginds)):
+                        dat.append([[[] for i in range(len(heights))] for j in range(len(seps))])
+                        errs.append([[[] for i in range(len(heights))] for j in range(len(seps))])
+
+                    for ax1ind, ax1pos in enumerate(self.ax1vec):
+
+                        ### Loop over all files at each separation and collect
+                        ### the value of alpha for the current value of yuklambda
+                        for ax2ind, ax2pos in enumerate(self.ax2vec):
+
+                            tempdat = self.alpha_xyz_dict[bias][ax1pos][ax2pos]
+
+                            for fileind, filedat in enumerate(tempdat):
+    
+                                for k in range(2 * np.sum(self.ginds)):
+                                    dat[k][ax1ind][ax2ind].append(tempdat[fileind][lambind][0][resp][k])
+                                    errs[k][ax1ind][ax2ind].append(tempdat[fileind][lambind][1][resp][k])
+
+                    dat = np.array(dat)
+                    errs = np.array(errs)
+
+                    ### Since the data dictionary was indexed by cantilever settings 
+                    ### rather than actual bead positions, we have to sort the data
+                    ### to match the sorted separations and heights
+                    for k in range(2 * np.sum(self.ginds)):
+                        dat[k] = dat[k][sort1,:]
+                        dat[k] = dat[k][:,sort2]
+                        errs[k] = errs[k][sort1,:]
+                        errs[k] = errs[k][:,sort2]
+    
+                    #if lambind == 0:
+                    #    fig = plt.figure()
+                    #    ax = fig.gca(projection='3d')
+                    #    for k in range(2 * np.sum(self.ginds)):
+                    #        ax.scatter(heights_g, seps_g, dat[k], label='Best-fit alphas')
+                    #        #ax.scatter(heights_g, seps_g, errs[k], \
+                    #        #           label='Errors for weighting in planar fit')
+                    #    ax.legend()
+                    #    ax.set_xlabel('Z-position [um]')
+                    #    ax.set_ylabel('X-separation [um]')
+                    #    ax.set_zlabel('Alpha %s [arb]' % ax_dict[resp])
+                    #    if resp == 2:
+                    #        plt.show()
+    
+                    #scale_fac = np.mean(dat.flatten())
+                    scale_fac = 10**9
+
+                    #dat_sc = dat * (1.0 / scale_fac)
+                    #errs_sc = errs * (1.0 / scale_fac)
+                    #if not weight_planar:
+                    #    errs_sc = np.ones_like(dat_sc)
+
+                    for k in range(2 * np.sum(self.ginds)):
+    
+                        bu.progress_bar(ind, totlen, suffix='Fitting planes... ')
+                        ind += 1
+                        #print i,
+    
+    
+                        if k == 0:
+                            test_grids = []
+                            for thing in range(len(dat[k][0][0])):
+                                test_grids.append( np.zeros_like(seps_g) )
+                            fig = plt.figure()
+                            ax = fig.gca(projection='3d')
+    
+    
+                        pts = []
+                        for sepind, sep in enumerate(seps_sort):
+                            for heightind, height in enumerate(heights_sort):
+    
+                                for filind in range(len(dat[k][sepind][heightind])):
+    
+                                    if k == 0:
+                                        if filind >= len(test_grids) - 1:
+                                            continue
+                                        test_grids[filind][heightind][sepind] = \
+                                                            dat[k][sepind][heightind][filind]
+    
+                                    #if dat[k][sepind][heightind][filind] > 5.0e10:
+                                    #    continue
+    
+                                    pts.append([ sep, height, \
+                                                 dat[k][sepind][heightind][filind], \
+                                                 errs[k][sepind][heightind][filind] ])
+                        pts = np.array(pts)
+                        
+                        pts[:,2] *= (1.0 / scale_fac)
+                        pts[:,3] *= pts[:,3] * (1.0 / scale_fac)
+    
+                        ### Defined a function to minimize via least-squared optimization
+                        def func(params):
+                            funcval = params[0] * pts[:,0] + params[1] * pts[:,1] + params[2]
+                            return np.sum( (pts[:,2] - funcval) / pts[:,3] )
+
+                        print np.mean(pts[:,2])
+                        print ind
+    
+                        ### Optimize the previously defined function
+                        res = opti.minimize(func, [0.2*np.mean(pts[:,2]), 0.2*np.mean(pts[:,2]), 0])
+
+                        x = res.x
+    
+                        if k == 0:
+                            for thing in range(len(dat[k][sepind][heightind])):
+                                ax.scatter(heights_g, seps_g, test_grid[filind])
+                            fit = (heights_g * x[1] + seps_g * x[0] + x[2])
+                            ax.plot_surface(heights_g, seps_g, fit, alpha=0.3)
+                            plt.show()
+    
+                        #print res.success
+
+                        ### Deplane the data and extract some statistics
+                        #deplaned = dat[k] - scale_fac * (x[0] * heights_g + x[1] * seps_g + x[2])
+                        #deplaned_wconst = deplaned + scale_fac * x[2]
+
+                        #deplaned_avg = np.mean(deplaned)
+                        #deplaned_std = np.std(deplaned) / dat.size
+
+                        alpha_xyz_best_fit[lambind][resp][k] = np.abs(x[2] * scale_fac)
+    
+        
+        self.alpha_xyz_best_fit = np.array(alpha_xyz_best_fit)
+        raw_input()
+
+
+
+
+
+
+
+
+    def fit_alpha_xyz_vs_alldim_avg(self, weight_planar=True):
+
+        if not self.grav_loaded:
+            try:
+                self.reload_grav_funcs()
+            except:
+                print 'No grav funcs... Tried to reload but no filename'
+
+        self.alpha_xyz_best_fit = [[], [], []]
+        self.alpha_xyz_95cl = [[], [], []]
+
+        self.alpha_xyz_best_fit = [[[[] for k in range(2 * np.sum(self.ginds))] \
+                                    for resp in [0,1,2]] \
+                                   for yuklambda in self.lambdas]
+
+        ### Assume separations are encoded in ax1 and heights in ax2
+        seps = 80 + self.p0_bead[0] - np.array(self.ax1vec)
+        heights = self.p0_bead[2] - np.array(self.ax2vec) 
+        
+        ### Sort the heights and separations and build a grid
+        sort1 = np.argsort(seps)
+        sort2 = np.argsort(heights)
+        seps_sort = seps[sort1]
+        heights_sort = heights[sort2]
+        heights_g, seps_g = np.meshgrid(heights_sort, seps_sort)
+
+        for bias in self.biasvec:
+            ### Doesn't actually handle different biases correctly, although the
+            ### data is structured such that if different biases are present
+            ### they will be in distinct datasets
+
+            for lambind, yuklambda in enumerate(self.lambdas):
+
+                xyz_dat = [[], [], []]
+
+                for resp in [0,1,2]:
+
+                    dat = []
+                    errs = []
+                    for k in range(2 * np.sum(self.ginds)):
+                        dat.append([[[] for i in range(len(heights))] for j in range(len(seps))])
+                        errs.append([[[] for i in range(len(heights))] for j in range(len(seps))])
+
+                    for ax1ind, ax1pos in enumerate(self.ax1vec):
+
+                        ### Loop over all files at each separation and collect
+                        ### the value of alpha for the current value of yuklambda
+                        for ax2ind, ax2pos in enumerate(self.ax2vec):
+
+                            tempdat = self.alpha_xyz_dict_avg[bias][ax1pos][ax2pos]
+
+                            for k in range(2 * np.sum(self.ginds)):
+                                dat[k][ax1ind][ax2ind] = tempdat[lambind][0][resp][k]
+                                errs[k][ax1ind][ax2ind] = tempdat[lambind][1][resp][k]
+
+                    dat = np.array(dat)
+                    errs = np.array(errs)
+
+                    ### Since the data dictionary was indexed by cantilever settings 
+                    ### rather than actual bead positions, we have to sort the data
+                    ### to match the sorted separations and heights
+                    for k in range(2 * np.sum(self.ginds)):
+                        dat[k] = dat[k][sort1,:]
+                        dat[k] = dat[k][:,sort2]
+                        errs[k] = errs[k][sort1,:]
+                        errs[k] = errs[k][:,sort2]
+    
+                    if lambind == 0:
+                        fig = plt.figure()
+                        ax = fig.gca(projection='3d')
+                        for k in range(2 * np.sum(self.ginds)):
+                            ax.scatter(heights_g, seps_g, dat[k], label='Best-fit alphas')
+                            #ax.scatter(heights_g, seps_g, errs[k], \
+                            #           label='Errors for weighting in planar fit')
+                        ax.legend()
+                        ax.set_xlabel('Z-position [um]')
+                        ax.set_ylabel('X-separation [um]')
+                        ax.set_zlabel('Alpha %s [arb]' % ax_dict[resp])
+                        if resp == 2:
+                            plt.show()
+    
+                    scale_fac = np.mean(dat)
+
+                    dat_sc = dat * (1.0 / scale_fac)
+                    errs_sc = errs * (1.0 / scale_fac)
+                    if not weight_planar:
+                        errs_sc = np.ones_like(dat_sc)
+
+                    for k in range(2 * np.sum(self.ginds)):
+                        ### Defined a function to minimize via least-squared optimization
+                        def func(params, fdat=dat_sc[k], ferrs=errs_sc[k]):
+                            funcval = params[0] * heights_g + params[1] * seps_g + params[2]
+                            return ((funcval - fdat) / ferrs).flatten()
+
+                        ### Optimize the previously defined function
+                        res = opti.leastsq(func, [0.2*np.mean(dat_sc), 0.2*np.mean(dat_sc), 0], \
+                                           full_output=1, maxfev=10000)
+
+                        try:
+                            x = res[0]
+                            residue = linalg.inv(res[1])[2,2]
+                        except:
+                            2+2
+
+                        ### Deplane the data and extract some statistics
+                        deplaned = dat[k] - scale_fac * (x[0] * heights_g + x[1] * seps_g + x[2])
+                        deplaned_wconst = deplaned + scale_fac * x[2]
+
+                        deplaned_avg = np.mean(deplaned)
+                        deplaned_std = np.std(deplaned) / dat.size
+
+                        self.alpha_xyz_best_fit[lambind][resp][k] = np.abs(x[2]*scale_fac)
+                        #self.alpha_xyz_95cl[resp].append(deplaned_std)
+
+            #plt.plot(lambdas, alphas)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def fit_mean_alpha_vs_alldim(self, weight_planar=True):
 
         if not self.grav_loaded:
             try:
@@ -1078,9 +1723,11 @@ class AggregateData:
         heights_g, seps_g = np.meshgrid(heights_sort, seps_sort)
 
         for bias in self.biasvec:
-            
-            for lambind, yuklambda in enumerate(self.lambdas):
+            ### Doesn't actually handle different biases correctly, although the
+            ### data is structured such that if different biases are present
+            ### they will be in distinct datasets
 
+            for lambind, yuklambda in enumerate(self.lambdas):
                 dat = [[[] for i in range(len(heights))] for j in range(len(seps))]
                 errs = [[[] for i in range(len(heights))] for j in range(len(seps))]
 
@@ -1138,6 +1785,8 @@ class AggregateData:
 
                 self.alpha_best_fit.append(np.abs(x[2]*scale_fac))
                 self.alpha_95cl.append(deplaned_std)
+
+
 
 
     def plot_alpha_dict(self, bias=0.0, yuklambda=25.0e-6, plot_errs=True):

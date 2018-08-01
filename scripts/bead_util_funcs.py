@@ -349,7 +349,7 @@ def sudo_call(fn, *args):
     print out
 
 
-def fix_time(fname, time):
+def fix_time(fname, dattime):
     '''THIS SCRIPT ONLY WORKS AS ROOT OR A SUDOER. It usually runs
        via the script above, which creates a subroutine. Thus, this 
        function needs to be completely self-sufficient, which is why
@@ -357,7 +357,7 @@ def fix_time(fname, time):
     try:
         import h5py
         f = h5py.File(fname, 'r+')
-        f['beads/data/pos_data'].attrs.create("Time", time)
+        f['beads/data/pos_data'].attrs.create("Time", dattime)
         f.close()
         print "Fixed time."
     except:
@@ -708,7 +708,8 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
         diff_thresh = 365.0 * 24.0 * 3600.0
     else:
         timestamp = timestamp * (10.0**(-9))
-        diff_thresh = 60.0
+        # 2-minute difference allowed for longer integrations
+        diff_thresh = 120.0
 
 
     for ind, dat in enumerate(xyz_dat):

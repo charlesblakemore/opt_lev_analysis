@@ -155,10 +155,10 @@ class DataFile:
         self.fname = fname
         #print fname
 
-        self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
+        self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
 
         if self.time == 0:
-            print 'Bad time...', self.time
+            #print 'Bad time...', self.time
             self.FIX_TIME = True
         else:
             self.FIX_TIME = False
@@ -192,12 +192,12 @@ class DataFile:
             # AS ROOT OR ANY SUPERUSER
             if self.FIX_TIME:
 
-                self.time = fpga_dat['xyz_time'][0]
+                self.time = np.int64(fpga_dat['xyz_time'][0])
                 assert self.time != 0
 
-                print 'New (good) time...', self.time
+                #print 'fix time: 0 -> ', self.time, '\r'
 
-                sudo_call(fix_time, self.fname, self.time)
+                #sudo_call(fix_time, self.fname, float(self.time))
 
             self.sync_data = fpga_dat['sync']
 
