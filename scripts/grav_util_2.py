@@ -480,7 +480,6 @@ class FileData:
                       columns = ["fit coefs", "sigmas", "fit success", "NLL_min"], \
                       inject = [], fake_signal = False, plot_fit = False, \
                       dir_labels = ['x', 'y', 'z']):
-                      inject = [], fake_signal = False):
         '''fits x, y, and z force data separately. Returns a pandas Series object containing
            the results of the fit. If there is an injection template, it is added to the data.
            if white noise is True, replaces the data with a signal drawn from a distribution 

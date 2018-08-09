@@ -197,7 +197,7 @@ class DataFile:
 
                 print 'New (good) time...', self.time
 
-                sudo_call(fix_time, self.fname, self.time)
+                #sudo_call(fix_time, self.fname, self.time)
 
             self.sync_data = fpga_dat['sync']
 

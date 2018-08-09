@@ -24,16 +24,16 @@ step_cal_dir = '/data/20180704/bead1/discharge/fine2'
 max_file = 500
 
 
-fake_step_cal = False
+fake_step_cal = True
 vpn = 1.0e14
 
-tf_cal_dir = '/data/20180704/bead1/tf_20180704/'
+tf_cal_dir = '/data/20180808/bead4/tf_20180809/'
 
 date = tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
 interpolate = False 
-save = True 
+save = False 
 
 
 # Doesn't use this but might later
@@ -103,7 +103,7 @@ for fil_ind, filname in enumerate(tf_cal_files):
 allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False)
 
 Hout = allH['Hout']
-Hnoise = all['Hnoise']
+Hnoise = allH['Hout_noise']
 
 # Calibrate the transfer function to Vresp / Newton_drive
 # for a particular charge step calibration
