@@ -129,7 +129,9 @@ def round_sig(x, sig=2):
 
 
 def fft_norm(N, fsamp):
+    "Factor to normalize FFT to ASD units"
     return np.sqrt(2 / (N * fsamp))
+
 
 
 #### First define some functions to help with the DataFile object. 
@@ -300,6 +302,37 @@ def copy_attribs(attribs):
 
 
 
+def euler_rotation_matrix(rot_angles, radians=True):
+    '''Returns a 3x3 euler-rotation matrix. Thus the rotation proceeds
+       thetaX (about x-axis) -> thetaY -> thetaZ, with the result returned
+       as a numpy ndarray.
+    '''
+
+
+    if not radians:
+        rot_angles = (np.pi / 180.0) * np.array(rot_angles)
+
+    rx = np.array([[1.0, 0.0, 0.0], \
+                   [0.0, np.cos(rot_angles[0]), -1.0*np.sin(rot_angles[0])], \
+                   [0.0, np.sin(rot_angles[0]), np.cos(rot_angles[0])]])
+
+    ry = np.array([[np.cos(rot_angles[1]), 0.0, np.sin(rot_angles[1])], \
+                   [0.0, 1.0, 0.0], \
+                   [-1.0*np.sin(rot_angles[1]), 0.0, np.cos(rot_angles[1])]])
+
+    rz = np.array([[np.cos(rot_angles[2]), -1.0*np.sin(rot_angles[2]), 0.0], \
+                   [np.sin(rot_angles[2]), np.cos(rot_angles[2]), 0.0], \
+                   [0.0, 0.0, 1.0]])
+
+
+    rxy = np.matmul(ry, rx)
+    rxyz = np.matmul(rz, rxy)
+
+    return rxyz
+
+
+
+
 def getdata(fname, gain_error=1.0):
     '''loads a .h5 file from a path into data array and 
        attribs dictionary, converting ADC bits into 
@@ -392,7 +425,8 @@ def unpack_config_dict(dic, vec):
 
 
 def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
-                sg_filter=False, sg_params=[3,1], verbose=True):
+                sg_filter=False, sg_params=[3,1], verbose=True, \
+                maxfreq=2500):
     '''Given two waveforms drive(t) and resp(t), this function generates
        resp(drive) with a fourier method. drive(t) should be a pure tone,
        such as a single frequency cantilever drive (although the 
@@ -434,7 +468,9 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     freqs = np.fft.rfftfreq(len(drive), d=dt)
 
     # Find the drive frequency, ignoring the DC bin
-    fund_ind = np.argmax( np.abs(drivefft[1:]) ) + 1
+    maxind = np.argmin( np.abs(freqs - maxfreq) )
+
+    fund_ind = np.argmax( np.abs(drivefft[1:maxind]) ) + 1
     drive_freq = freqs[fund_ind]
 
     meandrive = np.mean(drive)
@@ -449,10 +485,13 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
 
     # Error message triggered by verbose option
     if verbose:
-        if ( np.abs(drivefft[fund_ind-1]) > 0.01 * np.abs(drivefft[fund_ind]) or \
-             np.abs(drivefft[fund_ind+1]) > 0.01 * np.abs(drivefft[fund_ind]) ):
-            print "More than 1% power in neighboring bins: spatial binning may be suboptimal"
+        if ( (np.abs(drivefft[fund_ind-1]) > 0.03 * np.abs(drivefft[fund_ind])) or \
+             (np.abs(drivefft[fund_ind+1]) > 0.03 * np.abs(drivefft[fund_ind])) ):
+            print "More than 3% power in neighboring bins: spatial binning may be suboptimal"
             sys.stdout.flush()
+            plt.loglog(freqs, np.abs(drivefft))
+            plt.loglog(freqs[fund_ind], np.abs(drivefft[fund_ind]), '.', ms=20)
+            plt.show()
 
     # Expand the filter to more than a single bin. This can introduce artifacts
     # that appear like lissajous figures in the resp vs. drive final result

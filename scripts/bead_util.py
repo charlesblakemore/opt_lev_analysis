@@ -133,6 +133,9 @@ class DataFile:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
 
+
+
+
     def load(self, fname, plot_raw_dat=False, plot_sync=False):
 
         '''Loads the data from file with fname into DataFile object. 
@@ -145,12 +148,6 @@ class DataFile:
                 plt.plot(dat[:,n], label=str(n))
             plt.legend()
             plt.show()
-
-        #if len(dat) == 0:
-        #    self.badfile = True
-        #    return 
-        #else:
-        #    self.badfile = False
         
         self.fname = fname
         #print fname
@@ -175,9 +172,7 @@ class DataFile:
             imgrid = False
 
         if not imgrid:
-            
             fpga_fname = fname[:-3] + '_fpga.h5'
-
             fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
         
             try:
@@ -191,12 +186,9 @@ class DataFile:
             # IT CAN ONLY FIX THE TIME ATTRIB IF THE PARENT SCRIPT IS EXECUTED
             # AS ROOT OR ANY SUPERUSER
             if self.FIX_TIME:
-
                 self.time = np.int64(fpga_dat['xyz_time'][0])
                 assert self.time != 0
-
                 #print 'fix time: 0 -> ', self.time, '\r'
-
                 #sudo_call(fix_time, self.fname, float(self.time))
 
             self.sync_data = fpga_dat['sync']
@@ -214,16 +206,7 @@ class DataFile:
             self.phase = fpga_dat['phase']
             self.quad_time = fpga_dat['quad_time']
 
-            ####### Quadrant diode indices  
-            #######    ___________
-            #######   |     |     |
-            #######   |  2  |  0  |
-            #######   |_____|_____|
-            #######   |     |     |
-            #######   |  3  |  1  |
-            #######   |_____|_____|
-            #######
-
+            # run bu.print_quadrant_indices() to see an explanation of these
             right = self.amp[0] + self.amp[1]
             left = self.amp[2] + self.amp[3]
             top = self.amp[0] + self.amp[2]
@@ -242,9 +225,30 @@ class DataFile:
 
             self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
 
-        #print attribs
+
+        self.load_monitor_data(fname)
+
+                
+
+
+
+    def load_monitor_data(self, fname, debug=False):
+
+        '''Loads the data from file with fname into DataFile object. 
+           Does not perform any calibrations.  
+        ''' 
+
+        dat, attribs = getdata(fname)
+
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
+
+        if debug:
+            print attribs
+            print dat.shape
+            for i in range(dat.shape[1]):
+                plt.plot(dat[:,i])
+            plt.show()
 
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
         self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
@@ -298,7 +302,10 @@ class DataFile:
         for i, e in enumerate(self.electrode_settings["driven"]):
             if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
-                
+
+
+
+
     def load_other_data(self):
         dat, attribs = getdata(self.fname)
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
@@ -437,11 +444,12 @@ class DataFile:
         
 
 
-    def build_cant_filt(self, cant_fft, freqs, nharmonics=10, width=0, harms=[]):
+    def build_drive_filt(self, drive_fft, freqs, nharmonics=10, width=0, harms=[], \
+                         maxfreq=2500):
         '''Identify the fundamental drive frequency and make a notch filter
            with the number of harmonics requested.
 
-           INPUTS: cant_fft, fft of cantilever drive
+           INPUTS: drive_fft, fft of cantilever drive
                    freqs, array of frequencies associated to data ffts
                    harms, number of harmonics to included
                    width, width of the notch filter in Hz
@@ -449,10 +457,12 @@ class DataFile:
            OUTPUTS: none, generates new class attribute.'''
 
         # Find the drive frequency, ignoring the DC bin
-        fund_ind = np.argmax( np.abs(cant_fft[1:]) ) + 1
+        maxind = np.argmin( np.abs(freqs - maxfreq) )
+
+        fund_ind = np.argmax( np.abs(drive_fft[1:maxind]) ) + 1
         drive_freq = freqs[fund_ind]
 
-        drivefilt = np.zeros(len(cant_fft))
+        drivefilt = np.zeros(len(drive_fft))
         drivefilt[fund_ind] = 1.0
 
         if width:
@@ -480,8 +490,11 @@ class DataFile:
         return drivefilt, fund_ind, drive_freq
     
 
+
+
+
     def get_boolean_cantfilt(self, ext_cant=(False,1), ext_cant_drive=False, ext_cant_ind=1, \
-                             nharmonics=10, harms=[], width=0):
+                             nharmonics=10, harms=[], width=0, maxfreq=2500):
         '''Builds a boolean notch filter for the cantilever drive
 
            INPUTS: ext_cant, tuple with bool specifying if an external drive
@@ -500,21 +513,56 @@ class DataFile:
         freqs = np.fft.rfftfreq(len(drivevec), d=1.0/self.fsamp)
 
         drivefilt, fund_ind, drive_freq = \
-                    self.build_cant_filt(drivefft, freqs, nharmonics=nharmonics, \
-                                         harms=harms, width=width)
+                    self.build_drive_filt(drivefft, freqs, nharmonics=nharmonics, \
+                                          harms=harms, width=width, maxfreq=maxfreq)
 
         # Apply filter by indexing with a boolean array
-        ginds = drivefilt > 0
+        bool_ginds = drivefilt > 0
+        ginds = np.arange(len(drivefilt)).astype(np.int)[bool_ginds]
 
         outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
                   'drive_ind': drive_ind}
 
         return outdic
-        #return ginds, fund_ind, drive_freq, drive_ind
 
 
-    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False, \
-                             drive_ind=1):   
+
+
+
+    def get_boolean_elecfilt(self, elec_ind, nharmonics=10, harms=[], width=0, \
+                             maxfreq=2500):
+        '''Builds a boolean notch filter for the cantilever drive
+
+           INPUTS: ext_cant, tuple with bool specifying if an external drive
+                             was used for the cantilever, and the axis of that
+                             external drive (so we know which mon signal)
+
+           OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''
+
+        drivevec = self.electrode_data[elec_ind]
+        drivefft = np.fft.rfft(drivevec)
+
+        freqs = np.fft.rfftfreq(len(drivevec), d=1.0/self.fsamp)
+
+        drivefilt, fund_ind, drive_freq = \
+                    self.build_drive_filt(drivefft, freqs, nharmonics=nharmonics, \
+                                          harms=harms, width=width, maxfreq=maxfreq)
+
+        # Apply filter by indexing with a boolean array
+        bool_ginds = drivefilt > 0
+        ginds = np.arange(len(drivefilt)).astype(np.int)[bool_ginds]
+
+        outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
+                  'drive_ind': elec_ind}
+
+        return outdic
+
+
+
+
+
+    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=True, \
+                             drive_ind=1, elec_drive=False, elec_ind=0):   
         '''Applies a cantilever notch filter and returns the filtered data
            with an error estimate based on the neighboring bins of the PSD.
 
@@ -544,9 +592,15 @@ class DataFile:
             just_one = True
         else:
             just_one = False
-        
-        datffts = np.zeros((3, np.sum(ginds)), dtype=np.complex128)
-        driveffts = np.zeros((3, np.sum(ginds)), dtype=np.complex128)
+
+        datffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+
+        if elec_drive:
+            drivefft_full = np.fft.rfft(self.electrode_data[elec_ind])
+        else:
+            drivefft_full = np.fft.rfft(self.cant_data[drive_ind])
+        driveffts = drivefft_full[ginds]
+
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
@@ -554,9 +608,6 @@ class DataFile:
             datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
             datffts[resp] = datfft[ginds]
             daterrs[resp] = np.zeros_like(datffts[resp])
-
-            drivefft = np.fft.rfft(self.cant_data[drive_ind])
-            driveffts[resp] = drivefft[ginds]
 
             ### OKAY UP TO HERE
 
@@ -587,7 +638,7 @@ class DataFile:
                     #diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
 
             if plot:
-                normfac = np.sqrt(bin_sp)*fft_norm(N, self.fsamp)
+                normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
 
                 plt.figure()
                 plt.loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
@@ -597,12 +648,21 @@ class DataFile:
                 plt.xlabel('Frequency [Hz]')
 
                 plt.figure()
-                plt.plot(freqs[ginds], datfft[ginds].real * normfac, label='real')
-                plt.plot(freqs[ginds], datfft[ginds].imag * normfac, label='imag')
-                plt.plot(freqs[ginds], np.sqrt(2)*daterrs[resp] * normfac, label='errs')
+                plt.plot(freqs[ginds], datfft[ginds].real * normfac, '.', \
+                         label='real', ms=20)
+                plt.plot(freqs[ginds], datfft[ginds].imag * normfac, '.', \
+                         label='imag', ms=20)
+                plt.plot(freqs[ginds], np.sqrt(2)*daterrs[resp] * normfac, '.', \
+                         label='errs', ms=20)
                 plt.ylabel('Force [N]')
                 plt.xlabel('Frequency [Hz]')
                 plt.legend()
+
+                plt.figure()
+                plt.loglog(freqs, np.abs(drivefft_full)*normfac)
+                plt.ylabel('Drive Amplitude [um or V]')
+                plt.xlabel('Frequency [Hz]')
+
                 plt.show()
 
         datffts = np.array(datffts)
@@ -756,8 +816,9 @@ class DataFile:
 
     def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
                         sg_filter=False, sg_params=[3,1], verbose=True, \
-                        cantilever_drive=True, electrode_drive=False, \
-                        fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0):
+                        cantilever_drive=True, elec_drive=False, \
+                        fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0, \
+                        maxfreq=2500):
         '''Sptially bins X, Y and Z responses against driven cantilever axis,
            or in the case of multiple axes driven simultaneously, against the
            drive with the largest amplitude.
@@ -792,7 +853,7 @@ class DataFile:
             t = np.linspace(0, numsamp - 1, numsamp) * dt
             drivevec = fakeamp * np.sin(2.0 * np.pi * fakefreq * t + fakephi) + fakeamp
 
-        if electrode_drive:
+        if elec_drive:
             elec_ind = np.argmax(self.electrode_settings['driven'])
             drivevec = self.electrode_data[elec_ind]
 
@@ -806,7 +867,8 @@ class DataFile:
             bins, binned_vec = spatial_bin(drivevec, self.pos_data[resp], dt, \
                                            nbins = nbins, nharmonics = nharmonics, \
                                            width = width, sg_filter = sg_filter, \
-                                           sg_params = sg_params, verbose = verbose)
+                                           sg_params = sg_params, verbose = verbose, \
+                                           maxfreq = maxfreq)
             binned_data[resp][0] = bins
             binned_data[resp][1] = binned_vec
             
@@ -815,7 +877,8 @@ class DataFile:
                             spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
                                         nbins = nbins, nharmonics = nharmonics, \
                                         width = width, sg_filter = sg_filter, \
-                                        sg_params = sg_params, verbose = verbose)
+                                        sg_params = sg_params, verbose = verbose, \
+                                        maxfreq = maxfreq)
 
                 diag_binned_data[resp][0] = diag_bins
                 diag_binned_data[resp][1] = diag_binned_vec
@@ -823,5 +886,7 @@ class DataFile:
         self.binned_data = binned_data
         if len(self.diag_pos_data):
             self.diag_binned_data = diag_binned_data
+        else:
+            self.diag_binned_Data = ''
                 
 
