@@ -11,13 +11,13 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-dir1 = '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz'
+dir1 = '/data/20190109/bead1/'
 maxfiles = 500
 
 use_dir = False
 
-allfiles = \
-['/data/20180704/bead1/grav_data/shield/turbo_mbar_xyzcool_stage-X77um-Y40um-Z25um_Ydrive40umAC-17Hz_0.h5']
+allfiles = ['/data/20190109/bead1/1_5mbar_zcool.h5']
+tfdate = '20190108'
 
 #labs = ['1','2', '3']
 
@@ -134,7 +134,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
-        df.diagonalize(maxfreq=lpf, interpolate=False)
+        df.diagonalize(maxfreq=lpf, interpolate=False, date=tfdate)
 
         if fil_ind == 0:
             drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))

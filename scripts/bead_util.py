@@ -132,11 +132,14 @@ class DataFile:
             if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
+        self.synth_settings = attribs["dc_supply_settings"]
 
 
 
 
-    def load(self, fname, plot_raw_dat=False, plot_sync=False):
+
+    def load(self, fname, plot_raw_dat=False, plot_sync=False, load_other=False, \
+             skip_mon=False):
 
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
@@ -150,6 +153,7 @@ class DataFile:
             plt.show()
         
         self.fname = fname
+        self.date = fname.split('/')[2]
         #print fname
 
         self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
@@ -187,7 +191,7 @@ class DataFile:
             # AS ROOT OR ANY SUPERUSER
             if self.FIX_TIME:
                 self.time = np.int64(fpga_dat['xyz_time'][0])
-                assert self.time != 0
+                #assert self.time != 0
                 #print 'fix time: 0 -> ', self.time, '\r'
                 #sudo_call(fix_time, self.fname, float(self.time))
 
@@ -225,9 +229,11 @@ class DataFile:
 
             self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
 
+        if not skip_mon:
+            self.load_monitor_data(fname)
 
-        self.load_monitor_data(fname)
-
+        if load_other:
+            self.load_other_data()
                 
 
 
@@ -303,6 +309,7 @@ class DataFile:
             if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
+        self.synth_settings = attribs["dc_supply_settings"]
 
 
 
@@ -344,6 +351,27 @@ class DataFile:
         except:
             1 + 2
             #print "shit is fucked"
+
+
+    def calibrate_phase(self, z_bitshift=0):
+        '''Hard-coded calibration that undoes the FPGA scaling and bitshifting.
+           A later version should store those bit-shifts in the original .h5 file
+           and pull them out automatically.'''
+
+        avging_fac = 1.0 / (100.0 / 2.0**7)
+        cast_fac = 1.0 / 2.0**16
+
+        bitshift_fac = 1.0 / (2.0**z_bitshift)
+
+        newphase = []
+
+        for det in range(5):
+            newphase.append( np.array(self.phase[det]) \
+                             * avging_fac * cast_fac * bitshift_fac )
+
+        self.phase = newphase
+        self.zcal = self.pos_data[2] * (2**(-7) / (100.0)) * np.pi
+
 
     def get_cant_drive_ax(self):
         '''Determine the index of cant_data with the largest drive voltage,
@@ -562,7 +590,7 @@ class DataFile:
 
 
     def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=True, \
-                             drive_ind=1, elec_drive=False, elec_ind=0):   
+                             drive_ind=1, elec_drive=False, elec_ind=0, noiselim=(10,100)):   
         '''Applies a cantilever notch filter and returns the filtered data
            with an error estimate based on the neighboring bins of the PSD.
 
@@ -594,6 +622,10 @@ class DataFile:
             just_one = False
 
         datffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+        noiseffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+        noise_inds = np.arange(len(freqs))[(freqs <= noiselim[1]) * (freqs >= noiselim[0])]
+        #for ind in ginds:
+        #    noise_inds = np.delete(noise_inds, ind)
 
         if elec_drive:
             drivefft_full = np.fft.rfft(self.electrode_data[elec_ind])
@@ -609,6 +641,13 @@ class DataFile:
             datffts[resp] = datfft[ginds]
             daterrs[resp] = np.zeros_like(datffts[resp])
 
+            noise_dat = datfft[noise_inds]
+            
+            #noiseffts[resp] = np.mean(np.abs(noise_dat)) * \
+            #                  np.exp(1.0j * np.mean(np.angle(noise_dat)))
+
+            noiseffts[resp] = np.mean(noise_dat)
+
             ### OKAY UP TO HERE
 
             if diag:
@@ -618,19 +657,19 @@ class DataFile:
 
             for freqind, freq in enumerate(harm_freqs):
                 harm_ind = np.argmin(np.abs(freqs-freq))
-                noise_inds = np.abs(freqs - freq) < 0.5*noiseband
-                noise_inds[harm_ind] = False
+                err_inds = np.abs(freqs - freq) < 0.5*noiseband
+                err_inds[harm_ind] = False
                 if freqind == 0:
-                    noise_inds_init = noise_inds
+                    err_inds_init = err_inds
 
-                errval = np.median(np.abs(datfft[noise_inds]))
+                errval = np.median(np.abs(datfft[err_inds]))
                 if just_one:
                     daterrs[resp] = errval
                 else:
                     daterrs[resp][freqind] = errval
                 #daterrs[resp][freqind] = np.abs(datfft[harm_ind])
                 if diag:
-                    diagerrval = np.median(np.abs(diagdatfft[noise_inds]))
+                    diagerrval = np.median(np.abs(diagdatfft[err_inds]))
                     if just_one:
                         diagdaterrs[resp] = diagerrval
                     else:
@@ -639,10 +678,18 @@ class DataFile:
 
             if plot:
                 normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
+                
+                avg_inds = np.arange(len(freqs))[(freqs > 10.0) * (freqs < 100.0)]
+                new_avg_inds = []
+                for avg_ind in avg_inds:
+                    if avg_ind not in ginds:
+                        new_avg_inds.append(avg_ind)
+
+                print np.mean(np.abs(datfft[avg_inds])*normfac)
 
                 plt.figure()
                 plt.loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
-                plt.loglog(freqs[noise_inds_init], np.abs(datfft[noise_inds_init])*normfac)
+                plt.loglog(freqs[err_inds_init], np.abs(datfft[err_inds_init])*normfac)
                 plt.loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, '.', ms=10)
                 plt.ylabel('Force [N]')
                 plt.xlabel('Frequency [Hz]')
@@ -668,6 +715,7 @@ class DataFile:
         datffts = np.array(datffts)
         driveffts = np.array(driveffts)
         daterrs = np.array(daterrs)
+        noiseffts = np.array(noiseffts)
         if diag:
             diagdatffts = np.array(diagdatffts)
             diagdaterrs = np.array(diagdaterrs)
@@ -678,7 +726,7 @@ class DataFile:
 
         outdic = {'datffts': datffts, 'diagdatffts': diagdatffts, \
                   'daterrs': daterrs, 'diagdaterrs': diagdaterrs, \
-                  'driveffts': driveffts}
+                  'driveffts': driveffts, 'noiseffts': noiseffts}
 
         return outdic
 
@@ -755,6 +803,10 @@ class DataFile:
         # so we can map response -> drive
         Harr = tf.make_tf_array(freqs, Hfunc)
 
+        x_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(0,0,freqs)))]
+        y_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(1,1,freqs)))]
+        self.xy_tf_res_freqs = [x_tf_res_freq, y_tf_res_freq]
+
         if plot:
             tf.plot_tf_array(freqs, Harr)
 
@@ -813,8 +865,23 @@ class DataFile:
 
 
 
+    def get_xy_resonance(self, elec_ind=0):
+        freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+        freq_band = (freqs > 200) * (freqs < 600)
+        
+        upperx = freqs > self.xy_tf_res_freqs[0]
+        lowerx = freqs < self.xy_tf_res_freqs[0]
+        
+        uppery = freqs > self.xy_tf_res_freqs[1]
+        lowery = freqs < self.xy_tf_res_freqs[1]
 
-    def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
+        upfreq_ind = np.argmax(self.electrode_data[elec_ind] * freq_band * upperx)
+        lowfreq_ind = np.argmax(self.electrode_data[elec_ind] * freq_band * lowerx)
+
+
+
+
+    def get_force_v_pos(self, nbins=100, nharmonics=10, harms=[], width=0, \
                         sg_filter=False, sg_params=[3,1], verbose=True, \
                         cantilever_drive=True, elec_drive=False, \
                         fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0, \
@@ -860,28 +927,31 @@ class DataFile:
         # Bin responses against the drive. If data has been diagonalized,
         # it bins the diagonal data as well
         dt = 1. / self.fsamp
-        binned_data = [[0,0], [0,0], [0,0]]
+        binned_data = [[0,0,0], [0,0,0], [0,0,0]]
         if len(self.diag_pos_data):
-            diag_binned_data = [[0,0], [0,0], [0,0]]
+            diag_binned_data = [[0,0,0], [0,0,0], [0,0,0]]
         for resp in [0,1,2]:
-            bins, binned_vec = spatial_bin(drivevec, self.pos_data[resp], dt, \
-                                           nbins = nbins, nharmonics = nharmonics, \
-                                           width = width, sg_filter = sg_filter, \
-                                           sg_params = sg_params, verbose = verbose, \
-                                           maxfreq = maxfreq)
+            bins, binned_vec, binned_err = \
+                            spatial_bin(drivevec, self.pos_data[resp], dt, \
+                                        nbins = nbins, nharmonics = nharmonics, \
+                                        harms = harms, width = width, \
+                                        sg_filter = sg_filter, sg_params = sg_params, \
+                                        verbose = verbose, maxfreq = maxfreq)
             binned_data[resp][0] = bins
             binned_data[resp][1] = binned_vec
+            binned_data[resp][2] = binned_err
             
             if len(self.diag_pos_data):
-                diag_bins, diag_binned_vec = \
+                diag_bins, diag_binned_vec, diag_binned_err = \
                             spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
                                         nbins = nbins, nharmonics = nharmonics, \
-                                        width = width, sg_filter = sg_filter, \
-                                        sg_params = sg_params, verbose = verbose, \
-                                        maxfreq = maxfreq)
+                                        harms = harms, width = width, \
+                                        sg_filter = sg_filter, sg_params = sg_params, \
+                                        verbose = verbose, maxfreq = maxfreq)
 
                 diag_binned_data[resp][0] = diag_bins
                 diag_binned_data[resp][1] = diag_binned_vec
+                diag_binned_data[resp][2] = diag_binned_err
 
         self.binned_data = binned_data
         if len(self.diag_pos_data):

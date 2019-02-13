@@ -523,6 +523,8 @@ class FileData:
             df.calibrate_stage_position()
             df.diagonalize(date=tfdate, maxfreq=tophatf, plot=plot_tf)
 
+            self.xy_tf_res_freqs = df.xy_tf_res_freqs
+
             #plt.plot(df.electrode_data[0])
             #plt.show()
     
@@ -558,7 +560,8 @@ class FileData:
 
     def extract_data(self, ext_cant=(False,1), nharmonics=10, harms=[], width=0, \
                      npos=500, noiseband=5, plot_harm_extraction=False, \
-                     elec_drive=False, elec_ind=0, maxfreq=2500):
+                     elec_drive=False, elec_ind=0, maxfreq=2500, noiselim=(10,100), \
+                     find_xy_resonance=False):
         '''Extracts the microsphere resposne at the drive frequency of the cantilever, and
            however many harmonics are requested. Uses a notch filter that is default set 
            one FFT bin width, although this can be increased'''
@@ -586,20 +589,28 @@ class FileData:
         ## Apply the notch filter
         fftdat = self.df.get_datffts_and_errs(self.ginds, self.drive_freq, noiseband=noiseband, \
                                               plot=plot_harm_extraction, \
-                                              elec_drive=elec_drive, elec_ind=elec_ind)
+                                              elec_drive=elec_drive, elec_ind=elec_ind, \
+                                              noiselim=noiselim)
         self.datfft = fftdat['datffts']
         self.daterr = fftdat['daterrs']
         self.diagdatfft = fftdat['diagdatffts']
         self.diagdaterr = fftdat['diagdaterrs']
 
+        self.noisefft = fftdat['noiseffts']
+
         self.drivefft = fftdat['driveffts']
 
         ### Get the binned data and calibrate the non-diagonalized part
-        self.df.get_force_v_pos(elec_drive=elec_drive, maxfreq=maxfreq)
+        self.df.get_force_v_pos(elec_drive=elec_drive, maxfreq=maxfreq, \
+                                nharmonics=nharmonics, harms=harms)
         binned = np.array(self.df.binned_data)
         for resp in [0,1,2]:
             binned[resp][1] = binned[resp][1] * self.df.conv_facs[resp]
+            binned[resp][2] = binned[resp][2] * self.df.conv_facs[resp]
         self.binned = binned
+
+        #plt.plot(binned[0][0], binned[0][1])
+        #plt.show()
 
 
         ### Analyze the attractor drive and build the relevant position vectors
@@ -613,6 +624,11 @@ class FileData:
 
         self.posvec = np.linspace(mindrive, maxdrive, npos)
 
+
+        if find_xy_resonance:
+            # Assumes you were driving two tones on the electrode drive
+            # that sit to either side of the resonance
+            self.df.get_xy_resonance()
 
 
 
@@ -748,7 +764,8 @@ class AggregateData:
     def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[], \
                  reload_dat=True, plot_harm_extraction=False, \
                  elec_drive=False, elec_ind=0, maxfreq=2500, \
-                 dim3=False):
+                 dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
+                 tfdate=''):
         
         self.fnames = fnames
         self.p0_bead = p0_bead
@@ -778,7 +795,7 @@ class AggregateData:
 
 
             # Initialize FileData obj, extract the data, then close the big file
-            new_obj = FileData(name, tophatf=tophatf)
+            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate)
 
             if new_obj.badfile:
                 print 'FOUND BADDIE: '
@@ -792,7 +809,7 @@ class AggregateData:
                 new_obj.extract_data(harms=harms, \
                                      plot_harm_extraction=plot_harm_extraction, \
                                      elec_drive=elec_drive, elec_ind=elec_ind, \
-                                     maxfreq=maxfreq)
+                                     maxfreq=maxfreq, noiselim=noiselim)
                 new_obj.load_position_and_bias(dim3=dim3)
 
                 new_obj.close_datafile()
@@ -1731,7 +1748,7 @@ class AggregateData:
 
     def get_vector_force_plane(self, plot_resp=(0,1), nobjs=1e9, ax_dict={0:'X', 1:'Y', 2:'Z'}, \
                                fig_ind=1, plot=True, show=True, sign=[1.0,1.0,1.0], \
-                               dim3=False):
+                               dim3=False, keyscale=1.0e-14):
         
 
         self.get_max_files(dim3=dim3)
@@ -1754,6 +1771,8 @@ class AggregateData:
 
         pos_grids = []
         err_grids = []
+
+        noise_grids = []
         if dim3:
             drive_grid = np.zeros((len(seps_sort), len(ypos_sort), len(heights_sort)))
         else:
@@ -1762,9 +1781,11 @@ class AggregateData:
             if dim3:
                 pos_grids.append(np.zeros((len(seps_sort), len(ypos_sort), len(heights_sort))))
                 err_grids.append(np.zeros((len(seps_sort), len(ypos_sort), len(heights_sort))))
+                noise_grids.append(np.zeros((len(seps_sort), len(ypos_sort), len(heights_sort))))
             else:
                 pos_grids.append(np.zeros((len(seps_sort), len(heights_sort))))
                 err_grids.append(np.zeros((len(seps_sort), len(heights_sort))))
+                noise_grids.append(np.zeros((len(seps_sort), len(heights_sort))))
 
 
         for objind in range(ngrids):
@@ -1796,6 +1817,10 @@ class AggregateData:
                                 err_grids[resp][ax0ind,ax1ind,ax2ind] += \
                                             np.abs(fd_obj.diagdaterr[resp][0]) * \
                                             fft_to_amp * sign[resp]
+
+                                noise_grids[resp][ax0ind,ax1ind,ax2ind] += \
+                                            (fd_obj.noisefft[resp] / unit_drive_phasor).real * \
+                                            fft_to_amp * sign[resp]
                     else:
                         fd_obj = self.agg_dict[bias][ax0pos][ax1pos][objind]
                         if fd_obj.empty:
@@ -1817,7 +1842,12 @@ class AggregateData:
                                         (fd_obj.diagdatfft[resp][0] / unit_drive_phasor).real * \
                                         fft_to_amp * sign[resp]
                             err_grids[resp][ax0ind,ax1ind] += \
-                                        np.abs(fd_obj.diagdaterr[resp][0]) * fft_to_amp * sign[resp]
+                                        np.abs(fd_obj.diagdaterr[resp][0]) * \
+                                        fft_to_amp * sign[resp]
+
+                            noise_grids[resp][ax0ind,ax1ind] += \
+                                        (fd_obj.noisefft[resp] / unit_drive_phasor).real * \
+                                        fft_to_amp * sign[resp]
 
         if dim3:
             drive_grid[:,:,:] = drive_grid[sort1,:,:] 
@@ -1837,7 +1867,11 @@ class AggregateData:
 
                 err_grids[resp][:,:,:] = err_grids[resp][sort1,:,:] 
                 err_grids[resp][:,:,:] = err_grids[resp][:,sort2,:] 
-                err_grids[resp][:,:,:] = err_grids[resp][:,:,sort3]
+                err_grids[resp][:,:,:] = err_grids[resp][:,:,sort3] 
+
+                noise_grids[resp][:,:,:] = noise_grids[resp][sort1,:,:] 
+                noise_grids[resp][:,:,:] = noise_grids[resp][:,sort2,:] 
+                noise_grids[resp][:,:,:] = noise_grids[resp][:,:,sort3]
 
             else:
                 pos_grids[resp][:,:] = pos_grids[resp][sort1,:]
@@ -1845,9 +1879,11 @@ class AggregateData:
                 
                 err_grids[resp][:,:] = err_grids[resp][sort1,:]
                 err_grids[resp][:,:] = err_grids[resp][:,sort2]
+                
+                noise_grids[resp][:,:] = noise_grids[resp][sort1,:]
+                noise_grids[resp][:,:] = noise_grids[resp][:,sort2]
 
 
-        keyscale = 1.0e-14
         scale_pow = int(np.log10(keyscale))
 
         scale = keyscale * 4
@@ -1860,7 +1896,7 @@ class AggregateData:
             qdat = ax.quiver(seps_g, heights_g, pos_grids[plot_resp[0]], pos_grids[plot_resp[1]], \
                              color='k', pivot='mid', label='Force', scale=scale)
             qerr = ax.quiver(seps_g, heights_g, err_grids[plot_resp[0]], err_grids[plot_resp[1]], \
-                             color='k', pivot='mid', label='Error', scale=scale)
+                             color='r', pivot='mid', label='Error', scale=scale)
             ax.set_xlabel('Separation [um]')
             ax.set_ylabel('Height [um]')
 
@@ -1885,9 +1921,13 @@ class AggregateData:
 
                 plt.title('Ypos %0.2f' % ypos_sort[new_ind])
 
-                plt.show()
-            
-        if plot:
+                if show:
+                    plt.show()
+                else:
+                    fig.clear()
+                    plt.close(fig)
+
+        if plot and show:
             ax.quiverkey(qdat, X=0.3, Y=1.05, U=keyscale, \
                          label='$10^{%i}~$N Force' % scale_pow, labelpos='N')
             ax.quiverkey(qerr, X=0.7, Y=1.05, U=keyscale, \
@@ -1896,7 +1936,8 @@ class AggregateData:
 
         outdict = {0: pos_grids[0], 1: pos_grids[1], 2: pos_grids[2], \
                    'xerr': err_grids[0], 'yerr': err_grids[1], 'zerr': err_grids[2], \
-                   'drive': drive_grid}
+                   'drive': drive_grid, 'xnoise': noise_grids[0], \
+                   'ynoise': noise_grids[1], 'znoise': noise_grids[2]}
 
         if plot and show:
             plt.show()

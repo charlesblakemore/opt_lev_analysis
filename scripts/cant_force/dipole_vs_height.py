@@ -26,9 +26,9 @@ import configuration as config
 
 
 
-dir1 = '/data/20180704/bead1/dipole_vs_height/10V_80um_17Hz_2'
+dir1 = '/data/20190124/bead2/dipole_v_height/10V_2/'
 start_file = 0
-maxfiles = 6000
+maxfiles = 31 #6000
 ax1_lab = 'z'
 nbins = 30
 tophatf = 300  # Top-hat filter frequency used in diagonalization
@@ -284,7 +284,7 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
 
 
 
-datafiles = bu.find_all_fnames(dir1, ext=config.extensions['data'])
+datafiles, lengths = bu.find_all_fnames(dir1, ext=config.extensions['data'])
 datafiles = datafiles[start_file:start_file+maxfiles]
 
 force_dic, diag_force_dic, fits= \

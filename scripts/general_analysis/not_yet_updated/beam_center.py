@@ -13,8 +13,17 @@ data_dir2 = r"C:\Data\20170704\profiling\zsweep5"
 out_dir = r"C:\Data\20170704\profiling\output"
 #data_dir2 = r"C:\Data\20160429\beam_profiles1"
 
+
+data_dir1 = "/data/20181218/profiling/xsweep_vac"
+data_dir1 = "/data/20190103/profiling/xsweep_adj_4"
+
+data_dir1 = "/data/20190107/profiling/xsweep_init"
+
+data_dir1 = "/data/20190108/profiling/xsweep_atm_adj_2"
+data_dir2 = "/data/20190108/profiling/xsweep_atm"
+
 multi_dir = True
-height_to_plot = 0.
+height_to_plot = 40.
 
 log_profs = True
 
@@ -22,7 +31,7 @@ ROI = [-80, 80] # um
 #OFFSET = 2.*10**(-5)
 OFFSET = 0
 
-msq_fit = False
+msq_fit = True
 gauss_fit = True
 
 #stage x = col 17, stage y = 18, stage z = 19
@@ -51,39 +60,52 @@ def spatial_bin(xvec, yvec, bin_size = .13):
         
     
 
-def profile(fname, ends = 100, stage_cal = 8.):
-    dat, attribs, f = bu.getdata(fname)
-    dat = dat[ends:-ends, :]
-    #plt.plot(dat[:, data_column])
-    #plt.show()
-    if 'zsweep' in fname:
-        stage_column = 19
-    elif 'ysweep' in fname:
-        stage_column = 18
-    dat[:,stage_column]*=stage_cal
-    h = attribs["stage_settings"][0]*cant_cal
-    f.close()
-    b, a = sig.butter(1, 1)
-    if '2016' in fname:
-        int_filt = sig.filtfilt(b, a, dat[:, data_column2])
+
+
+def profile(fname, data_column = 0):
+    df = bu.DataFile()
+    df.load(fname)
+    df.load_other_data()
+    df.calibrate_stage_position()
+    if 'ysweep' in fname:
+        stage_column = 1
+        if 'left' in fname:
+            sign = -1.0
+        elif 'right' in fname:
+            sign = 1.0
+        else:
+            sign = 1.0
     else:
-        int_filt = sig.filtfilt(b, a, dat[:, data_column])
-    #plt.plot(int_filt)
-    #fft = np.fft.rfft(int_filt)
-    #freqs = np.fft.rfftfreq(len(int_filt), d=1./5000)
-    #plt.figure()
-    #plt.loglog(freqs, fft * fft.conj())
+        stage_column = 0
+        sign = 1.0
+
+    b, a = sig.butter(1, 0.5)
+    #shape = np.shape(df.other_data)
+    #for i in range(shape[0]):
+    #    plt.plot(df.other_data[i, :], label = str(i))
+    #plt.legend()
     #plt.show()
-    proft = np.gradient(int_filt)- OFFSET
-    if 'zsweep' in fname:
-        stage_filt = sig.filtfilt(b, a, dat[:, 19])
-        #stage_column = 19
-    elif 'ysweep' in fname:
-        stage_filt = sig.filtfilt(b, a, dat[:, 18])
-        #stage_column = 18
-    dir_sign = np.sign(np.gradient(stage_filt))
-    b, y, e = spatial_bin(dat[dir_sign<0, stage_column], proft[dir_sign<0])
-    return b, y, e, h
+
+    h = np.mean(df.cant_data[2, :])
+    h_round = bu.round_sig(h, sig=2)
+
+    if h_round < 10.0:
+        h_round = bu.round_sig(h_round, sig=1)
+
+    int_filt = sig.filtfilt(b, a, df.other_data[data_column, :])
+    proft = np.gradient(int_filt)
+
+    #plt.plot(df.other_data[0])
+    #plt.show()
+
+    stage_filt = sig.filtfilt(b, a, df.cant_data[stage_column, :])
+    dir_sign = np.sign(np.gradient(stage_filt)) * sign
+    xvec = df.cant_data[stage_column, :]
+    yvec = (proft - proft * dir_sign) * 0.5 - (proft + proft * dir_sign) * 0.5
+    b, y, e = spatial_bin(xvec, yvec)
+    return b, y, e, h_round
+
+
 
 class File_prof:
     "Class storing information from a single file"
@@ -119,11 +141,13 @@ class File_prof:
 
 def proc_dir(dir):
     files = glob.glob(dir + '\*.h5')
+    files, lengths = bu.find_all_fnames(dir)
     #print files
     file_profs = []
     hs = []
     for fi in files:
         b, y, e, h = profile(fi)
+        #print h
         if h not in hs:
             #if new height then create new profile object
             hs.append(h)
@@ -132,11 +156,11 @@ def proc_dir(dir):
             file_profs.append(f)
         else:
             #if height repeated then append data to object for that height
-            for fi in file_profs:
-                if fi.cant_height == h:
-                    fi.bins = np.append(fi.bins, b)
-                    fi.y = np.append(fi.y, y)
-                    fi.errors = np.append(fi.errors, e)
+            for fp in file_profs:
+                if fp.cant_height == h:
+                    fp.bins = np.append(fp.bins, b)
+                    fp.y = np.append(fp.y, y)
+                    fp.errors = np.append(fp.errors, e)
             
     #now rebin all profiles
     for fp in file_profs:
@@ -159,7 +183,12 @@ def proc_dir(dir):
 def plot_profs(fp_arr):
     #plots average profile from different heights
     i = 1
-    for fp in fp_arr:
+    colors = bu.get_color_map(len(fp_arr), cmap='jet')
+
+    fp_arr_sort = sorted(fp_arr, key = lambda fp: fp.cant_height)
+
+    for fp_ind, fp in enumerate(fp_arr_sort):
+        color = colors[fp_ind]
         #plt.errorbar(fp.bins, fp.y, fp.errors, label = str(np.round(fp.cant_height)) + 'um')
         if multi_dir:
             lab = 'dir' + str(i)
@@ -167,10 +196,10 @@ def plot_profs(fp_arr):
             lab = str(np.round(fp.cant_height)) + 'um'
         i += 1
         if multi_dir:
-            plt.plot(fp.bins, fp.y / np.max(fp.y), 'o', label = lab)
+            plt.plot(fp.bins, fp.y / np.max(fp.y), 'o', label = lab, color=color)
             plt.ylim(10**(-5), 10)
         else:
-            plt.plot(fp.bins, fp.y, 'o', label = lab)
+            plt.plot(fp.bins, fp.y, 'o', label = lab, color=color)
     plt.xlabel("position [um]")
     plt.ylabel("margenalized irradiance ~[W/m]")
     if log_profs:

@@ -12,7 +12,7 @@ import bead_util as bu
 import configuration as config
 
 
-dir1 = '/data/20180618/bead1/discharge/coarse2'
+dir1 = '/data/20180927/bead1/lower1'
 
 step10 = False
 invert_order = False
@@ -95,8 +95,19 @@ def plot_vs_time(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
 
         df.calibrate_stage_position()
         
-        df.high_pass_filter(fc=1)
-        df.detrend_poly()
+        df.calibrate_phase()
+
+        #df.high_pass_filter(fc=1)
+        #df.detrend_poly()
+
+        plt.figure()
+        #plt.plot((df.daqmx_time-df.daqmx_time[0])*1e-9, \
+        #         (df.pos_data[2]-np.mean(df.pos_data[2])) * (2.0**3 / 100.0))
+        plt.plot((df.daqmx_time-df.daqmx_time[0])*1e-9, \
+                 (df.phase[4] - df.phase[4][0]))
+        
+        plt.show()
+
 
         df.diagonalize(maxfreq=lpf, interpolate=False)
 

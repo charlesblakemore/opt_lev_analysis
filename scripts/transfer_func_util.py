@@ -464,6 +464,7 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
     e_charge = config.p_param["e_charge"]
     outstr = "Charge-step calibration implies "+\
              "%0.2f charge during H measurement" % (q / e_charge)
+
     print outstr
 
     Hout_cal = {}
@@ -474,7 +475,7 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
         # (Vresp / Vdrive) * d / q = Vresp / Fdrive
         Hout_cal[freq] = np.copy(Hout[freq]) * (plate_sep / q)
 
-    return Hout_cal
+    return Hout_cal, q / e_charge
 
 
 

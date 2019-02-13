@@ -1,4 +1,4 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess
+import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -176,7 +176,7 @@ def make_all_pardirs(path):
 
 
 def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
-                    exclude_fpga=True):
+                    exclude_fpga=True, verbose=True):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -186,9 +186,10 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
 
        OUTPUTS: files, list of files names as strings'''
 
-    print "Finding files in: "
-    print dirlist
-    sys.stdout.flush()
+    if verbose:
+        print "Finding files in: "
+        print dirlist
+        sys.stdout.flush()
 
     was_list = True
 
@@ -214,17 +215,19 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
     if sort:
         # Sort files based on final index
         files.sort(key = find_str)
-    elif sort_time:
+
+    if sort_time:
         files = sort_files_by_timestamp(files)
 
     if len(files) == 0:
         print "DIDN'T FIND ANY FILES :("
 
-    print "Found %i files..." % len(files)
+    if verbose:
+        print "Found %i files..." % len(files)
     if was_list:
         return files, lengths
     else:
-        return files
+        return files, 0
 
 
 
@@ -233,8 +236,9 @@ def sort_files_by_timestamp(files):
     try:
         files = [(get_hdf5_time(path), path) for path in files]
     except:
-        print 'BAD HDF5 TIMESTAMPS'
-        files = []
+        print 'BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP'
+        files = [(os.stat(path), path) for path in files]
+        files = [(stat.st_ctime, path) for stat, path in files]
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -332,6 +336,75 @@ def euler_rotation_matrix(rot_angles, radians=True):
 
 
 
+def rotate_points(pts, rot_matrix, rot_point, plot=False):
+    '''Takes and input of shape (Npts, 3) and performs applies the
+       given rotation matrix to each 3D point. Order of rotations
+       follow the Euler convention.
+    '''
+    npts = pts.shape[0]
+    rot_pts = []
+    for resp in [0,1,2]:
+        rot_pts_vec = np.zeros(npts)
+        for resp2 in [0,1,2]:
+            rot_pts_vec += rot_matrix[resp,resp2] * (pts[:,resp2] - rot_point[resp2])
+        rot_pts_vec += rot_point[resp]
+        rot_pts.append(rot_pts_vec)
+    rot_pts = np.array(rot_pts)
+    rot_pts = rot_pts.T
+
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+            
+        ax.scatter(pts[:,0]*1e6, pts[:,1]*1e6, \
+                   pts[:,2]*1e6, label='Original')
+        ax.scatter(rot_pts[:,0]*1e6, rot_pts[:,1]*1e6, rot_pts[:,2]*1e6, \
+                       label='Rot')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        plt.show()
+
+    return rot_pts
+
+
+
+
+def rotate_meshgrid(xvec, yvec, zvec, rot_matrix, rot_point, \
+                    plot=False, microns=True):
+    xg, yg, zg = np.meshgrid(xvec, yvec, zvec, indexing='ij')
+    init_mesh = np.array([xg, yg, zg])
+    rot_grids = np.einsum('ij,jabc->iabc', rot_matrix, init_mesh)
+
+    init_pts = np.rollaxis(init_mesh, 0, 4)
+    init_pts = init_pts.reshape((init_mesh.size // 3, 3))
+
+    rot_pts = np.rollaxis(rot_grids, 0,4)
+    rot_pts = rot_pts.reshape((rot_grids.size // 3, 3))
+
+    if microns:
+        fac = 1.0
+    else:
+        fac = 1e6
+
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+            
+        ax.scatter(init_pts[:,0]*fac, init_pts[:,2]*fac, label='Original')
+        ax.scatter(rot_pts[:,0]*fac, rot_pts[:,1]*fac, rot_pts[:,2]*fac, \
+                       label='Rot')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        plt.show()
+
+    return rot_grids
+
+
+
+
+
 
 def getdata(fname, gain_error=1.0):
     '''loads a .h5 file from a path into data array and 
@@ -424,9 +497,9 @@ def unpack_config_dict(dic, vec):
 
 
 
-def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
-                sg_filter=False, sg_params=[3,1], verbose=True, \
-                maxfreq=2500):
+def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
+                width=0, sg_filter=False, sg_params=[3,1], verbose=True, \
+                maxfreq=2500, add_mean=False):
     '''Given two waveforms drive(t) and resp(t), this function generates
        resp(drive) with a fourier method. drive(t) should be a pure tone,
        such as a single frequency cantilever drive (although the 
@@ -440,6 +513,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
        	        dt, sample spacing in seconds [s]
                 nbins, number of samples in the final resp(drive)
        	        nharmonics, number of harmonics to include in filter
+                harms, list of desired harmonics (overrides nharmonics)
        	        width, filter width in Hertz [Hz]
                 sg_filter, boolean value indicating use of a Savitsky-Golay 
                             filter for final smoothing of resp(drive)
@@ -483,6 +557,15 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     drivefilt = np.zeros(len(drivefft)) #+ np.random.randn(len(drivefft))*1.0e-3
     drivefilt[fund_ind] = 1.0
 
+    errfilt = np.zeros_like(drivefilt)
+    noise_bins = (freqs > 10.0) * (freqs < 100.0)
+    errfilt[noise_bins] = 1.0
+    errfilt[fund_ind] = 0.0
+
+    #plt.loglog(freqs, np.abs(respfft))
+    #plt.loglog(freqs, np.abs(respfft)*errfilt)
+    #plt.show()
+
     # Error message triggered by verbose option
     if verbose:
         if ( (np.abs(drivefft[fund_ind-1]) > 0.03 * np.abs(drivefft[fund_ind])) or \
@@ -492,6 +575,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
             plt.loglog(freqs, np.abs(drivefft))
             plt.loglog(freqs[fund_ind], np.abs(drivefft[fund_ind]), '.', ms=20)
             plt.show()
+    
 
     # Expand the filter to more than a single bin. This can introduce artifacts
     # that appear like lissajous figures in the resp vs. drive final result
@@ -501,7 +585,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
         drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
 
     # Generate an array of harmonics
-    harms = np.array([x+2 for x in range(nharmonics)])
+    if not len(harms):
+        harms = np.array([x+2 for x in range(nharmonics)])
 
     # Loop over harmonics and add them to the filter
     for n in harms:
@@ -512,11 +597,21 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
             h_upper_ind = harm_ind + (upper_ind - fund_ind)
             drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
 
+    if add_mean:
+        drivefilt[0] = 1.0
+
     # Apply the filter to both drive and response
     #drivefilt = np.ones_like(drivefilt)
     #drivefilt[0] = 0
     drivefft_filt = drivefilt * drivefft
     respfft_filt = drivefilt * respfft
+    errfft_filt = errfilt * respfft
+
+    #print fund_ind
+    #print np.abs(drivefft_filt[fund_ind])
+    #print np.abs(respfft_filt[fund_ind])
+    #print np.abs(drivefft_filt[fund_ind]) / np.abs(respfft_filt[fund_ind])
+    #raw_input()
 
     #plt.loglog(freqs, np.abs(respfft))
     #plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'x', ms=10)
@@ -543,17 +638,20 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     #                      np.angle(respfft_filt[drivefilt>0][ind]) )
     resp_r = np.fft.irfft(respfft_filt) #+ meanresp
 
+    err_r = np.fft.irfft(errfft_filt)
+
     # Sort reconstructed data, interpolate and resample
     mindrive = np.min(drive_r)
     maxdrive = np.max(drive_r)
-
     grad = np.gradient(drive_r)
 
     sortinds = drive_r.argsort()
     drive_r = drive_r[sortinds]
     resp_r = resp_r[sortinds]
+    err_r = err_r[sortinds]
 
     #plt.plot(drive_r, resp_r, '.')
+    #plt.plot(drive_r, err_r, '.')
     #plt.show()
 
     ginds = grad[sortinds] < 0
@@ -562,13 +660,18 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
 
     respvec = []
+    errvec = []
     for bin_loc in drivevec:
-        inds = (drive_r > bin_loc - 0.5*bin_spacing) * (drive_r < bin_loc + 0.5*bin_spacing)
+        inds = (drive_r > bin_loc - 0.5*bin_spacing) * \
+               (drive_r < bin_loc + 0.5*bin_spacing)
         val = np.mean( resp_r[inds] )
+        err_val = np.mean( err_r[inds] )
         respvec.append(val)
+        errvec.append(err_val)
 
     respvec = np.array(respvec)
-    
+    errvec = np.array(errvec)
+
     #plt.plot(drive_r, resp_r)
     #plt.plot(drive_r[ginds], resp_r[ginds], linewidth=2)
     #plt.plot(drive_r[np.invert(ginds)], resp_r[np.invert(ginds)], linewidth=2)
@@ -583,7 +686,13 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
 
-    return drivevec, respvec
+    #plt.errorbar(drivevec, respvec, errvec)
+    #plt.show()
+    #if add_mean:
+    #    drivevec += meandrive
+    #    respvec += meanresp
+
+    return drivevec, respvec, errvec
 
 
 

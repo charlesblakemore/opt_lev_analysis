@@ -162,7 +162,7 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
 
 
 
-def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
+def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
              amp_gain = 1., bandwidth=1.0, first_file=0):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
@@ -173,35 +173,12 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
            OUTPUTS: vpn, volts of response per Newton of drive
                     err, 1 std.dev. error on vpn'''
 
-    # Loop over all the files and extract the response at the drive frequency
-    step_cal_vec = []
-    print "Processing %i files..." % len(fobjs)
-    sys.stdout.flush()
-    old_step_resp = 0.0
-    nfiles = len(fobjs)
-    for find, fobj in enumerate(fobjs):
-        bu.progress_bar(find, nfiles)
-        sys.stdout.flush()
-        step_resp = find_step_cal_response(fobj, bandwidth=bandwidth)
-        if find < first_file:
-            old_step_resp = step_resp
-            continue
-        # Check for data with crazy large correlations, assumed to be outlier
-        elif step_resp > 2.0 * old_step_resp and find != 0 and find < nfiles-20:
-            continue
-            #plt.loglog(np.abs(np.fft.rfft(fobj.pos_data[0])))
-            #plt.figure()
-            #plt.plot(fobj.sync_data)
-            #plt.show()
-        else:
-            step_cal_vec.append(step_resp)
-        old_step_resp = step_resp
-    print
+
     step_cal_vec = np.array(step_cal_vec)
     
     yfit = np.abs(step_cal_vec)
-    bvec = [yfit<10.*np.mean(yfit)] #exclude cray outliers
-    yfit = yfit[bvec] 
+    #bvec = yfit == yfit #[yfit<10.*np.mean(yfit)] #exclude cray outliers
+    #yfit = yfit[bvec] 
 
     plt.figure(1)
     plt.ion()
@@ -232,12 +209,23 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
         #    guess = np.mean(step_sizes)
 
         if (diff_abs > 0.75 * guess) and (diff_abs > 2 * std):
+            #big = diff_abs > 4 * guess
+            #zero = (diff_abs - np.mean(current_charge)) < (2 * std)
+
+            #if big and zero:
+            #    continue
             
             current_charge = [yfit[i]]
             
             last_step = i-1
 
-            if diff_abs > 2.5 * guess:
+            if diff_abs > 4.5 * guess:
+                step_sizes.append(diff_abs * 0.2)
+                step_qs.append(np.sign(diff) * 5)
+            elif diff_abs > 3.5 * guess:
+                step_sizes.append(diff_abs * 0.25)
+                step_qs.append(np.sign(diff) * 4)
+            elif diff_abs > 2.5 * guess:
                 step_sizes.append(diff_abs * 0.33333333)
                 step_qs.append(np.sign(diff) * 3)
             elif diff_abs > 1.5 * guess:
@@ -341,12 +329,16 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
 
     plt.ioff()
 
+    q0_sc = ffun([0], *fitobj.popt)[0]
+    q0 = int(round(q0_sc / fitobj.popt[0]))
+    print 'q0: ', q0
+
     #Determine force calibration.
     e_charge = config.p_param['e_charge']
     fitobj.popt = fitobj.popt * 1./(amp_gain*e_charge/plate_sep)
     fitobj.errs = fitobj.errs * 1./(amp_gain*e_charge/plate_sep)
 
-    return fitobj.popt[0], fitobj.popt[1], fitobj.errs[0]
+    return fitobj.popt[0], fitobj.popt[1], fitobj.errs[0], q0
 
 
 

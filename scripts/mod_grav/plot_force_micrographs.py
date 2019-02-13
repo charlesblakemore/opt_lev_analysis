@@ -39,7 +39,7 @@ data_dirs = [#'/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
              #'/data/20180904/bead1/recharged_20180909/cant_force/acgrid_3freqs_10s'
              ]
 
-load_files = True
+load_files = False
 
 p0_bead_dict = {'20180625': [19.0, 40.0, 20.0], \
                 '20180704': [18.7, 40.0, 20.0], \
@@ -66,9 +66,11 @@ plot_keyscale = 1.0e-13
 maxfreq = 200
 dim3 = False
 
+unity_errors = False
 
-init = [15.0, 0.0, 28.0, -350]
-init_rot = [15.0, 0.0, 28.0, -350, 0.0, 0.0, 0.0]
+
+init = [15.0, 0.0, 28.0, -50]
+init_rot = [15.0, 0.0, 28.0, -50, 0.0, 0.0, 0.0]
 
 
 ############################################################
@@ -104,12 +106,14 @@ for resp in [0,1,2]:
 
 if plot_field_test:
     posvec = np.linspace(-20e-6, 20e-6, 101)
+    posvec = np.linspace(-5e-6, 100e-6, 106)
     ones = np.ones_like(posvec)
     xval = 20.0e-6
     yval = 0.0e-6
     zval = 0.0e-6
-    eval_pts = np.stack((xval*ones, posvec, zval*ones), axis=-1)
-    eval_pts = np.stack((xval*ones, yval*ones, posvec), axis=-1)
+    eval_pts = np.stack((posvec, yval*ones, zval*ones), axis=-1)
+    #eval_pts = np.stack((xval*ones, posvec, zval*ones), axis=-1)
+    #eval_pts = np.stack((xval*ones, yval*ones, posvec), axis=-1)
 
     ann_str = 'Sep: %0.2f um, Height: %0.2f um' % (xval*1e6, zval*1e6)
 
@@ -178,8 +182,13 @@ for ddir in data_dirs:
     #print len(agg_dat.file_data_objs)
 
     force_plane_dict = agg_dat.get_vector_force_plane(plot_resp=(0,2), fig_ind=1, \
-                                                      plot=True, show=True, \
-                                                      sign=[1.0, 1.0, 1.0], dim3=dim3)
+                                                      plot=True, show=False, \
+                                                      sign=[1.0, 1.0, 1.0], dim3=dim3, \
+                                                      keyscale=plot_keyscale)
+    force_plane_dict_2 = agg_dat.get_vector_force_plane(plot_resp=(1,2), fig_ind=2, \
+                                                        plot=True, show=True, \
+                                                        sign=[1.0, 1.0, 1.0], dim3=dim3, \
+                                                        keyscale=plot_keyscale)
 
     err_dict = {0: 'xerr', 1: 'yerr', 2: 'zerr'}
     dat = [[], [], []]
@@ -198,13 +207,13 @@ for ddir in data_dirs:
     print 'Voltage Drive: ', volt_drive
     #raw_input()
     
-    #scale_fac = np.std(dat) * 0.1
-    
+    hist_scale_fac = np.std(dat) * 0.1
     scale_fac = 1.0
 
     dat_sc = dat * (1.0 / scale_fac)
     err_sc = err * (1.0 / scale_fac)
-    #err_sc = err_sc - err_sc + 1.0
+    if unity_errors:
+        err_sc = err_sc - err_sc + 1.0
 
 
     pos_dict = agg_dat.make_ax_arrs(dim3=dim3)
@@ -278,27 +287,39 @@ for ddir in data_dirs:
         field_res = interp.interpn((xx, yy, zz), field[eval_resp], rot_pts, \
                                        bounds_error=False, fill_value=None)
 
-        if add_dipole:
-            grad_res = interp.interpn((xx, yy, zz), gradE[eval_resp], rot_pts, \
-                                      bounds_error=False, fill_value=None)
-
         if dim3:
             shaped = np.reshape(field_res, (len(seps), len(yposvec), len(heights)))
-            if add_dipole:
-                shaped2 = np.reshape(grad_res, (len(seps), len(yposvec), len(heights)))
         else:
             shaped = np.reshape(field_res, (len(seps), len(heights)))
-            if add_dipole:
-                shaped2 = np.reshape(grad_res, (len(seps), len(heights)))
+        
 
-        if add_dipole:
-            out = shaped * charge * constants.elementary_charge \
-                    + shaped2 * dipole_moment * constants.elementary_charge * 1.0e-6
-        else:
-            out = shaped * charge * constants.elementary_charge
+        out = shaped * charge * constants.elementary_charge
 
         return out #* volt_drive
     
+
+    '''
+    Fcomsol = []
+    for resp in [0,1,2]:
+        Fcomsol.append(F_comsol_func(15, 0, 28, -50, eval_resp=resp, \
+                      rot_angles=[0.0, 0.0, 0.0], rot_point=[], \
+                      radians=False, plot_rot=False, \
+                      add_dipole=False, dipole_moment=0.0, \
+                      dim3=False))
+    
+
+    fig = plt.figure(7)
+    ax = fig.add_subplot(111)
+        
+    qdat = ax.quiver(seps_g, heights_g, dat[0], dat[2], \
+                     color='k', pivot='mid', label='Force', scale=plot_keyscale*4)
+    qcom = ax.quiver(seps_g, heights_g, Fcomsol[0], Fcomsol[2], \
+                     color='r', pivot='mid', label='Error', scale=plot_keyscale*4)
+    ax.set_xlabel('Separation [um]')
+    ax.set_ylabel('Height [um]')
+    plt.show()
+    '''
+
 
 
 
@@ -345,7 +366,7 @@ for ddir in data_dirs:
 
         ang_penalty = 1.0e5 * ( penalty_box(rotx) + penalty_box(roty) + penalty_box(rotz))
 
-        return 0.5 * cost #+ ang_penalty
+        return 0.5 * cost + ang_penalty
 
 
 
@@ -358,7 +379,7 @@ for ddir in data_dirs:
             func_vals = F_comsol_func(delta_sep, ypos, delta_height, charge, eval_resp=resp, \
                                       dim3=dim3) 
             func_vals *= (1.0 / scale_fac)
-            diff += list( ((dat_sc[resp] - func_vals) ).flatten() )#/ err_sc[resp]).flatten() )
+            diff += list( ((dat_sc[resp] - func_vals) / err_sc[resp]).flatten() )
         return np.array(diff)
 
 
@@ -376,7 +397,7 @@ for ddir in data_dirs:
                                       radians=False, eval_resp=resp, \
                                       dim3=dim3) 
             func_vals *= (1.0 / scale_fac)
-            diff += list( ((func_vals - dat_sc[resp]) ).flatten() )#/ err_sc[resp]).flatten() )
+            diff += list( ((func_vals - dat_sc[resp]) / err_sc[resp]).flatten() )
 
         window = signal.tukey(91,0.8)
         angles = np.linspace(-45,45,91)
@@ -387,7 +408,7 @@ for ddir in data_dirs:
         ypenalty = 0
         if no_penalty:
             ang_penalty = 1.0
-        return np.array(diff) #* ang_penalty
+        return np.array(diff) * ang_penalty
 
 
 
@@ -472,16 +493,16 @@ for ddir in data_dirs:
 
     hist_fig, hist_axarr = plt.subplots(3,1,sharex=True)
     hist_axarr[0].set_title('Vector Force Plane Fit Residuals')
-    hist_axarr[0].hist(diff_function(x2, axes=[0])*scale_fac, bins=30, \
-                       range=(-5*scale_fac,5*scale_fac))
+    hist_axarr[0].hist(diff_function(x2, axes=[0])*hist_scale_fac, bins=30, \
+                       range=(-5*hist_scale_fac,5*hist_scale_fac))
     hist_axarr[0].axvline(0, color='k')
     hist_axarr[0].set_ylabel('Fx')
-    hist_axarr[1].hist(diff_function(x2, axes=[1])*scale_fac, bins=30, \
-                       range=(-5*scale_fac,5*scale_fac))
+    hist_axarr[1].hist(diff_function(x2, axes=[1])*hist_scale_fac, bins=30, \
+                       range=(-5*hist_scale_fac,5*hist_scale_fac))
     hist_axarr[1].axvline(0, color='k')
     hist_axarr[1].set_ylabel('Fy')
-    hist_axarr[2].hist(diff_function(x2, axes=[2])*scale_fac, bins=30, \
-                       range=(-10*scale_fac, 2.5*scale_fac))
+    hist_axarr[2].hist(diff_function(x2, axes=[2])*hist_scale_fac, bins=30, \
+                       range=(-10*hist_scale_fac, 2.5*hist_scale_fac))
     hist_axarr[2].axvline(0, color='k')
     hist_axarr[2].set_ylabel('Fz')
     hist_axarr[2].set_xlabel('Residual Force [N]')
@@ -491,16 +512,16 @@ for ddir in data_dirs:
 
     hist_fig_2, hist_axarr_2 = plt.subplots(3,1,sharex=True)
     hist_axarr_2[0].set_title('Vector Force Plane (With Rotations) Fit Residuals')
-    hist_axarr_2[0].hist(diff_function_rot(x3, axes=[0])*scale_fac, bins=30, \
-                         range=(-5*scale_fac,5*scale_fac))
+    hist_axarr_2[0].hist(diff_function_rot(x3, axes=[0])*hist_scale_fac, bins=30, \
+                         range=(-5*hist_scale_fac,5*hist_scale_fac))
     hist_axarr_2[0].axvline(0, color='k')
     hist_axarr_2[0].set_ylabel('Fx')
-    hist_axarr_2[1].hist(diff_function_rot(x3, axes=[1])*scale_fac, bins=30, \
-                         range=(-5*scale_fac,5*scale_fac))
+    hist_axarr_2[1].hist(diff_function_rot(x3, axes=[1])*hist_scale_fac, bins=30, \
+                         range=(-5*hist_scale_fac,5*hist_scale_fac))
     hist_axarr_2[1].axvline(0, color='k')
     hist_axarr_2[1].set_ylabel('Fy')
-    hist_axarr_2[2].hist(diff_function_rot(x3, axes=[2])*scale_fac, bins=30, \
-                         range=(-10*scale_fac, 2.5*scale_fac))
+    hist_axarr_2[2].hist(diff_function_rot(x3, axes=[2])*hist_scale_fac, bins=30, \
+                         range=(-10*hist_scale_fac, 2.5*hist_scale_fac))
     hist_axarr_2[2].axvline(0, color='k')
     hist_axarr_2[2].set_ylabel('Fz')
     hist_axarr_2[2].set_xlabel('Residual Force [N]')
