@@ -94,7 +94,7 @@ max_file = 5000
 decimate = False
 dec_fac = 2
 
-fake_step_cal = False
+fake_step_cal = True
 vpn = 1.0e14
 
 #tf_cal_dir = '/data/20180625/bead1/tf_20180625/'
