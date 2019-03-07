@@ -261,7 +261,7 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
         df = bu.DataFile()
         try:
             df.load(fil, load_other=True)
-        except:
+        except Exception:
             continue
 
         df.calibrate_stage_position()

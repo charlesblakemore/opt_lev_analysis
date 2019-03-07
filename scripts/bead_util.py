@@ -146,6 +146,7 @@ class DataFile:
         ''' 
 
         dat, attribs = getdata(fname)
+
         if plot_raw_dat:
             for n in range(20):
                 plt.plot(dat[:,n], label=str(n))
@@ -238,7 +239,7 @@ class DataFile:
             self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
 
         if not skip_mon:
-            self.load_monitor_data(fname)
+            self.load_monitor_data(fname, dat, attribs)
 
         if load_other:
             self.load_other_data()
@@ -246,13 +247,13 @@ class DataFile:
 
 
 
-    def load_monitor_data(self, fname, debug=False):
+    def load_monitor_data(self, fname, dat, attribs, debug=False):
 
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
 
-        dat, attribs = getdata(fname)
+        #dat, attribs = getdata(fname)
 
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
@@ -264,8 +265,17 @@ class DataFile:
                 plt.plot(dat[:,i])
             plt.show()
 
-        self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
-        self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
+        try:
+            self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
+        except:
+            self.cant_data = []
+            print "Couldn't load stage data..."
+
+        try:
+            self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
+        except:
+            self.electrode_data = []
+            print "Couldn't load electrode data..."
 
         #freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
         #for ind in [0,1,2]:
@@ -284,6 +294,8 @@ class DataFile:
         except:
             self.temps = 'Temps not loaded!'
             self.pressures = 'Pressures not loaded!'
+            print "Couldn't load environmental data..."
+
         # Unpacks stage settings into a dictionay with keys specified by
         # configuration.stage_inds
         self.stage_settings = \
