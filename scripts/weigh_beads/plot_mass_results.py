@@ -26,7 +26,7 @@ f, axarr = plt.subplots(2,1, gridspec_kw = {'height_ratios':[3,2]}, sharex=True,
 for dateind, date in enumerate(dates):
 
     dat = np.array(allres_dict[date])
-    overall = overall_mass_dict[date]
+    overall = np.array(overall_mass_dict[date])
 
     ncond = dat.shape[0]
     ms = (dat[:,4] > 1.0) * 60 + (dat[:,4] <= 1.0) * 15
@@ -66,16 +66,18 @@ for dateind, date in enumerate(dates):
 
 
     if dateind > len(dates) - 4:
-        axarr[1].errorbar([plot_ind + 1], [overall[0]], yerr=[overall[1]], \
+        axarr[1].errorbar([plot_ind + 1], [overall[0]], \
+                          yerr=[np.sqrt(np.sum(overall[1:]**2))], \
                           marker=(6,2,0), #'P', \
                           ms=10, ls='none', color='b')
         plot_str = '#%i' % int(dateind - (len(dates) - 4))
         #axarr[1].text(plot_ind-0.5, overall[0] - 2.5, plot_str, color='b', fontsize=12)
-        axarr[1].text(plot_ind-0.5, 81, plot_str, color='b', fontsize=12)
-        print date, overall[0], overall[1]
+        axarr[1].text(plot_ind-0.5, 80, plot_str, color='b', fontsize=12)
+        print date, overall[0], np.sqrt(overall[1]**2 + overall[2]**2), overall[3]
     else:
-        axarr[1].errorbar([plot_ind + 1], [overall[0]], yerr=[overall[1]], fmt='.-', \
-                          ms=10, ls='none', color='k')
+        axarr[1].errorbar([plot_ind + 1], [overall[0]], \
+                          yerr=[np.sqrt(np.sum(overall[1:]**2))], \
+                          fmt='.-', ms=10, ls='none', color='k')
 
 
 
@@ -87,13 +89,13 @@ axarr[1].set_xlabel('All Measurements (chronological)')
 axarr[0].set_ylabel('Mass [pg]')
 axarr[1].set_ylabel('Mass [pg]')
 axarr[0].set_yticks([78,81,84,87])
-axarr[1].set_yticks([81,84,87])
+axarr[1].set_yticks([78, 81,84,87])
 axarr[0].tick_params(axis='x', which='both', \
                          bottom=False, top=False, labelbottom=False)
 axarr[1].tick_params(axis='x', which='both', \
                          bottom=False, top=False, labelbottom=False)
 axarr[0].set_ylim(76,88)
-axarr[1].set_ylim(79,87.5)
+axarr[1].set_ylim(77.5,87.5)
 plt.tight_layout()
 plt.savefig('/home/charles/plots/weigh_beads/mass_vs_time_all.png')
 plt.show()

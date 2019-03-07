@@ -103,8 +103,8 @@ arr.append(['/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp', \
 file_dict['20190109'] = (True, arr)
 
 arr = []  
-arr.append('/data/20190110/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190110/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
+arr.append('/data/20190110/bead1/weigh2/low_pressure_neg_0.5Hz_4pp')
+arr.append('/data/20190110/bead1/weigh2/low_pressure_pos_0.5Hz_4pp')
 file_dict['20190110'] = (True, arr)
 
 
@@ -253,7 +253,7 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
 
     powpsd = []
 
-    for fil_ind, fil in enumerate(files):#files[56*(i):56*(i+1)]):
+    for fil_ind, fil in enumerate(files):# 15-65
 
         bu.progress_bar(fil_ind, nfiles)
 
@@ -438,19 +438,26 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
     plot_vec = np.linspace(np.min(all_eforce), mean_lev, 100)
 
     if plot:
-        plt.figure(dpi=200, figsize=(6,4))
-        plt.plot(np.array(all_eforce).flatten(), \
+        fig = plt.figure(dpi=200, figsize=(6,4))
+        ax = fig.add_subplot(111)
+        plt.plot(np.array(all_eforce).flatten()*1e12, \
                  np.array(all_power).flatten(), \
                  'o', alpha = 0.015)
         #for params in all_param:
         #    plt.plot(plot_vec, line(plot_vec, params[0]*1e13, params[1]), \
         #             '--', color='r', lw=1, alpha=0.05)
-        plt.plot(plot_vec, line(plot_vec, mean_popt[0]*1e13, mean_popt[1]), \
+        plt.plot(plot_vec*1e12, \
+                 line(plot_vec, mean_popt[0]*1e13, mean_popt[1]), \
                  '--', color='k', lw=2, \
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
+        left, right = ax.get_xlim()
+        ax.set_xlim((left, 1.1))
+
+        bot, top = ax.get_ylim()
+        ax.set_ylim((0, top))
         
         plt.legend()
-        plt.xlabel('Applied Electrostatic Force [N]')
+        plt.xlabel('Applied Electrostatic Force [pN]')
         plt.ylabel('Optical Power [Arb.]')
         plt.grid()
         plt.tight_layout()
@@ -480,7 +487,8 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
 
 
 
-        plt.figure(dpi=200, figsize=(3,2))
+        derpfig = plt.figure(dpi=200, figsize=(3,2))
+        #derpfig.patch.set_alpha(0.0)
         plt.hist(np.array(mass_vec)*1e15, bins=10)
         plt.xlabel('Mass [pg]')
         plt.ylabel('Count')
@@ -494,7 +502,7 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
     
 
 
-    print 'Bad Files: ', Nbad
+    print 'Bad Files: %i / %i' % (Nbad, nfiles)
     if print_res:
         final_mass = np.mean(mass_vec)
         final_err_stat = np.std(mass_vec)
@@ -571,19 +579,22 @@ for date in dates:
         allfiles, lengths = bu.find_all_fnames(cdir, sort_time=True, \
                                                verbose=False)
         dat = weigh_bead_efield(allfiles, pos=pos, \
-                                print_res=True, plot=True, \
+                                print_res=True, plot=False, \
                                 chopper=chopper)
         allres.append(dat)
-        #allres_dict[date].append(dat)
+        allres_dict[date].append(dat)
         masses.append(dat[0])
         err_stat.append(dat[1])
         err_sys.append(dat[2])
         
         #print allres
         print
-    err_tot = np.sqrt(np.array(err_stat)**2 + np.array(err_sys)**2)
-    overall_mass_vec = [np.average(masses, weights=1.0/err_tot**2), \
-                          np.sqrt(1.0 / np.sum(1.0 / err_tot**2))]
+    err_stat = np.array(err_stat)
+    err_sys = np.array(err_sys)
+    err_tot = np.sqrt(err_stat**2 + err_sys**2)
+    overall_mass_vec = [np.average(masses, weights=1.0/err_stat**2), \
+                        np.sqrt(1.0 / np.sum(1.0 / err_stat**2)), 
+                        np.std(masses), np.mean(err_sys)]
     overall_mass.append( overall_mass_vec )
     overall_mass_dict[date] = overall_mass_vec
     allres.append(list(np.zeros_like(dat)))
@@ -597,8 +608,8 @@ overall_mass = np.array(overall_mass)
 np.save('./allres.npy', allres)
 np.save('./overall_masses.npy', overall_mass)
 
-#pickle.dump(allres_dict, open('./allres.p', 'wb'))
-#pickle.dump(overall_mass_dict, open('./overall_masses.p', 'wb'))
+pickle.dump(allres_dict, open('./allres.p', 'wb'))
+pickle.dump(overall_mass_dict, open('./overall_masses.p', 'wb'))
 
 
 '''
