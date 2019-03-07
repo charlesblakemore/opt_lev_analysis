@@ -1,4 +1,4 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math
+import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math, xmltodict
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -404,9 +404,57 @@ def rotate_meshgrid(xvec, yvec, zvec, rot_matrix, rot_point, \
 
 
 
+def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
+    """LabVIEW Live HDF5 stopped saving datasets with attributes at some point.
+    To get around this, the attribute cluster is saved to an XML string and 
+    parsed into a dictionary here."""
+
+    attr_fname = fname[:-3] + '.attr'
+
+    xml = open(attr_fname, 'r').read()
+
+    attr_dict = xmltodict.parse(xml)['Cluster']
+    n_attr = int(attr_dict['NumElts'])
+
+    new_attr_dict = {}
+    for attr_type in types:
+        c_list = attr_dict[attr_type]
+        if type(c_list) != list:
+            c_list = [c_list]
+
+        for item in c_list:
+            new_key = item['Name']
+
+            # Keep the time as 64 bit unsigned integer
+            if new_key == 'Time':
+                new_attr_dict[new_key] = np.uint64(float(item['Val']))
+
+            # Convert single numbers/bool from their xml string representation
+            elif (attr_type == 'DBL') or (attr_type == 'Boolean'):
+                new_attr_dict[new_key] = float(item['Val'])
+
+            # Convert arrays of numbers from their parsed xml
+            elif (attr_type == 'Array'):
+                new_arr = []
+                vals = item['DBL']
+                for val in vals:
+                    new_arr.append(float(val['Val']))
+                new_attr_dict[new_key] = new_arr
+
+            # Move string attributes to new attribute dictionary
+            elif (attr_type == 'String'):
+                new_attr_dict[new_key] = item['Val']
+    
+    assert n_attr == len(new_attr_dict.keys())
+
+    return new_attr_dict
 
 
-def getdata(fname, gain_error=1.0):
+
+
+
+
+def getdata(fname, gain_error=1.0, verbose=False):
     '''loads a .h5 file from a path into data array and 
        attribs dictionary, converting ADC bits into 
        volatage. The h5 file is closed.'''
@@ -415,16 +463,25 @@ def getdata(fname, gain_error=1.0):
     adc_fac = (configuration.adc_params["adc_res"] - 1) / \
                (2. * configuration.adc_params["adc_max_voltage"])
 
+    message = ''
     try:
         f = h5py.File(fname,'r')
-        dset = f['beads/data/pos_data']
+        try:
+            dset = f['beads/data/pos_data']
+        except Exception:
+            message = "Can't find any dataset in : " + fname
+            f.close()
+            raise
+
         dat = np.transpose(dset)
         dat = dat / adc_fac
         attribs = copy_attribs(dset.attrs)
+        if attribs == {}:
+            attribs = load_xml_attribs(fname)
         f.close()
 
-    except (KeyError, IOError):
-        print "Warning, got no keys for: ", fname
+    except Exception:
+        print message
         dat = []
         attribs = {}
         f = []
@@ -944,10 +1001,8 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     # Open the file and bring datasets into memory
     try:
         f = h5py.File(fname,'r')
-        dset0 = f['beads/data/raw_data']
         dset1 = f['beads/data/quad_data']
         dset2 = f['beads/data/pos_data']
-        dat0 = np.transpose(dset0)
         dat1 = np.transpose(dset1)
         dat2 = np.transpose(dset2)
         f.close()
@@ -956,7 +1011,6 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     except (KeyError, IOError):
         if verbose:
             print "Warning, got no keys for: ", fname
-        dat0 = []
         dat1 = []
         dat2 = []
         attribs = {}
@@ -969,17 +1023,14 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     if len(dat1):
         # Use subroutines to handle each type of data
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
-        raw_time, raw_dat = (None, None)
         quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
         xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
     else:
-        raw_time, raw_dat = (None, None)
         quad_time, amp, phase = (None, None, None)
         xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
 
     # Assemble the output as a human readable dictionary
-    out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
-           'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
+    out = {'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
            'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
@@ -999,11 +1050,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
             notNone = True
     if not notNone:
         return fpga_dat
-
-    # The FIFOs to read the raw data aren't even setup yet
-    # so this is just some filler code
-    out['raw_time'] = fpga_dat['raw_time']
-    out['raw_dat'] = fpga_dat['raw_dat']
 
     # Cutoff irrelevant zeros
     if len(encode_bin) < encode_len:

@@ -579,7 +579,7 @@ for date in dates:
         allfiles, lengths = bu.find_all_fnames(cdir, sort_time=True, \
                                                verbose=False)
         dat = weigh_bead_efield(allfiles, pos=pos, \
-                                print_res=True, plot=False, \
+                                print_res=False, plot=True, \
                                 chopper=chopper)
         allres.append(dat)
         allres_dict[date].append(dat)

@@ -139,7 +139,7 @@ class DataFile:
 
 
     def load(self, fname, plot_raw_dat=False, plot_sync=False, load_other=False, \
-             skip_mon=False):
+             skip_mon=False, load_all_pos=False, verbose=False):
 
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
@@ -175,12 +175,17 @@ class DataFile:
         except:
             imgrid = False
 
+        # If it's not an imgrid file, process all the fpga data
         if not imgrid:
             fpga_fname = fname[:-3] + '_fpga.h5'
-            fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
-        
+            fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
+
             try:
-                self.encode_bits = attribs["encode_bits"]
+                encode = attribs["encode_bits"]
+                if (type(encode) == str) or (type(encode) == unicode):
+                    self.encode_bits = np.array(list(encode), dtype=int)
+                else:
+                    self.encode_bits = encode
             except:
                 self.encode_bits = []
 
@@ -199,7 +204,8 @@ class DataFile:
 
             ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
             self.pos_data = fpga_dat['xyz']
-            self.pos_data_2 = fpga_dat['xy_2']
+            if load_all_pos:
+                self.pos_data_2 = fpga_dat['xy_2']
             self.pos_time = fpga_dat['xyz_time']
             self.pos_fb = fpga_dat['fb']
 
@@ -210,21 +216,23 @@ class DataFile:
             self.phase = fpga_dat['phase']
             self.quad_time = fpga_dat['quad_time']
 
-            # run bu.print_quadrant_indices() to see an explanation of these
-            right = self.amp[0] + self.amp[1]
-            left = self.amp[2] + self.amp[3]
-            top = self.amp[0] + self.amp[2]
-            bottom = self.amp[1] + self.amp[3]
-    
-            x2 = right - left
-            y2 = top - bottom
-    
-            quad_sum = np.zeros_like(self.amp[0])
-            for ind in [0,1,2,3]:
-                quad_sum += self.amp[ind]
-            self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
-                                        y2.astype(np.float64)/quad_sum, \
-                                        self.pos_data[2]])
+            if load_all_pos:
+                # run bu.print_quadrant_indices() to see an explanation of these
+                right = self.amp[0] + self.amp[1]
+                left = self.amp[2] + self.amp[3]
+                top = self.amp[0] + self.amp[2]
+                bottom = self.amp[1] + self.amp[3]
+
+                x2 = right - left
+                y2 = top - bottom
+
+                quad_sum = np.zeros_like(self.amp[0])
+                for ind in [0,1,2,3]:
+                    quad_sum += self.amp[ind]
+
+                self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
+                                            y2.astype(np.float64)/quad_sum, \
+                                            self.pos_data[2]])
 
 
             self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
