@@ -22,7 +22,21 @@ data_dir1 = "/data/20190107/profiling/xsweep_init"
 data_dir1 = "/data/20190108/profiling/xsweep_atm_adj_2"
 data_dir2 = "/data/20190108/profiling/xsweep_atm"
 
+
+
+data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_atm'
+data_dir2 = '/daq2/20190315/profiling/ysweep_right_adj13_atm'
+#data_dir2 = '/daq2/20190315/profiling/xsweep_adj6_atm'
+
+#data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_vac'
+#data_dir2 = '/daq2/20190315/profiling/xsweep_adj13_atm'
+
+
+debug_plot = False
+
 multi_dir = True
+#multi_dir = False
+
 height_to_plot = 40.
 
 log_profs = True
@@ -38,8 +52,8 @@ gauss_fit = True
 stage_column = 19
 stage_column2 = 18
 
-data_column = 4
-data_column2 = 0  # For data circa 2016
+data_column = 1 #4
+data_column2 = 1  # For data circa 2016: 0
 
 cant_cal = 8. #um/volt
 
@@ -62,7 +76,7 @@ def spatial_bin(xvec, yvec, bin_size = .13):
 
 
 
-def profile(fname, data_column = 0):
+def profile(fname, data_column = 0, plot=False):
     df = bu.DataFile()
     df.load(fname)
     df.load_other_data()
@@ -80,11 +94,19 @@ def profile(fname, data_column = 0):
         sign = 1.0
 
     b, a = sig.butter(1, 0.5)
-    #shape = np.shape(df.other_data)
-    #for i in range(shape[0]):
-    #    plt.plot(df.other_data[i, :], label = str(i))
-    #plt.legend()
-    #plt.show()
+
+    if plot:
+        shape = np.shape(df.other_data)
+        for i in range(shape[0]):
+            plt.plot(df.other_data[i, :], label = str(i))
+        plt.legend()
+
+        plt.figure()
+        for j in range(3):
+            plt.plot(df.cant_data[j,:], label=str(j))
+        plt.legend()
+
+        plt.show()
 
     h = np.mean(df.cant_data[2, :])
     h_round = bu.round_sig(h, sig=2)
@@ -139,14 +161,14 @@ class File_prof:
         #self.sigmasq = np.sum(self.bins**2*self.y)/norm
          
 
-def proc_dir(dir):
+def proc_dir(dir, data_column=0, plot=False):
     files = glob.glob(dir + '\*.h5')
     files, lengths = bu.find_all_fnames(dir)
     #print files
     file_profs = []
     hs = []
     for fi in files:
-        b, y, e, h = profile(fi)
+        b, y, e, h = profile(fi, plot=plot, data_column=data_column)
         #print h
         if h not in hs:
             #if new height then create new profile object
@@ -221,10 +243,10 @@ def Szsq(z, s0, M, z0, lam = 1.064):
     #fits beam profile data to extract M^2 value 
 
 
-file_profs, hs, sigmasqs = proc_dir(data_dir1)
+file_profs, hs, sigmasqs = proc_dir(data_dir1, data_column=data_column, plot=debug_plot)
 
 if multi_dir:
-    fp2, hs2, sigsq2 = proc_dir(data_dir2)
+    fp2, hs2, sigsq2 = proc_dir(data_dir2, data_column=data_column2, plot=debug_plot)
     ind = np.argmin(np.abs(hs - height_to_plot))
     ind2 = np.argmin(np.abs(hs2 - height_to_plot))
     plot_profs([file_profs[ind]] + [fp2[ind2]])

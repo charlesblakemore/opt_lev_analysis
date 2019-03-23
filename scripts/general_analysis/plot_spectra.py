@@ -11,12 +11,31 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
+plt.rcParams.update({'font.size': 16})
+
 dir1 = '/data/20190109/bead1/'
 maxfiles = 500
 
 use_dir = False
 
-allfiles = ['/data/20190109/bead1/1_5mbar_zcool.h5']
+allfiles = ['/daq2/20190319/bead1/1_5mbar_nocool_-5000zfb.h5', \
+            '/daq2/20190319/bead1/1_5mbar_nocool_-10000zfb.h5', \
+            '/daq2/20190319/bead1/1_5mbar_nocool_-14000zfb.h5', \
+            '/daq2/20190319/bead1/1_5mbar_nocool_-16000zfb.h5', \
+            '/daq2/20190319/bead1/1_5mbar_nocool_-17500zfb.h5']
+
+allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool_-12000zfb.h5', \
+            '/daq2/20190320/bead2/1_5mbar_zcool_-13000zfb.h5', \
+            '/daq2/20190320/bead2/1_5mbar_zcool_-13200zfb.h5', \
+            '/daq2/20190320/bead2/1_5mbar_zcool_-13000zfb_2.h5']
+
+
+allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
+            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
+            '/daq2/20190320/bead2/1_5mbar_yzcool_neg.h5', \
+            '/daq2/20190320/bead2/1_5mbar_xyzcool.h5']
+
+
 tfdate = '20190108'
 
 #labs = ['1','2', '3']
@@ -48,7 +67,7 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = True
+fullNFFT = False
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -167,25 +186,25 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 daxarr[axind,0].grid(alpha=0.5)
                 daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
                 daxarr[axind,1].grid(alpha=0.5)
-                daxarr[axind,0].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+                daxarr[axind,0].set_ylabel('sqrt(PSD) [N/rt(Hz)]')
                 if ax == data_axes[-1]:
-                    daxarr[axind,0].set_xlabel('Frequency [Hz]', fontsize=10)
-                    daxarr[axind,1].set_xlabel('Frequency [Hz]', fontsize=10)
+                    daxarr[axind,0].set_xlabel('Frequency [Hz]')
+                    daxarr[axind,1].set_xlabel('Frequency [Hz]')
             else:
-                daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color)
+                daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color, label=fil)
                 daxarr[axind].grid(alpha=0.5)
-                daxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+                daxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]')
 
                 if len(fb_axes):
                     fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
                     fbaxarr[axind].grid(alpha=0.5)
-                    fbaxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]', fontsize=10)
+                    fbaxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]')
 
 
                 if ax == data_axes[-1]:
-                    daxarr[axind].set_xlabel('Frequency [Hz]', fontsize=10)
+                    daxarr[axind].set_xlabel('Frequency [Hz]')
                     if len(fb_axes):
-                        fbaxarr[axind].set_xlabel('Frequency [Hz]', fontsize=10)
+                        fbaxarr[axind].set_xlabel('Frequency [Hz]')
 
         if len(cant_axes):
             for axind, ax in enumerate(cant_axes):
@@ -207,7 +226,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 
-    daxarr[0].legend()
+    daxarr[0].legend(fontsize=10)
     if len(fb_axes):
         fbaxarr[0].legend()
 

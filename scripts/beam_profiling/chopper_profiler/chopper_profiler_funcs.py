@@ -41,10 +41,24 @@ def rebin(xvec, yvec, numbins=100):
 
     #print numbins
 
+    xvec = np.array(xvec)
+    yvec = np.array(yvec)
+
     minval = np.min(xvec)
     maxval = np.max(xvec)
     dx = np.abs(xvec[1] - xvec[0])
 
+    xarr = np.linspace(minval, maxval, numbins)
+
+    yarr = np.zeros_like(xarr)
+    err = np.zeros_like(xarr)
+
+    dx2 = xarr[1] - xarr[0]
+    for i, x in enumerate(xarr):
+        inds = (xvec >= x - 0.5*dx2) * (xvec < x + 0.5*dx2)
+        yarr[i] = np.mean(yvec[inds])
+        err[i] = np.std(yvec[inds])
+    '''
     xvec2 = np.hstack( (xvec[0] - dx, np.hstack( (xvec, xvec[-1] + dx) ) ) )
     yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
 
@@ -64,6 +78,7 @@ def rebin(xvec, yvec, numbins=100):
         inds = np.abs(xvec - x) < 0.5*dx2
         yarr[i] = np.mean( yvec[inds] )
         err[i] = np.std( yvec[inds] )
+    '''
     
     return xarr, yarr, err
 
@@ -130,7 +145,7 @@ def fit_gauss_and_truncate(t, prof, twidth, numbins = 500):
 
 
 
-def profile(df, raw_dat_col = 4, drum_diam=3.17e-2, return_pos=False, \
+def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
             numbins = 500, fit_intensity=False, \
             intensity_func = gauss_intensity, guess = 3.0e-3, \
             plot_peaks = False):
@@ -167,7 +182,7 @@ def profile(df, raw_dat_col = 4, drum_diam=3.17e-2, return_pos=False, \
     numchops = int(t[-1] / dt_chop)
     twidth = (guess / (2.0 * np.pi * 10.0e-3)) * dt_chop
 
-    peaks = pdet.peakdetect(grad, lookahead=50, delta=0.05)
+    peaks = pdet.peakdetect(grad, lookahead=50, delta=0.075)
 
     pos_peaks = peaks[0]
     neg_peaks = peaks[1]
@@ -206,13 +221,15 @@ def profile(df, raw_dat_col = 4, drum_diam=3.17e-2, return_pos=False, \
         pos_peaks = pos_peaks[:-1]
     elif len(neg_peaks) > len(pos_peaks):
         neg_peaks = neg_peaks[1:]
-    
 
     for ind, pos_peak in enumerate(pos_peaks):
         neg_peak = neg_peaks[ind]
 
         pos_peak_loc = pos_peak[0]
         neg_peak_loc = neg_peak[0]
+
+        if pos_peak_loc < 500:
+            continue
 
         fit_t = t[pos_peak_loc-500:neg_peak_loc+500]
         fit_prof = grad[pos_peak_loc-500:neg_peak_loc+500]
@@ -263,8 +280,8 @@ def profile(df, raw_dat_col = 4, drum_diam=3.17e-2, return_pos=False, \
 
 
 
-def profile_directory(prof_dir, raw_dat_col = 4, drum_diam=3.25e-2, \
-                      return_pos=False, normalize=True):
+def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
+                      return_pos=False, plot_peaks=False):
     ''' Takes a directory path and profiles each file, and averages 
         for a final result
     
@@ -284,21 +301,40 @@ def profile_directory(prof_dir, raw_dat_col = 4, drum_diam=3.25e-2, \
 
     tot_x = []
     tor_prof = []
-    for fil_path in prof_files:
+    nfiles = len(prof_files)
+    for fil_ind, fil_path in enumerate(prof_files):
+        bu.progress_bar(fil_ind, nfiles)
         prof_df = bu.DataFile()
-        prof_df.load(fil_path)
+        prof_df.load(fil_path, skip_fpga=True)
         prof_df.load_other_data()
 
-        x, prof = profile(prof_df, raw_dat_col = raw_dat_col, \
-                          drum_diam = drum_diam, return_pos = return_pos)
+        x, prof, popt = profile(prof_df, raw_dat_col = raw_dat_col, \
+                                drum_diam = drum_diam, return_pos = return_pos, \
+                                fit_intensity=True, plot_peaks=plot_peaks)
+
+
+        #plt.plot(x, prof)
+        #plt.show()
+
+        #x, prof, errs = rebin(x, prof, numbins=5000)
+        #plt.plot(x, prof)
+        #plt.show()
 
         if not len(tot_x):
             tot_x = x
             tot_prof = prof
+            tot_popt = [popt]
         else:
-            tot_x = np.hstack((tot_x, x))
-            tot_prof = np.hstack((tot_prof, prof))
+            tot_x = np.block([tot_x, x]) # = np.hstack((tot_x, x))
+            tot_prof = np.block([tot_prof, prof]) # = np.hstack((tot_prof, prof))
+            tot_popt.append(popt) # = np.concatenate((tot_popt, popt), axis=0)
+
+    #tot_x = np.concatenate(tot_x)
+    #tot_prof = np.concatenate(tot_x)
+
+    tot_popt = np.array(tot_popt)
+    tot_popt_mean = np.mean(tot_popt, axis=0)
 
     sort_inds = tot_x.argsort()
 
-    return tot_x[sort_inds], tot_prof[sort_inds]
+    return tot_x[sort_inds], tot_prof[sort_inds], tot_popt_mean

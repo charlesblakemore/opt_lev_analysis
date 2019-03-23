@@ -139,7 +139,7 @@ class DataFile:
 
 
     def load(self, fname, plot_raw_dat=False, plot_sync=False, load_other=False, \
-             skip_mon=False, load_all_pos=False, verbose=False):
+             skip_mon=False, load_all_pos=False, verbose=False, skip_fpga=False):
 
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
@@ -172,12 +172,12 @@ class DataFile:
                                * (10**9) + self.time
 
         try:
-            imgrid = attribs["imgrid"]
+            imgrid = bool(attribs["imgrid"])
         except:
             imgrid = False
 
         # If it's not an imgrid file, process all the fpga data
-        if not imgrid:
+        if (not imgrid) and (not skip_fpga):
             fpga_fname = fname[:-3] + '_fpga.h5'
             fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
 

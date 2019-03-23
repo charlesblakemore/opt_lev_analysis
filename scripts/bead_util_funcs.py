@@ -715,11 +715,12 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
     bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
     drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
-
+    
+    # This part is slow, don't really know the best way to fix that....
     respvec = []
     errvec = []
     for bin_loc in drivevec:
-        inds = (drive_r > bin_loc - 0.5*bin_spacing) * \
+        inds = (drive_r >= bin_loc - 0.5*bin_spacing) * \
                (drive_r < bin_loc + 0.5*bin_spacing)
         val = np.mean( resp_r[inds] )
         err_val = np.mean( err_r[inds] )

@@ -14,56 +14,45 @@ import chopper_profiler_funcs as chopfuncs
 
 
 
+
+#### SETUP FOR DATA SAMPLED AT 50 kHz
+
 fontsize = 16
-plot_title = 'Centered'
+plot_title = 'Obj. Output - 92cm'
+plot_title = ''
 
 
-#xfile = '/data/20171023/alignment/objective_coll/xprof_pos6.h5'
-#yfile = '/data/20171023/alignment/objective_coll/yprof_pos6.h5'
-
-#xfile = '/data/20171024/alignment/lens_tube/xprof_pos8.h5'
-#yfile = '/data/20171024/alignment/lens_tube/yprof_pos8.h5'
-
-xfile = '/data/20171025/chopper_profiling/xprof_output_centered.h5'
-yfile = '/data/20171025/chopper_profiling/yprof_output_centered.h5'
-#xfile = '/data/20171025/chopper_profiling/45degprof_output.h5'
-
-
-
-
-
-
-#xfile = '/data/20171020/beam_profiling/xprof_init.h5'
-#xfile = '/data/20171020/beam_profiling/xprof_noclamp.h5'
-#xfile = '/data/20171020/beam_profiling/xprof_clamp_gel.h5'
-#xfile = '/data/20171020/beam_profiling/xprof_mintape.h5'
-
-#yfile = '/data/20171020/beam_profiling/yprof_init.h5'
-#yfile = '/data/20171020/beam_profiling/yprof_noclamp.h5'
-#yfile = '/data/20171020/beam_profiling/yprof_clamp_gel.h5'
-#yfile = '/data/20171020/beam_profiling/yprof_mintape.h5'
-
+'''
+xfile = '/daq2/20190308/profiling/epoxyed_fiber_3/10cm_xprof-1_no-light.h5'
+yfile = '/daq2/20190308/profiling/epoxyed_fiber_3/10cm_xprof-2_no-light.h5'
 
 xfilobj = bu.DataFile()
-xfilobj.load(xfile)
+xfilobj.load(xfile, skip_fpga=True)
 xfilobj.load_other_data()
 
 yfilobj = bu.DataFile()
-yfilobj.load(yfile)
+yfilobj.load(yfile, skip_fpga=True)
 yfilobj.load_other_data()
+'''
 
 
-xprof_dir = '/data/20171020/beam_profiling/many_xprofs_mintape'
+xprof_dir = '/daq2/20190311/profiling/tele_out_coll/xprof_150cm_init2'
+yprof_dir = '/daq2/20190311/profiling/tele_out_coll/yprof_150cm_init2'
 
 
+x_d, x_prof, x_popt = chopfuncs.profile_directory(xprof_dir, raw_dat_col=0, \
+                                                  plot_peaks=False, return_pos=True)
+y_d, y_prof, y_popt = chopfuncs.profile_directory(yprof_dir, raw_dat_col=0, return_pos=True)
 
 
-x_d, x_prof, x_popt = chopfuncs.profile(xfilobj, raw_dat_col = 4, \
-                                        return_pos = True, numbins = 500, \
-                                        fit_intensity = True)
-y_d, y_prof, y_popt = chopfuncs.profile(yfilobj, raw_dat_col = 4, \
-                                        return_pos = True, numbins = 500, \
-                                        fit_intensity = True)
+#x_d, x_prof, x_popt = chopfuncs.profile(xfilobj, raw_dat_col = 0, \
+#                                        return_pos = True, numbins = 500, \
+#                                        fit_intensity = True, plot_peaks=False)
+#y_d, y_prof, y_popt = chopfuncs.profile(yfilobj, raw_dat_col = 0, \
+#                                        return_pos = True, numbins = 500, \
+#                                        fit_intensity = True, plot_peaks=False)
+
+
 
 x_prof = x_prof / x_popt[0]
 y_prof = y_prof / y_popt[0]
