@@ -316,9 +316,9 @@ def get_hdf5_time(fname):
 
     except (KeyError, IOError):
         print "Warning, got no keys for: ", fname
-        attribs = {}
+        attribs = {"Time": 0}
 
-    return attribs["Time"]
+    return 0 #attribs["Time"]
 
 def labview_time_to_datetime(lt):
     '''Convert a labview timestamp (i.e. time since 1904) to a  

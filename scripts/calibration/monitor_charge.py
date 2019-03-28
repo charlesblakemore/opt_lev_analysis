@@ -15,13 +15,13 @@ import configuration as config
 import time
 
 
-dirname = r'C:\Data\20180618\bead1\discharge\fine3'
+dirname = r'D:\data\20190327\bead1\discharge\coarse'
 live = True
 
 elec_ind = 3
 pos_ind = 0  # {0: x, 1: y, 2: z}
 
-ts = 5
+ts = 10
 
 SCALE = 10**5
 
