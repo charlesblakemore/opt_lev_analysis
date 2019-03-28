@@ -1,9 +1,9 @@
-import h5py, os, re, glob, time, sys, fnmatch
+import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math, xmltodict
 import numpy as np
 import datetime as dt
 import dill as pickle 
 
-#from obspy.signal.detrend import polynomial
+from obspy.signal.detrend import polynomial
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
@@ -18,6 +18,7 @@ import scipy
 import configuration
 import transfer_func_util as tf
 
+import warnings
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -57,7 +58,7 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
     '''
     
     if len(suffix):
-        max_bar_len = 80 - len(suffix) - 15
+        max_bar_len = 80 - len(suffix) - 17
         if bar_len > max_bar_len:
             bar_len = max_bar_len
 
@@ -69,8 +70,18 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
 
         percents = round(100.0 * count / float(total), 1)
         bar = '#' * filled_len + '-' * (bar_len - filled_len)
+    
+    # This next bit writes the current progress bar to stdout, changing
+    # the string slightly depending on the value of percents (1, 2 or 3 digits), 
+    # so the final length of the displayed string stays constant.
+    if count == total - 1:
+        sys.stdout.write('[%s] %s%s ... %s\r' % (bar, percents, '%', suffix))
+    else:
+        if percents < 10:
+            sys.stdout.write('[%s]   %s%s ... %s\r' % (bar, percents, '%', suffix))
+        else:
+            sys.stdout.write('[%s]  %s%s ... %s\r' % (bar, percents, '%', suffix))
 
-    sys.stdout.write('[%s] %s%s ... %s\r' % (bar, percents, '%', suffix))
     sys.stdout.flush()
     
     if (count == total - 1) and newline:
@@ -118,7 +129,9 @@ def round_sig(x, sig=2):
 
 
 def fft_norm(N, fsamp):
+    "Factor to normalize FFT to ASD units"
     return np.sqrt(2 / (N * fsamp))
+
 
 
 #### First define some functions to help with the DataFile object. 
@@ -162,7 +175,8 @@ def make_all_pardirs(path):
 
 
 
-def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True):
+def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
+                    exclude_fpga=True, verbose=True):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -172,9 +186,10 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True):
 
        OUTPUTS: files, list of files names as strings'''
 
-    print "Finding files in: "
-    print dirlist
-    sys.stdout.flush()
+    if verbose:
+        print "Finding files in: "
+        print dirlist
+        sys.stdout.flush()
 
     was_list = True
 
@@ -201,20 +216,29 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True):
         # Sort files based on final index
         files.sort(key = find_str)
 
+    if sort_time:
+        files = sort_files_by_timestamp(files)
+
     if len(files) == 0:
         print "DIDN'T FIND ANY FILES :("
 
-    print "Found %i files..." % len(files)
+    if verbose:
+        print "Found %i files..." % len(files)
     if was_list:
         return files, lengths
     else:
-        return files
+        return files, 0
 
 
 
 def sort_files_by_timestamp(files):
     '''Pretty self-explanatory function.'''
-    files = [(get_hdf5_time(path), path) for path in files]
+    try:
+        files = [(get_hdf5_time(path), path) for path in files]
+    except:
+        print 'BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP'
+        files = [(os.stat(path), path) for path in files]
+        files = [(stat.st_ctime, path) for stat, path in files]
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -282,7 +306,155 @@ def copy_attribs(attribs):
 
 
 
-def getdata(fname, gain_error=1.0):
+def euler_rotation_matrix(rot_angles, radians=True):
+    '''Returns a 3x3 euler-rotation matrix. Thus the rotation proceeds
+       thetaX (about x-axis) -> thetaY -> thetaZ, with the result returned
+       as a numpy ndarray.
+    '''
+
+
+    if not radians:
+        rot_angles = (np.pi / 180.0) * np.array(rot_angles)
+
+    rx = np.array([[1.0, 0.0, 0.0], \
+                   [0.0, np.cos(rot_angles[0]), -1.0*np.sin(rot_angles[0])], \
+                   [0.0, np.sin(rot_angles[0]), np.cos(rot_angles[0])]])
+
+    ry = np.array([[np.cos(rot_angles[1]), 0.0, np.sin(rot_angles[1])], \
+                   [0.0, 1.0, 0.0], \
+                   [-1.0*np.sin(rot_angles[1]), 0.0, np.cos(rot_angles[1])]])
+
+    rz = np.array([[np.cos(rot_angles[2]), -1.0*np.sin(rot_angles[2]), 0.0], \
+                   [np.sin(rot_angles[2]), np.cos(rot_angles[2]), 0.0], \
+                   [0.0, 0.0, 1.0]])
+
+
+    rxy = np.matmul(ry, rx)
+    rxyz = np.matmul(rz, rxy)
+
+    return rxyz
+
+
+
+def rotate_points(pts, rot_matrix, rot_point, plot=False):
+    '''Takes and input of shape (Npts, 3) and performs applies the
+       given rotation matrix to each 3D point. Order of rotations
+       follow the Euler convention.
+    '''
+    npts = pts.shape[0]
+    rot_pts = []
+    for resp in [0,1,2]:
+        rot_pts_vec = np.zeros(npts)
+        for resp2 in [0,1,2]:
+            rot_pts_vec += rot_matrix[resp,resp2] * (pts[:,resp2] - rot_point[resp2])
+        rot_pts_vec += rot_point[resp]
+        rot_pts.append(rot_pts_vec)
+    rot_pts = np.array(rot_pts)
+    rot_pts = rot_pts.T
+
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+            
+        ax.scatter(pts[:,0]*1e6, pts[:,1]*1e6, \
+                   pts[:,2]*1e6, label='Original')
+        ax.scatter(rot_pts[:,0]*1e6, rot_pts[:,1]*1e6, rot_pts[:,2]*1e6, \
+                       label='Rot')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        plt.show()
+
+    return rot_pts
+
+
+
+
+def rotate_meshgrid(xvec, yvec, zvec, rot_matrix, rot_point, \
+                    plot=False, microns=True):
+    xg, yg, zg = np.meshgrid(xvec, yvec, zvec, indexing='ij')
+    init_mesh = np.array([xg, yg, zg])
+    rot_grids = np.einsum('ij,jabc->iabc', rot_matrix, init_mesh)
+
+    init_pts = np.rollaxis(init_mesh, 0, 4)
+    init_pts = init_pts.reshape((init_mesh.size // 3, 3))
+
+    rot_pts = np.rollaxis(rot_grids, 0,4)
+    rot_pts = rot_pts.reshape((rot_grids.size // 3, 3))
+
+    if microns:
+        fac = 1.0
+    else:
+        fac = 1e6
+
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+            
+        ax.scatter(init_pts[:,0]*fac, init_pts[:,2]*fac, label='Original')
+        ax.scatter(rot_pts[:,0]*fac, rot_pts[:,1]*fac, rot_pts[:,2]*fac, \
+                       label='Rot')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        plt.show()
+
+    return rot_grids
+
+
+
+
+def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
+    """LabVIEW Live HDF5 stopped saving datasets with attributes at some point.
+    To get around this, the attribute cluster is saved to an XML string and 
+    parsed into a dictionary here."""
+
+    attr_fname = fname[:-3] + '.attr'
+
+    xml = open(attr_fname, 'r').read()
+
+    attr_dict = xmltodict.parse(xml)['Cluster']
+    n_attr = int(attr_dict['NumElts'])
+
+    new_attr_dict = {}
+    for attr_type in types:
+        c_list = attr_dict[attr_type]
+        if type(c_list) != list:
+            c_list = [c_list]
+
+        for item in c_list:
+            new_key = item['Name']
+
+            # Keep the time as 64 bit unsigned integer
+            if new_key == 'Time':
+                new_attr_dict[new_key] = np.uint64(float(item['Val']))
+
+            # Convert single numbers/bool from their xml string representation
+            elif (attr_type == 'DBL') or (attr_type == 'Boolean'):
+                new_attr_dict[new_key] = float(item['Val'])
+
+            # Convert arrays of numbers from their parsed xml
+            elif (attr_type == 'Array'):
+                new_arr = []
+                vals = item['DBL']
+                for val in vals:
+                    new_arr.append(float(val['Val']))
+                new_attr_dict[new_key] = new_arr
+
+            # Move string attributes to new attribute dictionary
+            elif (attr_type == 'String'):
+                new_attr_dict[new_key] = item['Val']
+    
+    assert n_attr == len(new_attr_dict.keys())
+
+    return new_attr_dict
+
+
+
+
+
+
+def getdata(fname, gain_error=1.0, verbose=False):
     '''loads a .h5 file from a path into data array and 
        attribs dictionary, converting ADC bits into 
        volatage. The h5 file is closed.'''
@@ -291,21 +463,32 @@ def getdata(fname, gain_error=1.0):
     adc_fac = (configuration.adc_params["adc_res"] - 1) / \
                (2. * configuration.adc_params["adc_max_voltage"])
 
+    message = ''
     try:
         f = h5py.File(fname,'r')
-        dset = f['beads/data/pos_data']
+        try:
+            dset = f['beads/data/pos_data']
+        except Exception:
+            message = "Can't find any dataset in : " + fname
+            f.close()
+            raise
+
         dat = np.transpose(dset)
         dat = dat / adc_fac
         attribs = copy_attribs(dset.attrs)
+        if attribs == {}:
+            attribs = load_xml_attribs(fname)
         f.close()
 
-    except (KeyError, IOError):
-        print "Warning, got no keys for: ", fname
+    except Exception:
+        print message
         dat = []
         attribs = {}
         f = []
 
     return dat, attribs
+
+
 
 def get_hdf5_time(fname):
     try:
@@ -316,9 +499,33 @@ def get_hdf5_time(fname):
 
     except (KeyError, IOError):
         print "Warning, got no keys for: ", fname
-        attribs = {"Time": 0}
+        attribs = {}
+        
+    return attribs["Time"]
 
-    return 0 #attribs["Time"]
+
+def sudo_call(fn, *args):
+    with open("/home/charles/some_test.py", "wb") as f:
+        f.write( inspect.getsource(fn) )
+        f.write( "%s(*%r)" % (fn.__name__,args) )
+    out = subprocess.check_output("sudo python /home/charles/some_test.py", shell=True)
+    print out
+
+
+def fix_time(fname, dattime):
+    '''THIS SCRIPT ONLY WORKS AS ROOT OR A SUDOER. It usually runs
+       via the script above, which creates a subroutine. Thus, this 
+       function needs to be completely self-sufficient, which is why
+       it reimports h5py.'''
+    try:
+        import h5py
+        f = h5py.File(fname, 'r+')
+        f['beads/data/pos_data'].attrs.create("Time", dattime)
+        f.close()
+        print "Fixed time."
+    except:
+        print "Couldn't fix the time..."
+
 
 def labview_time_to_datetime(lt):
     '''Convert a labview timestamp (i.e. time since 1904) to a  
@@ -347,8 +554,9 @@ def unpack_config_dict(dic, vec):
 
 
 
-def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
-                sg_filter=False, sg_params=[3,1], verbose=True):
+def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
+                width=0, sg_filter=False, sg_params=[3,1], verbose=True, \
+                maxfreq=2500, add_mean=False):
     '''Given two waveforms drive(t) and resp(t), this function generates
        resp(drive) with a fourier method. drive(t) should be a pure tone,
        such as a single frequency cantilever drive (although the 
@@ -362,6 +570,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
        	        dt, sample spacing in seconds [s]
                 nbins, number of samples in the final resp(drive)
        	        nharmonics, number of harmonics to include in filter
+                harms, list of desired harmonics (overrides nharmonics)
        	        width, filter width in Hertz [Hz]
                 sg_filter, boolean value indicating use of a Savitsky-Golay 
                             filter for final smoothing of resp(drive)
@@ -390,7 +599,9 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     freqs = np.fft.rfftfreq(len(drive), d=dt)
 
     # Find the drive frequency, ignoring the DC bin
-    fund_ind = np.argmax( np.abs(drivefft[1:]) ) + 1
+    maxind = np.argmin( np.abs(freqs - maxfreq) )
+
+    fund_ind = np.argmax( np.abs(drivefft[1:maxind]) ) + 1
     drive_freq = freqs[fund_ind]
 
     meandrive = np.mean(drive)
@@ -400,15 +611,28 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     meanresp = np.mean(resp)
 
     # Build the notch filter
-    drivefilt = np.zeros(len(drivefft))
+    drivefilt = np.zeros(len(drivefft)) #+ np.random.randn(len(drivefft))*1.0e-3
     drivefilt[fund_ind] = 1.0
+
+    errfilt = np.zeros_like(drivefilt)
+    noise_bins = (freqs > 10.0) * (freqs < 100.0)
+    errfilt[noise_bins] = 1.0
+    errfilt[fund_ind] = 0.0
+
+    #plt.loglog(freqs, np.abs(respfft))
+    #plt.loglog(freqs, np.abs(respfft)*errfilt)
+    #plt.show()
 
     # Error message triggered by verbose option
     if verbose:
-        if ( np.abs(drivefft[fund_ind-1]) > 0.01 * np.abs(drivefft[fund_ind]) or \
-             np.abs(drivefft[fund_ind+1]) > 0.01 * np.abs(drivefft[fund_ind]) ):
-            print "More than 1% power in neighboring bins: spatial binning may be suboptimal"
+        if ( (np.abs(drivefft[fund_ind-1]) > 0.03 * np.abs(drivefft[fund_ind])) or \
+             (np.abs(drivefft[fund_ind+1]) > 0.03 * np.abs(drivefft[fund_ind])) ):
+            print "More than 3% power in neighboring bins: spatial binning may be suboptimal"
             sys.stdout.flush()
+            plt.loglog(freqs, np.abs(drivefft))
+            plt.loglog(freqs[fund_ind], np.abs(drivefft[fund_ind]), '.', ms=20)
+            plt.show()
+    
 
     # Expand the filter to more than a single bin. This can introduce artifacts
     # that appear like lissajous figures in the resp vs. drive final result
@@ -418,7 +642,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
         drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
 
     # Generate an array of harmonics
-    harms = np.array([x+2 for x in range(nharmonics)])
+    if not len(harms):
+        harms = np.array([x+2 for x in range(nharmonics)])
 
     # Loop over harmonics and add them to the filter
     for n in harms:
@@ -429,42 +654,82 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
             h_upper_ind = harm_ind + (upper_ind - fund_ind)
             drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
 
+    if add_mean:
+        drivefilt[0] = 1.0
+
     # Apply the filter to both drive and response
     #drivefilt = np.ones_like(drivefilt)
     #drivefilt[0] = 0
     drivefft_filt = drivefilt * drivefft
     respfft_filt = drivefilt * respfft
+    errfft_filt = errfilt * respfft
+
+    #print fund_ind
+    #print np.abs(drivefft_filt[fund_ind])
+    #print np.abs(respfft_filt[fund_ind])
+    #print np.abs(drivefft_filt[fund_ind]) / np.abs(respfft_filt[fund_ind])
+    #raw_input()
+
+    #plt.loglog(freqs, np.abs(respfft))
+    #plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'x', ms=10)
+    #plt.show()
 
     # Reconstruct the filtered data
+    
+    #plt.loglog(freqs, np.abs(drivefft_filt))
+    #plt.show()
+
+    fac = np.sqrt(2) * fft_norm(len(t),1.0/(t[1]-t[0])) * np.sqrt(freqs[1] - freqs[0])
+
+    #drive_r = np.zeros(len(t)) + meandrive
+    #for ind, freq in enumerate(freqs[drivefilt>0]):
+    #    drive_r += fac * np.abs(drivefft_filt[drivefilt>0][ind]) * \
+    #               np.cos( 2 * np.pi * freq * t + \
+    #                       np.angle(drivefft_filt[drivefilt>0][ind]) )
     drive_r = np.fft.irfft(drivefft_filt) + meandrive
+
+    #resp_r = np.zeros(len(t))
+    #for ind, freq in enumerate(freqs[drivefilt>0]):
+    #    resp_r += fac * np.abs(respfft_filt[drivefilt>0][ind]) * \
+    #              np.cos( 2 * np.pi * freq * t + \
+    #                      np.angle(respfft_filt[drivefilt>0][ind]) )
     resp_r = np.fft.irfft(respfft_filt) #+ meanresp
 
-    #plt.plot(t, resp_r)
-    #plt.figure()
+    err_r = np.fft.irfft(errfft_filt)
 
     # Sort reconstructed data, interpolate and resample
     mindrive = np.min(drive_r)
     maxdrive = np.max(drive_r)
-
     grad = np.gradient(drive_r)
 
     sortinds = drive_r.argsort()
     drive_r = drive_r[sortinds]
     resp_r = resp_r[sortinds]
+    err_r = err_r[sortinds]
+
+    #plt.plot(drive_r, resp_r, '.')
+    #plt.plot(drive_r, err_r, '.')
+    #plt.show()
 
     ginds = grad[sortinds] < 0
 
     bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
     drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
-
+    
+    # This part is slow, don't really know the best way to fix that....
     respvec = []
+    errvec = []
     for bin_loc in drivevec:
-        inds = (drive_r > bin_loc - 0.5*bin_spacing) * (drive_r < bin_loc + 0.5*bin_spacing)
+        inds = (drive_r >= bin_loc - 0.5*bin_spacing) * \
+               (drive_r < bin_loc + 0.5*bin_spacing)
         val = np.mean( resp_r[inds] )
+        err_val = np.mean( err_r[inds] )
         respvec.append(val)
+        errvec.append(err_val)
 
     respvec = np.array(respvec)
-    
+    errvec = np.array(errvec)
+
     #plt.plot(drive_r, resp_r)
     #plt.plot(drive_r[ginds], resp_r[ginds], linewidth=2)
     #plt.plot(drive_r[np.invert(ginds)], resp_r[np.invert(ginds)], linewidth=2)
@@ -479,13 +744,67 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, width=0, \
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
 
-    return drivevec, respvec
+    #plt.errorbar(drivevec, respvec, errvec)
+    #plt.show()
+    #if add_mean:
+    #    drivevec += meandrive
+    #    respvec += meanresp
+
+    return drivevec, respvec, errvec
 
 
 
 
 
 
+
+
+def print_quadrant_indices():
+    outstr = '\n'
+    outstr += '     Quadrant diode indices:      \n'
+    outstr += '   (looking at sensing elements)  \n'
+    outstr += '                                  \n'
+    outstr += '                                  \n'
+    outstr += '              top                 \n'
+    outstr += '          ___________             \n'
+    outstr += '         |     |     |            \n'
+    outstr += '         |  2  |  0  |            \n'
+    outstr += '  left   |_____|_____|   right    \n'
+    outstr += '         |     |     |            \n'
+    outstr += '         |  3  |  1  |            \n'
+    outstr += '         |_____|_____|            \n'
+    outstr += '                                  \n'
+    outstr += '             bottom               \n'
+    outstr += '\n'
+    print  outstr
+
+
+
+def print_electrode_indices():
+    outstr = '\n'
+    outstr += '        Electrode face indices:            \n'
+    outstr += '                                           \n'
+    outstr += '                                           \n'
+    outstr += '                  top (1)                  \n'
+    outstr += '                               back (4)    \n'
+    outstr += '                  +---------+  cantilever  \n'
+    outstr += '                 /         /|              \n'
+    outstr += '                /    1    / |              \n'
+    outstr += '               /         /  |              \n'
+    outstr += '   left (6)   +---------+   |   right (5)  \n'
+    outstr += '   input      |         | 5 |   output     \n'
+    outstr += '              |         |   +              \n'
+    outstr += '              |    3    |  /               \n'
+    outstr += '              |         | /                \n'
+    outstr += '              |         |/                 \n'
+    outstr += ' front (3)    +---------+                  \n'
+    outstr += ' bead dropper                              \n'
+    outstr += '                 bottom (2)                \n'
+    outstr += '                                           \n'
+    outstr += '                                           \n'
+    outstr += '      cantilever (0),   shield (7)         \n'
+    outstr += '\n'
+    print  outstr
 
 
 
@@ -514,7 +833,7 @@ def extract_quad(quad_dat, timestamp, verbose=False):
         # This threshold is used to identify the timestamp 
         # in the stream of I32s
         timestamp = time.time()
-        diff_thresh = 31.0 * 24.0 * 3600.0
+        diff_thresh = 365.0 * 24.0 * 3600.0
     else:
         timestamp = timestamp * (10.0**(-9))
         diff_thresh = 60.0
@@ -522,10 +841,12 @@ def extract_quad(quad_dat, timestamp, verbose=False):
     for ind, dat in enumerate(quad_dat): ## % 12
         # Assemble time stamp from successive I32s, since
         # it's a 64 bit object
-        high = np.int32(quad_dat[ind])
-        low = np.int32(quad_dat[ind+1])
-        dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                    + low.astype(np.uint64)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.uint32(quad_dat[ind])
+            low = np.uint32(quad_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
 
         # Time stamp from FPGA is a U64 with the UNIX epoch 
         # time in nanoseconds, synced to the host's clock
@@ -537,11 +858,11 @@ def extract_quad(quad_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    quad_time_high = np.int32(quad_dat[ind::12])
-    quad_time_low = np.int32(quad_dat[ind+1::12])
+    quad_time_high = np.uint32(quad_dat[ind::12])
+    quad_time_low = np.uint32(quad_dat[ind+1::12])
     if len(quad_time_low) != len(quad_time_high):
         quad_time_high = quad_time_high[:-1]
-    quad_time = quad_time_high.astype(np.uint64) << np.uint64(32) \
+    quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
                   + quad_time_low.astype(np.uint64)
 
     amp = [quad_dat[ind+2::12], quad_dat[ind+3::12], quad_dat[ind+4::12], \
@@ -586,23 +907,26 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     
     if timestamp == 0.0:
         # if no timestamp given, use current time
-        # and set the timing threshold for 1 month.
+        # and set the timing threshold for 1 year.
         # This threshold is used to identify the timestamp 
         # in the stream of I32s
         timestamp = time.time()
-        diff_thresh = 31.0 * 24.0 * 3600.0
+        diff_thresh = 365.0 * 24.0 * 3600.0
     else:
         timestamp = timestamp * (10.0**(-9))
-        diff_thresh = 60.0
+        # 2-minute difference allowed for longer integrations
+        diff_thresh = 120.0
 
 
     for ind, dat in enumerate(xyz_dat):
         # Assemble time stamp from successive I32s, since
         # it's a 64 bit object
-        high = np.int32(xyz_dat[ind])
-        low = np.int32(xyz_dat[ind+1])
-        dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                    + low.astype(np.uint64)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.uint32(xyz_dat[ind])
+            low = np.uint32(xyz_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
 
         # Time stamp from FPGA is a U64 with the UNIX epoch 
         # time in nanoseconds, synced to the host's clock
@@ -615,18 +939,19 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    xyz_time_high = np.int32(xyz_dat[tind::9])
-    xyz_time_low = np.int32(xyz_dat[tind+1::9])
+    xyz_time_high = np.uint32(xyz_dat[tind::11])
+    xyz_time_low = np.uint32(xyz_dat[tind+1::11])
     if len(xyz_time_low) != len(xyz_time_high):
         xyz_time_high = xyz_time_high[:-1]
 
-    xyz_time = xyz_time_high.astype(np.uint64) << np.uint64(32) \
+    xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
 
-    xyz = [xyz_dat[tind+2::9], xyz_dat[tind+3::9], xyz_dat[tind+4::9]]
-    xyz_fb = [xyz_dat[tind+6::9], xyz_dat[tind+7::9], xyz_dat[tind+8::9]]
+    xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
+    xy_2 = [xyz_dat[tind+2::11], xyz_dat[tind+3::11]]
+    xyz_fb = [xyz_dat[tind+8::11], xyz_dat[tind+9::11], xyz_dat[tind+10::11]]
     
-    sync = np.int32(xyz_dat[tind+5::9])
+    sync = np.int32(xyz_dat[tind+7::11])
 
     #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
     #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
@@ -644,6 +969,9 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
             min_len = len(xyz[ind])
         if len(xyz_fb[ind]) < min_len:
             min_len = len(xyz_fb[ind])
+        if ind != 2:
+            if len(xy_2[ind]) < min_len:
+                min_len = len(xy_2[ind])
 
     # Re-size everything by the minimum length and convert to numpy array
     xyz_time = np.array(xyz_time[:min_len])
@@ -651,10 +979,13 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
     for ind in [0,1,2]:
         xyz[ind]    = xyz[ind][:min_len]
         xyz_fb[ind] = xyz_fb[ind][:min_len]
+        if ind != 2:
+            xy_2[ind] = xy_2[ind][:min_len]
     xyz = np.array(xyz)
     xyz_fb = np.array(xyz_fb)
+    xy_2 = np.array(xy_2)
 
-    return xyz_time, xyz, xyz_fb, sync
+    return xyz_time, xyz, xy_2, xyz_fb, sync
 
 
 
@@ -671,10 +1002,8 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     # Open the file and bring datasets into memory
     try:
         f = h5py.File(fname,'r')
-        dset0 = f['beads/data/raw_data']
         dset1 = f['beads/data/quad_data']
         dset2 = f['beads/data/pos_data']
-        dat0 = np.transpose(dset0)
         dat1 = np.transpose(dset1)
         dat2 = np.transpose(dset2)
         f.close()
@@ -683,7 +1012,6 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     except (KeyError, IOError):
         if verbose:
             print "Warning, got no keys for: ", fname
-        dat0 = []
         dat1 = []
         dat2 = []
         attribs = {}
@@ -696,18 +1024,15 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     if len(dat1):
         # Use subroutines to handle each type of data
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
-        raw_time, raw_dat = (None, None)
         quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-        xyz_time, xyz, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+        xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
     else:
-        raw_time, raw_dat = (None, None)
         quad_time, amp, phase = (None, None, None)
-        xyz_time, xyz, xyz_fb, sync = (None, None, None, None)
+        xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
 
     # Assemble the output as a human readable dictionary
-    out = {'raw_time': raw_time, 'raw_dat': raw_dat, \
-           'xyz_time': xyz_time, 'xyz': xyz, 'fb': xyz_fb, \
-           'quad_time': quad_time, 'amp': amp, \
+    out = {'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
+           'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
     return out
@@ -727,11 +1052,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     if not notNone:
         return fpga_dat
 
-    # The FIFOs to read the raw data aren't even setup yet
-    # so this is just some filler code
-    out['raw_time'] = fpga_dat['raw_time']
-    out['raw_dat'] = fpga_dat['raw_dat']
-
     # Cutoff irrelevant zeros
     if len(encode_bin) < encode_len:
         encode_len = len(encode_bin)
@@ -742,13 +1062,23 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     # digital pin is sampled: True->(I32+1), False->(I32-1)
     sync_dat = fpga_dat['sync']
 
+    #plt.plot(sync_dat)
+    #plt.show()
+
     sync_dat = sync_dat[:len(encode_bin) * 10]
     sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
 
     dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
 
+    # Find correct starting sample to sync with the DAQ by
+    # maximizing the correlation between the FPGA's digitized
+    # sync line and the encoded bits from the DAQ file.
+    # Because of how the DAQ tasks are setup, the sync bits come
+    # out for the first Nsync samples, and then again after 
+    # Nsamp_DAQ samples. Thus we take the maximum of the correlation
+    # found in the first half of the array corr
     corr = np.correlate(sync_dat_bin, encode_bin)
-    off_ind = np.argmax(corr)
+    off_ind = np.argmax(corr[:int(0.5*len(corr))])
 
     if plot_sync:
         # Make an array of indices for plotting
@@ -764,13 +1094,12 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
         plt.legend()
         plt.show()
 
-    # Find the xyz and quad timestamps that match the daqmx first 
-    # sample timestamp
-
     # Crop the xyz arrays
     out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
     out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
+    out['xy_2'] = fpga_dat['xy_2'][:,off_ind:off_ind+nsamp]
     out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
+    out['sync'] = sync_dat_bin[off_ind:off_ind+nsamp]
 
     # Crop the quad arrays
     out['quad_time'] = fpga_dat['quad_time'][off_ind:off_ind+nsamp]

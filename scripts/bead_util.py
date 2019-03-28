@@ -1,9 +1,9 @@
-import h5py, os, re, glob, time, sys, fnmatch
+import h5py, os, re, glob, time, sys, fnmatch, inspect
 import numpy as np
 import datetime as dt
 import dill as pickle 
 
-#from obspy.signal.detrend import polynomial
+from obspy.signal.detrend import polynomial
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
@@ -74,6 +74,8 @@ class DataFile:
             # is driven and 0 otherwise
         self.cant_calibrated = False
 
+        
+
     def load_only_attribs(self, fname):
         dat, attribs = getdata(fname)
         if len(dat) == 0:
@@ -83,10 +85,11 @@ class DataFile:
             self.badfile = False
 
         self.fname = fname
-        self.date = fname.split('\\')[2]
+        self.date = fname.split('/')[2]
 
         self.fsamp = attribs["Fsamp"]
-        self.time = labview_time_to_datetime(attribs["Time"])
+        self.time = attribs["Time"]
+
         try:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
@@ -129,49 +132,159 @@ class DataFile:
             if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
 
+        self.synth_settings = attribs["dc_supply_settings"]
 
-    def load(self, fname):
+
+
+
+
+    def load(self, fname, plot_raw_dat=False, plot_sync=False, load_other=False, \
+             skip_mon=False, load_all_pos=False, verbose=False, skip_fpga=False):
+
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
+
         dat, attribs = getdata(fname)
-        if len(dat) == 0:
-            self.badfile = True
-            return 
-        else:
-            self.badfile = False
+
+        if plot_raw_dat:
+            for n in range(20):
+                plt.plot(dat[:,n], label=str(n))
+            plt.legend()
+            plt.show()
         
-        self.time = attribs["Time"]   # unix epoch time in ns (time.time() * 10**9)
+        self.fname = fname
+        self.date = fname.split('/')[2]
+        #print fname
+
+        self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
+
+        if self.time == 0:
+            #print 'Bad time...', self.time
+            self.FIX_TIME = True
+        else:
+            self.FIX_TIME = False
+
         self.fsamp = attribs["Fsamp"]
         self.nsamp = len(dat[:,0])
 
         self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
                                * (10**9) + self.time
 
-        fpga_fname = fname[:-3] + '_fpga.h5'
-        fpga_dat = get_fpga_data(fpga_fname, verbose=False, timestamp=self.time)
-        self.encode_bits = attribs["encode_bits"]
+        try:
+            imgrid = bool(attribs["imgrid"])
+        except:
+            imgrid = False
 
-        fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                           self.encode_bits)
+        # If it's not an imgrid file, process all the fpga data
+        if (not imgrid) and (not skip_fpga):
+            fpga_fname = fname[:-3] + '_fpga.h5'
+            fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
 
-        #print attribs
-        self.fname = fname
-        #print fname
-        self.date = fname.split('\\')[2]
+            try:
+                encode = attribs["encode_bits"]
+                if (type(encode) == str) or (type(encode) == unicode):
+                    self.encode_bits = np.array(list(encode), dtype=int)
+                else:
+                    self.encode_bits = encode
+            except:
+                self.encode_bits = []
+
+            fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
+                                               self.encode_bits, plot_sync=plot_sync)
+
+            # IT CAN ONLY FIX THE TIME ATTRIB IF THE PARENT SCRIPT IS EXECUTED
+            # AS ROOT OR ANY SUPERUSER
+            if self.FIX_TIME:
+                self.time = np.int64(fpga_dat['xyz_time'][0])
+                #assert self.time != 0
+                #print 'fix time: 0 -> ', self.time, '\r'
+                #sudo_call(fix_time, self.fname, float(self.time))
+
+            self.sync_data = fpga_dat['sync']
+
+            ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
+            self.pos_data = fpga_dat['xyz']
+            if load_all_pos:
+                self.pos_data_2 = fpga_dat['xy_2']
+            self.pos_time = fpga_dat['xyz_time']
+            self.pos_fb = fpga_dat['fb']
+
+            #print self.pos_data
+
+            # Load quadrant and backscatter amplitudes and phases
+            self.amp = fpga_dat['amp']
+            self.phase = fpga_dat['phase']
+            self.quad_time = fpga_dat['quad_time']
+
+            if load_all_pos:
+                # run bu.print_quadrant_indices() to see an explanation of these
+                right = self.amp[0] + self.amp[1]
+                left = self.amp[2] + self.amp[3]
+                top = self.amp[0] + self.amp[2]
+                bottom = self.amp[1] + self.amp[3]
+
+                x2 = right - left
+                y2 = top - bottom
+
+                quad_sum = np.zeros_like(self.amp[0])
+                for ind in [0,1,2,3]:
+                    quad_sum += self.amp[ind]
+
+                self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
+                                            y2.astype(np.float64)/quad_sum, \
+                                            self.pos_data[2]])
+
+
+            self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
+
+        if not skip_mon:
+            self.load_monitor_data(fname, dat, attribs)
+
+        if load_other:
+            self.load_other_data()
+                
+
+
+
+    def load_monitor_data(self, fname, dat, attribs, debug=False):
+
+        '''Loads the data from file with fname into DataFile object. 
+           Does not perform any calibrations.  
+        ''' 
+
+        #dat, attribs = getdata(fname)
+
+        self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
-        ###self.pos_data = np.transpose(dat[:, configuration.col_labels["bead_pos"]])
-        self.pos_data = fpga_dat['xyz']
-        self.pos_time = fpga_dat['xyz_time']
-        
-        # Load quadrant and backscatter amplitudes and phases
-        self.amp = fpga_dat['amp']
-        self.phase = fpga_dat['phase']
-        self.quad_time = fpga_dat['quad_time']
+        if debug:
+            print attribs
+            print dat.shape
+            for i in range(dat.shape[1]):
+                plt.plot(dat[:,i])
+            plt.show()
 
-        self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
-        self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
+        try:
+            self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
+        except:
+            self.cant_data = []
+            print "Couldn't load stage data..."
+
+        try:
+            self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
+        except:
+            self.electrode_data = []
+            print "Couldn't load electrode data..."
+
+        #freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+        #for ind in [0,1,2]:
+        #    plt.loglog(freqs, np.abs(np.fft.rfft(self.pos_data[ind])))
+        #plt.figure()
+        #for ind in [3,5,1]:
+        #    plt.loglog(freqs, np.abs(np.fft.rfft(self.electrode_data[ind])))
+        #plt.show()
+
         try:
             self.temps = attribs["temps"]
             # Unpacks pressure gauge vector into dict with
@@ -181,6 +294,8 @@ class DataFile:
         except:
             self.temps = 'Temps not loaded!'
             self.pressures = 'Pressures not loaded!'
+            print "Couldn't load environmental data..."
+
         # Unpacks stage settings into a dictionay with keys specified by
         # configuration.stage_inds
         self.stage_settings = \
@@ -213,7 +328,11 @@ class DataFile:
         for i, e in enumerate(self.electrode_settings["driven"]):
             if e == 1. and dcval_temp[i] != 0:
                 self.electrode_settings["dc_settings"][i] = dcval_temp[i]
-                
+
+        self.synth_settings = attribs["dc_supply_settings"]
+
+
+
     def load_other_data(self):
         dat, attribs = getdata(self.fname)
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
@@ -253,6 +372,27 @@ class DataFile:
             1 + 2
             #print "shit is fucked"
 
+
+    def calibrate_phase(self, z_bitshift=0):
+        '''Hard-coded calibration that undoes the FPGA scaling and bitshifting.
+           A later version should store those bit-shifts in the original .h5 file
+           and pull them out automatically.'''
+
+        avging_fac = 1.0 / (100.0 / 2.0**7)
+        cast_fac = 1.0 / 2.0**16
+
+        bitshift_fac = 1.0 / (2.0**z_bitshift)
+
+        newphase = []
+
+        for det in range(5):
+            newphase.append( np.array(self.phase[det]) \
+                             * avging_fac * cast_fac * bitshift_fac )
+
+        self.phase = newphase
+        self.zcal = self.pos_data[2] * (2**(-7) / (100.0)) * np.pi
+
+
     def get_cant_drive_ax(self):
         '''Determine the index of cant_data with the largest drive voltage,
            which is either exrtacted from stage setting or determined
@@ -288,12 +428,76 @@ class DataFile:
 
         return drive_ind
 
+    def generate_yuk_template(self, yukfuncs_at_lambda, p0, stage_travel = [80., 80., 80.],\
+                                plt_pvec = False, plt_template = False, cf = 1E-6):
+        '''generates a template for the expected force in the time domain. takes a tuple
+            of interpolating funcs for the force at a particular lambda and a vector, p0,
+            that gives the displacement '''
 
-    def build_cant_filt(self, cant_fft, freqs, nharmonics=10, width=0, harms=[]):
+        self.calibrate_stage_position()
+        pvec = np.zeros_like(self.cant_data)
+        pvec[0, :] = stage_travel[0] - self.cant_data[0, :] + p0[0]
+        pvec[1, :] = self.cant_data[1, :] - stage_travel[1]/2. + p0[1]
+        pvec[2, :] = self.cant_data[2, :] - p0[2]
+        pvec *= cf
+
+        pts = np.stack(pvec, axis = -1)
+        
+        fx = yukfuncs_at_lambda[0](pts)
+        fy = yukfuncs_at_lambda[1](pts)
+        fz = yukfuncs_at_lambda[2](pts)
+
+        if plt_pvec:
+            plt.plot(pts[:, 0], label = "X")
+            plt.plot(pts[:, 1], label = "Y")
+            plt.plot(pts[:, 2], label = "Z")
+            plt.legend()
+            plt.show()
+
+        if plt_template:
+            plt.plot(fx, label = "fx")
+            plt.plot(fy, label = "fy")
+            plt.plot(fz, label = "fz")
+            plt.legend()
+            plt.show()
+
+        return np.array([fx, fy, fz])
+
+
+    def inject_fake_signal(self, yukfuncs_at_lambda, p0, fake_alpha = 1E10, make_plot = False):
+        '''injects a fake signal into the data at a particular alpha and lambda. 
+            needs p0 = [min separation at 80um extent, y difference between center of cantilever 
+            and bead when cantilever is set to 40 um, bead height in nanopositiong stage coordinates].'''
+        
+        self.calibrate_stage_position()
+        try:
+            cf = self.conv_facs
+        except AttributeError:
+            self.diagonalize()
+            cf = self.conv_facs
+    
+        fs = fake_alpha*self.generate_yuk_template(yukfuncs_at_lambda, p0, \
+                plt_pvec = make_plot, plt_template =make_plot)
+
+        #add fake signal to position data using 1/cf to calibrate out of force units
+        self.pos_data = self.pos_data.astype(float) #cast to floats for math
+        self.pos_data[0] += fs[0]/cf[0]
+        self.pos_data[1] += fs[1]/cf[1]
+        self.pos_data[2] += fs[2]/cf[2]
+
+        #no calibration required for diag data    
+        self.diag_pos_data[0] += fs[0]
+        self.diag_pos_data[1] += fs[1]
+        self.diag_pos_data[2] += fs[2]
+        
+
+
+    def build_drive_filt(self, drive_fft, freqs, nharmonics=10, width=0, harms=[], \
+                         maxfreq=2500):
         '''Identify the fundamental drive frequency and make a notch filter
            with the number of harmonics requested.
 
-           INPUTS: cant_fft, fft of cantilever drive
+           INPUTS: drive_fft, fft of cantilever drive
                    freqs, array of frequencies associated to data ffts
                    harms, number of harmonics to included
                    width, width of the notch filter in Hz
@@ -301,10 +505,12 @@ class DataFile:
            OUTPUTS: none, generates new class attribute.'''
 
         # Find the drive frequency, ignoring the DC bin
-        fund_ind = np.argmax( np.abs(cant_fft[1:]) ) + 1
+        maxind = np.argmin( np.abs(freqs - maxfreq) )
+
+        fund_ind = np.argmax( np.abs(drive_fft[1:maxind]) ) + 1
         drive_freq = freqs[fund_ind]
 
-        drivefilt = np.zeros(len(cant_fft))
+        drivefilt = np.zeros(len(drive_fft))
         drivefilt[fund_ind] = 1.0
 
         if width:
@@ -332,19 +538,22 @@ class DataFile:
         return drivefilt, fund_ind, drive_freq
     
 
-    def get_boolean_cantfilt(self, ext_cant_drive=False, ext_cant_ind=1, \
-                             nharmonics=10, harms=[], width=0):
+
+
+
+    def get_boolean_cantfilt(self, ext_cant=(False,1), ext_cant_drive=False, ext_cant_ind=1, \
+                             nharmonics=10, harms=[], width=0, maxfreq=2500):
         '''Builds a boolean notch filter for the cantilever drive
 
-           INPUTS: ext_cant_drive, bool to specify whether cantilever drive
-                                   is from an external source
-                   ext_cant_ind, index being driven externally
+           INPUTS: ext_cant, tuple with bool specifying if an external drive
+                             was used for the cantilever, and the axis of that
+                             external drive (so we know which mon signal)
 
            OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''
 
         drive_ind = self.get_cant_drive_ax()
-        if ext_cant_drive:
-            drive_ind = ext_cant_ind
+        if ext_cant[0]:
+            drive_ind = ext_cant[1]
 
         drivevec = self.cant_data[drive_ind]
         drivefft = np.fft.rfft(drivevec)
@@ -352,18 +561,58 @@ class DataFile:
         freqs = np.fft.rfftfreq(len(drivevec), d=1.0/self.fsamp)
 
         drivefilt, fund_ind, drive_freq = \
-                    self.build_cant_filt(drivefft, freqs, nharmonics=nharmonics, \
-                                         harms=harms, width=width)
+                    self.build_drive_filt(drivefft, freqs, nharmonics=nharmonics, \
+                                          harms=harms, width=width, maxfreq=maxfreq)
 
         # Apply filter by indexing with a boolean array
-        ginds = drivefilt > 0
+        bool_ginds = drivefilt > 0
+        ginds = np.arange(len(drivefilt)).astype(np.int)[bool_ginds]
 
-        return ginds, fund_ind, drive_freq, drive_ind
+        outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
+                  'drive_ind': drive_ind}
+
+        return outdic
 
 
-    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=False):   
+
+
+
+    def get_boolean_elecfilt(self, elec_ind, nharmonics=10, harms=[], width=0, \
+                             maxfreq=2500):
+        '''Builds a boolean notch filter for the cantilever drive
+
+           INPUTS: ext_cant, tuple with bool specifying if an external drive
+                             was used for the cantilever, and the axis of that
+                             external drive (so we know which mon signal)
+
+           OUTPUTS: ginds, bool array of length NFFT (set by hdf5 file).'''
+
+        drivevec = self.electrode_data[elec_ind]
+        drivefft = np.fft.rfft(drivevec)
+
+        freqs = np.fft.rfftfreq(len(drivevec), d=1.0/self.fsamp)
+
+        drivefilt, fund_ind, drive_freq = \
+                    self.build_drive_filt(drivefft, freqs, nharmonics=nharmonics, \
+                                          harms=harms, width=width, maxfreq=maxfreq)
+
+        # Apply filter by indexing with a boolean array
+        bool_ginds = drivefilt > 0
+        ginds = np.arange(len(drivefilt)).astype(np.int)[bool_ginds]
+
+        outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
+                  'drive_ind': elec_ind}
+
+        return outdic
+
+
+
+
+
+    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=True, \
+                             drive_ind=1, elec_drive=False, elec_ind=0, noiselim=(10,100)):   
         '''Applies a cantilever notch filter and returns the filtered data
-           with an error estimate based on the neighboring bins of the PSD
+           with an error estimate based on the neighboring bins of the PSD.
 
            INPUTS: ginds, boolean cantilever drive notch filter
                    drive_freq, cantilever drive freq
@@ -374,7 +623,6 @@ class DataFile:
                     diagdaterrs, diag errors from surrounding bins
         ''' 
 
-        datffts = [[], [], []]
         daterrs = [[], [], []]
 
         if diag:
@@ -393,6 +641,18 @@ class DataFile:
         else:
             just_one = False
 
+        datffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+        noiseffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+        noise_inds = np.arange(len(freqs))[(freqs <= noiselim[1]) * (freqs >= noiselim[0])]
+        #for ind in ginds:
+        #    noise_inds = np.delete(noise_inds, ind)
+
+        if elec_drive:
+            drivefft_full = np.fft.rfft(self.electrode_data[elec_ind])
+        else:
+            drivefft_full = np.fft.rfft(self.cant_data[drive_ind])
+        driveffts = drivefft_full[ginds]
+
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
@@ -400,7 +660,16 @@ class DataFile:
             datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
             datffts[resp] = datfft[ginds]
             daterrs[resp] = np.zeros_like(datffts[resp])
+
+            noise_dat = datfft[noise_inds]
             
+            #noiseffts[resp] = np.mean(np.abs(noise_dat)) * \
+            #                  np.exp(1.0j * np.mean(np.angle(noise_dat)))
+
+            noiseffts[resp] = np.mean(noise_dat)
+
+            ### OKAY UP TO HERE
+
             if diag:
                 diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
                 diagdatffts[resp] = diagdatfft[ginds]
@@ -408,19 +677,19 @@ class DataFile:
 
             for freqind, freq in enumerate(harm_freqs):
                 harm_ind = np.argmin(np.abs(freqs-freq))
-                noise_inds = np.abs(freqs - freq) < 0.5*noiseband
-                noise_inds[harm_ind] = False
+                err_inds = np.abs(freqs - freq) < 0.5*noiseband
+                err_inds[harm_ind] = False
                 if freqind == 0:
-                    noise_inds_init = noise_inds
+                    err_inds_init = err_inds
 
-                errval = np.median(np.abs(datfft[noise_inds]))
+                errval = np.median(np.abs(datfft[err_inds]))
                 if just_one:
                     daterrs[resp] = errval
                 else:
                     daterrs[resp][freqind] = errval
                 #daterrs[resp][freqind] = np.abs(datfft[harm_ind])
                 if diag:
-                    diagerrval = np.median(np.abs(diagdatfft[noise_inds]))
+                    diagerrval = np.median(np.abs(diagdatfft[err_inds]))
                     if just_one:
                         diagdaterrs[resp] = diagerrval
                     else:
@@ -428,24 +697,45 @@ class DataFile:
                     #diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
 
             if plot:
-                normfac = np.sqrt(bin_sp)*fft_norm(N, self.fsamp)
+                normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
+                
+                avg_inds = np.arange(len(freqs))[(freqs > 10.0) * (freqs < 100.0)]
+                new_avg_inds = []
+                for avg_ind in avg_inds:
+                    if avg_ind not in ginds:
+                        new_avg_inds.append(avg_ind)
+
+                print np.mean(np.abs(datfft[avg_inds])*normfac)
 
                 plt.figure()
                 plt.loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
-                plt.loglog(freqs[noise_inds_init], np.abs(datfft[noise_inds_init])*normfac)
+                plt.loglog(freqs[err_inds_init], np.abs(datfft[err_inds_init])*normfac)
                 plt.loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, '.', ms=10)
                 plt.ylabel('Force [N]')
                 plt.xlabel('Frequency [Hz]')
 
                 plt.figure()
-                plt.plot(datfft[ginds].real * normfac, label='real')
-                plt.plot(datfft[ginds].imag * normfac, label='imag')
-                plt.plot(np.sqrt(2)*daterrs[resp] * normfac, label='errs')
+                plt.plot(freqs[ginds], datfft[ginds].real * normfac, '.', \
+                         label='real', ms=20)
+                plt.plot(freqs[ginds], datfft[ginds].imag * normfac, '.', \
+                         label='imag', ms=20)
+                plt.plot(freqs[ginds], np.sqrt(2)*daterrs[resp] * normfac, '.', \
+                         label='errs', ms=20)
+                plt.ylabel('Force [N]')
+                plt.xlabel('Frequency [Hz]')
                 plt.legend()
+
+                plt.figure()
+                plt.loglog(freqs, np.abs(drivefft_full)*normfac)
+                plt.ylabel('Drive Amplitude [um or V]')
+                plt.xlabel('Frequency [Hz]')
+
                 plt.show()
 
         datffts = np.array(datffts)
+        driveffts = np.array(driveffts)
         daterrs = np.array(daterrs)
+        noiseffts = np.array(noiseffts)
         if diag:
             diagdatffts = np.array(diagdatffts)
             diagdaterrs = np.array(diagdaterrs)
@@ -454,7 +744,11 @@ class DataFile:
             diagdatffts = np.zeros_like(datffts)
             diagdaterrs = np.zeros_like(daterrs)
 
-        return datffts, diagdatffts, daterrs, diagdaterrs
+        outdic = {'datffts': datffts, 'diagdatffts': diagdatffts, \
+                  'daterrs': daterrs, 'diagdaterrs': diagdaterrs, \
+                  'driveffts': driveffts, 'noiseffts': noiseffts}
+
+        return outdic
 
 
     def detrend_poly(self, order=1, plot=False):
@@ -529,6 +823,10 @@ class DataFile:
         # so we can map response -> drive
         Harr = tf.make_tf_array(freqs, Hfunc)
 
+        x_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(0,0,freqs)))]
+        y_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(1,1,freqs)))]
+        self.xy_tf_res_freqs = [x_tf_res_freq, y_tf_res_freq]
+
         if plot:
             tf.plot_tf_array(freqs, Harr)
 
@@ -587,11 +885,27 @@ class DataFile:
 
 
 
+    def get_xy_resonance(self, elec_ind=0):
+        freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+        freq_band = (freqs > 200) * (freqs < 600)
+        
+        upperx = freqs > self.xy_tf_res_freqs[0]
+        lowerx = freqs < self.xy_tf_res_freqs[0]
+        
+        uppery = freqs > self.xy_tf_res_freqs[1]
+        lowery = freqs < self.xy_tf_res_freqs[1]
 
-    def get_force_v_pos(self, nbins=100, nharmonics=10, width=0, \
+        upfreq_ind = np.argmax(self.electrode_data[elec_ind] * freq_band * upperx)
+        lowfreq_ind = np.argmax(self.electrode_data[elec_ind] * freq_band * lowerx)
+
+
+
+
+    def get_force_v_pos(self, nbins=100, nharmonics=10, harms=[], width=0, \
                         sg_filter=False, sg_params=[3,1], verbose=True, \
-                        cantilever_drive=True, electrode_drive=False, \
-                        fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0):
+                        cantilever_drive=True, elec_drive=False, \
+                        fakedrive=False, fakefreq=50, fakeamp=80, fakephi=0, \
+                        maxfreq=2500):
         '''Sptially bins X, Y and Z responses against driven cantilever axis,
            or in the case of multiple axes driven simultaneously, against the
            drive with the largest amplitude.
@@ -626,37 +940,43 @@ class DataFile:
             t = np.linspace(0, numsamp - 1, numsamp) * dt
             drivevec = fakeamp * np.sin(2.0 * np.pi * fakefreq * t + fakephi) + fakeamp
 
-        if electrode_drive:
+        if elec_drive:
             elec_ind = np.argmax(self.electrode_settings['driven'])
             drivevec = self.electrode_data[elec_ind]
-            
 
         # Bin responses against the drive. If data has been diagonalized,
         # it bins the diagonal data as well
         dt = 1. / self.fsamp
-        binned_data = [[0,0], [0,0], [0,0]]
+        binned_data = [[0,0,0], [0,0,0], [0,0,0]]
         if len(self.diag_pos_data):
-            diag_binned_data = [[0,0], [0,0], [0,0]]
+            diag_binned_data = [[0,0,0], [0,0,0], [0,0,0]]
         for resp in [0,1,2]:
-            bins, binned_vec = spatial_bin(drivevec, self.pos_data[resp], dt, \
-                                           nbins = nbins, nharmonics = nharmonics, \
-                                           width = width, sg_filter = sg_filter, \
-                                           sg_params = sg_params, verbose = verbose)
+            bins, binned_vec, binned_err = \
+                            spatial_bin(drivevec, self.pos_data[resp], dt, \
+                                        nbins = nbins, nharmonics = nharmonics, \
+                                        harms = harms, width = width, \
+                                        sg_filter = sg_filter, sg_params = sg_params, \
+                                        verbose = verbose, maxfreq = maxfreq)
             binned_data[resp][0] = bins
             binned_data[resp][1] = binned_vec
+            binned_data[resp][2] = binned_err
             
             if len(self.diag_pos_data):
-                diag_bins, diag_binned_vec = \
+                diag_bins, diag_binned_vec, diag_binned_err = \
                             spatial_bin(drivevec, self.diag_pos_data[resp], dt, \
                                         nbins = nbins, nharmonics = nharmonics, \
-                                        width = width, sg_filter = sg_filter, \
-                                        sg_params = sg_params, verbose = verbose)
+                                        harms = harms, width = width, \
+                                        sg_filter = sg_filter, sg_params = sg_params, \
+                                        verbose = verbose, maxfreq = maxfreq)
 
                 diag_binned_data[resp][0] = diag_bins
                 diag_binned_data[resp][1] = diag_binned_vec
+                diag_binned_data[resp][2] = diag_binned_err
 
         self.binned_data = binned_data
         if len(self.diag_pos_data):
             self.diag_binned_data = diag_binned_data
+        else:
+            self.diag_binned_Data = ''
                 
 
