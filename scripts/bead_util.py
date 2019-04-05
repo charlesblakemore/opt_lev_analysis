@@ -15,7 +15,7 @@ import scipy.optimize as optimize
 import scipy.signal as signal
 import scipy
 
-import configuration
+import configuration_chas as configuration
 import transfer_func_util as tf
 
 from bead_util_funcs import *
@@ -244,6 +244,7 @@ class DataFile:
 
         #print attribs
         self.date = fname.split('/')[2]
+        self.dc_supply_settings = attribs["dc_supply_settings"]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
         self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])

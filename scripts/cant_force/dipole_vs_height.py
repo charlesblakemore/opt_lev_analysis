@@ -26,7 +26,7 @@ import configuration as config
 
 
 
-dir1 = '/data/20180704/bead1/dipole_vs_height/10V_80um_17Hz_2'
+dir1 = '/data/20180822/bead1/resp_v_height'
 start_file = 0
 maxfiles = 6000
 ax1_lab = 'z'

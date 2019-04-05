@@ -1,0 +1,3 @@
+#DataThief /Users/dcmoore/Documents/opt_lev/analysis/prev_lims/sushkov_prl_107_171101_2011.png Monday 4-Mar-2013 4:54:10 PM
+1.015e-7, 74267.8811
+7.8366e-6, 74267.8811

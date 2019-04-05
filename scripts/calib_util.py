@@ -163,7 +163,7 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
 
 
 def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
-             amp_gain = 1., bandwidth=1.0, first_file=0):
+             amp_gain = 1., bandwidth=1.0, first_file=0, diff_thresh = 10.):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    plate_sep, face-to-face separation of electrodes
@@ -179,6 +179,7 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
     sys.stdout.flush()
     old_step_resp = 0.0
     nfiles = len(fobjs)
+    print nfiles
     for find, fobj in enumerate(fobjs):
         bu.progress_bar(find, nfiles)
         sys.stdout.flush()
@@ -187,8 +188,8 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
             old_step_resp = step_resp
             continue
         # Check for data with crazy large correlations, assumed to be outlier
-        elif step_resp > 2.0 * old_step_resp and find != 0 and find < nfiles-20:
-            continue
+        #elif find == 53 or find == 73:
+            #continue
             #plt.loglog(np.abs(np.fft.rfft(fobj.pos_data[0])))
             #plt.figure()
             #plt.plot(fobj.sync_data)
@@ -200,7 +201,8 @@ def step_cal(fobjs, plate_sep = 0.004, drive_freq = 41., \
     step_cal_vec = np.array(step_cal_vec)
     
     yfit = np.abs(step_cal_vec)
-    bvec = [yfit<10.*np.mean(yfit)] #exclude cray outliers
+    #bvec = [yfit<20.*np.mean(yfit)] #exclude cray outliers
+    bvec = np.ones_like(yfit)>0
     yfit = yfit[bvec] 
 
     plt.figure(1)

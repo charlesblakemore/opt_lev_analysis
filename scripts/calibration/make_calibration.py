@@ -20,20 +20,19 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-step_cal_dir = '/data/20180704/bead1/discharge/fine2'
+step_cal_dir = '/data/20181030/bead1/discharge/fine2'
 max_file = 500
 
 
-fake_step_cal = True
+fake_step_cal = False
 vpn = 1.0e14
 
-tf_cal_dir = '/data/20180808/bead4/tf_20180809/'
-
-date = tf_cal_dir.split('/')[2]
+tf_cal_dir = '/data/20180827/bead2/500e_data/tf_20180829/'
+date = '20181030'#tf_cal_dir.split('/')[2]
 
 plot_Hfunc = True
 interpolate = False 
-save = False 
+save = True 
 
 
 # Doesn't use this but might later
