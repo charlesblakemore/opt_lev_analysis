@@ -20,6 +20,16 @@ import transfer_func_util as tf
 
 import warnings
 
+
+
+e_top_dat   = np.loadtxt('/calibrations/e-top_1V_optical-axis.txt', comments='%')
+e_bot_dat   = np.loadtxt('/calibrations/e-bot_1V_optical-axis.txt', comments='%')
+e_left_dat  = np.loadtxt('/calibrations/e-left_1V_left-right-axis.txt', comments='%')
+e_right_dat = np.loadtxt('/calibrations/e-right_1V_left-right-axis.txt', comments='%')
+e_front_dat = np.loadtxt('/calibrations/e-front_1V_front-back-axis.txt', comments='%')
+e_back_dat  = np.loadtxt('/calibrations/e-back_1V_front-back-axis.txt', comments='%')
+
+
 #######################################################
 # This module has basic utility functions for analyzing bead
 # data. In particular, this module has the basic data
@@ -780,6 +790,8 @@ def print_quadrant_indices():
 
 
 
+
+
 def print_electrode_indices():
     outstr = '\n'
     outstr += '        Electrode face indices:            \n'
@@ -812,12 +824,41 @@ def print_electrode_indices():
 
 
 
+
+
+
 ########################################################
 ########################################################
 ########### Functions to Handle FPGA data ##############
 ########################################################
 ########################################################
 
+
+
+
+
+def trap_efield(voltages):
+    '''Using output of 4/2/19 COMSOL simulation, return
+       the value of the electric field at the trap based
+       on the applied voltages on each electrode and the
+       principle of superposition.'''
+    
+    if len(voltages) != 8:
+        print "There are eight electrodes."
+        print "   len(volt arr. passed to 'trap_efield') != 8"
+
+    E_front  = interp.interp1d(e_front_dat[0], e_front_dat[-1])
+    E_back   = interp.interp1d(e_back_dat[0],  e_back_dat[-1])
+    E_right  = interp.interp1d(e_right_dat[1], e_right_dat[-1])
+    E_left   = interp.interp1d(e_left_dat[1],  e_right_dat[-1])
+    E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
+    E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
+
+    Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+    Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+    Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+
+    return np.array([Ex, Ey, Ez])    
 
 
 

@@ -74,7 +74,11 @@ import configuration as config
 #step_cal_dir = ['/data/20190123/bead2/discharge/recharge_20190123']
 
 #step_cal_dir = ['/data/20190124/bead2/discharge/fine']
-step_cal_dir = ['/data/20190124/bead2/discharge/recharge_20190125']
+#step_cal_dir = ['/data/20190124/bead2/discharge/recharge_20190125']
+
+
+step_cal_dir = ['/daq2/20190408/bead1/discharge/fine']
+
 
 recharge = False
 if type(step_cal_dir) == str:
@@ -94,8 +98,8 @@ max_file = 5000
 decimate = False
 dec_fac = 2
 
-fake_step_cal = True
-vpn = 1.0e14
+fake_step_cal = False
+vpn = 7.264e16
 
 #tf_cal_dir = '/data/20180625/bead1/tf_20180625/'
 #tf_cal_dir = '/data/20180704/bead1/tf_20180704/'
@@ -105,13 +109,16 @@ vpn = 1.0e14
 #tf_cal_dir = '/data/20180925/bead1/tf_20180926/'
 #tf_cal_dir = '/data/20180927/bead1/tf_20180928/'
 
-tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
+#tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
+
+tf_cal_dir = '/daq2/20190408/bead1/tf_20190408/'
 
 tf_date = tf_cal_dir.split('/')[2]
 
 tf_date = step_date
 
 plot_Hfunc = True
+plot_without_fits = True
 interpolate = False 
 save = True
 save_charge = True
@@ -123,7 +130,7 @@ thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
 
 ext = config.extensions['trans_fun']
 
-# Generate automatic path for saving
+# Generate automatic paths for saving
 if interpolate:
     savepath = '/calibrations/transfer_funcs/' + tf_date + '_interp' + ext
 else:
@@ -143,6 +150,8 @@ if save_charge:
 
 # Find all the relevant files
 step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True)
+
+#step_cal_files = step_cal_files[220:]
 
 #print len(step_cal_files)
 
@@ -279,6 +288,7 @@ if not fake_step_cal:
         step_cal_vec.append(step_resp)
 
     vpn, off, err, q0 = cal.step_cal(step_cal_vec)
+    print vpn
 
 if save_charge:
     if recharge:
@@ -311,11 +321,12 @@ Hcal, q = tf.calibrate_H(Hout, vpn)
 if not interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
                             weight_lowf=True, plot_fits=plot_Hfunc, \
+                            plot_without_fits=plot_without_fits, \
                             plot_inits=False, weight_phase=True, grid=True,\
-                            deweight_peak=True, lowf_weight_fac=0.01)
+                            deweight_peak=True, lowf_weight_fac=0.001)
 if interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, interpolate=True, plot_fits=plot_Hfunc, \
-                             max_freq=600)
+                             max_freq=600, dpsd_thresh=1.0e-1)
 
 # Save the Hfunc object
 if save:

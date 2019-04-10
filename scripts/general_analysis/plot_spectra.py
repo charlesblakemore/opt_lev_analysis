@@ -18,17 +18,7 @@ maxfiles = 500
 
 use_dir = False
 
-allfiles = ['/daq2/20190319/bead1/1_5mbar_nocool_-5000zfb.h5', \
-            '/daq2/20190319/bead1/1_5mbar_nocool_-10000zfb.h5', \
-            '/daq2/20190319/bead1/1_5mbar_nocool_-14000zfb.h5', \
-            '/daq2/20190319/bead1/1_5mbar_nocool_-16000zfb.h5', \
-            '/daq2/20190319/bead1/1_5mbar_nocool_-17500zfb.h5']
-
-allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool_-12000zfb.h5', \
-            '/daq2/20190320/bead2/1_5mbar_zcool_-13000zfb.h5', \
-            '/daq2/20190320/bead2/1_5mbar_zcool_-13200zfb.h5', \
-            '/daq2/20190320/bead2/1_5mbar_zcool_-13000zfb_2.h5']
-
+filename_labels = True #False
 
 allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
             '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
@@ -36,14 +26,34 @@ allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
             '/daq2/20190320/bead2/1_5mbar_xyzcool.h5']
 
 
-tfdate = '20190108'
+
+#allfiles = ['/daq2/20190327/bead1/1_5mbar_nocool_pos1.h5', \
+#            '/daq2/20190327/bead1/1_5mbar_zcool_pos1.h5', \
+#            '/daq2/20190327/bead1/1_5mbar_zcool_pos2.h5', \
+#            '/daq2/20190327/bead1/1_5mbar_zcool_pos3.h5', \
+#            '/daq2/20190327/bead1/1_5mbar_zcool_pos4.h5', \
+#            '/daq2/20190327/bead1/1_5mbar_zcool_pos5.h5']
+
+#allfiles = [#'/daq2/20190327/bead1/1_5mbar_zcool.h5', \
+#            #'/daq2/20190327/bead1/1_5mbar_xzcool_pos.h5', \
+#            #'/daq2/20190327/bead1/1_5mbar_yzcool_neg.h5', \
+#            '/daq2/20190327/bead1/1_5mbar_xyzcool.h5', \
+#            '/daq2/20190327/bead1/turbombar_xyzcool_saturday.h5', \
+#            '/data/20190124/bead2/turbombar_zcool_discharged.h5', \
+#            ]
+
+allfiles = ['/daq2/20190408/bead1/spinning/test/0_1mbar_xyzcool_powfb_2.h5']
+
+
+
+tfdate = '20190327'
 
 #labs = ['1','2', '3']
 
 data_axes = [0,1,2]
 fb_axes = []
 #fb_axes = [0,1,2]
-other_axes = []
+other_axes = [7]
 #other_axes = [5,7]
 
 drive_ax = 1
@@ -67,13 +77,15 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = False
+fullNFFT = True
 
 #window = mlab.window_hanning
 window = mlab.window_none
 
 ###########################################################
 
+cmap = 'inferno'
+#cmap = 'jet'
 
 posdic = {0: 'x', 1: 'y', 2: 'z'}
 
@@ -186,19 +198,19 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 daxarr[axind,0].grid(alpha=0.5)
                 daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
                 daxarr[axind,1].grid(alpha=0.5)
-                daxarr[axind,0].set_ylabel('sqrt(PSD) [N/rt(Hz)]')
+                daxarr[axind,0].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
                 if ax == data_axes[-1]:
                     daxarr[axind,0].set_xlabel('Frequency [Hz]')
                     daxarr[axind,1].set_xlabel('Frequency [Hz]')
             else:
                 daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color, label=fil)
                 daxarr[axind].grid(alpha=0.5)
-                daxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]')
+                daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
 
                 if len(fb_axes):
                     fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
                     fbaxarr[axind].grid(alpha=0.5)
-                    fbaxarr[axind].set_ylabel('sqrt(PSD) [N/rt(Hz)]')
+                    fbaxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
 
 
                 if ax == data_axes[-1]:
@@ -226,7 +238,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 
-    daxarr[0].legend(fontsize=10)
+    if filename_labels:
+        daxarr[0].legend(fontsize=10)
     if len(fb_axes):
         fbaxarr[0].legend()
 
@@ -264,6 +277,6 @@ allfiles = allfiles[:maxfiles]
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
-                  fb_axes=fb_axes)
+                  fb_axes=fb_axes, colormap=cmap)
 
 pickle.dump(shit, open('/processed_data/ichep_spectra.p', 'wb'))

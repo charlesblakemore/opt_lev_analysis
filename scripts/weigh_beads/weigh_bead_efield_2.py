@@ -17,6 +17,10 @@ import transfer_func_util as tf
 
 import iminuit
 
+
+year2019 = True
+
+
 plt.rcParams.update({'font.size': 14})
 
 try:
@@ -140,6 +144,11 @@ file_dict['20190124'] = (True, arr)
 #file_dict = {'20190124': (True, arr)}
 
 
+arr = []  ### 
+arr.append('/daq2/20190408/bead1/weigh/lowp_neg_150Vpp')
+
+file_dict = {'20190408': (True, arr)}
+
 
 
 # Noise data
@@ -162,7 +171,8 @@ mon_fac = 100 # Tabor amplifier monitor is 100:1
 trans_gain = 100e3  # V/A
 pd_gain = 0.25      # A/W
 
-line_filter_trans = 0.45 
+line_filter_trans = 0.45
+bs_fac = 0.01
 
 maxfiles = 1000 # Many more than necessary
 lpf = 2500   # Hz
@@ -172,17 +182,11 @@ file_inds = (0, 500)
 userNFFT = 2**12
 diag = False
 
+save = False
 
 fullNFFT = False
 
 ###########################################################
-
-
-e_top_dat = np.loadtxt('/calibrations/e-top_1V_optical-axis.txt', delimiter=',')
-e_top_func = interp.interp1d(e_top_dat[0], e_top_dat[1])
-
-e_bot_dat = np.loadtxt('/calibrations/e-bot_1V_optical-axis.txt', delimiter=',')
-e_bot_func = interp.interp1d(e_bot_dat[0], e_bot_dat[1])
 
 def line(x, a, b):
     return a * x + b
@@ -308,13 +312,25 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
             top_ind = 5
         else:
             top_ind = 1
+            
+        if year2019:
+            top_ind = 1
+
         top_elec = mon_fac * df.other_data[top_ind]
         bot_elec = mon_fac * df.other_data[top_ind+1]
 
         Vdiff = top_elec - bot_elec
         eforce = -1.0 * (Vdiff / (4.0e-3)) * q_bead
 
-        eforce2 = (top_elec * e_top_func(0.0) + bot_elec * e_bot_func(0.0)) * q_bead
+        nsamp = len(top_elec)
+        zeros = np.zeros(nsamp)
+
+        voltages = [zeros, top_elec, bot_elec, zeros, \
+                    zeros, zeros, zeros, zeros]
+        efield = bu.trap_efield(voltages)
+        eforce2 = efield[2] * q_bead
+
+        #eforce2 = (top_elec * e_top_func(0.0) + bot_elec * e_bot_func(0.0)) * q_bead
         if noise:
             e_dc.append(np.mean(eforce2))
             e_ac_val = np.abs(np.fft.rfft(eforce2))[drive_ind]
@@ -329,8 +345,13 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
             current = np.abs(df.other_data[7]) / trans_gain
         else:
             current = np.abs(df.other_data[4]) / trans_gain
+
+        if year2019:
+            current = np.abs(df.other_data[0]) / trans_gain
         power = current / pd_gain
         power = power / line_filter_trans
+        power = power / bs_fac
+
         power_avg += np.mean(power)
         power_N += 1
         if noise:
@@ -440,24 +461,24 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
     if plot:
         fig = plt.figure(dpi=200, figsize=(6,4))
         ax = fig.add_subplot(111)
-        plt.plot(np.array(all_eforce).flatten()*1e12, \
+        plt.plot(np.array(all_eforce).flatten()*1e12*(1.0/9.806)*1e3, \
                  np.array(all_power).flatten(), \
                  'o', alpha = 0.015)
         #for params in all_param:
         #    plt.plot(plot_vec, line(plot_vec, params[0]*1e13, params[1]), \
         #             '--', color='r', lw=1, alpha=0.05)
-        plt.plot(plot_vec*1e12, \
+        plt.plot(plot_vec*1e12*(1.0/9.806)*1e3, \
                  line(plot_vec, mean_popt[0]*1e13, mean_popt[1]), \
                  '--', color='k', lw=2, \
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
-        ax.set_xlim((left, 1.1))
+        ax.set_xlim((left, 100))
 
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))
         
         plt.legend()
-        plt.xlabel('Applied Electrostatic Force [pN]')
+        plt.xlabel('(Applied Electrostatic Force)/$g$ [pg]')
         plt.ylabel('Optical Power [Arb.]')
         plt.grid()
         plt.tight_layout()
@@ -605,11 +626,12 @@ for date in dates:
 allres = np.array(allres)
 overall_mass = np.array(overall_mass)
 
-np.save('./allres.npy', allres)
-np.save('./overall_masses.npy', overall_mass)
+if save:
+    np.save('./allres.npy', allres)
+    np.save('./overall_masses.npy', overall_mass)
 
-pickle.dump(allres_dict, open('./allres.p', 'wb'))
-pickle.dump(overall_mass_dict, open('./overall_masses.p', 'wb'))
+    pickle.dump(allres_dict, open('./allres.p', 'wb'))
+    pickle.dump(overall_mass_dict, open('./overall_masses.p', 'wb'))
 
 
 '''

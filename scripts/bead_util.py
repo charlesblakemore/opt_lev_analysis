@@ -807,6 +807,8 @@ class DataFile:
         else:
             tf_path += ext
 
+        print tf_path
+
         # Load the transfer function. Note that this Hfunc maps
         # drive -> response, so we will need to invert
         try:

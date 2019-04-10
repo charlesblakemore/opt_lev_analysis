@@ -209,7 +209,6 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
         dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis. 
         data_fft = np.fft.rfft(fobj.pos_data)
-        data_fft_2 = np.fft.rfft(fobj.pos_data_3)
         amp_fft = np.fft.rfft(fobj.amp)
         phase_fft = np.fft.rfft(fobj.phase)
         fb_fft = np.fft.rfft(fobj.pos_fb)
@@ -488,7 +487,7 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
 
 def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                  weight_peak=False, weight_lowf=False, lowf_weight_fac=0.1, \
-                 lowf_thresh=120., \
+                 lowf_thresh=120., plot_without_fits=False,\
                  weight_phase=False, plot_fits=False, plot_inits=False, \
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
                  interpolate = False, max_freq=600, num_to_avg=5):
@@ -508,9 +507,9 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
     mats = np.array(mats)
     fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]   
 
-    if plot_fits:
-        f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='row')
-        f2, axarr2 = plt.subplots(3,3, sharex='all', sharey='row')
+    if plot_fits or plot_without_fits:
+        f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='all')
+        f2, axarr2 = plt.subplots(3,3, sharex='all', sharey='all')
         f1.suptitle("Magnitude of Transfer Function", fontsize=18)
         f2.suptitle("Phase of Transfer Function", fontsize=18)
 
@@ -553,7 +552,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                 phasefunc2 = make_extrapolator(phasefunc, pts=10, order=2, inverse=(False, True))
 
                 fits[resp][drive] = (magfunc2, phasefunc2)
-                if plot_fits:
+                if plot_fits or plot_without_fits:
                     pts = np.linspace(np.min(keys) / 10., np.max(keys) * 10., len(keys) * 100)
                     
 
@@ -562,10 +561,12 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                         axarr2[resp,drive].grid()
 
                     axarr1[resp,drive].loglog(keys, mag)
-                    axarr1[resp,drive].loglog(pts, magfunc2(pts), color='r', linewidth=2)
+                    if not plot_without_fits:
+                        axarr1[resp,drive].loglog(pts, magfunc2(pts), color='r', linewidth=2)
 
-                    axarr2[resp,drive].semilogx(keys, unphase)
-                    axarr2[resp,drive].semilogx(pts, phasefunc2(pts), color='r', linewidth=2)
+                    axarr2[resp,drive].semilogx(keys, unphase / np.pi)
+                    if not plot_without_fits:
+                        axarr2[resp,drive].semilogx(pts, phasefunc2(pts) / np.pi, color='r', linewidth=2)
                 continue
 
             if not interpolate:
@@ -603,7 +604,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                         if drive != resp:
                             fac = 1.0
                         else:
-                            fac = 0.0
+                            fac = 1.0
                     weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 600) )
                 if weight_lowf:
                     ind = np.argmin(np.abs(npkeys - lowf_thresh))
@@ -662,7 +663,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
 
                 fits[resp][drive] = (popt_mag, popt_phase, phase0)
 
-                if plot_fits:
+                if plot_fits or plot_without_fits:
 
                     fitmag = damped_osc_amp(keys[b], popt_mag[0], \
                                         popt_mag[1], popt_mag[2])
@@ -679,14 +680,18 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                         axarr2[resp,drive].grid()
 
                     axarr1[resp,drive].loglog(keys, mag)
-                    axarr1[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
+                    if not plot_without_fits:
+                        axarr1[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
                     if plot_inits:
                         axarr1[resp,drive].loglog(keys[b], maginit, color='k', linewidth=2)
 
-                    axarr2[resp,drive].semilogx(keys, unphase)
-                    axarr2[resp,drive].semilogx(keys[b], fitphase, color='r', linewidth=3)
+                    axarr2[resp,drive].semilogx(keys, unphase / np.pi)
+                    if not plot_without_fits:
+                        axarr2[resp,drive].semilogx(keys[b], fitphase / np.pi, \
+                                                    color='r', linewidth=3)
                     if plot_inits:
-                        axarr2[resp,drive].semilogx(keys[b], phaseinit, color='k', linewidth=2)
+                        axarr2[resp,drive].semilogx(keys[b], phaseinit / np.pi, \
+                                                    color='k', linewidth=2)
 
 
 
@@ -769,34 +774,34 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                     axarr3[resp,drive].loglog(keys, mag)
                     axarr3[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
 
-                    axarr4[resp,drive].semilogx(keys, unphase)
-                    axarr4[resp,drive].semilogx(keys[b], fitphase, color='r', linewidth=3)
+                    axarr4[resp,drive].semilogx(keys, unphase / np.pi)
+                    axarr4[resp,drive].semilogx(keys[b], fitphase / np.pi, color='r', linewidth=3)
 
     if plot_fits:
 
         for drive in [0,1,2]:
-            axarr1[0, drive].set_title("Drive in direction \'%i\'"%drive)
+            axarr1[0, drive].set_title("Drive direction \'%i\'"%drive)
             axarr1[2, drive].set_xlabel("Frequency [Hz]")
 
-            axarr2[0, drive].set_title("Drive in direction \'%i\'"%drive)
+            axarr2[0, drive].set_title("Drive direction \'%i\'"%drive)
             axarr2[2, drive].set_xlabel("Frequency [Hz]")
 
             if fit_osc_sum:
 
-                axarr3[0, drive].set_title("Drive in direction \'%i\'"%drive)
+                axarr3[0, drive].set_title("Drive direction \'%i\'"%drive)
                 axarr3[2, drive].set_xlabel("Frequency [Hz]")
 
-                axarr4[0, drive].set_title("Drive in direction \'%i\'"%drive)
+                axarr4[0, drive].set_title("Drive direction \'%i\'"%drive)
                 axarr4[2, drive].set_xlabel("Frequency [Hz]")
 
         for response in [0,1,2]:
-            axarr1[response, 0].set_ylabel("Resp in \'%i\' [V/N]" %response)
-            axarr2[response, 0].set_ylabel("Resp in \'%i\' [rad]" %response)
+            axarr1[response, 0].set_ylabel("Resp \'%i\' [V/N]" %response)
+            axarr2[response, 0].set_ylabel("Resp \'%i\' [$\pi\cdot$rad]" %response)
 
             if fit_osc_sum:
 
-                axarr3[response, 0].set_ylabel("Resp in \'%i\' [V/N]" %response)
-                axarr4[response, 0].set_ylabel("Resp in \'%i\' [rad]" %response)
+                axarr3[response, 0].set_ylabel("Resp \'%i\' [V/N]" %response)
+                axarr4[response, 0].set_ylabel("Resp \'%i\' [rad]" %response)
 
         plt.show()
 

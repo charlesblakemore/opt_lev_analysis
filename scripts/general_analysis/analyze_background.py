@@ -28,7 +28,7 @@ dir1 = cbead + '/grav_data/ydrive_1sep_1height_cant-3Vac-1750Hz_noshield_farback
 dir1 = cbead + '/grav_data/shield_out/ydrive_1sep_1height_cant-0mV-farback_shield-3Vac-1750Hz-initpos'
 
 load = False #True
-save = True
+save = False
 
 unwrap = True
 
@@ -39,7 +39,7 @@ ext_cant_ind = 1
 harms_to_track = [1,2,3]
 #harms_to_track = [1,2,3,4,5,6,7,8,9,10]
 
-harms_to_label = [1,2,3,21,35]
+harms_to_label = [1,2,3]#,21,35]
 harms_to_label = range(10)
 
 sub_cant_phase = True
@@ -68,7 +68,7 @@ diag = False
 
 
 
-allfiles = bu.find_all_fnames(dir1)
+allfiles, lengths = bu.find_all_fnames(dir1)
 
 sep0background = bgu.Background(allfiles)
 sep0background.load_axvecs(find_again=True)#False)

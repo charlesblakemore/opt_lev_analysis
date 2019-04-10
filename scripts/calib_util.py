@@ -102,7 +102,9 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
     pcol = config.elec_map[ecol]
 
     # Extract the drive, detrend it, and compute an fft
-    drive = file_obj.electrode_data[ecol]
+    #drive = file_obj.electrode_data[ecol]
+    drive = bu.trap_efield(file_obj.electrode_data)[pcol]
+
     drive = signal.detrend(drive)
     drive_fft = np.fft.rfft(drive)
 
@@ -152,6 +154,8 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
     popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
 
     drive_amp2 = popt[0]
+
+    #print drive_amp, drive_amp2
 
     # Include the possibility of a different sign of response
     sign = np.sign(np.mean(drive*responsefilt))
@@ -260,13 +264,16 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
     normfitobj = Fit(newpopt / popt[0], pcov / popt[0], ffun)
 
     f, axarr = plt.subplots(2, sharex = True, \
-                            gridspec_kw = {'height_ratios':[2,1]})#Plot fit
+                            gridspec_kw = {'height_ratios':[2,1]}, \
+                            figsize=(10,4),dpi=150)#Plot fit
     normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
-                       axarr[0], ylabel="Normalized Response [e]")
-    normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1])
+                       axarr[0], ylabel="Normalized Response [e]", xlabel="")
+    normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
+                             xlabel="Integration Number")
     for x in xfit:
-        if not (x) % 2:
+        if not (x-1) % 3:
             axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
+    plt.tight_layout()
     plt.show()
 
     happy = raw_input("does the fit look good? (y/n): ")
@@ -310,8 +317,9 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
         f, axarr = plt.subplots(2, sharex = True, \
                                 gridspec_kw = {'height_ratios':[2,1]})#Plot fit
         normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
-                           axarr[0], ylabel="Normalized Response [e]")
-        normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1])
+                           axarr[0], ylabel="Normalized Response [e]", xlabel="")
+        normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
+                                 xlabel="Integration Number")
         plt.show()
 
         happy = raw_input("does the fit look good? (y/n): ")
@@ -329,14 +337,19 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
 
     plt.ioff()
 
+    print fitobj.popt[0]
+
     q0_sc = ffun([0], *fitobj.popt)[0]
     q0 = int(round(q0_sc / fitobj.popt[0]))
     print 'q0: ', q0
 
     #Determine force calibration.
     e_charge = config.p_param['e_charge']
-    fitobj.popt = fitobj.popt * 1./(amp_gain*e_charge/plate_sep)
-    fitobj.errs = fitobj.errs * 1./(amp_gain*e_charge/plate_sep)
+    #fitobj.popt = fitobj.popt * 1./(amp_gain*e_charge/plate_sep)
+    #fitobj.errs = fitobj.errs * 1./(amp_gain*e_charge/plate_sep)
+
+    fitobj.popt = fitobj.popt * (1.0 / e_charge)
+    fitobj.errs = fitobj.errs * (1.0 / e_charge)
 
     return fitobj.popt[0], fitobj.popt[1], fitobj.errs[0], q0
 
