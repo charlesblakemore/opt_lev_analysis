@@ -439,6 +439,10 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
             if new_key == 'Time':
                 new_attr_dict[new_key] = np.uint64(float(item['Val']))
 
+            # Conver 32-bit integers to their correct datatype
+            elif (attr_type == 'I32'):
+                new_attr_dict[new_key] = np.int32(item['Val'])
+
             # Convert single numbers/bool from their xml string representation
             elif (attr_type == 'DBL') or (attr_type == 'Boolean'):
                 new_attr_dict[new_key] = float(item['Val'])
@@ -454,7 +458,12 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
             # Move string attributes to new attribute dictionary
             elif (attr_type == 'String'):
                 new_attr_dict[new_key] = item['Val']
-    
+
+            # Catch-all for unknown attributes, keep as string
+            else:
+                print 'Found an attribute whose type is unknown. Left as string...'
+                new_attr_dict[new_key] = item['Val']
+
     assert n_attr == len(new_attr_dict.keys())
 
     return new_attr_dict

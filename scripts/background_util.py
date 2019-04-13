@@ -201,8 +201,7 @@ class Background:
             # Load data
             df = bu.DataFile()
             df.load(fil)
-            if df.badfile:
-                continue
+
             try:
                 temps[0,fil_ind] = df.temps[0]
                 temps[1,fil_ind] = df.temps[1]

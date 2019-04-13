@@ -236,7 +236,7 @@ class DataFile:
                                             self.pos_data[2]])
 
 
-            self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
+            #self.phi_cm = np.mean(self.phase[[0, 1, 2, 3]]) 
 
         if not skip_mon:
             self.load_monitor_data(fname, dat, attribs)
