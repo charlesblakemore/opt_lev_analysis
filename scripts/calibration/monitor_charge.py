@@ -15,15 +15,15 @@ import configuration as config
 import time
 
 
-dirname = r'D:\data\20190327\bead1\discharge\coarse'
+dirname = r'D:\data\20190415\discharge\fine2'
 live = True
 
 elec_ind = 3
 pos_ind = 0  # {0: x, 1: y, 2: z}
 
-ts = 10
+ts = 25
 
-SCALE = 10**5
+SCALE = 1.0 #10**5
 
 ########
 
@@ -42,7 +42,7 @@ old_mrf = ''
 if live:
     while True:
 
-        files = bu.find_all_fnames(dirname)
+        files, lengths = bu.find_all_fnames(dirname)
         files = bu.sort_files_by_timestamp(files)
 
         try:

@@ -20,6 +20,8 @@ import transfer_func_util as tf
 
 from bead_util_funcs import *
 
+WINDOWS = True
+
 #######################################################
 # This module contains the DataFile class which stores
 # information from a single hdf5 file. Includes class
@@ -85,7 +87,10 @@ class DataFile:
             self.badfile = False
 
         self.fname = fname
-        self.date = fname.split('/')[2]
+        if WINDOWS:
+            self.date = fname.split('\\')[2]
+        else:
+            self.date = fname.split('/')[2]
 
         self.fsamp = attribs["Fsamp"]
         self.time = attribs["Time"]
@@ -154,7 +159,10 @@ class DataFile:
             plt.show()
         
         self.fname = fname
-        self.date = fname.split('/')[2]
+        if WINDOWS:
+            self.date = fname.split('\\')[2]
+        else:
+            self.date = fname.split('/')[2]
         #print fname
 
         self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
@@ -255,7 +263,10 @@ class DataFile:
 
         #dat, attribs = getdata(fname)
 
-        self.date = fname.split('/')[2]
+        if WINDOWS:
+            self.date = fname.split('\\')[2]
+        else:
+            self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
         if debug:

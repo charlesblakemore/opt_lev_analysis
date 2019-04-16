@@ -412,7 +412,7 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
     attr_fname = fname[:-3] + '.attr'
 
     xml = open(attr_fname, 'r').read()
-
+    
     attr_dict = xmltodict.parse(xml)['Cluster']
     n_attr = int(attr_dict['NumElts'])
 
@@ -444,7 +444,7 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
             # Move string attributes to new attribute dictionary
             elif (attr_type == 'String'):
                 new_attr_dict[new_key] = item['Val']
-    
+
     assert n_attr == len(new_attr_dict.keys())
 
     return new_attr_dict
@@ -463,7 +463,7 @@ def getdata(fname, gain_error=1.0, verbose=False):
     adc_fac = (configuration.adc_params["adc_res"] - 1) / \
                (2. * configuration.adc_params["adc_max_voltage"])
 
-    message = ''
+    message = "Can't load"
     try:
         f = h5py.File(fname,'r')
         try:
@@ -491,15 +491,26 @@ def getdata(fname, gain_error=1.0, verbose=False):
 
 
 def get_hdf5_time(fname):
+    message = "Can't load time"
     try:
         f = h5py.File(fname,'r')
-        dset = f['beads/data/pos_data']
+        try:
+            dset = f['beads/data/pos_data']
+        except Exception:
+            message = "Can't find any dataset in : " + fname
+            f.close()
+            raise
+        
         attribs = copy_attribs(dset.attrs)
+        if attribs == {}:
+            attribs = load_xml_attribs(fname)
         f.close()
 
-    except (KeyError, IOError):
-        print "Warning, got no keys for: ", fname
-        attribs = {}
+    except Exception:
+        print message
+        dat = []
+        attribs = {"Time": 0}
+        f = []
         
     return attribs["Time"]
 
