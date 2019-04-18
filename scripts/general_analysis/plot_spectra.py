@@ -20,11 +20,11 @@ use_dir = False
 
 filename_labels = True #False
 
-allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
-            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
-            '/daq2/20190320/bead2/1_5mbar_yzcool_neg.h5', \
-            '/daq2/20190320/bead2/1_5mbar_xyzcool.h5']
-
+#allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
+#            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
+#            '/daq2/20190320/bead2/1_5mbar_yzcool_neg.h5', \
+#            '/daq2/20190320/bead2/1_5mbar_xyzcool.h5']
+#
 
 
 #allfiles = ['/daq2/20190327/bead1/1_5mbar_nocool_pos1.h5', \
