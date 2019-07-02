@@ -77,8 +77,10 @@ import configuration as config
 #step_cal_dir = ['/data/20190124/bead2/discharge/recharge_20190125']
 
 
-step_cal_dir = ['/daq2/20190408/bead1/discharge/fine']
+step_cal_dir = ['/daq2/20190626/bead1/discharge/fine']
 
+using_tabor = True
+tabor_ind = 3
 
 recharge = False
 if type(step_cal_dir) == str:
@@ -111,7 +113,7 @@ vpn = 7.264e16
 
 #tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
 
-tf_cal_dir = '/daq2/20190408/bead1/tf_20190408/'
+tf_cal_dir = '/daq2/20190619/bead1/tf_20190619/'
 
 tf_date = tf_cal_dir.split('/')[2]
 
@@ -266,7 +268,6 @@ for root, dirnames, filenames in os.walk(tf_cal_dir):
 if decimate:
     step_cal_files = step_cal_files[::dec_fac]
 
-
 #### BODY OF CALIBRATION
 
 
@@ -276,6 +277,8 @@ if not fake_step_cal:
 
     step_file_objs = []
     step_cal_vec = []
+    pow_vec = []
+    zpos_vec = []
     for fileind, filname in enumerate(step_cal_files[:max_file]):
         bu.progress_bar(fileind, nstep_files)
         df = bu.DataFile()
@@ -284,8 +287,15 @@ if not fake_step_cal:
         except:
             continue
 
-        step_resp = cal.find_step_cal_response(df, bandwidth=0.02)
+        if using_tabor:
+            df.load_other_data()
+
+        step_resp, power, zpos = \
+            cal.find_step_cal_response(df, bandwidth=0.02, tabor_ind=tabor_ind,\
+                                       using_tabor=using_tabor)
         step_cal_vec.append(step_resp)
+        pow_vec.append(power)
+        zpos_vec.append(zpos)
 
     vpn, off, err, q0 = cal.step_cal(step_cal_vec)
     print vpn

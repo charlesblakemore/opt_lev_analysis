@@ -10,10 +10,13 @@ import scipy.signal as ss
 
 #path = "/data/20181204/bead1/high_speed_digitizer/general_tests/spinning_50k_z_hat"
 path = "/daq2/20190408/bead1/high_speed_test/t17_no-laser_no-mon"
-fc = 94000
+
+path = "/daq2/20190514/bead1/spinning/test2/"
+
+fc = 100000
 files= glob.glob(path + "/*.h5")
 
-data_ax = 1
+data_ax = 0
 
 print files
 

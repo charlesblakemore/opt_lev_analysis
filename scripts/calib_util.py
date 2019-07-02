@@ -89,7 +89,8 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 
 
-def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
+def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
+                           using_tabor=False, tabor_ind=3, mon_fac=100):
     '''Analyze a data step-calibraiton data file, find the drive frequency,
        correlate the response to the drive
 
@@ -98,12 +99,22 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
 
        OUTPUTS:  H, (response / drive)'''
 
-    ecol = np.argmax(file_obj.electrode_settings['driven'])
-    pcol = config.elec_map[ecol]
+    if not using_tabor:
+        ecol = np.argmax(file_obj.electrode_settings['driven'])
+        pcol = config.elec_map[ecol]
 
-    # Extract the drive, detrend it, and compute an fft
-    #drive = file_obj.electrode_data[ecol]
-    drive = bu.trap_efield(file_obj.electrode_data)[pcol]
+        # Extract the drive, detrend it, and compute an fft
+        #drive = file_obj.electrode_data[ecol]
+        drive = bu.trap_efield(file_obj.electrode_data)[pcol]
+    elif using_tabor:
+        pcol = 0
+        v3 = file_obj.other_data[tabor_ind]
+        v4 = file_obj.other_data[tabor_ind+1]
+        zeros = np.zeros(len(v3))
+        drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros])[pcol]
+
+    power = np.mean(file_obj.other_data[0])
+    zpos = np.mean(file_obj.pos_data[2])
 
     drive = signal.detrend(drive)
     drive_fft = np.fft.rfft(drive)
@@ -150,17 +161,17 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
         return A * np.sin( 2 * np.pi * f * x + phi )
         
     # Estimate some parameters and try fitting a sine
-    p0_drive = [drive_amp, drive_freq, 0]
-    popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
+    #p0_drive = [drive_amp, drive_freq, 0]
+    #popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
 
-    drive_amp2 = popt[0]
+    #drive_amp2 = popt[0]
 
     #print drive_amp, drive_amp2
 
     # Include the possibility of a different sign of response
     sign = np.sign(np.mean(drive*responsefilt))
 
-    return response_amp / drive_amp
+    return response_amp / drive_amp, power, zpos
 
 
 

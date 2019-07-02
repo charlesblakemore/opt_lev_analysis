@@ -1,68 +1,263 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from piecewise_line import *
-from scipy.optimize import curve_fit
+import scipy.optimize as opti
+import scipy.interpolate as interp
 import matplotlib
+
+plt.rcParams.update({'font.size': 14})
 
 #base_path = "/home/arider/opt_lev_analysis/scripts/spinning/processed_data/20181204/pramp_data/" 
 base_path = '/processed_data/spinning/pramp_data/'
 
 #in_fs = ["50k_1vpp", "50k_2vpp", "50k_3vpp", "50k_4vpp", "50k_5vpp", "50k_6vpp", "50k_7vpp", "50k_8vpp"]
-in_fs = ['49k_200vpp']
+in_fs = ['20190514_Ar_50kHz_4Vpp_2']
+title_str = 'Ar #2'
 
 cal = 0.66
 
-def get_phi(fname):
-    phi = np.load(base_path + fname + "_phi.npy")
-    return phi/2
+def get_delta_phi(fname):
+    delta_phi = np.load(base_path + fname + "_phi.npy")
+    return delta_phi
 
 def get_pressure(fname):
     pressures = np.load(base_path + fname + "_pressures.npy")
     return pressures
 
-def pressure_model(pressures, break_ind = 0, p_ind = 0, plt_press = True):
-    ffun = lambda x, y0, m0, m1: \
-            pw_line(x, break_ind, 1e7, 1.1e7, y0, m0, m1, 0., 0.)
 
-    n = np.shape(pressures)[0]
-    inds = np.arange(n)
-    popt, pcov = curve_fit(ffun, inds, pressures[:, p_ind])
-    pfit = ffun(inds, *popt)
+def build_full_pressure(pressures, pirani_ind=0, highp_baratron_ind=2, \
+                        baratron_ind=2, bara_lim=0.015, pirani_lim=5.0e-4, \
+                        plot=False):
 
-    if plt_press:
-        p_dict = {0:"Pirani", -1:"Baratron"}
-        plt.plot(pressures[:, p_ind], 'o', label = p_dict[p_ind])
-        plt.plot(pfit, label = "piecewise linear fit")
-        plt.xlabel("File [#]")
-        plt.ylabel("Pressure [mbar]")
-        plt.legend()
+    inds = np.array(range(len(pressures[:,0])))
+
+    pirani_p = pressures[:,pirani_ind]
+    bara_p = pressures[:,baratron_ind]
+    bara_p2 = pressures[:,highp_baratron_ind]
+
+    bara_p_good = bara_p < bara_lim
+    pirani_p_good = pirani_p > pirani_lim
+
+    overlap = bara_p_good * pirani_p_good
+
+    def line(x, a, b):
+        return a * x + b
+
+    Ndat = np.sum(overlap)
+
+    bara_popt, bara_pcov = opti.curve_fit(line, inds[overlap], bara_p[overlap])
+    pirani_popt, pirani_pcov = opti.curve_fit(line, inds[overlap], pirani_p[overlap])
+
+    pirani_p = ((pirani_p - pirani_popt[1]) / pirani_popt[0]) * bara_popt[0] + bara_popt[1]
+
+    if plot:
+        plt.plot(inds[bara_p_good], bara_p[bara_p_good])
+        plt.plot(inds[pirani_p_good], pirani_p[pirani_p_good])
+
+
         plt.show()
 
-    return pfit
+    pirani_p_bad = np.invert(pirani_p_good)
+    bara_p_bad = np.invert(bara_p_good)
+
+    low_p = bara_p[pirani_p_bad]
+    high_p = pirani_p[bara_p_bad]
+
+    avg_p = 0.5 * (pirani_p[overlap] + bara_p[overlap])
+    total_p = np.concatenate((low_p, avg_p, high_p))
+
+    return total_p
 
 
-def phi_ffun(p, k, phinot):
-    return -1.*np.arcsin(np.clip(p/k, 0., 1.)) + phinot
 
-phases = np.array(map(get_phi, in_fs))
+
+
+def build_full_pressure_2(pressures, pirani_ind=0, highp_baratron_ind=2, \
+                          baratron_ind=2, bara_lim=0.015, pirani_lim=5.0e-4, \
+                          highp_bara_lim=0.001, plot=False, use_highp_bara=False):
+
+    inds = np.array(range(len(pressures[:,0])))
+
+    pirani_p = pressures[:,pirani_ind]
+    bara_p = pressures[:,baratron_ind]
+    bara_p2 = pressures[:,highp_baratron_ind]
+
+    low_p = bara_p
+    if use_highp_bara:
+        high_p = bara_p2
+    else:
+        high_p = pirani_p
+
+    low_p_good = low_p < bara_lim
+    if use_highp_bara:
+        high_p_good = high_p > highp_bara_lim
+    else:
+        high_p_good = high_p > pirani_lim
+
+    overlap = low_p_good * high_p_good
+
+    high_p_bad = np.invert(high_p_good)
+    low_p_bad = np.invert(low_p_good)
+
+    if use_highp_bara:
+        overlap_avg = 0.5 * (low_p[overlap] + high_p[overlap])
+        fac1 = np.mean(overlap_avg / low_p[overlap])
+        low_p = low_p * fac1
+        fac2 = np.mean(overlap_avg / high_p[overlap])
+        high_p = high_p * fac2
+
+    else:
+        fac = np.mean(low_p[overlap] / high_p[overlap])
+        high_p = high_p * fac
+
+    low_p_only = low_p[high_p_bad]
+    high_p_only = high_p[low_p_bad]
+
+    avg_p_only = 0.5 * (low_p[overlap] + high_p[overlap])
+    total_p = np.concatenate((low_p_only, avg_p_only, high_p_only))
+
+    pres_func = interp.interp1d(inds, total_p, kind='quadratic')
+
+    #pres_func_2 = interp.splrep(inds, total_p, s=5e-4)
+    pres_func_2 = interp.splrep(inds, total_p, s=12e-4)
+
+    #return pres_func_2(inds)
+    return pres_func(inds), interp.splev(inds, pres_func_2, der=0)
+
+
+
+
+
+
+
+# Get raw phase difference at fundamental rotation freq
+# from previously analyzed files.
+phases = np.array(map(get_delta_phi, in_fs))
 pressures = np.array(map(get_pressure, in_fs))
-p_fits = np.array(map(pressure_model, pressures))
 
-plt.plot(p_fits[0], phases[0])
-plt.show()
+uphases_all = []
+pressures_all = []
+lock_lost_ind_all = []
+for dir_ind in range(phases.shape[0]):
 
-p_maxs = np.array([0.011, 0.024, 0.036, 0.048, 0.062, 0.074, 0.085, 0.1004]) - 0.001
+    pressures_real = build_full_pressure(pressures[dir_ind], plot=False)
+    pressures_real_2, pressures_real_smooth = build_full_pressure_2(pressures[dir_ind], plot=False)
+
+    t = np.array(range(len(pressures[dir_ind]))) * 2.0
+
+    plt.plot(pressures_real_2, label='Raw: Pirani + Baratron')
+    plt.plot(pressures_real_smooth, label='Smoothed')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Pressure [mbar]')
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    plt.show()
+
+    pressures_real = pressures_real_smooth
+
+    phi0 = np.mean(phases[dir_ind][:10])
+
+    # Find where we lose lock by looking fore sharp derivative
+    raw_grad = np.gradient(np.unwrap(2.0 * phases[dir_ind]))
+
+    plt.figure()
+    plt.plot(pressures_real, raw_grad)
+    #plt.figure()
+    #plt.plot(pressures_real, phases[dir_ind])
+    plt.show()
+
+    raw_grad_init = np.std(raw_grad[:int(0.01*len(raw_grad))])
+    bad_inds = np.array(range(len(raw_grad)))[np.abs(raw_grad) > 10 * raw_grad_init]
+    
+    for indind, ind in enumerate(bad_inds):
+        if ind == bad_inds[-2]:
+            lock_lost_ind = -1
+            break
+        delta = np.abs(ind - bad_inds[indind+1])
+        if delta < 10:
+            delta2 = np.abs(ind - bad_inds[indind+2])
+            if delta2 < 10:
+                lock_lost_ind = ind
+                break
+
+    #lock_lost_ind = bad_inds[0]
+    lock_lost_ind_all.append(lock_lost_ind)
+
+    # Reconstruct phase difference of fundamental rotation by 
+    # unwrapping data prior to losing lock, then using the raw
+    # data after losing lock
+    uphases = np.unwrap(2.0*phases[dir_ind]) / 2.0
+
+    offset = np.mean(uphases[:10])
+    uphases -= offset
+
+    uphases[lock_lost_ind:] = phases[dir_ind][lock_lost_ind:]
+
+
+    sort_inds = np.argsort(pressures_real)
+
+    pressures_real_sorted = pressures_real[sort_inds]
+    uphases_sorted = uphases[sort_inds]
+
+    pressures_all.append(pressures_real_sorted)
+    uphases_all.append(uphases_sorted)
+
+    plt.plot(pressures_real_sorted, uphases_sorted)
+    plt.show()
+
+
+
+
+def phi_ffun(p, k, phi0):
+    return -1.*np.arcsin(p/k) + phi0
+
+
+
 popts = []
 pcovs = []
 
-#p0 = [0.02, 0.75]
 
-for i, p in enumerate(p_fits):
-    bfit = p<p_maxs[i]
-    p0 = [p_maxs[i], 0.75]
-    pphi, covphi = curve_fit(phi_ffun, p_fits[i][bfit], phases[i][bfit], p0 = p0)
+for ind, lock_ind in enumerate(lock_lost_ind_all):
+    pressures = pressures_all[ind]
+    uphases = uphases_all[ind]
+
+    fit_pressures = pressures[:lock_ind]
+    fit_uphases = uphases[:lock_ind]
+    p0 = [pressures[lock_ind], 0]
+    pphi, covphi = curve_fit(phi_ffun, fit_pressures, fit_uphases, p0 = p0, \
+                             bounds=([0.01, -np.inf], [0.15, np.inf]), maxfev=10000)
     popts.append(pphi)
     pcovs.append(covphi)
+
+    plot_pressures = np.linspace(0, pphi[0], 100)
+
+    line_p = np.linspace(-1.0*np.max(pressures), 2*np.max(pressures), 100)
+
+    lab_str = '$P_{\mathrm{max}}$: %0.3f mbar' % pphi[0]
+
+    plt.scatter(pressures, uphases / np.pi)
+    plt.plot(plot_pressures, phi_ffun(plot_pressures, *pphi) / np.pi, color='r', lw=2, \
+             label=lab_str)
+    plt.plot(line_p, np.ones(100) * (-0.5), '--', lw=3, color='k', alpha=0.5)
+    plt.xlabel('Pressure [mbar]')
+    plt.ylabel('Phase offset [$\pi$ rad]')
+    plt.xlim(-0.05*pphi[0], 1.2*pphi[0])
+    plt.legend(fontsize=12)
+    plt.tight_layout()
+    plt.suptitle(title_str, fontsize=20)
+    plt.subplots_adjust(top=0.90)
+    plt.show()
+    
+    print 'init: ', p0[0]
+    print 'fit: ', pphi[0]
+    print
+
+
+
+
+
+
+
 
 colors = ["b", "g", "c", "m", "y", "k"]
 linestyles = [":", "-.", "--", "-"]
@@ -123,3 +318,31 @@ axarr[-1].set_xlabel("P$_{\pi/2}$ [mbar]")
 #plt.legend()
 plt.show()
 f.savefig("/home/arider/plots/20181221/phase_vs_pressure.png", dpi = 200)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

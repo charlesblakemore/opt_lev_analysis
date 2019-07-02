@@ -18,7 +18,7 @@ force_vals_old = np.zeros((len(lam_list),len(gap_list)))
 
 annotate = False
 ref = False
-institute = True
+institute = False #True
 
 annotate_theory = True
 
@@ -71,7 +71,7 @@ hh_g2h = np.interp(cdat_g2l[:,0], cdat_g2h[:,0], cdat_g2h[:,1])
 cmeas = np.loadtxt('prev_meas/master_ext.txt',delimiter=",",skiprows=1)
 #plt.fill_between(cmeas[:,0]*1e6,cmeas[:,1],1e20,color=[135./256,205./256,250/256.])
 plt.fill_between(cmeas[:,0]*1e6,cmeas[:,1],1e20,color=[255./256,246./256,143/256.], zorder=2)
-plt.text(2e2, 1e8, 'Excluded by\nexperiments', \
+plt.text(2e2, 1e7, 'Excluded by\nexperiments', \
          horizontalalignment='center', \
          verticalalignment='center', \
          multialignment='center')
@@ -237,24 +237,24 @@ if plot_projections:
     if all_three:
         proj_bad = np.loadtxt('projections/attractorv2_sep15um_noise1e-17NrtHz_int1e4s.txt', \
                               delimiter=',')
-        plt.loglog(proj_bad[:,0]*1e6, proj_bad[:,1], '--', color='r', lw=2, #alpha=0.6, \
+        plt.loglog(proj_bad[:,0]*1e6, proj_bad[:,1], '--', color='g', lw=3, #alpha=0.6, \
                    label=r'$10^{-17}$ $\rm{N/\sqrt{Hz}}$, $s=12.5$ $\mu\rm{m}$, $t=10^4$ $\rm{s}$', \
                    zorder=20)
 
     proj_mid = np.loadtxt('projections/attractorv2_sep10um_noise1e-18NrtHz_int1e5s.txt', \
                           delimiter=',')
-    plt.loglog(proj_mid[:,0]*1e6, proj_mid[:,1], '--', color='g', lw=2, #alpha=0.6, \
+    plt.loglog(proj_mid[:,0]*1e6, proj_mid[:,1], '--', color='r', lw=3, #alpha=0.6, \
                label=r'$10^{-18}$ $\rm{N/\sqrt{Hz}}$, $s=7.5$ $\mu\rm{m}$, $t=10^5$ $\rm{s}$', \
                zorder=20)
 
 
     proj_good = np.loadtxt('projections/attractorv2_sep5um_noise1e-19NrtHz_int1e6s.txt', \
                            delimiter=',')
-    plt.loglog(proj_good[:,0]*1e6, proj_good[:,1], '--', color='b', lw=2, #alpha=0.6, \
+    plt.loglog(proj_good[:,0]*1e6, proj_good[:,1], '--', color='b', lw=3, #alpha=0.6, \
                label=r'$10^{-19}$ $\rm{N/\sqrt{Hz}}$, $s=2.5$ $\mu\rm{m}$, $t=10^6$ $\rm{s}$', \
                zorder=20)
 
-    plt.legend(loc=1, fontsize=8)
+    plt.legend(loc=1, fontsize=12, framealpha=1).set_zorder(100)
 
 
 

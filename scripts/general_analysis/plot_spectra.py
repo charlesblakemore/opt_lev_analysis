@@ -20,10 +20,10 @@ use_dir = False
 
 filename_labels = True #False
 
-allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
-            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
-            '/daq2/20190320/bead2/1_5mbar_yzcool_neg.h5', \
-            '/daq2/20190320/bead2/1_5mbar_xyzcool.h5']
+# allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
+#             '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
+#             '/daq2/20190320/bead2/1_5mbar_yzcool_neg.h5', \
+#             '/daq2/20190320/bead2/1_5mbar_xyzcool.h5']
 
 
 
@@ -42,11 +42,21 @@ allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
 #            '/data/20190124/bead2/turbombar_zcool_discharged.h5', \
 #            ]
 
-allfiles = ['/daq2/20190408/bead1/spinning/test/0_1mbar_xyzcool_powfb_2.h5']
+#allfiles = ['/daq2/20190507/bead1/1_5mbar_powfb_xyzcool.h5', \
+#            '/daq2/20190507/bead1/turbombar_powfb_xyzcool.h5']
 
 
+allfiles = ['/daq2/20190626/bead1/1_5mbar_powfb_zcool_init.h5', \
+            '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low1.h5', \
+            '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low2.h5', \
+            #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low3.h5', \
+            #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low4.h5', \
+            '/daq2/20190626/bead1/1_5mbar_powfb_xzcool_low2.h5', \
+            '/daq2/20190626/bead1/1_5mbar_powfb_yzcool_low2.h5', \
+            ]
 
-tfdate = '20190327'
+
+tfdate = '20190619'
 
 #labs = ['1','2', '3']
 
@@ -77,7 +87,7 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = True
+fullNFFT = False
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -278,5 +288,3 @@ allfiles = allfiles[:maxfiles]
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
                   fb_axes=fb_axes, colormap=cmap)
-
-pickle.dump(shit, open('/processed_data/ichep_spectra.p', 'wb'))

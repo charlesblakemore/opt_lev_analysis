@@ -484,7 +484,12 @@ def getdata(fname, gain_error=1.0, verbose=False):
 
     message = ''
     try:
-        f = h5py.File(fname,'r')
+        try:
+            f = h5py.File(fname,'r')
+        except:
+            message = "Can't find/open HDF5 file : " + fname
+            raise
+
         try:
             dset = f['beads/data/pos_data']
         except Exception:
@@ -774,6 +779,43 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
 
 
+def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
+    '''Slow and derpy function to re-bin based on averaging.'''
+    if len(errs):
+        assert len(errs) == len(yvec), 'error vec is not the right length'
+
+    lenx = np.max(xvec) - np.min(xvec)
+    dx = lenx / nbins
+
+    xvec_new = np.linspace(np.min(xvec)+0.5*dx, np.max(xvec)-0.5*dx, nbins)
+    yvec_new = np.zeros_like(xvec_new)
+    errs_new = np.zeros_like(xvec_new)
+
+    for xind, x in enumerate(xvec_new):
+        if x != xvec_new[-1]:
+            inds = (xvec >= x - 0.5*dx) * (xvec < x + 0.5*dx)
+        else:
+            inds = (xvec >= x - 0.5*dx) * (xvec <= x + 0.5*dx)
+
+        if len(errs):
+            errs_new[xind] = np.mean(errs[inds])
+        else:
+            errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
+
+        yvec_new[xind] = np.mean(yvec[inds])
+
+    if plot:
+        plt.scatter(xvec, yvec, color='C0')
+        plt.errorbar(xvec_new, yvec_new, yerr=errs_new, fmt='o', color='C1')
+        plt.show()
+
+
+    return xvec_new, yvec_new, errs_new
+
+
+        
+
+
 
 
 
@@ -856,18 +898,19 @@ def trap_efield(voltages):
         print "There are eight electrodes."
         print "   len(volt arr. passed to 'trap_efield') != 8"
 
-    E_front  = interp.interp1d(e_front_dat[0], e_front_dat[-1])
-    E_back   = interp.interp1d(e_back_dat[0],  e_back_dat[-1])
-    E_right  = interp.interp1d(e_right_dat[1], e_right_dat[-1])
-    E_left   = interp.interp1d(e_left_dat[1],  e_right_dat[-1])
-    E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
-    E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
+    else:
+        E_front  = interp.interp1d(e_front_dat[0], e_front_dat[-1])
+        E_back   = interp.interp1d(e_back_dat[0],  e_back_dat[-1])
+        E_right  = interp.interp1d(e_right_dat[1], e_right_dat[-1])
+        E_left   = interp.interp1d(e_left_dat[1],  e_right_dat[-1])
+        E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
+        E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
 
-    Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
-    Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
-    Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+        Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+        Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+        Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
 
-    return np.array([Ex, Ey, Ez])    
+        return np.array([Ex, Ey, Ez])    
 
 
 
