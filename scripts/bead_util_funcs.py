@@ -104,6 +104,7 @@ def get_color_map( n, cmap='jet' ):
        plotting many curves.
 
            INPUTS: n, length of color array to make
+
                    cmap, color map for final output
 
            OUTPUTS: outmap, color map in rgba format'''
@@ -512,15 +513,19 @@ def getdata(fname, gain_error=1.0, verbose=False):
 def get_hdf5_time(fname):
     try:
         f = h5py.File(fname,'r')
-        dset = f['beads/data/pos_data']
+        #dset = f['beads/data/pos_data']; pos_data doesn't exist in these datasets
+        dset = f['beads/data/high_speed_data']
         attribs = copy_attribs(dset.attrs)
         f.close()
+		
+        if not len(attribs):
+            attribs = load_xml_attribs(fname, types=['I32','DBL', 'Array'])
 
     except (KeyError, IOError):
         print "Warning, got no keys for: ", fname
         attribs = {}
         
-    return attribs["Time"]
+    return attribs["time"]
 
 
 def sudo_call(fn, *args):

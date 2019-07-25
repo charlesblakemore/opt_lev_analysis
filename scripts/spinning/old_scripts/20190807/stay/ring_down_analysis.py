@@ -48,7 +48,7 @@ for i, f in enumerate(files[init_file:final_file]):
     
     fb = np.abs(freqs-fc)>bw/2.
     fft = np.fft.rfft(obj.dat[:, 0])
-    #plt.loglog(freqs[np.logical_not(fb)], np.abs(fft[np.logical_not(fb)]), label = str(i))
+    plt.loglog(freqs[np.logical_not(fb)], np.abs(fft[np.logical_not(fb)]), label = str(i))
     fft[fb] = 0.
     sig = np.fft.irfft(fft)
     phase = np.unwrap(np.angle(ss.hilbert(sig)))
@@ -58,7 +58,7 @@ for i, f in enumerate(files[init_file:final_file]):
     ifreqs[i, :] = dec2(inst_freqs[chop_pts:-chop_pts], dec_fac)
     popt, pcov = curve_fit(line, tarr0, inst_freqs)
 
-#plt.show()
+plt.show()
 
 
 

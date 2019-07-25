@@ -9,13 +9,16 @@ import re
 g = 50.*0.66
 s = 0.004
 
-in_path = "/home/arider/opt_lev_analysis/scripts/spinning/processed_data/20181204/ampramp_data_0/"
+#in_path = "/home/arider/opt_lev_analysis/scripts/spinning/processed_data/20181204/ampramp_data_0/"
 in_base_fname = "amp_ramp_50k"
+in_path = '/home/dmartin/analyzedData/20190514/amp_ramp/'
 
 
 amps = np.load(in_path+in_base_fname + "amps.npy")
+print(amps)
 amps*=g
 amps/=s
+
 
 freqs = np.load(in_path+in_base_fname + "wobble_freq.npy")
 #freqs/=2
@@ -40,7 +43,7 @@ ax.set_xlabel("E [kV/m]")
 ax.legend()
 plt.subplots_adjust(top = 0.96, bottom = 0.15, left = 0.15, right = 0.99)
 plt.tight_layout()
-f.savefig("/home/arider/plots/20181221/small_oscillations.png", dpi = 200)
+#f.savefig("/home/arider/plots/20181221/small_oscillations.png", dpi = 200)
 plt.show()
 
 

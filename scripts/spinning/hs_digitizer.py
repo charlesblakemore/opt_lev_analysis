@@ -2,9 +2,7 @@ import h5py
 import numpy as np 
 import glob
 from scipy.optimize import curve_fit
-
 import bead_util as bu #import xmltodict
-
 
 def copy_dict(dic):
     out_dict = {}

@@ -45,7 +45,7 @@ plt.legend(fontsize = 12)
 plt.subplots_adjust(top = 0.91, bottom = 0.14, left = 0.15, right = 0.92, hspace = 0.6)
 plt.tight_layout()
 plt.show()
-f.savefig("/home/arider/plots/20181221/spindown.png", dpi = 200)
+#f.savefig("/home/arider/plots/20181221/spindown.png", dpi = 200)
 
 
 

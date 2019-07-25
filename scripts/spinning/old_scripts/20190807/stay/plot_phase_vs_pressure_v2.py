@@ -5,24 +5,37 @@ from scipy.optimize import curve_fit
 import matplotlib
 
 #base_path = "/home/arider/opt_lev_analysis/scripts/spinning/processed_data/20181204/pramp_data/" 
-base_path = '/processed_data/spinning/pramp_data/'
+#base_path = '/processed_data/spinning/pramp_data/'
+#base_path = '/daq2/20190417/bead1/pramps/'
+base_path = "/home/dmartin/analyzedData/20190514/pramp3/He"
+#base_path = '/processed_data/spinning/pramp_data/he/'
+#base_path = '/processed_data/spinning/pramp_data/'
+#in_fs = #["50k_1vpp"],["50k_2vpp"]#, "50k_3vpp", "50k_4vpp", "50k_5vpp", "50k_6vpp", "50k_7vpp", "50k_8vpp"]i
 
-#in_fs = ["50k_1vpp", "50k_2vpp", "50k_3vpp", "50k_4vpp", "50k_5vpp", "50k_6vpp", "50k_7vpp", "50k_8vpp"]
-in_fs = ['49k_200vpp']
+#in_fs = ['50k_4vpp']
+#in_fs = ['49k_200vpp']
+#in_fs = ["20190417_He_"]#,"20190417_N2_"]
+#in_fs = ["20190417_He_"]
+#in_fs = ["He_3vpp_0_", "./N2/N2_3vpp_0_"]
+#in_fs = ['50k_5vpp_he_2_']
+#in_fs = ['20190507_N2_50kHz_4Vpp_2_']
+#in_fs = ['20190507_N2_50kHz_4Vpp_']
+#in_fs = ['20190514_N2_50kHz_4Vpp_2_']
+in_fs = ['He_4Vpp_50kHz_1_']
 
 cal = 0.66
 
 def get_phi(fname):
-    phi = np.load(base_path + fname + "_phi.npy")
+    phi = np.load(base_path + fname + "phi.npy")
     return phi/2
 
 def get_pressure(fname):
-    pressures = np.load(base_path + fname + "_pressures.npy")
+    pressures = np.load(base_path + fname + "pressures.npy")
     return pressures
 
-def pressure_model(pressures, break_ind = 0, p_ind = 0, plt_press = True):
-    ffun = lambda x, y0, m0, m1: \
-            pw_line(x, break_ind, 1e7, 1.1e7, y0, m0, m1, 0., 0.)
+def pressure_model(pressures, break_ind = 483 , p_ind = 0, plt_press = True):
+    ffun = lambda x, y0, m0, m1,m2: \
+            pw_line(x, break_ind, 1e8, 1e7, y0, m0, m1, m2, 0.)
 
     n = np.shape(pressures)[0]
     inds = np.arange(n)
@@ -30,8 +43,8 @@ def pressure_model(pressures, break_ind = 0, p_ind = 0, plt_press = True):
     pfit = ffun(inds, *popt)
 
     if plt_press:
-        p_dict = {0:"Pirani", -1:"Baratron"}
-        plt.plot(pressures[:, p_ind], 'o', label = p_dict[p_ind])
+        p_dict = {0:"Pirani",1:"1 Torr Baratron", -1:"Baratron"}
+        plt.plot(pressures[:, p_ind], '-', label = p_dict[p_ind])
         plt.plot(pfit, label = "piecewise linear fit")
         plt.xlabel("File [#]")
         plt.ylabel("Pressure [mbar]")
@@ -40,15 +53,38 @@ def pressure_model(pressures, break_ind = 0, p_ind = 0, plt_press = True):
 
     return pfit
 
-
+def constline(x,m,b):
+	return m*x + b
 def phi_ffun(p, k, phinot):
-    return -1.*np.arcsin(np.clip(p/k, 0., 1.)) + phinot
+    return -1*np.arcsin(np.clip(p/k, 0., 1)) + phinot
 
 phases = np.array(map(get_phi, in_fs))
 pressures = np.array(map(get_pressure, in_fs))
 p_fits = np.array(map(pressure_model, pressures))
 
-plt.plot(p_fits[0], phases[0])
+pmax = 0.01
+phases[(phases<0)] += np.pi
+phases *= -1
+#Masks are to restrict the pressures over which fitting occurs
+mask = [(p_fits[0] < pmax)] 
+
+for i in xrange(1):
+	popt, pcov = curve_fit(phi_ffun, p_fits[i][mask[i]], phases[i][mask[i]],p0=[pmax,0])
+	print(popt)
+	
+	f = plt.figure()	
+	
+	plt.subplot()
+
+	plt.scatter(p_fits[i], (phases[i]-popt[1])/np.pi, alpha = 0.25)
+	plt.plot(p_fits[i],(phi_ffun(p_fits[i],*popt)-popt[1])/np.pi, 'r')
+	plt.plot(p_fits[i],constline(p_fits[i],0,-0.5),'r')
+	plt.text(0.05,0.2,'$P_{{max, Kr}}$: {} mbar'.format(round(popt[0],4)))
+	plt.xlabel('Pressure (mbar)')
+	plt.ylabel('Phase [$\pi$]')
+	
+#	f.savefig("/home/dmartin/analyzedData/20190514/Xe_50kHz_4Vpp_1", dpi = 200)	
+
 plt.show()
 
 p_maxs = np.array([0.011, 0.024, 0.036, 0.048, 0.062, 0.074, 0.085, 0.1004]) - 0.001
@@ -63,7 +99,9 @@ for i, p in enumerate(p_fits):
     pphi, covphi = curve_fit(phi_ffun, p_fits[i][bfit], phases[i][bfit], p0 = p0)
     popts.append(pphi)
     pcovs.append(covphi)
+    
 
+'''
 colors = ["b", "g", "c", "m", "y", "k"]
 linestyles = [":", "-.", "--", "-"]
 plt_inds = [0, 3, 7]
@@ -114,12 +152,12 @@ axarr[-1].legend(loc = 4, fontsize = 12)
 axarr[-1].set_ylim([0, 75])
 plt.subplots_adjust(top = 0.96, bottom = 0.1, left = 0.18, right = 0.92, hspace = 0.3)
 
-
 axarr[-3].set_xlabel("P [mbar]")
 axarr[-3].xaxis.labelpad = 10
 axarr[-1].yaxis.labelpad = 33
 axarr[-1].set_xlabel("P$_{\pi/2}$ [mbar]")
+'''
 #plt.ylabel(r"$\phi_{eq}$")
 #plt.legend()
 plt.show()
-f.savefig("/home/arider/plots/20181221/phase_vs_pressure.png", dpi = 200)
+f.savefig("/home/dmartin/analyzedData/20190514/", dpi = 200)

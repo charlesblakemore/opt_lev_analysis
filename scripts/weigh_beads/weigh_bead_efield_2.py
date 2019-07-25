@@ -62,19 +62,19 @@ arr.append(['/data/20181211/bead2/weigh/high_pressure_neg_0.3Hz_4pp',\
 #arr.append('/data/20181211/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20181211/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20181211/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20181211'] = (True, arr)
+file_dict['20181211'] = (False, arr)
 
 arr = []
 arr.append('/data/20181213/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20181213/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20181213/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20181213'] = (True, arr)
+file_dict['20181213'] = (False, arr)
 
 arr = []
 arr.append('/data/20181231/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20181231/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20181231/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20181231'] = (True, arr)
+file_dict['20181231'] = (False, arr)
 
 arr = []
 #arr.append(['/data/20190104/bead1/weigh/high_pressure_neg_0.5Hz_4pp', \
@@ -85,7 +85,7 @@ arr.append('/data/20190104/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
 #arr.append('/data/20190104/bead1/weigh/pumpdown_neg_0.5Hz_4pp')
 arr.append('/data/20190104/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190104/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190104'] = (True, arr)
+file_dict['20190104'] = (False, arr)
 
 arr = []
 arr.append(['/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb1e-5', \
@@ -96,7 +96,7 @@ arr.append(['/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb1e-5', \
             '/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb7e-4'])
 arr.append(['/data/20190108/bead1/weigh/low_pressure_neg_0.5Hz_4pp_fb7e-4', \
             '/data/20190108/bead1/weigh/low_pressure_neg_0.5Hz_4pp_fb7e-4_later'] )
-file_dict['20190108'] = (True, arr)
+file_dict['20190108'] = (False, arr)
 
 arr = []  
 arr.append('/data/20190109/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
@@ -104,19 +104,19 @@ arr.append('/data/20190109/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append(['/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp', \
             '/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp_2', \
             '/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp_later'] )
-file_dict['20190109'] = (True, arr)
+file_dict['20190109'] = (False, arr)
 
 arr = []  
 arr.append('/data/20190110/bead1/weigh2/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190110/bead1/weigh2/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190110'] = (True, arr)
+file_dict['20190110'] = (False, arr)
 
 
 arr = []  
 arr.append('/data/20190114/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190114/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190114/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190114'] = (True, arr)
+file_dict['20190114'] = (False, arr)
 
 
 arr = []  ### FIRST BEAD ON ATTRACTOR
@@ -124,7 +124,7 @@ arr.append('/data/20190122/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190122/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append(['/data/20190122/bead1/weigh/low_pressure_pos_0.5Hz_4pp_2', \
             '/data/20190122/bead1/weigh/low_pressure_pos_0.5Hz_4pp_3'])
-file_dict['20190122'] = (True, arr)
+file_dict['20190122'] = (False, arr)
 
 
 
@@ -132,14 +132,14 @@ arr = []  ### SECOND BEAD ON ATTRACTOR
 arr.append('/data/20190123/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190123/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190123/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190123'] = (True, arr)
+file_dict['20190123'] = (False, arr)
 
 
 arr = []  ### THIRD BEAD ON ATTRACTOR
 arr.append('/data/20190124/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190124/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190124/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190124'] = (True, arr)
+file_dict['20190124'] = (False, arr)
 
 #file_dict = {'20190124': (True, arr)}
 
@@ -147,9 +147,17 @@ file_dict['20190124'] = (True, arr)
 arr = []  ### 
 arr.append('/daq2/20190408/bead1/weigh/lowp_neg_150Vpp')
 
-file_dict = {'20190408': (True, arr)}
+file_dict = {'20190408': (False, arr)}
 
+arr = []
+arr.append('/daq2/20190514/bead1/weigh/lowp_neg_4Vpp')
 
+file_dict = {'20190514': (False, arr)}
+
+arr = []
+arr.append('/daq2/20190626/bead1/weigh/lowp_neg_8Vpp')
+
+file_dict = {'20190626': (True, arr)}
 
 # Noise data
 #chopper = True
@@ -182,7 +190,7 @@ file_inds = (0, 500)
 userNFFT = 2**12
 diag = False
 
-save = False
+save = True
 
 fullNFFT = False
 

@@ -15,7 +15,7 @@ import configuration as config
 import time
 
 
-dirname = '/data/20180904/bead1/discharge/fine3/'
+dirname = '/daq2/20190514/bead1/test_with_rga/test1'
 live = False
 
 elec_ind = 3

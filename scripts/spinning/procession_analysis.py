@@ -15,14 +15,15 @@ g = 500
 cal = 0.66
 wpv = 1./(t*vpa*apw*g)
 
-
+'''
 paths = [ "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_8vpp_1",\
         "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_7vpp_2",\
         "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_6vpp_0",\
         "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_5vpp_2",\
         "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_4vpp_1",\
-        "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_3vpp_0"]
+        "/data/20181204/bead1/high_speed_digitizer/procession/zhat_myhat_50k_3vpp_0"]'''
 
+paths = ["/daq2/20190417/bead1/pramps/N2_3vpp_0"]
 
 sfun = lambda fname: int(re.findall('\d+.h5', fname)[0][:-3]) 
 
@@ -107,6 +108,6 @@ axarr[-1].set_ylim([0, 75])
 axarr[-3].xaxis.labelpad = 10
 plt.subplots_adjust(top = 0.96, bottom = 0.1, left = 0.18, right = 0.92, hspace = 0.3)
 plt.show()
-
+'''
 ff.savefig("/home/arider/plots/20181221/precession_vs_E.png", dpi = 200)
-ff.savefig("/home/arider/plots/20181219/precession_vs_E.png", dpi = 200)
+ff.savefig("/home/arider/plots/20181219/precession_vs_E.png", dpi = 200)'''

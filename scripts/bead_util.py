@@ -152,7 +152,7 @@ class DataFile:
                 plt.plot(dat[:,n], label=str(n))
             plt.legend()
             plt.show()
-        
+     
         self.fname = fname
         self.date = fname.split('/')[2]
         #print fname

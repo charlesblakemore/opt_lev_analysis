@@ -13,12 +13,15 @@ import configuration as config
 
 plt.rcParams.update({'font.size': 16})
 
-dir1 = '/data/20190109/bead1/'
-maxfiles = 500
+#dir1 = '/data/20190109/bead1/'
+#dir1 = '/daq2/20190514/bead1/spinning/junk/derptest/'
+dir1 = '/daq2/20190626/bead1/spinning/wobble/wobble_perp_z_axis/'
+maxfiles = 2000
 
-use_dir = False
-
+use_dir = False 
 filename_labels = True #False
+
+allfiles = ['/daq2/20190626/bead1/spinning/wobble/wobble_perp_z_axis/turbombar_powfb_xyzcool.h5']
 
 #allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
 #            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
@@ -42,10 +45,14 @@ filename_labels = True #False
 #            '/data/20190124/bead2/turbombar_zcool_discharged.h5', \
 #            ]
 
-allfiles = ['/daq2/20190408/bead1/spinning/test/0_1mbar_xyzcool_powfb_2.h5']
+#allfiles = ['/daq2/20190408/bead1/spinning/test/0_1mbar_xyzcool_powfb_2.h5']
+#allfiles = ['/daq2/20190430/bead1/1_5mbar_xyzcool_elec3_0mV41Hz0mVdc.h5','/daq2/20190430/bead1/1_5mbar_zcool_elec3_0mV41Hz0mVdc.h5']
+#allfiles = ['/daq2/20190408/bead1/spinning/49kHz_200Vpp_pramp-N2_1']
+#allfiles = ['/daq2/20190430/bead1/height_finding/zcool_init.h5','/daq2/20190430/bead1/height_finding/zcool_u200k.h5','/daq2/20190430/bead1/height_finding/zcool_d500k.h5','/daq2/20190430/bead1/height_finding/zcool_d700k.h5','/daq2/20190430/bead1/height_finding/zcool_d900k.h5','/daq2/20190430/bead1/zcool_nominal.h5','/daq2/20190430/bead1/xzcool_nominal.h5']
 
 
 
+#allfiles = ['/daq2/20190430/bead1/zcool_nominal.h5']
 tfdate = '20190327'
 
 #labs = ['1','2', '3']
@@ -77,7 +84,7 @@ file_inds = (0, 1800)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = True
+fullNFFT = False
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -105,7 +112,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
        OUTPUTS: none, plots stuff
     '''
-
+    print files
     if diag:
         dfig, daxarr = plt.subplots(len(data_axes),2,sharex=True,sharey=True, \
                                     figsize=(8,8))
@@ -129,8 +136,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         fbfig, fbaxarr = plt.subplots(len(fb_axes),1,sharex=True,sharey=True)
         if len(fb_axes) == 1:
             fbaxarr = [fbaxarr]
-
+	print files
     files = files[file_inds[0]:file_inds[1]]
+    print files
     if step10:
         files = files[::10]
     if invert_order:
@@ -149,7 +157,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         # Load data
         df = bu.DataFile()
-        df.load(fil)
+        #print fil
+	df.load(fil)
 
         if len(other_axes):
             df.load_other_data()
@@ -239,7 +248,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
 
     if filename_labels:
-        daxarr[0].legend(fontsize=10)
+        daxarr[0].legend(fontsize=5)
     if len(fb_axes):
         fbaxarr[0].legend()
 
@@ -270,7 +279,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
 
 if use_dir:
-    allfiles = bu.find_all_fnames(dir1)
+	#Added variable zero to hold the second returned value because
+	#the plot_many_spectra function does not like lists
+    allfiles, zero = bu.find_all_fnames(dir1)
 
 allfiles = allfiles[:maxfiles]
 #allfiles = bu.sort

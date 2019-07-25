@@ -14,7 +14,7 @@ import configuration as config
 import transfer_func_util as tf
 
 
-
+'''
 dirs = ['/data/20180625/bead1/tf_20180625/freq_comb_elec1',\
         '/data/20180704/bead1/tf_20180704/freq_comb_elec1_10V_1-600Hz',\
         '/data/20180808/bead4/tf_20180809/freq_comb_elec1_10V',\
@@ -27,7 +27,9 @@ dirs = ['/data/20180625/bead1/tf_20180625/freq_comb_elec1',\
 dirs = ['/data/20180927/bead1/weigh_ztf_good', \
         '/data/20180927/bead1/weigh_z_tf_more' \
        ]
+'''
 
+dirs = ['/daq2/20190626/bead1/weigh']
 
 step10 = False
 invert_order = False
@@ -135,11 +137,12 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
         #plt.show()
 
         inds = np.abs(drive_fft) > 1e4
+        print(inds)
         inds *= (freqs > 2.0) * (freqs < 300.0)
+        print(inds)
         inds = np.arange(len(inds))[inds]
 
         ninds = inds + 5
-
         drive_amp = np.abs( drive_fft[inds][0] * bu.fft_norm(df.nsamp, df.fsamp) \
                             * np.sqrt(freqs[1] - freqs[0]) )
 
@@ -221,9 +224,9 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
 
 
 
-
+i=0
 for dir in dirs:
-
-    allfiles = bu.find_all_fnames(dir)
-
+    i+=1
+    print(i)
+    allfiles, zero = bu.find_all_fnames(dir)
     weigh_bead(allfiles)

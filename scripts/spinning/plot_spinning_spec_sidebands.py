@@ -8,7 +8,11 @@ import re
 import scipy.signal as ss
 
 
-path = "/data/20181204/bead1/high_speed_digitizer/general_tests/spinning_50k_z_hat"
+#path = "/data/20181204/bead1/high_speed_digitizer/general_tests/spinning_50k_z_hat"
+
+#path = "/daq2/20190430/bead1/spinning/he/1vpp_50kHz_2"
+#path = "/daq2/20190507/bead1/spinning/test/50kHz_4vpp"
+path = "/daq2/20190514/bead1/spinning/wobble/manual_data"
 fc = 1e5
 files= glob.glob(path + "/*.h5")
 
@@ -23,7 +27,7 @@ p0 = 0.001
 wpv = 1e6/(t*vpa*apw*g*p0) #1e6 for ppm 
 bw = 400
 
-obj = hsDat(files[3])
+obj = hsDat(files[0])
 freqs = np.fft.rfftfreq(obj.attribs["nsamp"], d = 1./obj.attribs["fsamp"])
 fft = np.fft.rfft(obj.dat[:, 0])
 fft/=len(fft)
@@ -60,7 +64,7 @@ f.subplots_adjust(hspace = 0.5)
 plt.subplots_adjust(top = 0.91, bottom = 0.14, left = 0.15, right = 0.92, hspace = 0.6)
 plt.legend(fontsize = 12)
 plt.show()
-f.savefig("/home/arider/plots/20181219/spinning_spec_sidebands.png", dpi = 200)
+#f.savefig("/home/arider/plots/20181219/spinning_spec_sidebands.png", dpi = 200)
 
 
 
