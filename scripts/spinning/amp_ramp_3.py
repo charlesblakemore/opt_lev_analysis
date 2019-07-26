@@ -135,7 +135,10 @@ def filt(signal,frequency,Ns,Fs,bandwidth):
 	
 	low_freq = (frequency - bandwidth/2)/freqs[-1]
 	high_freq = (frequency + bandwidth/2)/freqs[-1]
-
+	
+	if low_freq < 0.:
+		low_freq = 1e-20	
+	
 	b, a = ss.butter(2,[low_freq,high_freq],btype='bandpass')
 	
 	sig = ss.filtfilt(b,a,signal)
