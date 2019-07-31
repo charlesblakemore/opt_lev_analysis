@@ -5,9 +5,13 @@ import bead_util_funcs as buf
 import scipy.signal as ss
 from amp_ramp_3 import filt
 
-path = '/daq2/20190626/bead1/spinning/wobble/after_pramp_series/parallel_z_axis/4kHz_4Vpp/'
+plot_close = False 
+bandwidth = 2000.
 
-drive_freq = 8e3
+path = '/daq2/20190626/bead1/spinning/wobble/after_pramp_series/perp_z_axis/2kHz_2Vpp/'
+#path = '/daq2/20190626/bead1/spinning/pramp/Ar/50kHz_4Vpp_1/'
+
+drive_freq = 2e3
 
 files, zero = buf.find_all_fnames(path)
 
@@ -26,10 +30,16 @@ for i, filename in enumerate(files):
 	fft_drive = np.fft.rfft(obj.dat[:,1])
 	fft_sig = np.fft.rfft(obj.dat[:,0])
 
-	plt.loglog(freqs,np.abs(fft_drive))
-	plt.loglog(freqs,np.abs(fft_sig))
-	#plt.loglog(freqs,np.abs(fft))
-	#plt.show()
+
+	if plot_close:
+		mask = np.abs(freqs-2*drive_freq) < bandwidth/2.
+		plt.semilogy(freqs[mask], np.abs(fft_drive)[mask], label='drive')
+		plt.semilogy(freqs[mask], np.abs(fft_sig)[mask], label='$P_{perp}$')
+	else:	
+		plt.loglog(freqs,np.abs(fft_drive), label='drive')
+		plt.loglog(freqs,np.abs(fft_sig), label='$P_{perp}$')
+		#plt.loglog(freqs,np.abs(fft))
+		#plt.show()
 	
 	z = ss.hilbert(filt_sig)
 	phi = ss.detrend(np.unwrap(np.angle(z)))
@@ -48,6 +58,9 @@ for i, filename in enumerate(files):
 	
 	#plt.scatter(freqs[f],np.abs(phi_fft[f]))
 	#plt.loglog(freqs,np.abs(phi_fft))
+	plt.ylabel('Amplitude [arb.]')
+	plt.xlabel('Frequency [Hz]')
+	plt.legend()
 	plt.show()
 
 print(ext_freqs)
