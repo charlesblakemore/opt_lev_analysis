@@ -25,18 +25,19 @@ for gas in data.iterkeys():
 
 	dipoles = np.array(data[gas]['dipole'])
 	pmaxes = np.array(data[gas]['pmax'])
+	masses = np.array(data[gas]['mass'])
 	
 	scaled_pmaxes = pmaxes/dipoles
 	
 	mean_scaled_pmaxes.append(np.mean(scaled_pmaxes))
-	std_scaled_pmaxes.append(np.std(scaled_pmaxes)/len(scaled_pmaxes)) #Divide each std by number of measurements
+	std_scaled_pmaxes.append(np.std(scaled_pmaxes)/np.sqrt(len(scaled_pmaxes))) #Divide each std by sqrt number of measurements
 	#masses.append(data[gas]['mass'])
 	masses.append(masses_dict[gas])
 	
 print(len(mean_scaled_pmaxes),len(masses))
 popt, pcov = curve_fit(inv_sqrt,masses,mean_scaled_pmaxes,[1],sigma=std_scaled_pmaxes)
 
-print(popt)
+print(popt[0]*(1/1.3322))
 
 a_coeff = popt[0]
 a_coeff_err = np.sqrt(np.diag(pcov)[0])
@@ -54,7 +55,7 @@ plt.scatter(masses,mean_scaled_pmaxes)
 
 plt.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
 
-plt.ylabel(r'$P_{\pi/2}/d$ [$Torr/e\cdot\mu m$]',fontsize = 10)
+plt.ylabel(r'$P_{\pi/2}/d$ [$mbar/e\cdot\mu m$]',fontsize = 10)
 plt.xlabel(r'Mass [amu]',fontsize=10)
 
 plt.legend()
@@ -62,6 +63,6 @@ plt.legend()
 plt.show()
 
 if save:
-	np.savez(out_path + 'pmax_vs_mass_fit', masses=masses, scaled_pmaxes=mean_scaled_pmaxes,\
+	np.savez(out_path + 'pmax_vs_mass_fit_in_mbar', masses=masses, scaled_pmaxes=mean_scaled_pmaxes,\
 		 	 std_scaled_pmaxes=std_scaled_pmaxes, a_coeff=a_coeff, a_coeff_err=a_coeff_err)
 
