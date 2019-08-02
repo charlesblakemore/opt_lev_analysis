@@ -63,4 +63,23 @@ for i, filename in enumerate(files):
 	plt.legend()
 	plt.show()
 
+	dphase_unsum = np.angle(fft_drive)
+	sig_phase_unsum = np.angle(fft_sig)
+
+	dphase = np.angle(np.sum(fft_drive))
+	sig_phase = np.angle(np.sum(fft_sig))
+	
+	phase = sig_phase - 2.*dphase
+
+	if phase > np.pi:
+		phase -= 2*np.pi
+	if phase < -np.pi:
+		phase += 2*np.pi
+
+	print(phase)
+	plt.plot(freqs,dphase_unsum)
+	plt.plot(freqs,sig_phase_unsum)
+	plt.show()
+
+	
 print(ext_freqs)

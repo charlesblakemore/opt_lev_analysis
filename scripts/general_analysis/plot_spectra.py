@@ -15,13 +15,14 @@ plt.rcParams.update({'font.size': 16})
 
 #dir1 = '/data/20190109/bead1/'
 #dir1 = '/daq2/20190514/bead1/spinning/junk/derptest/'
-dir1 = '/daq2/20190626/bead1/spinning/wobble/wobble_perp_z_axis/'
+dir1 = '/daq2/20190801/bead1/'
 maxfiles = 2000
 
-use_dir = False 
+use_dir = False
 filename_labels = True #False
 
-allfiles = ['/daq2/20190626/bead1/spinning/wobble/wobble_perp_z_axis/turbombar_powfb_xyzcool.h5']
+allfiles = ['/daq2/20190802/bead2/1_5torr_powfb_init.h5']
+#allfiles = ['/daq2/20190626/bead1/spinning/wobble/wobble_perp_z_axis/turbombar_powfb_xyzcool.h5']
 
 #allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
 #            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
