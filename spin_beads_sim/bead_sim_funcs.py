@@ -89,7 +89,7 @@ def oscE(ti, tf, dt, fieldmag, xfreq, yfreq, zfreq, \
     tbool = (tarr >= tmin) * (tarr <= tmax)
 
     # Look-up dictionary for each axis
-    dic = {0:, (xfreq, xphi), 1:, (yfreq, yphi), 2:, (zfreq, zphi)}
+    dic = {0: (xfreq, xphi), 1: (yfreq, yphi), 2: (zfreq, zphi)}
 
     Eout = [[], [], []]
     for ind in [0,1,2]:
@@ -132,9 +132,10 @@ def rk4(xi_old, t, tind, delt, system):
     # Correction to keep dipole magnitude normalized, or small integration 
     # build up. This is only useful for the spcific implementation
     # of electrostatically spinning beads
-    ptot = np.sqrt(xi_new[0]**2 + xi_new[1]**2 + xi_new[2]**2)
-    for ind in [0,1,2]:
-        xi_new[ind] *= p0 / ptot
+    #ptot = np.sqrt(xi_new[0]**2 + xi_new[1]**2 + xi_new[2]**2)
+    #for ind in [0,1,2]:
+    #    xi_new[ind] *= p0 / ptot
+    
 
     return xi_new
 
@@ -174,10 +175,10 @@ def stepper(xi_0, ti, tf, delt, system, method, efield):
 
         Ex, Ey, Ez = efield[:,tind]
         # Compute energy as:  (1/2) I omega^2 - p (dot) E
-        energy = 0.5 * Ibead * (xi_new[3]**2 + xi_new[4]**2 + xi_new[5]**2) - \
-                    (Ex * xi_new[0] + Ey * xi_new[1] + Ez * xi_new[2])
+        #energy = 0.5 * Ibead * (xi_new[3]**2 + xi_new[4]**2 + xi_new[5]**2) - \
+        #            (Ex * xi_new[0] + Ey * xi_new[1] + Ez * xi_new[2])
 
-        energy_vec.append(energy)
+        #energy_vec.append(energy)
 
         xi_old = xi_new
 

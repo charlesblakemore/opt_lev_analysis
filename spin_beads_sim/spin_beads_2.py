@@ -15,7 +15,8 @@ import torsion_noise as tn
 import bead_sim_funcs as bsfuncs
 
 ### Define the savepath
-savepath = '/spinsim_data/alldata_Vxy100Vrotchirp_1kHz_dt5us.npy'
+#savepath = '/spinsim_data/alldata_Vxy100Vrotchirp_1kHz_dt5us.npy'
+savepath = '/home/dmartin/practiceData/spin_sim/test.npy'
 
 # Random seed. Un-comment to use a fixed seed for numpy's
 # quasi-random random number generator in order to check 
@@ -35,17 +36,26 @@ p0z = p0 * np.cos(theta0)
 
 wx = 0.0        
 wy = 0.0  
-wz = 0.0 
+wz = 0.0
+
+d = p0 
+w = 100e3 * np.pi
 
 xi_init = np.array([p0x, p0y, p0z, wx, wy, wz])
 
+x0 = 1e-10
+x_dot0 = 0
+
+xi_init = np.array([x0,x_dot0])
+print xi_init
 
 
 ### Integration parameters
+
 # dt = 1.0e-5
-dt = 5.0e-6      # time-step, s
+dt = 1./(500.e3)#5.0e-6      # time-step, s
 ti = 0           # initial time, s
-tf = 300         # final time, s
+tf = 5        # final time, s
 
 ### Drive parameters
 maxvoltage = 10.0
@@ -87,17 +97,17 @@ efield = xchirp
 
 ### UNCOMMENT THESE LINES TO LOOK AT EFIELD BEFORE SIMULATING
 
-# fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
-
-# start_time = bsfuncs.therm_time+100 - 10000*dt
-# x = int(start_time / dt)
-
-# for i in [0,1,2]:
-#     axarr[i].plot(tt[x:x+100000], efield[i,x:x+100000])
-# plt.show()
-
-# raw_input()
-
+#fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
+#
+#start_time = bsfuncs.therm_time+100 - 10000*dt
+#x = int(start_time / dt)
+#
+#for i in [0,1,2]:
+#    axarr[i].plot(tt[x:x+100000], efield[i,x:x+100000])
+#plt.show()
+#
+#raw_input()
+#
 
 
 
@@ -112,6 +122,7 @@ def system(xi, t, tind):
     Ex = efield[0,tind]
     Ey = efield[1,tind]
     Ez = efield[2,tind]
+    
 
     tx = thermtorque[0,tind]
     ty = thermtorque[1,tind]
@@ -124,7 +135,7 @@ def system(xi, t, tind):
     wx = xi[3]
     wy = xi[4]
     wz = xi[5]
-
+	
     # Consider p vector to be like radial vector and thus given angular
     # velocities defined about the origin, the components change as:
     dpx = py * wz - pz * wy
@@ -135,28 +146,45 @@ def system(xi, t, tind):
     torque = [py * Ez - pz * Ey + tx - wx * beta,  \
               pz * Ex - px * Ez + ty - wy * beta,  \
               px * Ey - py * Ex + tz - wz * beta]
-
-
+    
     return np.array([-dpx, -dpy, -dpz, torque[0] / (Ibead), \
                         torque[1] / (Ibead), torque[2] / (Ibead)])
 
+def testSystem(xi, t, tind):
+    ''' Damped harmonic oscillator'''
+    x = xi[0]
+    x_dot = xi[1]
+    
+    dx0 =  x_dot
+    dx1 = -x #- x_dot
+
+    return np.array([dx0, dx1])    
+
+def dipole_efield(xi, t, tind):
+    theta = xi[0]
+    theta_dot = xi[1]
+    
+    dtheta0 = theta_dot
+    dtheta1 = (d/Ibead)  * (30e3) * ( (1 - theta**2 * 0.5) * np.sin(w * t) - theta * np.cos(w * t)) - (1/2000) * theta_dot
+
+    return np.array([dtheta0, dtheta1])
 
 
-
-
-
-time, points, energy_vec = bsfuncs.stepper(xi_init, ti, tf, dt, system, \
-                                    bsfuncs.rk4, efield=efield, plot=False)
+print(Ibead, beta)
+time, points, energy_vec = bsfuncs.stepper(xi_init, ti, tf, dt, dipole_efield, \
+                                    bsfuncs.rk4, efield=efield)
 print points.shape
 
 
 
-outpoints = np.c_[time, points, energy_vec, efield[0,:], efield[1,:], efield[2,:]]
+#outpoints = np.c_[time, points, energy_vec, efield[0,:], efield[1,:], efield[2,:]]
+
+outpoints = np.c_[time, points]
 
 np.save(savepath, outpoints)
 #np.save('./data/points_Ez2500Vm_chirp2.npy', outpoints)
 
-plt.show()
+#plt.show()
 
 
 

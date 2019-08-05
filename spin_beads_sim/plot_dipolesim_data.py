@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import torsion_noise as tn
 
-
-alldata = np.load('/spinsim_data/alldata_Vxy100Vrotchirp_1kHz.npy')
+alldata = np.load('/home/dmartin/practiceData/spin_sim/test.npy')
+#alldata = np.load('/spinsim_data/alldata_Vxy100Vrotchirp_1kHz.npy')
 # alldata = np.load('./data/test_efield_out.npy')
 
 # Time interval to plot since plotting all the data is way
 # too many points
-time_int = (249, 255)
+time_int = (0, 1)
 
 
 time = alldata[:,0]
@@ -24,12 +24,25 @@ print time.shape
 
 dt = time[1] - time[0]
 
+print(1./dt)
 start = np.argmin( np.abs(time - time_int[0]) )
 stop = np.argmin( np.abs(time - time_int[1]) )
 
 subt = time[start:stop]
 subpoints = data[start:stop,:]
 
+
+freqs = np.fft.rfftfreq(len(time), dt)
+fft = np.fft.rfft(data[:,0])
+
+cut = time < 500
+plt.plot(time[cut], data[:,0][cut])
+#plt.plot(time[cut], data[:,1][cut])
+plt.show()
+
+plt.loglog(freqs, np.abs(fft))
+plt.show()
+'''
 naxes = data.shape[1]
 fig, axarr = plt.subplots(3,3,sharex='col',sharey='col')
 for ax in [0,1,2]:
@@ -39,7 +52,7 @@ for ax in [0,1,2]:
 
 plt.figure()
 plt.plot(subt, subpoints[:,6])
-
+'''
 '''
 
 fig, axarr = plt.subplots(3,1,sharex=True,sharey=True,figsize=(7,9))
