@@ -38,11 +38,12 @@ def sqrt(E, d, c):
 #		"/processed_data/spinning/wobble/20190626/after-highp_slow/"]#,\
 		#"/processed_data/spinning/wobble/20190626/slow_later/"]
 
-path = ["/home/dmartin/analyzedData/20190626/wobble/new/"]
+path = ["/home/dmartin/analyzedData/20190805/wobble/init_dipole_2kHz/"]
 out_path = "/home/dmartin/analyzedData/20190626/wobble/new/"
-filenames_ = ['reset_dipole_3_wobble_2.npy','reset_dipole_2wobble_0.npy','reset_dipole_3_wobble_1.npy','reset_dipole_3_wobble_0.npy']
+#filenames_ = ['reset_dipole_3_wobble_2.npy','reset_dipole_2wobble_0.npy','reset_dipole_3_wobble_1.npy','reset_dipole_3_wobble_0.npy']
+filenames_ = ['_init_dipole_2kHz.npy']
 
-multiple = True 
+multiple = False 
 
 d_arr = []
 meas_names = []
@@ -91,10 +92,11 @@ for j, folder in enumerate(path):
 		#meas_name_2 = filename.split('/')[-1]	
 		#E = data[0] * 50 * (1/4e-3) * 0.66
 		E = data[0] * 1e-3 #kV/m
+		print(E * 1e3)
 		E_err = data[1] * 1e-3
 		wobble_freq = 2 * np.pi * data[2] #rad*Hz
 		wobble_freq_err = 2 * np.pi* data[3]
-		
+		print(wobble_freq)	
 			
 		popt, pcov = curve_fit(sqrt, E, wobble_freq)#,sigma = wobble_freq_err) 
 		

@@ -120,8 +120,8 @@ tf_date = step_date
 plot_Hfunc = True
 plot_without_fits = True
 interpolate = False 
-save = True
-save_charge = True
+save = False
+save_charge = False
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'

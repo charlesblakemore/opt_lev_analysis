@@ -13,7 +13,7 @@ from scipy.optimize import curve_fit
 from peakdetect import peakdetect as pd
 
 
-save = True 
+save = False 
 
 #path = "/data/20181205/bead1/high_speed_digitizer/amp_ramp/50k_zhat"
 #out_path = "/home/arider/opt_lev_analysis/scripts/spinning/processed_data/20181204/ampramp_data_0/"
@@ -22,12 +22,13 @@ save = True
 
 #path = "/daq2/20190626/bead1/spinning/pramp/Kr/wobble_1/wobble_0000"
 
-path = "/daq2/20190626/bead1/spinning/wobble/wobble_many/wobble_0000"
+path = "/daq2/20190805/bead1/spinning/wobble/reset_dipole_1/after_reset"
+#path = "/daq2/20190626/bead1/spinning/wobble/wobble_many/wobble_0000"
 out_path = "/home/dmartin/analyzedData/20190626/pramp/"
 out_base_fname = "wobble_many_wobble_0000"
 
 def sqrt(x,a,b):
-	return a*np.sqrt(x) + b
+	return a*np.sqrt(x)
 
 def line(x, m, b):
     return m*x + b
@@ -84,16 +85,19 @@ def find_phasemod_freq(obj,amp_thresh,lookahead=55,delta=3400):
 	max_peaks, min_peaks = pd(np.abs(fft_phase),freqs,lookahead,delta)
 	
 
-	plt.plot(freqs,np.abs(fft_phase))	
+	#plt.plot(freqs,np.abs(fft_phase))	
 	for i in range(len(max_peaks)):
-		plt.scatter(max_peaks[i][0],max_peaks[i][1])
+		#plt.scatter(max_peaks[i][0],max_peaks[i][1])
 		
 		#The peak must be greater than 60 Hz (there is sometimes a 53 Hz signal) and the amplitude must be above some threshold
-		if max_peaks[i][0] > 60 and max_peaks[i][1] > amp_thresh:
+		if max_peaks[i][0] > 80 and max_peaks[i][1] > amp_thresh:
 			freq = max_peaks[i][0]
 		else:
 			freq = 0
-	plt.show()
+	#plt.show()
+
+	
+		
 	return freq
 
 def find_drive_amp(obj,bandwidth,plot=False):
@@ -128,7 +132,9 @@ def find_drive_amp_filt(obj):
 	psd_filt, freqs = matplotlib.mlab.psd(sig,Ns,Fs,window=win)
 	
 	damp = 2 * np.sum(np.sqrt(psd_filt))
+	
 	return damp
+
 	
 def filt(signal,frequency,Ns,Fs,bandwidth):
 	freqs = np.fft.rfftfreq(Ns,1/Fs)
@@ -145,18 +151,10 @@ def filt(signal,frequency,Ns,Fs,bandwidth):
 
 	return sig	
 	
-#psd, freqs = matplotlib.mlab.psd(obj0.dat[:,1], Ns, Fs, window=flatop(len(obj0.dat[:,1])))
-##psd2, freqs2 = matplotlib.mlab.psd(obj0.dat[:,1],Ns,Fs,window=matplotlib.mlab.window_none)
-#plt.plot(freqs,2*np.abs(psd))
-#plt.yscale('log')
-#plt.show()
-#
-#amp_d = find_drive_amp(obj0,10)
-#print(amp_d)
 
 if __name__ == "__main__":
-	fc = 1e5
-	bw = 1e3
+	fc = 1e5 #2 times spinning frequency
+	bw = 1e3 #Bandwidth for freq_bool
 	drive_freq = 50e3
 	
 	files, zero = buf.find_all_fnames(path) 
@@ -186,7 +184,16 @@ if __name__ == "__main__":
 
 	data_arr = np.array([amp,0,phase_freq,0])
 
-	plt.scatter(amp,phase_freq)
+	E = amp * 0.66 * 100 * 0.5 * (1./4.e-3)
+	freq = phase_freq * 2 * np.pi
+	popt, pcov = curve_fit(sqrt, E, freq)
+	 
+	E_arr = np.linspace(0, E[np.argmax(E)],10000)
+
+	print popt
+
+	plt.plot(E_arr, sqrt(E_arr,*popt))
+	plt.scatter(E,freq)
 	plt.show()	
 	
 	if save:

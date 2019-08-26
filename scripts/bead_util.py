@@ -146,7 +146,6 @@ class DataFile:
         ''' 
 
         dat, attribs = getdata(fname)
-
         if plot_raw_dat:
             for n in range(20):
                 plt.plot(dat[:,n], label=str(n))

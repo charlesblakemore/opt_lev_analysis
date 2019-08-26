@@ -21,9 +21,20 @@ maxfiles = 2000
 use_dir = False
 filename_labels = True #False
 
-allfiles = ['/daq2/20190802/bead2/1_5torr_powfb_init.h5']
-#allfiles = ['/daq2/20190626/bead1/spinning/wobble/wobble_perp_z_axis/turbombar_powfb_xyzcool.h5']
+allfiles = ['/daq2/20190805/bead1/tests/turbombar_powfb_xyzcool.h5']
 
+#allfiles = ['/daq2/20190802/bead4/1_5torr_powfb_6.h5',\
+#			'/daq2/20190802/bead4/1_5torr_powfb_7.h5', \
+#			'/daq2/20190802/bead4/1_5torr_powfb_8.h5']
+
+#allfiles = ['/daq2/20190626/bead1/1_5mbar_powfb_xyzcool_low2.h5']
+
+##allfiles = ['/daq2/20190805/bead1/1_5torr_powfb_xyzcool_lower.h5', \
+#			'/daq2/20190805/bead1/1_5torr_powfb_xyzcool_lower_1.h5', \
+#			'/daq2/20190805/bead1/1_5torr_powfb_xyzcool_lower_2.h5', \
+#			'/daq2/20190805/bead1/1_5torr_powfb_xyzcool_lower_3.h5', \
+#			'/daq2/20190805/bead1/1_5torr_powfb_xyzcool_lower_4.h5',\
+#			'/daq2/20190805/bead1/1_5torr_powfb_xyzcool_lower_6.h5']
 #allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
 #            '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
 #            '/daq2/20190320/bead2/1_5mbar_yzcool_neg.h5', \
@@ -52,8 +63,8 @@ allfiles = ['/daq2/20190802/bead2/1_5torr_powfb_init.h5']
 #allfiles = ['/daq2/20190430/bead1/height_finding/zcool_init.h5','/daq2/20190430/bead1/height_finding/zcool_u200k.h5','/daq2/20190430/bead1/height_finding/zcool_d500k.h5','/daq2/20190430/bead1/height_finding/zcool_d700k.h5','/daq2/20190430/bead1/height_finding/zcool_d900k.h5','/daq2/20190430/bead1/zcool_nominal.h5','/daq2/20190430/bead1/xzcool_nominal.h5']
 
 
-
 #allfiles = ['/daq2/20190430/bead1/zcool_nominal.h5']
+
 tfdate = '20190327'
 
 #labs = ['1','2', '3']

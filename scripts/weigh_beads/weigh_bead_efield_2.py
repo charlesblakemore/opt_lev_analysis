@@ -190,8 +190,7 @@ file_inds = (0, 500)
 userNFFT = 2**12
 diag = False
 
-save = True
-
+save = False 
 fullNFFT = False
 
 ###########################################################
