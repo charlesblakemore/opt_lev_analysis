@@ -15,13 +15,36 @@ plt.rcParams.update({'font.size': 16})
 
 #dir1 = '/data/20190109/bead1/'
 #dir1 = '/daq2/20190514/bead1/spinning/junk/derptest/'
-dir1 = '/daq2/20190801/bead1/'
+dir1 = '/daq2/20190829/bead1/'
 maxfiles = 2000
 
 use_dir = False
 filename_labels = True #False
 
-allfiles = ['/daq2/20190805/bead1/tests/turbombar_powfb_xyzcool.h5']
+#allfiles = ['/daq2/20190827/bead3/1_5mbar_zfb_lower_1.h5',\
+#			'/daq2/20190827/bead3/1_5mbar_xzcool.h5',\
+#			'/daq2/20190827/bead3/1_5mbar_yzcool.h5',\
+#			'/daq2/20190827/bead3/1_5mbar_xyzcool.h5',\
+#			'/daq2/20190827/bead3/1_5mbar_xyzcool_lower_0.h5',\
+#			'/daq2/20190827/bead3/1_5mbar_xyzcool_lower_1.h5',\
+#			'/daq2/20190827/bead3/1_5mbar_xyzcool_lower_2.h5']
+allfiles = [#'/daq2/20190829/bead2/1_5mbar_powfb_init_1.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_lower_1.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_lower_2.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_lower_3.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_lower_4.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_higher_4.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_zcool_init.h5',\
+			#'/daq2/20190829/bead2/1_5mbar_powfb_zcool_lower.h5',\
+			'/daq2/20190829/bead2/1_5mbar_powfb_zcool_lower_1.h5',\
+			'/daq2/20190829/bead2/1_5mbar_powfb_zcool_lower_2.h5',\
+			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_init.h5',\
+			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_lower.h5',\
+			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_lower_2.h5']#,\	
+			#'/daq2/20190827/bead3/1_5mbar_xyzcool_lower_3.h5']
+#allfiles = ['/daq2/20190827/bead3/1_5mbar_powfb_init.h5']
+
+#allfiles = ['/daq2/20190805/bead1/tests/turbombar_powfb_xyzcool.h5']
 
 #allfiles = ['/daq2/20190802/bead4/1_5torr_powfb_6.h5',\
 #			'/daq2/20190802/bead4/1_5torr_powfb_7.h5', \
