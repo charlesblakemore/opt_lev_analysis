@@ -40,8 +40,29 @@ allfiles = [#'/daq2/20190829/bead2/1_5mbar_powfb_init_1.h5',\
 			'/daq2/20190829/bead2/1_5mbar_powfb_zcool_lower_2.h5',\
 			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_init.h5',\
 			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_lower.h5',\
-			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_lower_2.h5']#,\	
-			#'/daq2/20190827/bead3/1_5mbar_xyzcool_lower_3.h5']
+			'/daq2/20190829/bead2/1_5mbar_powfb_xyzcool_lower_2.h5']#,\
+
+allfiles = [#'/daq2/20190905/bead1/1_5mbar_powfb_init.h5',\
+			#'/daq2/20190905/bead1/1_5mbar_powfb_zcool_init.h5',\
+			#'/daq2/20190905/bead1/1_5mbar_powfb_zcool_lower.h5',\
+			'/daq2/20190905/bead1/1_5mbar_powfb_zcool_lower_1.h5',\
+			#'/daq2/20190905/bead1/1_5mbar_powfb_xzcool_pos.h5',\
+			#'/daq2/20190905/bead1/1_5mbar_powfb_xzcool_neg.h5',\
+			'/daq2/20190905/bead1/1_5mbar_powfb_yzcool_pos.h5',\
+			'/daq2/20190905/bead1/1_5mbar_powfb_xzcool_neg.h5'	
+			#'/daq2/20190904/bead3/1_5mbar_powfb_xzcool_neg_gain.h5',\
+			#'/daq2/20190904/bead3/1_5mbar_powfb_xzcool_pos_gain.h5',\
+			#'/daq2/20190904/bead3/1_5mbar_powfb_xyzcool.h5'
+			#'/daq2/20190904/bead3/1_5mbar_powfb_yzcool.h5',\
+			#'/daq2/20190904/bead3/1_5mbar_powfb_yzcool_pos.h5',\
+			#'/daq2/20190904/bead3/1_5mbar_powfb_yzcool_neg_gain_inc.h5',\
+			#'/daq2/20190904/bead3/1_5mbar_powfb_yzcool_neg_gain_inc_1.h5',\
+			#'/daq2/20190904/bead3/1_5mbar_powfb_yzcool_pos_gain_inc.h5'
+			#'/daq2/20190904/bead3/1_5mbar_powfb_yzcool_pos_gain_dec.h5'
+			]
+#allfiles = ['/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_lowx_highy.h5',\
+#			'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_highx_lowy.h5'
+#]	
 #allfiles = ['/daq2/20190827/bead3/1_5mbar_powfb_init.h5']
 
 #allfiles = ['/daq2/20190805/bead1/tests/turbombar_powfb_xyzcool.h5']

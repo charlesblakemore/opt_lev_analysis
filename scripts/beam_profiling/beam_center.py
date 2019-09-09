@@ -31,13 +31,20 @@ data_dir2 = '/daq2/20190315/profiling/ysweep_right_adj13_atm'
 #data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_vac'
 #data_dir2 = '/daq2/20190315/profiling/xsweep_adj13_atm'
 
+data_dir1 = '/daq2/20190902/profiling/ysweep_vac_out0_5_vert'
+data_dir2 = '/daq2/20190902/profiling/ysweep_vac_in1_5_vert'
 
+#data_dir2 = '/daq2/20190902/profiling/xsweep_vac_in1_5_vert'
+data_dir1 = '/daq2/20190902/profiling/post_trans/xsweep_vac_init'
+data_dir2 = '/daq2/20190902/profiling/post_trans/ysweep_vac_init'
+#data_dir1 = '/daq2/20190902/profiling/xsweep_in1_0'
+#data_dir2 = '/daq2/20190902/profiling/ysweep_init'
 debug_plot = False
 
 multi_dir = True
 #multi_dir = False
 
-height_to_plot = 40.
+height_to_plot = 60.
 
 log_profs = True
 
@@ -50,10 +57,10 @@ gauss_fit = True
 
 #stage x = col 17, stage y = 18, stage z = 19
 stage_column = 19
-stage_column2 = 18
+stage_column2 = 17
 
-data_column = 1 #4
-data_column2 = 1  # For data circa 2016: 0
+data_column = 7#4
+data_column2 = 7  # For data circa 2016: 0
 
 cant_cal = 8. #um/volt
 
@@ -84,9 +91,9 @@ def profile(fname, data_column = 0, plot=False):
     if 'ysweep' in fname:
         stage_column = 1
         if 'left' in fname:
-            sign = -1.0
-        elif 'right' in fname:
             sign = 1.0
+        elif 'right' in fname:
+            sign = -1.0
         else:
             sign = 1.0
     else:
@@ -120,6 +127,7 @@ def profile(fname, data_column = 0, plot=False):
     #plt.plot(df.other_data[0])
     #plt.show()
 
+    print df.cant_data.shape
     stage_filt = sig.filtfilt(b, a, df.cant_data[stage_column, :])
     dir_sign = np.sign(np.gradient(stage_filt)) * sign
     xvec = df.cant_data[stage_column, :]

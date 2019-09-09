@@ -17,7 +17,7 @@ save = True
 overwrite = True 
 
 
-fils = ['/daq2/20190829/bead2/spinning/wobble/long_wobble_before_pramp/']
+fils = ['/daq2/20190905/bead1/spinning/wobble/before_pramp/']
 
 #fils = ['/daq2/20190805/bead1/spinning/wobble/reset_dipole_1/', '/daq2/20190805/bead1/spinning/wobble/reset_dipole_2/',\
 #		'/daq2/20190805/bead1/spinning/wobble/reset_dipole_3/']
@@ -26,8 +26,12 @@ fils = ['/daq2/20190829/bead2/spinning/wobble/long_wobble_before_pramp/']
 #			 '/home/dmartin/analyzedData/20190805/wobble/reset_dipole_3_redo/']
 
 skip_files = ['none']
+start_file = 0#-1
+end_file = 0 
 
-out_paths = ['/processed_data/spinning/wobble/20190829/long_wobble_before_pramp/']
+
+
+out_paths = ['/processed_data/spinning/wobble/20190905/before_pramp/']
 
 #Uncomment for single file input and ouput and remove for multi file loop at bottom of the script which spits out multiple outputs	
 #path = '/daq2/20190805/bead1/spinning/wobble/reset_dipole_4/'
@@ -111,7 +115,7 @@ def find_spin_freq(obj):
 	
 	phase = ss.detrend(np.unwrap(np.angle(z)))	
 
-	f = 45.
+	f = 70.
 	Q = 3
 	b, a = ss.iirnotch(2.*f/Fs, Q)
 	freq, h = ss.freqz(b, a, worN=len(phase))
@@ -194,6 +198,12 @@ for k, path in enumerate(fils):
 	
 	if save:
 		buf.make_all_pardirs(out_path)
+
+		
+	if end_file == 0:
+		paths = paths[start_file:]
+	else:
+		paths = paths[start_file:end_file]
 	
 	for j, path in enumerate(paths):
 		meas_name = path.split('/')[-1]
@@ -209,22 +219,26 @@ for k, path in enumerate(fils):
 		efield_amp_errs = []
 		spin_freqs = []	
 		spin_freq_errs = []
-	
+		times = []
+
 		for i in range(len(files)):
 			buf.progress_bar(i, len(files))
 			data = hd.hsDat(files[i])
-		
+			
+			time = data.attribs['time']
+				
 			efield_arr = find_efield_amp(data)
 			spin_freqs_arr = find_spin_freq(data)	
-			
+				
 			efield_amps.append(efield_arr[0])
 			efield_amp_errs.append(efield_arr[1])
 			spin_freqs.append(spin_freqs_arr[0])
 			spin_freq_errs.append(spin_freqs_arr[1])
-		
+			times.append(time)	
 			
 		if save:
-			np.save(save_path, np.array([efield_amps,efield_amp_errs,spin_freqs,spin_freq_errs]))
+			np.save(save_path, np.array([efield_amps,efield_amp_errs,\
+										spin_freqs,spin_freq_errs,times]))
 
 #popt, pcov = curve_fit(sqrt, efield_amps, spin_freqs, sigma=spin_freq_errs)
 #x_axis = np.linspace(efield_amps[0], efield_amps[-1], len(spin_freqs*2))
