@@ -25,7 +25,10 @@ plt.rcParams.update({'font.size': 14})
 
 save_mass = True
 print_res = True
-plot = False
+plot = True
+
+save_example = False
+example_filename = '/home/charles/plots/weigh_beads/example_extrapolation.png'
 
 try:
     allres_dict = pickle.load(open('./allres.p', 'rb'))
@@ -168,8 +171,26 @@ arr.append('/daq2/20190626/bead1/weigh/lowp_neg_8Vpp')
 file_dict['20190626'] = (arr, 1, 0)
 
 
-#file_dict = {'20190626': (True, arr)}
+# arr = []  ### -13e charge for these
+# arr.append('/daq2/20190829/bead1/weigh/lowp_2Vpp_2')
+# arr.append('/daq2/20190829/bead1/weigh/lowp_4Vpp_2')
+# arr.append('/daq2/20190829/bead1/weigh/lowp_6Vpp_2')
+# file_dict['20190829'] = (arr, 1, 0)
 
+
+arr = []  ### 
+arr.append('/daq2/20190829/bead2/weigh/lowp_neg_6Vpp')
+arr.append('/daq2/20190829/bead2/weigh/lowp_neg_8Vpp')
+file_dict['20190829'] = (arr, 1, 0)
+
+
+
+arr = []  ### 
+arr.append('/daq2/20190905/bead1/weigh/lowp_neg_4Vpp')
+file_dict['20190905'] = (arr, 1, 0)
+
+
+file_dict = {'201900905': (arr, 1, 0)}
 
 
 
@@ -292,8 +313,11 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         except Exception:
             continue
 
-        df.calibrate_stage_position()
-        df.calibrate_phase()
+        try:
+            df.calibrate_stage_position()
+            df.calibrate_phase()
+        except:
+            continue
 
         if ('20181129' in fil) and ('high' in fil):
             pressure_vec.append(1.5)
@@ -334,6 +358,10 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
 
         top_elec = mon_fac * df.other_data[elec_ind]
         bot_elec = mon_fac * df.other_data[elec_ind+1]
+
+        # plt.plot(top_elec)
+        # plt.plot(bot_elec)
+        # plt.show()
 
         #Vdiff = top_elec - bot_elec
         #eforce = -1.0 * (Vdiff / (4.0e-3)) * q_bead
@@ -478,9 +506,9 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
     if plot:
         fig = plt.figure(dpi=200, figsize=(6,4))
         ax = fig.add_subplot(111)
-        plt.plot(np.array(all_eforce).flatten()*1e12*(1.0/9.806)*1e3, \
-                 np.array(all_power).flatten(), \
-                 'o', alpha = 0.015)
+        plt.plot(np.array(all_eforce).flatten()[::5]*1e12*(1.0/9.806)*1e3, \
+                 np.array(all_power).flatten()[::5], \
+                 'o', alpha = 0.5)
         #for params in all_param:
         #    plt.plot(plot_vec, line(plot_vec, params[0]*1e13, params[1]), \
         #             '--', color='r', lw=1, alpha=0.05)
@@ -489,16 +517,20 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
                  '--', color='k', lw=2, \
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
-        ax.set_xlim((left, 100))
+        ax.set_xlim((left, 110))
 
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))
         
         plt.legend()
-        plt.xlabel('(Applied Electrostatic Force)/$g$ [pg]')
-        plt.ylabel('Optical Power [Arb.]')
+        plt.xlabel('Applied electrostatic force/$g$ (pg)')
+        plt.ylabel('Optical power (arb. units)')
         plt.grid()
         plt.tight_layout()
+        if save_example:
+            fig.savefig(example_filename)
+            fig.savefig(example_filename[:-4]+'.pdf')
+            fig.savefig(example_filename[:-4]+'.svg')
 
 
         x_plotvec = np.array(all_eforce).flatten()
@@ -515,32 +547,36 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         plt.tight_layout()
 
 
-        #plt.figure(dpi=200, figsize=(3,2))
-        #plt.plot(x_plotvec*1e12, yresid*100, 'o')
-        #plt.legend()
-        #plt.xlabel('E-Force [pN]')
-        #plt.ylabel('Resid. Pow. [%]')
-        #plt.grid()
-        #plt.tight_layout()
+        plt.figure(dpi=200, figsize=(3,2))
+        plt.plot(x_plotvec*1e12, yresid*100, 'o')
+        plt.legend()
+        plt.xlabel('E-Force [pN]')
+        plt.ylabel('Resid. Pow. [%]')
+        plt.grid()
+        plt.tight_layout()
 
 
 
         derpfig = plt.figure(dpi=200, figsize=(3,2))
         #derpfig.patch.set_alpha(0.0)
         plt.hist(np.array(mass_vec)*1e15, bins=10)
-        plt.xlabel('Mass [pg]')
+        plt.xlabel('Mass (pg)')
         plt.ylabel('Count')
         plt.grid()
         #plt.title('Implied Masses, Each from 50s Integration')
         #plt.xlim(0.125, 0.131)
         plt.tight_layout()
+        if save_example:
+            derpfig.savefig(example_filename[:-4]+'_hist.png')
+            derpfig.savefig(example_filename[:-4]+'_hist.pdf')
+            derpfig.savefig(example_filename[:-4]+'_hist.svg')
 
         plt.show()
 
     
 
     final_mass = np.mean(mass_vec)
-    final_err_stat = np.std(mass_vec)
+    final_err_stat = np.std(mass_vec) / np.sqrt(len(mass_vec))
     final_err_sys = np.sqrt((0.015**2 + 0.01**2) * final_mass**2)
     final_pressure = np.mean(pressure_vec)  
 

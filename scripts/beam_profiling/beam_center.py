@@ -8,20 +8,6 @@ import glob
 from scipy.optimize import curve_fit
 
 
-data_dir1 = r"C:\Data\20170704\profiling\ysweep5"
-data_dir2 = r"C:\Data\20170704\profiling\zsweep5"
-out_dir = r"C:\Data\20170704\profiling\output"
-#data_dir2 = r"C:\Data\20160429\beam_profiles1"
-
-
-data_dir1 = "/data/20181218/profiling/xsweep_vac"
-data_dir1 = "/data/20190103/profiling/xsweep_adj_4"
-
-data_dir1 = "/data/20190107/profiling/xsweep_init"
-
-data_dir1 = "/data/20190108/profiling/xsweep_atm_adj_2"
-data_dir2 = "/data/20190108/profiling/xsweep_atm"
-
 
 
 data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_atm'
@@ -30,6 +16,13 @@ data_dir2 = '/daq2/20190315/profiling/ysweep_right_adj13_atm'
 
 #data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_vac'
 #data_dir2 = '/daq2/20190315/profiling/xsweep_adj13_atm'
+
+data_dir1 = '/daq2/20190902/profiling/xsweep_in1_0'
+data_dir2 = '/daq2/20190902/profiling/ysweep_init'
+
+data_dir1 = '/daq2/20190902/profiling/ysweep_vac_init'
+data_dir2 = '/daq2/20190902/profiling/ysweep_vac_in0_5'
+
 
 
 debug_plot = False
@@ -52,8 +45,8 @@ gauss_fit = True
 stage_column = 19
 stage_column2 = 18
 
-data_column = 1 #4
-data_column2 = 1  # For data circa 2016: 0
+data_column = 7 #4
+data_column2 = 7  # For data circa 2016: 0
 
 cant_cal = 8. #um/volt
 
@@ -88,7 +81,7 @@ def profile(fname, data_column = 0, plot=False):
         elif 'right' in fname:
             sign = 1.0
         else:
-            sign = 1.0
+            sign = -1.0
     else:
         stage_column = 0
         sign = 1.0
@@ -205,7 +198,7 @@ def proc_dir(dir, data_column=0, plot=False):
 def plot_profs(fp_arr):
     #plots average profile from different heights
     i = 1
-    colors = bu.get_color_map(len(fp_arr), cmap='jet')
+    colors = bu.get_color_map(len(fp_arr), cmap='plasma')
 
     fp_arr_sort = sorted(fp_arr, key = lambda fp: fp.cant_height)
 
@@ -373,6 +366,7 @@ if gauss_fit:
         ax2.set_ylabel("Intensity Profile [arbitrary]")
         ax2.set_ylim(10**(-6), popt4[0] * 10)
         ax2.set_yscale('log')
+        ax2.legend(loc=0)
     
     plt.show()
 

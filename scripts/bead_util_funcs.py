@@ -13,6 +13,7 @@ import matplotlib.mlab as mlab
 import scipy.interpolate as interp
 import scipy.optimize as optimize
 import scipy.signal as signal
+import scipy.stats as stats
 import scipy
 
 import configuration
@@ -99,7 +100,7 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
 
 
 
-def get_color_map( n, cmap='jet' ):
+def get_color_map( n, cmap='plasma' ):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
 
@@ -108,7 +109,7 @@ def get_color_map( n, cmap='jet' ):
 
            OUTPUTS: outmap, color map in rgba format'''
 
-    cNorm  = colors.Normalize(vmin=0, vmax=n)
+    cNorm  = colors.Normalize(vmin=0, vmax=n-1)
     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap) #cmap='viridis')
     outmap = []
     for i in range(n):
@@ -135,6 +136,21 @@ def round_sig(x, sig=2):
             return -1.0 * num
         else:
             return num
+
+
+def get_scivals(num, base=10.0):
+    '''Return a tuple with factor and base X exponent of the input number.
+       Useful for custom formatting of scientific numbers in labels.
+
+           INPUTS: num, number to be decomposed
+                   base, arithmetic base, assumed to be 10 for most
+
+           OUTPUTS: tuple, (factor, base-X exponent)
+                        e.g. get_scivals(6.32e11, base=10.0) -> (6.32, 11)
+    '''
+    exponent = np.floor(np.log10(num) / np.log10(base))
+    return ( num / (base ** exponent), int(exponent) )
+
 
 
 
@@ -798,7 +814,7 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
             inds = (xvec >= x - 0.5*dx) * (xvec <= x + 0.5*dx)
 
         if len(errs):
-            errs_new[xind] = np.mean(errs[inds])
+            errs_new[xind] = np.sqrt( np.mean(errs[inds]**2))
         else:
             errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
 
@@ -814,6 +830,59 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
 
 
         
+
+
+def parabola(x, a, b, c):
+    return a * x**2 + b * x + c
+
+
+
+def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
+    # 90% confidence level for 1sigma errors
+
+    chi2dist = stats.chi2(1)
+    # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
+    con_val = 0.5 * chi2dist.ppf(confidence_level)
+
+    nll_arr = []
+    for param in param_arr:
+        nll_arr.append(nll_func(param))
+    nll_arr = np.array(nll_arr)
+
+    popt_chi, pcov_chi = optimize.curve_fit(parabola, param_arr, nll_arr)
+
+    minparam = - popt_chi[1] / (2. * popt_chi[0])
+    minval = (4. * popt_chi[0] * popt_chi[2] - popt_chi[1]**2) / (4. * popt_chi[0])
+
+    data_con_val = con_val - 1 + minval
+
+    # Select the positive root for the non-diagonalized data
+    soln1 = ( -1.0 * popt_chi[1] + np.sqrt( popt_chi[1]**2 - \
+                    4 * popt_chi[0] * (popt_chi[2] - data_con_val)) ) / (2 * popt_chi[0])
+    soln2 = ( -1.0 * popt_chi[1] - np.sqrt( popt_chi[1]**2 - \
+                    4 * popt_chi[0] * (popt_chi[2] - data_con_val)) ) / (2 * popt_chi[0])
+
+    err =  np.mean([np.abs(soln1 - minparam), np.abs(soln2 - minparam)])
+
+    if plot:
+        lab = ('{:0.2e}$\pm${:0.2e}\n'.format(minparam, err)) + \
+                'min$(\chi^2/N_{\mathrm{DOF}})=$' + '{:0.2f}'.format(minval)
+        plt.plot(param_arr, nll_arr)
+        plt.plot(param_arr, parabola(param_arr, *popt_chi), '--', lw=2, color='r', \
+                    label=lab)
+        plt.xlabel('Fit Parameter')
+        plt.ylabel('$\chi^2 / N_{\mathrm{DOF}}$')
+        plt.legend(fontsize=12, loc=0)
+        plt.tight_layout()
+        plt.show()
+
+
+    return minparam, err, minval
+
+
+
+
+
 
 
 

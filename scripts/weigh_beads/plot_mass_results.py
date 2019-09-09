@@ -13,17 +13,21 @@ allres_dict = pickle.load(open('./allres.p', 'rb'))
 dates = overall_mass_dict.keys()
 dates.sort()
 
-#for date in dates:
-#    print date, overall_mass_dict[date]
-#raw_input()
-
-ndates = len(dates)
+newdates = []
+for dateind, date in enumerate(dates):
+    if int(date) > 20190200:
+        break
+    newdates.append(date)
+dates = newdates
 
 plot_ind = 0
 
 f, axarr = plt.subplots(2,1, gridspec_kw = {'height_ratios':[3,2]}, sharex=True,
                         figsize=(6,4),dpi=200)
 for dateind, date in enumerate(dates):
+
+    if int(date) > 20190200:
+        continue
 
     dat = np.array(allres_dict[date])
     overall = np.array(overall_mass_dict[date])
@@ -70,9 +74,9 @@ for dateind, date in enumerate(dates):
                           yerr=[np.sqrt(np.sum(overall[1:]**2))], \
                           marker=(6,2,0), #'P', \
                           ms=10, ls='none', color='b')
-        plot_str = '#%i' % int(dateind - (len(dates) - 4))
+        plot_str = 'No.%i' % int(dateind - (len(dates) - 4))
         #axarr[1].text(plot_ind-0.5, overall[0] - 2.5, plot_str, color='b', fontsize=12)
-        axarr[1].text(plot_ind-0.5, 80, plot_str, color='b', fontsize=12)
+        axarr[1].text(plot_ind+1, 80, plot_str, color='b', fontsize=10, ha='center')
         print date, overall[0], np.sqrt(overall[1]**2 + overall[2]**2), overall[3]
     else:
         axarr[1].errorbar([plot_ind + 1], [overall[0]], \
@@ -85,11 +89,12 @@ for dateind, date in enumerate(dates):
 
 
 
-axarr[1].set_xlabel('All Measurements (chronological)')
-axarr[0].set_ylabel('Mass [pg]')
-axarr[1].set_ylabel('Mass [pg]')
+#axarr[1].set_xlabel('All Measurements (chronological)')
+axarr[1].set_xlabel('Time (arb. units)')
+axarr[0].set_ylabel('Mass (pg)')
+axarr[1].set_ylabel('Mass (pg)')
 axarr[0].set_yticks([78,81,84,87])
-axarr[1].set_yticks([78, 81,84,87])
+axarr[1].set_yticks([78,81,84,87])
 axarr[0].tick_params(axis='x', which='both', \
                          bottom=False, top=False, labelbottom=False)
 axarr[1].tick_params(axis='x', which='both', \
@@ -97,7 +102,9 @@ axarr[1].tick_params(axis='x', which='both', \
 axarr[0].set_ylim(76,88)
 axarr[1].set_ylim(77.5,87.5)
 plt.tight_layout()
-plt.savefig('/home/charles/plots/weigh_beads/mass_vs_time_all.png')
+f.savefig('/home/charles/plots/weigh_beads/mass_vs_time_all_v3.png')
+f.savefig('/home/charles/plots/weigh_beads/mass_vs_time_all_v3.pdf')
+f.savefig('/home/charles/plots/weigh_beads/mass_vs_time_all_v3.svg')
 plt.show()
 
 

@@ -46,13 +46,21 @@ filename_labels = True #False
 #            '/daq2/20190507/bead1/turbombar_powfb_xyzcool.h5']
 
 
-allfiles = ['/daq2/20190626/bead1/1_5mbar_powfb_zcool_init.h5', \
-            '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low1.h5', \
-            '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low2.h5', \
-            #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low3.h5', \
-            #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low4.h5', \
-            '/daq2/20190626/bead1/1_5mbar_powfb_xzcool_low2.h5', \
-            '/daq2/20190626/bead1/1_5mbar_powfb_yzcool_low2.h5', \
+# allfiles = ['/daq2/20190626/bead1/1_5mbar_powfb_zcool_init.h5', \
+#             '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low1.h5', \
+#             '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low2.h5', \
+#             #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low3.h5', \
+#             #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low4.h5', \
+#             '/daq2/20190626/bead1/1_5mbar_powfb_xzcool_low2.h5', \
+#             '/daq2/20190626/bead1/1_5mbar_powfb_yzcool_low2.h5', \
+#             ]
+
+
+allfiles = [#'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_highx_highy.h5', \
+            #'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_lowx_highy.h5', \
+            #'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_highx_lowy.h5', \
+            '/daq2/20190829/bead2/crazy_stuff/turbombar_powfb_xyzcool.h5', \
+            '/daq2/20190829/bead2/crazy_stuff/turbombar_powfb_xyzcool_2.h5', \
             ]
 
 
@@ -63,7 +71,7 @@ tfdate = '20190619'
 data_axes = [0,1,2]
 fb_axes = []
 #fb_axes = [0,1,2]
-other_axes = [7]
+other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
 
 drive_ax = 1

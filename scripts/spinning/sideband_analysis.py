@@ -24,12 +24,12 @@ high_pass = 10.0
 
 tabor_mon_fac = 100
 
-# paths = ["/daq2/20190514/bead1/spinning/pramp3/N2/wobble/pre-meas1_next-morning/"]
-# save_paths = ['/processed_data/spinning/wobble/20190514_N2_pre-meas1_next-morning.npy']
-# npaths = len(paths)
+base_path = '/daq2/20190626/bead1/spinning/wobble/wobble_slow_after-highp_later/'
+base_save_path = '/processed_data/spinning/wobble/20190626/after-highp_slow_later/'
 
-base_path = '/daq2/20190626/bead1/spinning/wobble/wobble_many_slow/'
-base_save_path = '/processed_data/spinning/wobble/20190626/initial_slow/'
+# base_path = '/daq2/20190626/bead1/spinning/pramp/SF6/wobble_3/'
+# base_save_path = '/processed_data/spinning/wobble/20190626/SF6_pramp_3/'
+
 paths = []
 save_paths = []
 for root, dirnames, filenames in os.walk(base_path):
@@ -44,8 +44,14 @@ load = False
 
 #####################################################
 
+mbead = 85.0e-15 # convert picograms to kg
+rhobead = 1550.0 # kg/m^3
+
+rbead = ( (mbead / rhobead) / ((4.0/3.0)*np.pi) )**(1.0/3.0)
+Ibead = 0.4 * mbead * rbead**2
+
 def sqrt(x, A, x0, b):
-    return A * np.sqrt(x-x0) + b
+    return A * np.sqrt(x-x0) #+ b
 
 def gauss(x, A, mu, sigma, c):
     return A * np.exp(-1.0*(x-mu)**2 / (2.0*sigma**2)) + c
@@ -76,7 +82,8 @@ for pathind, path in enumerate(paths):
     upper2 = (2.0 / fsamp) * (0.5*fc + 0.25 * bandwidth)
     lower2 = (2.0 / fsamp) * (0.5*fc - 0.25 * bandwidth)
 
-    notch = (2.0 / fsamp) * (56.0)
+    notch = (2.0 / fsamp) * (58.8)
+    Q_notch = 10
 
 
     b1, a1 = signal.butter(3, [lower1, upper1], \
@@ -86,13 +93,7 @@ for pathind, path in enumerate(paths):
 
     b3, a3 = signal.butter(3, (2.0/fsamp)*high_pass, btype='high')
 
-    bn, an = signal.iirnotch(notch, 5)
-
-
-    w0 = (2.0/fsamp)*50.0
-    Q = 52.0/10.0
-    b_notch, a_notch = signal.iirnotch(w0, Q)
-
+    bn, an = signal.iirnotch(notch, Q_notch)
 
     field_strength = []
     field_err = []
@@ -212,7 +213,8 @@ for pathind, path in enumerate(paths):
         amp_guess = np.sqrt(2) * np.std(efield[0])
         p0 = [amp_guess, freq_guess, phase_guess, 0]
 
-        popt, pcov = opti.curve_fit(sine, time_vec, efield[0], p0=p0)
+        fit_ind = int(0.01 * len(time_vec))
+        popt, pcov = opti.curve_fit(sine, time_vec[:fit_ind], efield[0][:fit_ind], p0=p0)
         amp_fit = popt[0]
         amp_err = np.sqrt(pcov[0,0])
 
@@ -235,7 +237,7 @@ if load:
         all_data.append(arr)
 
 
-
+popt_arr = []
 colors = bu.get_color_map(len(all_data), cmap='inferno')
 for arrind, arr in enumerate(all_data):
     field_strength = arr[0]
@@ -243,8 +245,13 @@ for arrind, arr in enumerate(all_data):
     wobble_freq = arr[2]
     wobble_err = arr[3]
 
-    popt, pcov = opti.curve_fit(sqrt, field_strength, wobble_freq, \
-                                p0=[10,0,0], sigma=wobble_err)
+    try:
+        popt, pcov = opti.curve_fit(sqrt, field_strength, 2*np.pi*wobble_freq, \
+                                    p0=[10,0,0], sigma=2*np.pi*wobble_err)
+    except:
+        continue
+
+    popt_arr.append(popt)
     print
     print popt
     print
@@ -254,6 +261,14 @@ for arrind, arr in enumerate(all_data):
     plot_y = sqrt(plot_x, *popt)
 
     plt.plot(plot_x, plot_y, '--', lw=2, color=colors[arrind])
-    plt.errorbar(field_strength, wobble_freq, alpha=0.6, \
+    plt.errorbar(field_strength, 2*np.pi*wobble_freq, alpha=0.6, \
                  yerr=wobble_err, color=colors[arrind])
+
+popt = np.mean(np.array(popt_arr), axis=0)
+popt_err = np.std(np.array(popt_arr), axis=0)
+
+# 1e-3 to account for 
+d = (popt[0])**2 * Ibead
+d_err = (popt_err[0])**2 * Ibead
+
 plt.show()
