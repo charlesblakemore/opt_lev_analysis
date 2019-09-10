@@ -15,10 +15,11 @@ save = True
 #path = "/daq2/20190430/bead1/spinning/he/1vpp_50kHz_0"
 #path = "/daq2/20190514/bead1/spinning/pramp/Xe/50kHz_4Vpp_1"
 #path = "/daq2/20190514/bead1/spinning/pramp/He/50kHz_4Vpp_3"
-path_list = ['/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp',\
-		'/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp_2',\
-		'/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp_3']	
-
+#path_list = ['/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp',\
+#		'/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp_2',\
+#		'/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp_3']	
+path_list = ['/daq2/20190905/bead1/spinning/pramp/He/50kHz_4Vpp_4',\
+			 '/daq2/20190905/bead1/spinning/pramp/He/50kHz_4Vpp_5']
 drive_ax = 0
 data_ax = 1
 
@@ -27,8 +28,10 @@ data_ax = 1
 #out_f = "/home/dmartin/analyzedData/20190417/N2/N2_3vpp_0"
 #out_f = "/home/dmartin/analyzedData/20190514/Xe_4Vpp_50kHz_1"
 #out_f = "/home/dmartin/analyzedData/20190514/pramp/He/50kHz_4Vpp_3"
-out_f = "/home/dmartin/analyzedData/20190626/pramp/N2/"
+out_f = "/home/dmartin/analyzedData/20190905/pramp/He/"
 
+plot_dat = False
+ 
 def line(x, m, b):
     return m*x + b
 
@@ -38,10 +41,9 @@ def dec2(arr, fac):
 for i, path in enumerate(path_list):
 	bu.make_all_pardirs(out_f)
 	
-	files1 = bu.find_all_fnames(path, sort_time=True)
+	files, zero = bu.find_all_fnames(path, sort_time=True)
 	
-	#bu.find_all_fnames returns values in a row/column format which is not properly read by hsDat. To get around this, I write files1[0] which picks out the files in one row.
-	files = files1[0]
+	files = files[0:400]
 	
 	fi_init = 50000
 	init_file = 0
@@ -66,8 +68,6 @@ for i, path in enumerate(path_list):
 	fc = 2.*fi_init
 	bfreq = np.abs(freqs-fc)>bw/2.
 	bfreq2 = np.abs(freqs-fc/2.)>bw/2.
-	
-	plot_dat = False
 	
 	for i, f in enumerate(files[init_file:final_file]):
 	    bu.progress_bar(i, n_file)
@@ -100,6 +100,6 @@ for i, path in enumerate(path_list):
 	
 	meas_name = path.split('/')[-1]	
 	if save:
-	    np.save(out_f + '_' + meas_name + '_phi.npy', phi)
-	    np.save(out_f + '_' + meas_name + "_pressures.npy", pressures)
-	    np.save(out_f + '_' + meas_name + "_time.npy", times)
+	    np.save(out_f +  meas_name + '_phi.npy', phi)
+	    np.save(out_f +  meas_name + "_pressures.npy", pressures)
+	    np.save(out_f +  meas_name + "_time.npy", times)

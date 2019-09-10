@@ -7,15 +7,17 @@ import re
 import plot_phase_vs_pressure_many_gases as pp
 import matplotlib.cm as cm
 
-from_chas = True 
+from_chas = False 
+save_fig = False
 
 gas ='He'
 
-base_path = "/processed_data/spinning/pramp_data/20190626/Kr/"
+#base_path = "/processed_data/spinning/pramp_data/20190626/Kr/"
+base_path = "/home/dmartin/analyzedData/20190905/pramp/He/"
 
-in_fs = ['50kHz_4Vpp_1_']
+in_fs = ['50kHz_4Vpp_3_','50kHz_4Vpp_4_','50kHz_4Vpp_5_']
 
-out_dir = '/home/dmartin/analyzedData/20190626/pramp/Kr/'
+out_dir = '/home/dmartin/analyzedData/20190905/pramp/He/'
 
 num_files = len(in_fs)
 cal = 0.66
@@ -69,7 +71,7 @@ for i in range(len(pressures)):
 	p, interp_p = np.array(pp.build_full_pressure(pressures[i],plot=True))
 	p_fits.append(interp_p)
 
-#phases = -1 * phases
+phases = -1 * phases
 
 max_diff_ind = np.empty([len(in_fs)],dtype=int)
 upper_bound =  0.08
