@@ -15,13 +15,14 @@ gas ='He'
 #base_path = "/processed_data/spinning/pramp_data/20190626/Kr/"
 base_path = "/home/dmartin/analyzedData/20190905/pramp/He/"
 
-in_fs = ['50kHz_4Vpp_3_','50kHz_4Vpp_4_','50kHz_4Vpp_5_']
+in_fs = ['50kHz_4Vpp_4_']#,'50kHz_4Vpp_4_','50kHz_4Vpp_5_']
 
 out_dir = '/home/dmartin/analyzedData/20190905/pramp/He/'
 
 num_files = len(in_fs)
 cal = 0.66
 
+corr = np.load(base_path + in_fs[0] + "corr.npy")
 def get_phi(fname):
     phi = np.load(base_path + fname + "phi.npy")
     return phi/2
@@ -71,8 +72,14 @@ for i in range(len(pressures)):
 	p, interp_p = np.array(pp.build_full_pressure(pressures[i],plot=True))
 	p_fits.append(interp_p)
 
-phases = -1 * phases
+#phases = -1 * phases
+mask = corr <= 2.e-4
 
+plt.plot(interp_p,corr)
+plt.plot(interp_p,phases[0])
+plt.show()
+
+'''
 max_diff_ind = np.empty([len(in_fs)],dtype=int)
 upper_bound =  0.08
 
@@ -176,3 +183,4 @@ arr = [np.mean(p_maxs),np.std(p_maxs)/len(p_maxs)]
 
 if int(raw_input('save avg and std? ')) == 1:
 	np.save(param,arr)
+'''
