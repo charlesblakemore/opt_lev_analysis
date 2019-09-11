@@ -16,7 +16,7 @@ from scipy.optimize import curve_fit
 import scipy.stats
 import beam_profile as bf
 import scipy.ndimage.filters as ndf
-import cv2
+#not used: import cv2
 from scipy.signal import argrelextrema
 #Functions for use in the class representing image data.
 

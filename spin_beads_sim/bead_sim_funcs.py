@@ -17,7 +17,7 @@ import time
 ### Constants
 e = 1.602e-19          #  C
 p0 = 100 * e * (1e-6)  #  C * m
-rhobead = 2000
+rhobead = 1550
 rbead = 2.4e-6
 mbead = (4. / 3.) * np.pi * rbead**3 * rhobead
 Ibead = (2. / 5.) * mbead * rbead**2 
@@ -75,14 +75,13 @@ def chirpE(ti, tf, dt, fieldmag, chirp_start, chirp_end, chirp_length, \
 
     return np.array(Eout)
 
-
-
-
-
 def oscE(ti, tf, dt, fieldmag, xfreq, yfreq, zfreq, \
-            xphi=0.0, yphi=0.0, zphi=0.0, tmin=0.0, tmax=1e9):
-    '''Generates an E-field chirp along any of three directions, with
-       and independent phase for each direction in order to induce rotation.'''
+            xphi=0.0, yphi=0.0, zphi=0.0, phase_mod=False,\
+            x_mod_amp=0.0, y_mod_amp=0.0, z_mod_amp=0.0,\
+            x_mod_freq=0.0, y_mod_freq=0.0,z_mod_freq=0.0,\
+            tmin=0.0, tmax=1e9):
+    '''Generates a oscillating E-field along any of three directions,
+    with capability of phase modulating efield.'''
 
     # Array at which to evaluate field (simulation points)
     tarr = np.arange(ti, tf+dt, dt)
@@ -90,25 +89,75 @@ def oscE(ti, tf, dt, fieldmag, xfreq, yfreq, zfreq, \
 
     # Look-up dictionary for each axis
     dic = {0: (xfreq, xphi), 1: (yfreq, yphi), 2: (zfreq, zphi)}
-
+   
     Eout = [[], [], []]
-    for ind in [0,1,2]:
-        # Find whether to oscillate and with what phase
-        freq, phi = dic[ind]
+    if phase_mod:
+       
+        mod_dic = {0: x_mod_freq, 1: y_mod_freq, 2: z_mod_freq}
+        
+        for ind in [0,1,2]:
+            # Find whether to oscillate and with what phase
+            freq, phi = dic[ind]
+            mod_freq = mod_dic[ind]
 
-        # Build field
-        if freq:
-            Eosc = fieldmag * np.cos(2 * np.pi * freq * tarr + 
-                                                np.pi * phi / 180.0)
-            # Set to 0 outside of [tmin, tmax]
-            Eout[ind] = Eosc * tbool
-        elif not freq:
-            Eout[ind] = np.zeros_like(tarr)
+            # Build field
+            if freq:
+                mod = 0.
+                
+                if mod_freq:
+                    mod = x_mod_amp * np.cos(2 * np.pi * mod_freq * tarr)
+                
+                Eosc = fieldmag * np.cos(2 * np.pi * freq * tarr + mod + 
+                                                        np.pi * phi / 180.0)
+                Eout[ind] = Eosc
+                # Set to 0 outside of [tmin, tmax]
+                Eout[ind] = Eosc * tbool
+            elif not freq:
+                Eout[ind] = np.zeros_like(tarr)
+    
+
+    else:
+        for ind in [0,1,2]:
+            # Find whether to oscillate and with what phase
+            freq, phi = dic[ind]
+
+            # Build field
+            if freq:
+                Eosc = fieldmag * np.cos(2 * np.pi * freq * tarr + 
+                                                    np.pi * phi / 180.0)
+                Eout[ind] = Eosc
+                # Set to 0 outside of [tmin, tmax]
+                Eout[ind] = Eosc * tbool
+            elif not freq:
+                Eout[ind] = np.zeros_like(tarr)
 
     return np.array(Eout)
 
+def step_func(ti, tf, dt, mag, step_offset=0.):
+    tarr = np.arange(ti, tf+dt, dt)
 
+    func = mag*np.ones_like(tarr)
+    
+    func[tarr < step_offset] = 0.
 
+    return func
+
+def constant_field(ti, tf, dt, fieldmag, x=False, y=False, \
+        z=False):
+    tarr = np.arange(ti, tf+dt, dt)
+
+    Eout = [[],[],[]]
+
+    dic = {0: x, 1: y, 2: z}
+
+    for ind in [0,1,2]:
+        if dic[ind]:
+            Eout[ind] = fieldmag * np.ones_like(tarr)
+        
+        else:
+            Eout[ind] = np.zeros_like(tarr)
+
+    return np.array(Eout)
 
 
 
@@ -127,23 +176,20 @@ def rk4(xi_old, t, tind, delt, system):
     k3 = delt * system(xi_old + k2 / 2, t + (delt / 2), tind)
     k4 = delt * system(xi_old + k3, t + delt, tind)
     xi_new = xi_old + (1. / 6.) * (k1 + 2*k2 + 2*k3 + k4)
-
+    #raw_input()
     ### HARDCODED STUFF IS BAD BUT HERE IT IS ANYWAY
     # Correction to keep dipole magnitude normalized, or small integration 
     # build up. This is only useful for the spcific implementation
     # of electrostatically spinning beads
-    #ptot = np.sqrt(xi_new[0]**2 + xi_new[1]**2 + xi_new[2]**2)
-    #for ind in [0,1,2]:
-    #    xi_new[ind] *= p0 / ptot
+    ptot = np.sqrt(xi_new[6]**2 + xi_new[7]**2 + xi_new[8]**2)
+    wtot = np.sqrt(xi_new[0]**2 + xi_new[1]**2 + xi_new[2]**2)
+    
+    #print ptot, wtot
+    for ind in [6,7,8]:
+        xi_new[ind] *= p0 / ptot
     
 
     return xi_new
-
-
-
-
-
-
 
 
 

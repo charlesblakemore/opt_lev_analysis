@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import torsion_noise as tn
 
-alldata = np.load('/home/dmartin/practiceData/spin_sim/test.npy')
+alldata = np.load('/home/dmartin/Desktop/simulations/dipole_efield_cart_1/tests/test_1_just_omega_data.npy')
 #alldata = np.load('/spinsim_data/alldata_Vxy100Vrotchirp_1kHz.npy')
 # alldata = np.load('./data/test_efield_out.npy')
 
@@ -37,7 +37,7 @@ fft = np.fft.rfft(data[:,0])
 
 cut = time < 500
 plt.plot(time[cut], data[:,0][cut])
-#plt.plot(time[cut], data[:,1][cut])
+plt.plot(time[cut], data[:,1][cut])
 plt.show()
 
 plt.loglog(freqs, np.abs(fft))

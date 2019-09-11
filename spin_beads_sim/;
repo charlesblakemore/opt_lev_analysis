@@ -1,0 +1,35 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+datafile = '/home/dmartin/Desktop/simulations/dipole_efield_cart_1/tests/test_3_longer_int_time_data.npy' 
+
+data = np.load(datafile)
+
+print(data.shape)
+time = data[:,0]
+
+w_arr = {'units': 'blah', 'axes': ['$\omega_{x}$','$\omega_{y}$'\
+        ,'$\omega_{z}$'],'data': data[:,1:4]}
+
+#w_dot_arr = data[:,4:7]
+p_arr = {'units': 'blah', 'axes': ['$p_{x}$','$p_{y}$','$p_{z}$'] , 'data': data[:,7:10]}
+
+Efield_arr = {'units': 'blah', 'axes': ['$E_{x}$','$E_{y}$','$E_{z}$'],'data': data[:,10:14]}
+
+def plot_data(arr, tarr, axes, units):
+    fig, ax = plt.subplots(arr.shape[1], 1, sharex = True)
+    
+    mask = (tarr > 50) & (tarr < 100)
+    
+    for i in range(len(ax)):
+        ax[i].plot(tarr,arr[:,i], label=axes[i])
+        ax[i].set_ylabel(axes[i] + ' [{}]'.format(units))
+        ax[i].set_xlabel('Time [s]')
+        ax[i].legend()
+    
+    plt.show()
+
+
+plot_data(p_arr['data'], time, p_arr['axes'], p_arr['units'])
+#plot_data(w_arr['data'], time, w_arr['axes'], w_arr['units'])
+#plot_data(Efield_arr['data'], time, Efield_arr['axes'], Efield_arr['units'])

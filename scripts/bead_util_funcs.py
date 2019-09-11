@@ -22,12 +22,12 @@ import warnings
 
 
 
-e_top_dat   = np.loadtxt('/calibrations/e-top_1V_optical-axis.txt', comments='%')
-e_bot_dat   = np.loadtxt('/calibrations/e-bot_1V_optical-axis.txt', comments='%')
-e_left_dat  = np.loadtxt('/calibrations/e-left_1V_left-right-axis.txt', comments='%')
-e_right_dat = np.loadtxt('/calibrations/e-right_1V_left-right-axis.txt', comments='%')
-e_front_dat = np.loadtxt('/calibrations/e-front_1V_front-back-axis.txt', comments='%')
-e_back_dat  = np.loadtxt('/calibrations/e-back_1V_front-back-axis.txt', comments='%')
+e_top_dat   = np.loadtxt('/data/old_trap_processed/calibrations/e-top_1V_optical-axis.txt', comments='%')
+e_bot_dat   = np.loadtxt('/data/old_trap_processed/calibrations/e-bot_1V_optical-axis.txt', comments='%')
+e_left_dat  = np.loadtxt('/data/old_trap_processed/calibrations/e-left_1V_left-right-axis.txt', comments='%')
+e_right_dat = np.loadtxt('/data/old_trap_processed/calibrations/e-right_1V_left-right-axis.txt', comments='%')
+e_front_dat = np.loadtxt('/data/old_trap_processed/calibrations/e-front_1V_front-back-axis.txt', comments='%')
+e_back_dat  = np.loadtxt('/data/old_trap_processed/calibrations/e-back_1V_front-back-axis.txt', comments='%')
 
 
 #######################################################

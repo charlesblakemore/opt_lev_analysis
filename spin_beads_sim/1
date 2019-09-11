@@ -16,8 +16,9 @@ import bead_sim_funcs as bsfuncs
 
 ### Define the savepath
 #savepath = '/spinsim_data/alldata_Vxy100Vrotchirp_1kHz_dt5us.npy'
-savepath = '/home/dmartin/Desktop/simulations/efield_phase_mod/'
-savename = 'test_faster_phase_mod'
+savepath = '/home/dmartin/Desktop/simulations/perp_z_axis/'
+savename = 'start_from_0Hz_2kHz_16_5e3Vpm_3'
+
 
 # Random seed. Un-comment to use a fixed seed for numpy's
 # quasi-random random number generator in order to check 
@@ -30,11 +31,10 @@ tau = 2000.
 ### Get the dipole moment and moment of inertia
 p0 = bsfuncs.p0
 Ibead = bsfuncs.Ibead
-print p0, Ibead
-
+print Ibead
 ### Define Initial Conditions
 theta0 = 0.5 * np.pi # rad
-phi0 = 0.            # rad
+phi0 = 0.5 * np.pi             # rad
 p0x = p0 * np.sin(theta0) * np.cos(phi0)
 p0y = p0 * np.sin(theta0) * np.sin(phi0)
 p0z = p0 * np.cos(theta0) * 0.0
@@ -50,7 +50,7 @@ xi_init = np.array([p0x, p0y, p0z, wx, wy, wz])
 
 wx0 = 0.#2 * np.pi * 2.e3
 wy0 = 0.
-wz0 = 2 * np.pi * 50.
+wz0 = 0.#2 * np.pi * 2.e3
 
 wxdot0 = 0.
 wydot0 = 0.
@@ -63,9 +63,9 @@ xi_init = np.array([wx0,wy0,wz0,wxdot0,wydot0,wzdot0,p0x, \
 ### Integration parameters
 
 # dt = 1.0e-5
-dt = 1.0e-3      # time-step, s
+dt = 1./150.e3#5.0e-6      # time-step, s
 ti = 0          # initial time, s
-tf = 200    # final time, s
+tf = 3000    # final time, s
 
 ### Drive parameters
 maxvoltage = 10.0
@@ -75,11 +75,11 @@ drvmag = 10.0 * maxvoltage / 4.0e-3
 
 tt = np.arange(ti, tf + dt, dt)
 Nsamp = len( tt )
-Nsamp = 3000000
-#
-## Compute sampling frequency to limit bandwidth of white noise
+Nsamp = 50000e3
+
+# Compute sampling frequency to limit bandwidth of white noise
 Fsamp = 1.0 / dt
-Fsamp = 6561.
+Fsamp = 150.e3#303030.
 
 tt = np.arange(0, Nsamp/Fsamp, 1./Fsamp)
 ti = tt[0]
@@ -107,24 +107,19 @@ beta = tn.beta()
 
 #efield = xchirp
 
-drvmag = 16.5e1
-xfreq = 50.
-yfreq = 50.
-zfreq = 0.
+drvmag = 16.5e3
+xfreq = 0.
+yfreq = 2.e3
+zfreq = 2.e3
 
 xphi = 0.
-yphi = -90.
+yphi = -0.5 * np.pi
 zphi = 0.
 
-x_mod = 2. * np.pi
-x_mod_freq = 34.
-y_mod = 2. * np.pi
-y_mod_freq = 34.
+x = True
 
-efield = bsfuncs.oscE(ti, tf, dt, drvmag,\
-        xfreq=xfreq, yfreq=yfreq, zfreq=zfreq, yphi=yphi,\
-        phase_mod=True, x_mod_amp=x_mod, y_mod_amp=x_mod,\
-        x_mod_freq=x_mod_freq,y_mod_freq=y_mod_freq)
+efield = bsfuncs.rotating_field(ti, tf, dt, drvmag,\
+        xfreq=xfreq, yfreq=yfreq, zfreq=zfreq, yphi=yphi)
 
 #plt.plot(tt, efield[1])
 #plt.show()
@@ -152,28 +147,18 @@ par_dic = {'efieldx':(xfreq,xphi),\
 
 ### UNCOMMENT THESE LINES TO LOOK AT EFIELD BEFORE SIMULATING
 
-fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
+#fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
 
-start_time = bsfuncs.therm_time+100 - 10000*dt
-x = int(start_time / dt)
+#start_time = bsfuncs.therm_time+100 - 10000*dt
+#x = int(start_time / dt)
 
-for i in [0,1,2]:
-    axarr[i].plot(tt, efield[i])
-   #axarr[i].plot(tt[x:x+100000], efield[i,x:x+100000])
-plt.show()
+#for i in [0,1,2]:
+#    axarr[i].plot(tt, efield[i])
+    #axarr[i].plot(tt[x:x+100000], efield[i,x:x+100000])
+#plt.show()
 
-print(Nsamp)
-
-fft = np.fft.rfft(efield)
-freqs = np.fft.rfftfreq(Nsamp, 1./Fsamp)
-fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
-for i in [0,1,2]:
-    axarr[i].loglog(freqs,np.abs(fft[i]))
-
-plt.show()
-    
-raw_input()
-
+#raw_input()
+#
 
 
 
