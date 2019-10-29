@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -253,7 +253,7 @@ def extract_scans(lines, mass_line_ind, nscans):
 def get_rga_data(rga_data_file, many_scans=True, last_nscans=1000, scan_ind=0, \
                  plot=True, plot_many=False, plot_last_scans=False, plot_nscans=1, \
                  gases_to_extract=[], ions_to_ignore=[], plot_extraction=False, \
-                 fit_scale=1e8, save_fig=False, show=True, fig_base=''):
+                 fit_scale=1e8, save_fig=False, show=True, fig_base='', before=False):
 
     print 'Processing:'
     print rga_data_file
@@ -434,6 +434,7 @@ def get_rga_data(rga_data_file, many_scans=True, last_nscans=1000, scan_ind=0, \
                     neighbor_peaks = np.abs(mq - mq_arr) < 1.75
 
                     if np.sum(neighbor_peaks) == 1:
+                        start = time.time()
                         mq_done.append(mq)
                         peak_pts = np.abs(plot_x - mq) <= 1
                         n_peak_pts = np.sum(peak_pts)
@@ -450,8 +451,12 @@ def get_rga_data(rga_data_file, many_scans=True, last_nscans=1000, scan_ind=0, \
                         fit_mus.append(popt[1])
                         fit_sigmas.append(popt[2])
                         fit_ns.append(popt[3])
+                        stop = time.time()
+                        print 'regular ngauss fit: ', stop-start
+
 
                     elif np.sum(neighbor_peaks) > 1:
+                        start = time.time()
                         mq_subarr = mq_arr[neighbor_peaks]
                         more = True
                         new_neighbor_peaks = np.copy(neighbor_peaks)
@@ -499,14 +504,20 @@ def get_rga_data(rga_data_file, many_scans=True, last_nscans=1000, scan_ind=0, \
                         rel_to_max = plot_y - plot_y
                         fit_sigma = (1.0 - rel_to_max + 1e-2)**(1.0)
 
+                        print
+                        print mq_subarr
+                        print params0
                         popt, pcov = opti.curve_fit(lambda x, *params: fit_wrapper(x, N_param, params), \
                                                 plot_x, plot_y * fit_scale, p0 = params0, maxfev=100000, \
                                                 bounds=bounds, sigma=fit_sigma, verbose=verbose)
+                        print popt
 
                         fit_amps += list(popt[:N_param])
                         fit_mus += list(popt[N_param:2*N_param])
                         fit_sigmas += list(popt[2*N_param:3*N_param])
                         fit_ns += list(popt[3*N_param:4*N_param])
+                        stop = time.time()
+                        print 'many ngauss fit: ', stop-start
 
         print 'Done!'
         sys.stdout.flush()
@@ -673,33 +684,33 @@ def get_leak_m0(main_gas, gas_pp1, gas_pp2, remove_neg_diffs=False, sens_err=0.1
             if diff == 0:
                 continue
             fraction = np.abs(diff) / total
-            fraction_err = np.abs((total-diff)/total) * \
-                            fraction * np.sqrt((diff_err / diff)**2 + (total_err / total)**2)
+            fraction_err = (np.abs((total-diff)/total) * \
+                            fraction * np.sqrt((diff_err / diff)**2 + (total_err / total)**2))[0]
             m0 = gases[key][isotope]
 
-            m0_eff += fraction * m0
+            # m0_eff += fraction * m0
             m0_eff_sqrt += fraction * np.sqrt(m0)
-            m0_eff_sqrt_INV += fraction / np.sqrt(m0)
+            # m0_eff_sqrt_INV += fraction / np.sqrt(m0)
 
             if key != main_gas:
-                m0_eff_var += fraction_err**2 * m0**2
+                # m0_eff_var += fraction_err**2 * m0**2
                 m0_eff_sqrt_var += fraction_err**2 * m0
-                m0_eff_sqrt_INV_var += fraction_err**2 / m0
+                # m0_eff_sqrt_INV_var += fraction_err**2 / m0
 
             print isotope, fraction, fraction_err          
 
-    m0_eff_err = np.sqrt(m0_eff_var)
+    # m0_eff_err = np.sqrt(m0_eff_var)
 
     m0_eff_2 = m0_eff_sqrt**2
     m0_eff_err_2 = np.sqrt(m0_eff_2**2 * (4.0 * m0_eff_sqrt_var / m0_eff_sqrt**2))
 
-    m0_eff_3 = 1.0 / m0_eff_sqrt_INV**2
-    m0_eff_err_3 = np.sqrt(m0_eff_3**2 * (4.0 * m0_eff_sqrt_INV_var / m0_eff_sqrt_INV**2))
+    # m0_eff_3 = 1.0 / m0_eff_sqrt_INV**2
+    # m0_eff_err_3 = np.sqrt(m0_eff_3**2 * (4.0 * m0_eff_sqrt_INV_var / m0_eff_sqrt_INV**2))
 
     print
-    print 'Effective mass for %s: %0.2f +- %0.2f' % (max_species, m0_eff, m0_eff_err)
-    print '                     : %0.2f +- %0.2f' % (m0_eff_2, m0_eff_err_2)
-    print '                     : %0.2f +- %0.2f' % (m0_eff_3, m0_eff_err_3)
+    print 'Effective mass for %s: %0.2f +- %0.2f' % (max_species, m0_eff_2, m0_eff_err_2)
+    # print '                     : %0.2f +- %0.2f' % (m0_eff_2, m0_eff_err_2)
+    # print '                     : %0.2f +- %0.2f' % (m0_eff_3, m0_eff_err_3)
 
-    return [m0_eff, m0_eff_err, m0_eff_2, m0_eff_err_2, m0_eff_3, m0_eff_err_3]
+    return np.array([m0_eff_2, m0_eff_err_2])#, m0_eff_2, m0_eff_err_2, m0_eff_3, m0_eff_err_3]
 

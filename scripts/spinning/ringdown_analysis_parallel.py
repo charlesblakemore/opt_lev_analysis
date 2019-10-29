@@ -13,11 +13,18 @@ import dill as pickle
 import scipy.optimize as opti
 import scipy.signal as signal
 
+from tqdm import tqdm
+from joblib import Parallel, delayed
+
+
 plt.rcParams.update({'font.size': 14})
 
-f_rot = 100000.0
+#f_rot = 210000.0
+f_rot = 110000.0
+#f_rot = 50000.0
 bandwidth = 500
 
+debug = False
 plot_raw_dat = False
 plot_phase = False
 
@@ -32,23 +39,22 @@ high_pass = 10.0
 
 # save_base = '/data/old_trap_processed/spinning/ringdown/20190626/'
 
+date = '20191017'
+base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown/'.format(date)
+#base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown_manual/'.format(date)
 
-base_path = '/data/old_trap/20190905/bead1/spinning/ringdown/'
-paths = [base_path + '100kHz_start_1', \
-         base_path + '100kHz_start_3', \
-         base_path + '100kHz_start_4', \
-         base_path + '100kHz_start_5', \
-         base_path + '100kHz_start_6', \
-         base_path + '100kHz_start_7', \
-         base_path + '100kHz_start_8', \
-         base_path + '100kHz_start_9', \
-         base_path + '100kHz_start_10' \
+save_base = '/data/old_trap_processed/spinning/ringdown/{:s}/'.format(date)
+#save_base = '/data/old_trap_processed/spinning/ringdown_manual/{:s}/'.format(date)
+
+paths = [#base_path + '110kHz_start_1', \
+         #base_path + '110kHz_start_2', \
+         #base_path + '110kHz_start_3', \
+         #base_path + '110kHz_start_4', \
+         base_path + '110kHz_start_5', \
+         base_path + '110kHz_start_6', \
          ]
 
-save_base = '/data/old_trap_processed/spinning/ringdown/20190905/'
 
-mbead = 84.2e-15 # convert picograms to kg
-mbead_err = 1.6e-15
 
 # base_path = '/daq2/20190626/bead1/spinning/wobble/wobble_slow_after-highp_later/'
 # base_save_path = '/processed_data/spinning/wobble/20190626/after-highp_slow_later/'
@@ -62,8 +68,8 @@ mbead_err = 1.6e-15
 # bu.make_all_pardirs(save_paths[0])
 npaths = len(paths)
 
-save = False
-load = True
+save = True
+load = False
 no_fits = True
 
 lin_fit_seconds = 10
@@ -72,9 +78,6 @@ exp_fit_seconds = 500
 
 ############################
 
-rbead, rbead_err = bu.get_rbead(mbead, mbead_err)
-Ibead, Ibead_err = bu.get_Ibead(mbead, mbead_err)
-
 def gauss(x, A, mu, sigma, c):
     return A * np.exp(-1.0*(x-mu)**2 / (2.0*sigma**2)) + c
 
@@ -82,7 +85,7 @@ def ngauss(x, A, mu, sigma, c, n=2):
     return A * np.exp(-1.0*np.abs(x-mu)**n / (2.0*sigma**n)) + c
 
 def lorentzian(x, A, mu, gamma, c):
-    return (A / np.pi) * (gamma**2 / ((x-mu)**2 + gamma**2)) + c
+    return A * (gamma**2 / ((x-mu)**2 + gamma**2)) + c
 
 def line(x, a, b):
     return a * x + b
@@ -124,9 +127,7 @@ def rebin(a, *args):
 # raw_input()
 
 
-outdict = {}
-for pathind, path in enumerate(paths):
-
+def proc_dir(path):
     fc = 2.0*f_rot
     wc = 2.0*np.pi*fc
 
@@ -139,18 +140,18 @@ for pathind, path in enumerate(paths):
     out_f = save_base + dirname
     bu.make_all_pardirs(out_f)
 
-    if load:
-        outdict[out_f] = pickle.load(open(out_f + '_all.p', 'rb'))
-        all_time = outdict[out_f]['all_time']
-        all_freq = outdict[out_f]['all_freq']
-        all_freq_err = outdict[out_f]['all_freq_err']
-        plt.errorbar(all_time.flatten(), all_freq.flatten(), yerr=all_freq_err.flatten())
-        plt.show()
-        continue
+    # if load:
+    #     outdict[out_f] = pickle.load(open(out_f + '_all.p', 'rb'))
+    #     all_time = outdict[out_f]['all_time']
+    #     all_freq = outdict[out_f]['all_freq']
+    #     all_freq_err = outdict[out_f]['all_freq_err']
+    #     plt.errorbar(all_time.flatten(), all_freq.flatten(), yerr=all_freq_err.flatten())
+    #     plt.show()
+    #     continue
 
     files, lengths = bu.find_all_fnames(path, sort_time=True)
 
-    files = files[:1000]
+    #files = files[:1000]
 
     fobj = hsDat(files[0])
     nsamp = fobj.attribs["nsamp"]
@@ -165,11 +166,15 @@ for pathind, path in enumerate(paths):
     upper1 = (2.0 / fsamp) * (fc + 5 * bandwidth)
     lower1 = (2.0 / fsamp) * (fc - 5 * bandwidth)
     fc_init = fc
+    print fc_init
 
     b1, a1 = signal.butter(3, [lower1, upper1], \
                            btype='bandpass')
 
     b_hpf, a_hpf = signal.butter(3, (2.0/fsamp)*high_pass, btype='high')
+
+    notch_digital = (2.0 / fsamp) * (2.0 * f_rot)
+    bn, an = signal.iirnotch(notch_digital, 10000)                          
 
     times = []
 
@@ -185,8 +190,10 @@ for pathind, path in enumerate(paths):
     all_time = []
 
     nfiles = len(files)
-    suffix = '%i / %i' % (pathind+1, npaths)
+    #suffix = '%i / %i' % (pathind+1, npaths)
+    suffix = ''
 
+    amp = 0
     dfdt = 0
     spindown = False
     first = False
@@ -207,13 +214,16 @@ for pathind, path in enumerate(paths):
             # if plot_raw_dat:
             #     plt.loglog(freqs, vperp_filt_asd)
             #     plt.loglog(freqs, np.abs(np.fft.rfft(vperp)))
-            #     plt.xlim(fc - 10*bandwidth, fc + 10*bandwidth)
+            #     plt.xlim(fc - bandwidth, fc + bandwidth)
             #     plt.show()
 
             p0 = [np.max(vperp_filt_asd), fc, 1, 0]
             popt, pcov = opti.curve_fit(lorentzian, freqs, vperp_filt_asd, p0=p0)
+            if amp == 0:
+                amp = popt[0]
 
-            if (np.abs(fc - popt[1]) > 5.0): 
+            if (np.abs(fc - popt[1]) > 5.0) or (popt[0] < 0.5 * amp):
+                print 'CHIRP STARTED' 
                 spindown = True
                 first = True
                 #fc_old = fc
@@ -221,6 +231,7 @@ for pathind, path in enumerate(paths):
                 fc_init = fc
                 t_init = t
             else:
+                amp = popt[0]
                 fc = popt[1]
                 continue
 
@@ -240,29 +251,43 @@ for pathind, path in enumerate(paths):
 
         b1, a1 = signal.butter(3, [lower1, upper1], \
                                     btype='bandpass')
-        vperp_filt = signal.filtfilt(b1, a1, vperp)
+        vperp_filt = signal.filtfilt(b1, a1, vperp)    
+        vperp_filt_2 = signal.lfilter(bn, an, vperp_filt) 
 
-        vperp_filt_fft = np.fft.rfft(vperp_filt)
+        vperp_filt_fft = np.fft.rfft(vperp_filt_2)
         vperp_filt_asd = np.abs(vperp_filt_fft)
 
         p0 = [np.max(vperp_filt_asd), fc, 1, 0]
         #popt, pcov = opti.curve_fit(lorentzian, freqs, vperp_filt_asd, p0=p0)
 
+        freq_ind = np.argmin(np.abs(freqs - fc))
+        fit_inds = np.abs(freqs - fc) < 1000.0
+
+        start = time.time()
         def fit_fun(x, A, mu, sigma, c):
             return ngauss(x, A, mu, sigma, c, n=5)
-        popt, pcov = opti.curve_fit(fit_fun, freqs, vperp_filt_asd, p0=p0, maxfev=3000)
+        popt, pcov = opti.curve_fit(fit_fun, freqs[fit_inds], vperp_filt_asd[fit_inds], \
+                                    p0=p0, maxfev=3000)
+        stop = time.time()
+        if debug:
+            print "Init fit: ", stop-start
 
         fc = popt[1]
 
         upper1 = (2.0 / fsamp) * (1.0075 * fc)
         lower1 = (2.0 / fsamp) * (0.9925 * fc)
 
+        start = time.time()
         b1, a1 = signal.butter(3, [lower1, upper1], \
                                     btype='bandpass')
         vperp_filt = signal.filtfilt(b1, a1, vperp)
+        vperp_filt_2 = signal.lfilter(bn, an, vperp_filt) 
 
-        vperp_filt_fft = np.fft.rfft(vperp_filt)
+        vperp_filt_fft = np.fft.rfft(vperp_filt_2)
         vperp_filt_asd = np.abs(vperp_filt_fft)
+        stop = time.time()
+        if debug:
+            print "Filtering time: ", stop - start
 
         fc_old = fc
         # stop = time.time()
@@ -270,13 +295,13 @@ for pathind, path in enumerate(paths):
 
         if plot_raw_dat:
             plt.figure()
-            plt.loglog(freqs, vperp_filt_asd)
             plt.loglog(freqs, np.abs(np.fft.rfft(vperp)))
-            plt.xlim(fc - 5*bandwidth, fc + 5*bandwidth)
+            plt.loglog(freqs, vperp_filt_asd)
+            plt.xlim(fc - 10*bandwidth, fc + 10*bandwidth)
 
         
         window = signal.tukey(nsamp, alpha=1e-4)
-        ht = signal.hilbert(vperp_filt)# * window)
+        ht = signal.hilbert(vperp_filt_2)# * window)
         inst_phase = np.unwrap(np.angle(ht))
 
         inst_freq = (fsamp / (2 * np.pi)) * np.gradient(inst_phase)
@@ -288,9 +313,13 @@ for pathind, path in enumerate(paths):
         fit_inst_freq = inst_freq[start_ind:-1000]
         fit_time_vec = time_vec[start_ind:-1000]
 
+        start = time.time()
         fit_time_vec_ds, fit_time_vec_err_ds = rebin( fit_time_vec, 1000 )
         fit_inst_freq_ds, fit_inst_freq_err_ds = rebin( fit_inst_freq, 1000 )
         fit_inst_phase_ds, fit_inst_phase_err_ds = rebin( fit_inst_phase, 1000 )
+        stop = time.time()
+        if debug:
+            print "Rebinning time: ", stop - start
 
         # plt.plot(fit_time_vec, fit_inst_freq)
         # plt.plot(fit_time_vec_ds, fit_inst_freq_ds)
@@ -319,6 +348,9 @@ for pathind, path in enumerate(paths):
 
         all_time.append(fit_time_vec_ds + (t - t_init)*1e-9)
 
+        # plt.plot(np.array(all_time).flatten(), np.array(all_freq).flatten())
+        # plt.show()
+
         times.append(t)
         center_freq.append(line(np.median(time_vec), *popt_line))
         center_freq_err.append(np.std(fit_inst_freq_ds - line(fit_time_vec_ds, *popt_line)))
@@ -345,16 +377,30 @@ for pathind, path in enumerate(paths):
     if save:
         pickle.dump(resdict, open(out_f + '_all.p', 'wb'))
 
-    outdict[out_f] = resdict
+    #outdict[out_f] = resdict
+    return resdict
 
-    plt.errorbar(all_time.flatten(), all_freq.flatten(), yerr=all_freq_err.flatten())
-    plt.suptitle(out_f)
-    plt.show()
+outdict = {}
+if not load:
+    results = Parallel(n_jobs=len(paths))(delayed(proc_dir)(path) for path in tqdm(paths))
+    for ind, path in enumerate(paths):
+        strs = path.split('/')
+        if len(strs[-1]) == 0:
+            dirname = strs[-2]
+        else:
+            dirname = strs[-1]
 
+        outdict[dirname] = results[ind]
+if load:
+    for path in paths:
+        strs = path.split('/')
+        if len(strs[-1]) == 0:
+            dirname = strs[-2]
+        else:
+            dirname = strs[-1]
+        out_f = save_base + dirname
 
-
-
-
+        outdict[out_f] = pickle.load(open(out_f + '_all.p', 'rb'))
 
 if no_fits:
     exit()

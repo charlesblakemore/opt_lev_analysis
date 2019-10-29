@@ -13,12 +13,10 @@ import configuration as config
 
 plt.rcParams.update({'font.size': 16})
 
-dir1 = '/data/20190109/bead1/'
+dir1 = '/data/old_trap/20191017/bead1/spinning/junk/shit_test_10'
 maxfiles = 500
 
-use_dir = False
-
-filename_labels = True #False
+use_dir = True
 
 # allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
 #             '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
@@ -46,33 +44,73 @@ filename_labels = True #False
 #            '/daq2/20190507/bead1/turbombar_powfb_xyzcool.h5']
 
 
-# allfiles = ['/daq2/20190626/bead1/1_5mbar_powfb_zcool_init.h5', \
-#             '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low1.h5', \
-#             '/daq2/20190626/bead1/1_5mbar_powfb_zcool_low2.h5', \
+# allfiles = ['/data/old_trap/20190626/bead1/1_5mbar_powfb_zcool_init.h5', \
+#             '/data/old_trap/20190626/bead1/1_5mbar_powfb_zcool_low1.h5', \
+#             '/data/old_trap/20190626/bead1/1_5mbar_powfb_zcool_low2.h5', \
 #             #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low3.h5', \
 #             #'/daq2/20190619/bead1/1_5mbar_powfb_zcool_low4.h5', \
-#             '/daq2/20190626/bead1/1_5mbar_powfb_xzcool_low2.h5', \
-#             '/daq2/20190626/bead1/1_5mbar_powfb_yzcool_low2.h5', \
+#             '/data/old_trap/20190626/bead1/1_5mbar_powfb_xzcool_low2.h5', \
+#             '/data/old_trap/20190626/bead1/1_5mbar_powfb_yzcool_low2.h5', \
 #             ]
 
 
-allfiles = [#'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_highx_highy.h5', \
-            #'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_lowx_highy.h5', \
-            #'/daq2/20190829/bead2/fb_test/turbombar_powfb_xyzcool_highx_lowy.h5', \
-            '/daq2/20190829/bead2/crazy_stuff/turbombar_powfb_xyzcool.h5', \
-            '/daq2/20190829/bead2/crazy_stuff/turbombar_powfb_xyzcool_2.h5', \
+# allfiles = [#'/data/old_trap/20191007/bead1/prebead/pow_term.h5', \
+#             #'/data/old_trap/20191007/bead1/prebead/powfb_nofb.h5', \
+#             #'/data/old_trap/20191007/bead1/prebead/powfb_i-gain.h5', \
+#             #'/data/old_trap/20191007/bead1/prebead/powfb_di-gain.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_nocool.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_i-gain.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_pid-gain.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_pid-gain_more.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_pid-gain_less.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_pid-gain_less_2.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_init.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_low1.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_low2.h5', \
+#             #'/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool_low3.h5', \
+#             '/data/old_trap/20191007/bead1/1_5mbar_powfb_zcool.h5', \
+#             '/data/old_trap/20191007/bead1/1_5mbar_powfb_xzcool.h5', \
+#             '/data/old_trap/20191007/bead1/1_5mbar_powfb_yzcool.h5', \
+#             ]
+
+
+allfiles = ['/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_nofb_nocool.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-i-gain_nocool.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_nocool.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-i-gain.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pi-gain.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain-more_zcool-pi-gain.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pi-gain-more.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pid-gain.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pid-gain-more.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pid-gain-more2.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pid-gain-more3.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pi-gain_zcool-pid-gain-more4.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pid-gain_zcool-pid-gain.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb-pid-gain_zcool-pid-gain_2.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb_zcool.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb_zcool_low1.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb_zcool_low2.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb_zcool_low3.h5', \
+            #'/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_powfb_zcool_low4.h5', \
+            '/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5'
             ]
 
 
 tfdate = '20190619'
 
+#filename_labels = True 
+filename_labels = False
+
 #labs = ['1','2', '3']
 
 data_axes = [0,1,2]
-fb_axes = []
+fb_axes = [0,1,2]
 #fb_axes = [0,1,2]
-other_axes = [0,1,2,3,4,5,6,7]
+other_axes = []
+#other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
+plot_power = True
 
 drive_ax = 1
 
@@ -90,12 +128,13 @@ ylim = ()
 
 lpf = 2500   # Hz
 
+#file_inds = (0, 3)
 file_inds = (0, 1800)
 
-userNFFT = 2**12
+userNFFT = 2**11
 diag = False
 
-fullNFFT = False
+fullNFFT = True
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -110,7 +149,8 @@ posdic = {0: 'x', 1: 'y', 2: 'z'}
 
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
-                      fb_axes=[], diag=True, colormap='jet', sort='time', file_inds=(0,10000)):
+                      fb_axes=[], plot_power=False, diag=True, colormap='plasma', \
+                      sort='time', file_inds=(0,10000)):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -147,6 +187,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         fbfig, fbaxarr = plt.subplots(len(fb_axes),1,sharex=True,sharey=True)
         if len(fb_axes) == 1:
             fbaxarr = [fbaxarr]
+    if plot_power:
+        pfig, paxarr = plt.subplots(1,1)
 
     files = files[file_inds[0]:file_inds[1]]
     if step10:
@@ -228,7 +270,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 if len(fb_axes):
                     fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
                     fbaxarr[axind].grid(alpha=0.5)
-                    fbaxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                    fbaxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$')
 
 
                 if ax == data_axes[-1]:
@@ -250,10 +292,15 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         if len(other_axes):
             for axind, ax in enumerate(other_axes):
-                ax = ax - 3
+                #ax = ax - 3
                 psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
                                       NFFT=NFFT, window=window)
-                oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
+                oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color)
+
+        if plot_power:
+            psd, freqs = mlab.psd(df.power, Fs=df.fsamp, \
+                                        NFFT=NFFT, window=window)
+            paxarr.loglog(freqs, np.sqrt(psd), color=color)
 
 
     if filename_labels:
@@ -266,6 +313,15 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
     if len(ylim):
         daxarr[0].set_ylim(ylim[0], ylim[1])
     plt.tight_layout()
+
+    if len(cant_axes):
+        cfig.tight_layout()
+    if len(elec_axes):
+        efig.tight_layout()
+    if len(other_axes):
+        ofig.tight_layout()
+    if len(fb_axes):
+        fbfig.tight_layout()
 
 
     if savefigs:
@@ -288,11 +344,11 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
 
 if use_dir:
-    allfiles = bu.find_all_fnames(dir1)
+    allfiles, lengths = bu.find_all_fnames(dir1, sort_time=True)
 
 allfiles = allfiles[:maxfiles]
 #allfiles = bu.sort
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
-                  fb_axes=fb_axes, colormap=cmap)
+                  fb_axes=fb_axes, plot_power=plot_power, colormap=cmap)

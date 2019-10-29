@@ -76,25 +76,28 @@ import configuration as config
 #step_cal_dir = ['/data/20190124/bead2/discharge/fine']
 #step_cal_dir = ['/data/20190124/bead2/discharge/recharge_20190125']
 
+#step_cal_dir = ['/data/old_trap/20190626/bead1/discharge/fine']
 
-step_cal_dir = ['/daq2/20190626/bead1/discharge/fine']
+step_cal_dir = ['/data/old_trap/20190905/bead1/discharge/after_rga_recharge']
+
+step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
 
 using_tabor = True
 tabor_ind = 3
 
 recharge = False
 if type(step_cal_dir) == str:
-    step_date = step_cal_dir.split('/')[2]
+    step_date = step_cal_dir.split('/')[3]
     if 'recharge' in step_cal_dir:
         recharge = True
     else:
-        recharge
+        recharge = False
 else:
-    step_date = step_cal_dir[0].split('/')[2]
+    step_date = step_cal_dir[0].split('/')[3]
     for dir in step_cal_dir:
         if 'recharge' in dir:
             recharge = True
-#recharge = True
+recharge = False
 
 max_file = 5000
 decimate = False
@@ -113,9 +116,9 @@ vpn = 7.264e16
 
 #tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
 
-tf_cal_dir = '/daq2/20190619/bead1/tf_20190619/'
+tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
 
-tf_date = tf_cal_dir.split('/')[2]
+tf_date = tf_cal_dir.split('/')[3]
 
 tf_date = step_date
 
@@ -134,18 +137,21 @@ ext = config.extensions['trans_fun']
 
 # Generate automatic paths for saving
 if interpolate:
-    savepath = '/calibrations/transfer_funcs/' + tf_date + '_interp' + ext
+    savepath = '/data/old_trap_processed/calibrations/transfer_funcs/' + tf_date + '_interp' + ext
 else:
-    savepath = '/calibrations/transfer_funcs/' + tf_date + ext
+    savepath = '/data/old_trap_processed/calibrations/transfer_funcs/' + tf_date + ext
 
 if save_charge:
-    prefix = '/calibrations/charges/'
+    prefix = '/data/old_trap_processed/calibrations/charges/'
     if recharge:
         charge_path = prefix + step_date + '_recharge.charge'
     else:
         charge_path = prefix + step_date + '.charge'
 
     print charge_path
+
+bu.make_all_pardirs(savepath)
+bu.make_all_pardirs(charge_path)
 
 
 
@@ -257,6 +263,18 @@ if recharge:
 ## for 20190122 discharge
 #step_cal_files.pop(135)
 #step_cal_files.pop(228)
+
+
+## for 20191017 discharge
+step_cal_files.pop(3)
+step_cal_files.pop(4)
+step_cal_files.pop(8)
+step_cal_files.pop(8)
+step_cal_files.pop(11)
+step_cal_files.pop(180)
+step_cal_files.pop(243)
+step_cal_files.pop(255)
+step_cal_files.pop(255)
 
 tf_cal_files = []
 for root, dirnames, filenames in os.walk(tf_cal_dir):

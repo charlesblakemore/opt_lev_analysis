@@ -210,6 +210,8 @@ class DataFile:
             self.pos_time = fpga_dat['xyz_time']
             self.pos_fb = fpga_dat['fb']
 
+            self.power = fpga_dat['power']
+
             #print self.pos_data
 
             # Load quadrant and backscatter amplitudes and phases
@@ -795,7 +797,7 @@ class DataFile:
 
            OUTPUTS: none, generates new class attribute.'''
 
-        tf_path = '/calibrations/transfer_funcs/'
+        tf_path = '/data/old_trap_processed/calibrations/transfer_funcs/'
         ext = configuration.extensions['trans_fun']
         if not len(date):
             tf_path +=  self.date
@@ -807,7 +809,7 @@ class DataFile:
         else:
             tf_path += ext
 
-        print tf_path
+        #print tf_path
 
         # Load the transfer function. Note that this Hfunc maps
         # drive -> response, so we will need to invert

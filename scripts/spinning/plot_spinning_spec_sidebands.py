@@ -9,6 +9,7 @@ import scipy.signal as ss
 
 
 path = "/data/20181204/bead1/high_speed_digitizer/general_tests/spinning_50k_z_hat"
+path = "/data/20190905/bead1/spinning/test"
 fc = 1e5
 files= glob.glob(path + "/*.h5")
 

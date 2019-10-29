@@ -23,10 +23,13 @@ plt.rcParams.update({'font.size': 14})
 #rga_data_file1 = '/daq2/20190514/bead1/rga_scans/Ar-leak_2_000001.txt'
 #rga_data_file2 = '/daq2/20190514/bead1/rga_scans/post_Ar-leak_4_000001.txt'
 
-main_gases = ['He', 'N2', 'Ar', 'Kr', 'Xe', 'SF6']
-#main_gases = ['SF6']
+#date = '20190626'
+#date = '20191007'
+date = '20191017'
+#main_gases = ['He', 'N2', 'Ar', 'Kr', 'Xe', 'SF6']
+main_gases = ['He']
+#pramps = [1,2,3]
 pramps = [1,2,3]
-#pramps = [1]
 # pramp_index = 3
 # gas = 'Xe'
 
@@ -45,7 +48,7 @@ ion_dict = {'He': ['F+'], \
             'SF6': ['H3O+', 'Ar+', 'Xe128+', 'Xe128+2', 'Xe129+', 'Xe129+2', \
                     'Xe130+', 'Xe130+2', 'O2+', 'O2+2']}
 
-plot_extraction = True
+plot_extraction = False
 remove_neg_diffs = True
 
 load = False
@@ -54,15 +57,15 @@ show = False
 measurements = []
 for gas in main_gases:
     for pramp_index in pramps:
-        base = '/daq2/20190626/bead1/spinning/pramp/%s/rga/' % gas
-        rga_data_file1 = base + 'before_%i_000001.txt' % pramp_index
-        rga_data_file2 = base + 'flush_%i_000001.txt' % pramp_index
+        base = '/data/old_trap/{:s}/bead1/spinning/pramp/{:s}/rga/'.format(date, gas)
+        rga_data_file1 = base + 'before_{:d}_000001.txt'.format(pramp_index)
+        rga_data_file2 = base + 'flush_{:d}_000001.txt'.format(pramp_index)
 
-        save_base = '/processed_data/spinning/pramp_data/20190626/%s/' % gas
-        save_file_before = save_base + '%s_pramp_%i_rga_before.p' % (gas, pramp_index + 0)
-        save_file_flush = save_base + '%s_pramp_%i_rga_flush.p' % (gas, pramp_index + 0)
+        save_base = '/data/old_trap_processed/spinning/pramp_data/{:s}/{:s}/'.format(date, gas)
+        save_file_before = save_base + '{:s}_pramp_{:d}_rga_before.p'.format(gas, pramp_index + 0)
+        save_file_flush = save_base + '{:s}_pramp_{:d}_rga_flush.p'.format(gas, pramp_index + 0)
 
-        fig_filename_base = '/home/charles/plots/20190626/pramp/%s/flush%i_' % (gas, pramp_index + 0)
+        fig_filename_base = '/home/cblakemore/plots/{:s}/pramp/{:s}/flush{:d}_'.format(date, gas, pramp_index + 0)
 
         measurements.append([gas, rga_data_file1, rga_data_file2, \
                              save_file_before, save_file_flush, \
