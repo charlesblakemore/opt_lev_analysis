@@ -10,7 +10,7 @@ from scipy import signal
 from scipy.optimize import curve_fit
 from amp_ramp_3 import find_phasemod_freq 
 
-save = True 
+save = False 
 
 #path_list = ["/daq2/20190626/bead1/spinning/ringdown/50kHz_ringdown/",\
 #			"/daq2/20190626/bead1/spinning/ringdown/50kHz_ringdown2/"]
@@ -22,10 +22,6 @@ out_path = "/home/dmartin/analyzedData/20190626/ringdown/after_pramp/"
 #Somehow allows me to plot a 50e3 sample signal. Need to understand it
 matplotlib.rcParams['agg.path.chunksize'] = 10000
 
-if os.path.isdir(out_path) == False:
-	print("out_path doesn't exist. Creating...")
-	os.mkdir(out_path)
-	
 spin_freq = 100e3
 
 def gauss(x,a,b,c):
@@ -37,7 +33,7 @@ def quadratic(x,a,b,c):
 def line(x,a,b):
 	return a*x + b
 
-def track_frequency(df,freqs,curr_spin_freq,amp=1,gauss_width=50,plot=False):
+def track_frequency(df=None,freqs=None,curr_spin_freq=0,amp=1,gauss_width=50,plot=False, fft=None , wind = 500.):
 	'''Uses a Gaussian fit to follow the chirp feature as it progress to lower frequency.'''
 	
 	gauss_fit_params = []
@@ -48,9 +44,11 @@ def track_frequency(df,freqs,curr_spin_freq,amp=1,gauss_width=50,plot=False):
 	#For whatever reason the curve fit will not properly track the 	  #chirp feature if given previous amp and width values.
 	p_init = [1,curr_spin_freq,50]
 	
-	fft = np.fft.rfft(df.dat[:,0])
-	
-	mask = (freqs > curr_spin_freq-500) & (freqs < curr_spin_freq+500)
+        if fft is None:
+
+            fft = np.fft.rfft(df.dat[:,0])
+            
+	mask = (freqs > curr_spin_freq-wind) & (freqs < curr_spin_freq+wind)
 	
 	try:	
 		popt, pcov = curve_fit(gauss,freqs[mask],np.abs(fft[mask]),p0=p_init)
@@ -58,7 +56,7 @@ def track_frequency(df,freqs,curr_spin_freq,amp=1,gauss_width=50,plot=False):
 		new_spin_freq = popt[1]
 		
 		if plot:
-			mask = (freqs > new_spin_freq-300) & (freqs < new_spin_freq+300)
+			mask = (freqs > new_spin_freq-wind) & (freqs < new_spin_freq+wind)
 			plt.plot(freqs[mask],gauss(freqs[mask],*popt),label='center {}'.format(popt[1]))
 			plt.plot(freqs[mask],np.abs(fft)[mask])
 			plt.title('track freq')
@@ -296,12 +294,17 @@ def plot_data(f,freq,gauss_fit_params):
 	plt.show()
 	
 	
-
-for i in range(len(path_list)):
-	files, zero= buf.find_all_fnames(path_list[i])
-	off_ind = drive_state_ind(files)
+if __name__ == "__main__":
+    if os.path.isdir(out_path) == False:
+        print("out_path doesn't exist. Creating...")
+        os.mkdir(out_path)
 	
-	name = path_list[i].split('/')[-2]
-	find_spin_freqs_hilbert(files[off_ind:],name+'_{}'.format(off_ind),spin_freq)	
+    
+    for i in range(len(path_list)):
+    	files, zero= buf.find_all_fnames(path_list[i])
+    	off_ind = drive_state_ind(files)
+    	
+    	name = path_list[i].split('/')[-2]
+    	find_spin_freqs_hilbert(files[off_ind:],name+'_{}'.format(off_ind),spin_freq)	
 
 	

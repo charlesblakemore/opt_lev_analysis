@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.mlab
+import bead_sim_funcs as bsfuncs
 from scipy import constants
 
 def whiteNoise(nsamp, Fs):
@@ -26,7 +27,7 @@ def noise_test():
     plt.loglog(freqs2, psd2)
     plt.show()
 
-def beta(R = 2.4e-6, T = 300., p = 2.6e-4, m0 = 2*2.3258671e-26):
+def beta(R = 2.5e-6, T = 300., p = 2.6e-4, m0 = bsfuncs.mbead ):#2*2.3258671e-26):
     '''calculates torsional damping coefficient. Defaluts: sphere 
        radius is 2.5um, T 300K, gas pressure is 10^-5mbar (1mpascal) 
        Default gas mass is N2'''
@@ -38,9 +39,9 @@ def Sf(beta, T):
     '''fluctuation dissipation theorem converts torsional damping to PSD'''
     return 4*constants.k*T*beta
 
-def torqueNoise(nsamp, Fs, R = 2.5e-6, T = 300., p = 1e-3, \
-                m0 = 2*2.3258671e-26):
+def torqueNoise(nsamp, Fs, R = 2.5e-6, T = 300., p = 2.6e-4, \
+        m0 = bsfuncs.mbead):#2*2.3258671e-26):
     '''generates torque noise realization for 1dof.'''
     b = beta(R = R, T = T, p = p, m0 = m0)
     S = Sf(b, T)
-    return np.sqrt(S * 0.5 * Fs)*np.random.randn(nsamp)
+    return np.sqrt(S * 0.5 * Fs)*np.random.randn(nsamp) #0.5 *Fs is the max frequency in the S spectrum?

@@ -44,7 +44,7 @@ from bead_util_funcs import *
 
 
 class DataFile:
-    '''Class holing all of the data for an individual file. 
+    '''Class holding all of the data for an individual file. 
        Contains methods to  apply calibrations to the data, 
        including image coordinate correction. Also contains 
        methods to change basis from time data to cantilever 
@@ -794,7 +794,7 @@ class DataFile:
 
            OUTPUTS: none, generates new class attribute.'''
 
-        tf_path = '/calibrations/transfer_funcs/'
+        tf_path = '/data/old_trap_processed/calibrations/transfer_funcs/'
         ext = configuration.extensions['trans_fun']
         if not len(date):
             tf_path +=  self.date

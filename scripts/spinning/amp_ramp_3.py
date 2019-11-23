@@ -136,7 +136,7 @@ def find_drive_amp_filt(obj):
 	return damp
 
 	
-def filt(signal,frequency,Ns,Fs,bandwidth):
+def bp_filt(signal,frequency,Ns,Fs,bandwidth):
 	freqs = np.fft.rfftfreq(Ns,1/Fs)
 	
 	low_freq = (frequency - bandwidth/2)/freqs[-1]

@@ -1,24 +1,34 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-#datafile = '/home/dmartin/Desktop/simulations/libration_3/slow_rot_field/16.5e3Vm_data.npy'
-datafile = '/home/dmartin/Desktop/simulations/efield_phase_mod/test_faster_phase_mod_data.npy'
-parameters = '/home/dmartin/Desktop/simulations/libration_3/slow_rot_field/33e3Vm_5_4_parameters.npy'
+directory = '/home/dmartin/Desktop/simulations/added_thermtorque/'
+base_filename = 'test4'
+#base_filename = 'step_func_efield_start_0Hz_stop_50s_16e1Vm'
+
+datafile = directory + base_filename + '_data.npy'
+parameters = directory + base_filename + '_parameters.npy'
 
 data = np.load(datafile)
 params = np.load(parameters, allow_pickle=True)
 
 time = data[:,0]
-mask = time >= 0. 
+mask = time >= 0.#(time >= 20.) & (time <= 100.)
 
-w_arr = {'units': 'blah', 'axes': ['$\omega_{x}$','$\omega_{y}$'\
+w_arr = {'units': 'rad/s', 'axes': ['$\omega_{x}$','$\omega_{y}$'\
         ,'$\omega_{z}$'],'data': data[:,1:4]}
 
-p_arr = {'units': 'blah', 'axes': ['$p_{x}$','$p_{y}$','$p_{z}$'] , 'data': data[:,7:10]}
+p_arr = {'units': '$e$' + ' $\mu m$', 'axes': ['$p_{x}$','$p_{y}$','$p_{z}$'] , 'data': data[:,7:10] * (1./1.602e-19) * 1.e6}
 
-Efield_arr = {'units': 'blah', 'axes': ['$E_{x}$','$E_{y}$','$E_{z}$'],'data': data[:,10:14]}
-
+Efield_arr = {'units': 'V/m', 'axes': ['$E_{x}$','$E_{y}$','$E_{z}$'],'data': data[:,10:14]}
+    
 cart_to_sphere = False
+save_p = False
+save_p_fft = False
+p_linear = False
+p_plot_axes = []
+set_limits = False
+
+w_plot_axes = []
 
 def cart_to_sphere_coord(arr): 
     print arr.shape
@@ -38,42 +48,98 @@ def cart_to_sphere_coord(arr):
 
     return p_spher_coord
 
-def plot_data_fft(arr, tarr, Ns, Fs, axes=[], units='blah'):
-    fig, ax = plt.subplots(arr.shape[1], 1, figsize=(7,4), sharex = True, dpi = 100)
+def plot_data_fft(arr, tarr, Ns, Fs, axes=[], units='blah', save_fft=False,\
+                  linear=False, plot_axes=[]):
+   
+   
+    arr = np.delete(arr, plot_axes, 1)
+
+    fig, ax = plt.subplots(arr.shape[1], 1, figsize=(7,6), sharex = True, dpi = 200)
     
     
     freqs = np.fft.rfftfreq(Ns, 1./Fs)
     mask = (tarr > 50) & (tarr < 100)
     
-    for i in range(len(ax)):
-        fft = np.fft.rfft(arr[:,i])
-        ax[i].loglog(freqs, 2 * np.abs(fft)/(len(fft)))
-        
-        if axes:
-            ax[i].set_ylabel(axes[i] + ' [{}]'.format(units))
 
-        ax[i].set_xlabel('Frequency [Hz]')
-        ax[i].legend()
+    for i in range(arr.shape[1]):
+        fft = np.fft.rfft(arr[:,i])
     
+        if arr.shape[1] != 1:
+            ax[i].loglog(freqs, 2 * np.abs(fft)/(len(fft)))
+            
+            if axes:
+                ax[i].set_ylabel(axes[i] + ' [{}]'.format(units))
+
+            ax[i].set_xlabel('Frequency [Hz]')
+            #ax[i].legend()
+            ax[i].minorticks_on() 
+        else:
+            for j, axis in enumerate(plot_axes):
+                if axis:
+                    ax.loglog(freqs, 2 * np.abs(fft)/(len(fft)))
+                    ax.set_xlabel('Frequency [Hz]')
+                    ax.minorticks_on()
+            if axes:
+                ax.set_ylabel(axes[j] + ' [{}]'.format(units))
+    
+    
+    fig.tight_layout()
+    if save_fft:
+        fig.savefig(directory + base_filename + '_plot_fft.png')
+
     plt.show()
 
-def plot_data(arr, tarr, axes=[], units='blah'):
-    fig, ax = plt.subplots(arr.shape[1], 1, figsize=(7,4), sharex = True, dpi = 100)
+    if linear:
+        fig, ax = plt.subplots(arr.shape[1], 1, figsize=(7,6), sharex = True, dpi = 200)    
+        
+        for i in range(arr.shape[1]):
+            fft = np.fft.rfft(arr[:,i])
+            
+            if arr.shape[1] != 1:
+                ax[i].semilogy(freqs, 2 * np.abs(fft)/(len(fft)))
+                
+                ax[i].minorticks_on()
+
+                if axes:
+                    ax[i].set_ylabel(axes[i] + ' [{}]'.format(units))
+
+                ax[i].set_xlabel('Frequency [Hz]')
+                #ax[i].legend()
+            else:
+                ax.semilogy(freqs, 2 * np.abs(fft)/(len(fft)))
+                ax.minorticks_on()
+
+                if axes:
+                    for j, axis in enumerate(plot_axes):
+                        if axis:
+                            ax.set_ylabel(axes[j] + '[{}]'.format(units))
+
+        plt.show()
+
+def plot_data(arr, tarr, axes=[], units='blah', set_limits=False, save=False):
     
-    
-    freqs = np.fft.rfftfreq(Ns, 1./Fs)
-    mask = (tarr > 50) & (tarr < 100)
+    fig, ax = plt.subplots(arr.shape[1], 1, figsize=(7,6), sharex = True, dpi = 200)
     
     for i in range(len(ax)):
-        fft = np.fft.rfft(arr[:,i])
+        y_bot_lim = -1.5*(np.amax(arr[:,i]))
+        y_top_lim = 1.5*(np.amax(arr[:,i]))
+
         if axes:
-            ax[i].plot(tarr,arr[:,i], label=axes[i])
+            ax[i].plot(tarr, arr[:,i], label=axes[i])
         else:
-            ax[i].plot(tarr,arr[:,i])
+            ax[i].plot(tarr, arr[:,i])
         ax[i].set_ylabel(axes[i] + ' [{}]'.format(units))
         ax[i].set_xlabel('Time [s]')
-        ax[i].legend()
+       
+        ax[i].minorticks_on()
+        if set_limits:
+            ax[i].set_ylim(y_bot_lim,y_top_lim)
+        #ax[i].legend()
     
+    fig.tight_layout()
+    if save:
+        fig.savefig(directory + base_filename + '_plot.png')
+
     plt.show()
 
 
@@ -103,17 +169,20 @@ print Ns, Fs
 
 #plot_data_fft(phase_diff[mask], time[mask], Ns, Fs, ['','',''],['','','']) 
 
+
 if cart_to_sphere:
     plot_data(p_arr['data'], time, p_arr['axes'], p_ang_arr['units'])
 
 else:
-    plot_data(p_arr['data'][mask], time[mask], p_arr['axes'], p_arr['units'])
+    plot_data(p_arr['data'][mask], time[mask], p_arr['axes'], p_arr['units'],save = save_p, set_limits=set_limits)
 
-    plot_data_fft(p_arr['data'][mask], time[mask],Ns, Fs, p_arr['axes'], p_arr['units'])
+    plot_data_fft(p_arr['data'][mask], time[mask],Ns, Fs, p_arr['axes'], p_arr['units'], save_fft=save_p_fft, linear=p_linear, plot_axes=p_plot_axes)
 
 plot_data(w_arr['data'][mask], time[mask], w_arr['axes'], w_arr['units'])
-#plot_data_fft(w_arr['data'][mask], time[mask],Ns, Fs, w_arr['axes'], w_arr['units'])
-#plot_data(Efield_arr['data'], time, Efield_arr['axes'], Efield_arr['units'])
+
+plot_data_fft(w_arr['data'][mask], time[mask],Ns, Fs, w_arr['axes'], w_arr['units'], plot_axes=w_plot_axes)
+
+plot_data(Efield_arr['data'], time, Efield_arr['axes'], Efield_arr['units'])
 
 p_fft = np.fft.rfft(p_arr['data'][0])
 E_fft = np.fft.rfft(Efield_arr['data'][0])

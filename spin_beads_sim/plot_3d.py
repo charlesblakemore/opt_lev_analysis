@@ -11,7 +11,7 @@ frames = 10000
 interval = 1
 
 start = 0
-stop = -1
+stop = 1000
 
 
 def sine(t):
@@ -116,4 +116,19 @@ efieldz = efieldz[start:stop]
 efield = [efieldx, efieldy, efieldz]
 
 
+px = 0.2*np.cos(2 * np.pi * 200 * time + 0.8* 0.5*np.pi*np.sin(2*np.pi * 50*time ))
+py = 0.2*np.sin(2 * np.pi * 200 * time + 0.8* 0.5*np.pi*np.sin(2*np.pi * 50*time ))
+pz = np.zeros_like(px)
+
+fft = np.fft.rfft(px)
+freqs = np.fft.rfftfreq(len(px), time[1]-time[0])
+
+plt.plot(freqs, np.abs(fft))
+plt.show()
+
+plt.plot(time, px)
+plt.plot(time, py)
+plt.show()
+
+p = [px,py,0*pz]
 plotter(time, frames, interval, p)

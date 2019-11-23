@@ -16,8 +16,8 @@ import bead_sim_funcs as bsfuncs
 
 ### Define the savepath
 #savepath = '/spinsim_data/alldata_Vxy100Vrotchirp_1kHz_dt5us.npy'
-savepath = '/home/dmartin/Desktop/simulations/efield_phase_mod/'
-savename = 'test_faster_phase_mod'
+savepath = '/home/dmartin/Desktop/simulations/added_thermtorque/'
+savename = 'test4'
 
 # Random seed. Un-comment to use a fixed seed for numpy's
 # quasi-random random number generator in order to check 
@@ -25,7 +25,8 @@ savename = 'test_faster_phase_mod'
 #np.random.seed(123456)
 
 #damping time
-tau = 2000.
+tau = 500.
+
 
 ### Get the dipole moment and moment of inertia
 p0 = bsfuncs.p0
@@ -34,7 +35,7 @@ print p0, Ibead
 
 ### Define Initial Conditions
 theta0 = 0.5 * np.pi # rad
-phi0 = 0.            # rad
+phi0 = 0.0 #0.5            # rad
 p0x = p0 * np.sin(theta0) * np.cos(phi0)
 p0y = p0 * np.sin(theta0) * np.sin(phi0)
 p0z = p0 * np.cos(theta0) * 0.0
@@ -50,7 +51,7 @@ xi_init = np.array([p0x, p0y, p0z, wx, wy, wz])
 
 wx0 = 0.#2 * np.pi * 2.e3
 wy0 = 0.
-wz0 = 2 * np.pi * 50.
+wz0 = 0#2 * np.pi * 50.
 
 wxdot0 = 0.
 wydot0 = 0.
@@ -65,7 +66,7 @@ xi_init = np.array([wx0,wy0,wz0,wxdot0,wydot0,wzdot0,p0x, \
 # dt = 1.0e-5
 dt = 1.0e-3      # time-step, s
 ti = 0          # initial time, s
-tf = 200    # final time, s
+tf = 100    # final time, s
 
 ### Drive parameters
 maxvoltage = 10.0
@@ -75,11 +76,11 @@ drvmag = 10.0 * maxvoltage / 4.0e-3
 
 tt = np.arange(ti, tf + dt, dt)
 Nsamp = len( tt )
-Nsamp = 3000000
+Nsamp = 12000000
 #
 ## Compute sampling frequency to limit bandwidth of white noise
 Fsamp = 1.0 / dt
-Fsamp = 6561.
+Fsamp = 50000.
 
 tt = np.arange(0, Nsamp/Fsamp, 1./Fsamp)
 ti = tt[0]
@@ -90,9 +91,9 @@ print ti, tf, dt
 #### NORMALIZATION OF TORQUE NOISE COULD BE OFF, SHOULD
 #### REALLY LOOK INTO THIS MORE
 # Compute torque noise from Alex's functional library
-thermtorque = 0#np.array([tn.torqueNoise(Nsamp, Fsamp), \
-               #         tn.torqueNoise(Nsamp, Fsamp), \
-               #        tn.torqueNoise(Nsamp, Fsamp)])
+thermtorque = np.array([tn.torqueNoise(Nsamp, Fsamp), \
+                        tn.torqueNoise(Nsamp, Fsamp), \
+                       tn.torqueNoise(Nsamp, Fsamp)])
 
 
 # Compute damping coefficient from Alex's functional library
@@ -107,9 +108,9 @@ beta = tn.beta()
 
 #efield = xchirp
 
-drvmag = 16.5e1
-xfreq = 50.
-yfreq = 50.
+drvmag = 64.e3#16.5e1
+xfreq = 1000.
+yfreq = 1000.
 zfreq = 0.
 
 xphi = 0.
@@ -123,11 +124,18 @@ y_mod_freq = 34.
 
 efield = bsfuncs.oscE(ti, tf, dt, drvmag,\
         xfreq=xfreq, yfreq=yfreq, zfreq=zfreq, yphi=yphi,\
-        phase_mod=True, x_mod_amp=x_mod, y_mod_amp=x_mod,\
+        phase_mod=False, x_mod_amp=x_mod, y_mod_amp=x_mod,\
         x_mod_freq=x_mod_freq,y_mod_freq=y_mod_freq)
 
-#plt.plot(tt, efield[1])
-#plt.show()
+tarr = np.arange(ti,tf+dt,dt)
+mask = tarr > 50
+
+step_arr = bsfuncs.step_func(ti,tf,dt,1.,20)
+#step_arr[mask] -= drvmag
+
+efield = np.array([step_arr*efield[0],step_arr*efield[1],np.zeros_like(tarr)])
+#efield = np.array([np.zeros_like(tarr), np.zeros_like(tarr), np.zeros_like(tarr)])
+
 #Order of maginitude optical torque
 t_opt = 1.e-24
 
@@ -162,15 +170,15 @@ for i in [0,1,2]:
    #axarr[i].plot(tt[x:x+100000], efield[i,x:x+100000])
 plt.show()
 
-print(Nsamp)
-
-fft = np.fft.rfft(efield)
-freqs = np.fft.rfftfreq(Nsamp, 1./Fsamp)
-fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
-for i in [0,1,2]:
-    axarr[i].loglog(freqs,np.abs(fft[i]))
-
-plt.show()
+#print(Nsamp)
+#
+#fft = np.fft.rfft(efield)
+#freqs = np.fft.rfftfreq(Nsamp, 1./Fsamp)
+#fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
+#for i in [0,1,2]:
+#    axarr[i].loglog(freqs,np.abs(fft[i]))
+#
+#plt.show()
     
 raw_input()
 
@@ -240,6 +248,10 @@ def dipole_efield_cart(xi, t, tind):
     py = xi[7]
     pz = xi[8]
 
+    tx = thermtorque[0,tind]
+    ty = thermtorque[1,tind]
+    tz = thermtorque[2,tind]
+
     Ex = efield[0,tind]
     Ey = efield[1,tind]
     Ez = efield[2,tind]
@@ -256,10 +268,10 @@ def dipole_efield_cart(xi, t, tind):
     dpy = pz * omegax - px * omegaz
     dpz = px * omegay - py * omegax
 
-    domegax_0 = (1/Ibead) * (py*Ez - pz*Ey) - (1/tau) * omegax
-    domegay_0 = (1/Ibead) * (pz*Ex - px*Ez) - (1/tau) * omegay
-    domegaz_0 = (1/Ibead) * (px*Ey - py*Ex) - (1/tau) * omegaz \
-            + t_opt
+    domegax_0 =  tx/Ibead + (1/Ibead) * (py*Ez - pz*Ey) - (beta/Ibead) * omegax
+    domegay_0 =  ty/Ibead + (1/Ibead) * (pz*Ex - px*Ez) - (beta/Ibead) * omegay
+    domegaz_0 = tz/Ibead + (1/Ibead) * (px*Ey - py*Ex) - (beta/Ibead) * omegaz \
+            + t_opt/Ibead
 
     domegax_1 = 0.
     domegay_1 = 0.

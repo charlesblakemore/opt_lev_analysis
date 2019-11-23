@@ -6,6 +6,7 @@ import matplotlib
 import re
 import plot_phase_vs_pressure_many_gases as pp
 import matplotlib.cm as cm
+import calib_util as cu
 
 from_chas = False 
 save_fig = False
@@ -13,9 +14,9 @@ save_fig = False
 gas ='He'
 
 #base_path = "/processed_data/spinning/pramp_data/20190626/Kr/"
-base_path = "/home/dmartin/analyzedData/20190905/pramp/He/"
+base_path = "/home/dmartin/Desktop/analyzedData/20190905/pramp/He/"
 
-in_fs = ['50kHz_4Vpp_4_']#,'50kHz_4Vpp_4_','50kHz_4Vpp_5_']
+in_fs = ['50kHz_4Vpp_1_']#,'50kHz_4Vpp_4_','50kHz_4Vpp_5_']
 
 out_dir = '/home/dmartin/analyzedData/20190905/pramp/He/'
 
@@ -51,8 +52,14 @@ def pressure_model(pressures, break_ind = 855 , p_ind = 1 , plt_press = True):
 
     return pfit
 
+def step_fun(x, A=1.,b=0.):
+    fun =  A * np.heaviside(x-b,1.)
+    fun = -1. * (fun-1.)
+    
+    return fun
+
 def constline(x,m,b):
-	return m*x + b
+    return m*x + b
 def phi_ffun(p, k, phinot):
     return -1*np.arcsin(np.clip(p/k, 0., 1)) + phinot
 
@@ -66,16 +73,41 @@ if from_chas:
 break_ind =  [0,166,0]
 
 p_fits = []
- 
+
+x = np.linspace(-10,10)
+
+fun = cu.step_fun(x,0.8,0)
+
+plt.plot(fun)
+plt.show()
+
+print fun.shape
 
 for i in range(len(pressures)):
 	p, interp_p = np.array(pp.build_full_pressure(pressures[i],plot=True))
 	p_fits.append(interp_p)
 
+
+
+a = corr.flatten()/np.max(corr.flatten())
+
+plt.plot(a)
+plt.show()
+
+pi = [0.03, 0.03]
+pstep,pcov = curve_fit(cu.step_fun,interp_p,corr.flatten()/np.max(corr.flatten()),p0=pi)
+
+print pstep
+
+plt.plot(interp_p,step_fun(interp_p,*pstep))
+plt.plot(interp_p,corr)
+plt.show()
+
+
 #phases = -1 * phases
 mask = corr <= 2.e-4
 
-plt.plot(interp_p,corr)
+plt.plot(interp_p,corr.flatten())
 plt.plot(interp_p,phases[0])
 plt.show()
 
