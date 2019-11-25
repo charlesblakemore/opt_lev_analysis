@@ -22,6 +22,8 @@ import transfer_func_util as tf
 
 import warnings
 
+from fpga_data_funcs import *
+
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -32,8 +34,13 @@ import warnings
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
 # ----------------------------------------------------
+###
 ### The DataFile class is stored in a companion module
 ### bead_util, which imports these helper functions
+### This module imports a number of functions from a 
+### module 'fpga_data_funcs' which handles the raw data
+### from the hdf5 files and ports them into python objects
+###
 # ----------------------------------------------------
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
 # READ THIS PART  :  READ THIS PART  :  READ THIS PART
@@ -45,21 +52,7 @@ import warnings
 #######################################################
 
 
-kb = constants.Boltzmann
-Troom = 297 # Kelvins
 
-# From 2019 mass and density paper
-rhobead_arr = np.array([1.5499, 1.5515, 1.5624])
-rhobead_sterr_arr = rhobead_arr * np.array([0.8/84.0, 1.1/83.9, 0.2/85.5])
-rhobead_syserr_arr = \
-        rhobead_arr * np.sqrt(np.array([1.5/84.0, 1.5/83.9, 1.5/85.5])**2 + \
-                              9 * np.array([0.038/2.348, 0.037/2.345, 0.038/2.355])**2)
-
-rhobead = {}
-rhobead['val'] = 1e3 * np.sum(rhobead_arr * (1.0 / (rhobead_sterr_arr**2 + rhobead_syserr_arr**2))) / \
-                    np.sum( 1.0 / (rhobead_sterr_arr**2 + rhobead_syserr_arr**2) )  # kg/m^3
-rhobead['sterr'] = 1e3 * np.sqrt( 1.0 / np.sum(1.0 / rhobead_sterr_arr) ) 
-rhobead['syserr'] = 1e3 * np.mean(rhobead_syserr_arr)  # Can't average away systematics
 
 
 calib_path = '/data/old_trap_processed/calibrations/'
@@ -81,203 +74,7 @@ E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
 
 #### Generic Helper functions
 
-def get_mbead(date, verbose=False):
-    '''Scrapes standard directory for measured masses with dates matching
-       the input string. Computes the combined statistical and systematic
-       uncertainties
 
-           INPUTS: date, string in the format "YYYYMMDD" for the bead of interest
-                   verbose, print some shit
-
-           OUTPUTS:     Dictionary with keys:
-                    val, the average mass (in kg)) from all measurements
-                    sterr, the combined statistical uncertainty
-                    syserr, the mean of the individual systematic uncertainties
-    '''
-    dirname = os.path.join(calib_path, 'masses/')
-    mass_filenames, lengths = find_all_fnames(dirname, ext='.mass', verbose=False)
-
-    if verbose:
-        print 'Finding files in: ', dirname
-    real_mass_filenames = []
-    for filename in mass_filenames:
-        if date not in filename:
-            continue
-        if verbose:
-            print '    ', filename
-        real_mass_filenames.append(filename)
-
-    masses = []
-    sterrs = []
-    syserrs = []
-    for filename in real_mass_filenames:
-        mass_arr = np.load(filename)
-        masses.append(mass_arr[0])
-        sterrs.append(mass_arr[1])
-        syserrs.append(mass_arr[2])
-    masses = np.array(masses)
-    sterrs = np.array(sterrs)
-    syserrs = np.array(syserrs)
-
-    # Compute the standard, weighted arithmetic mean on all datapoints,
-    # as well as combine statistical and systematic uncertainties independently
-    mass = np.sum(masses * (1.0 / (sterrs**2 + syserrs**2))) / \
-                np.sum( 1.0 / (sterrs**2 + syserrs**2) )
-    sterr = np.sqrt( 1.0 / np.sum(1.0 / sterrs**2 ) )
-    #syserr = np.sqrt( 1.0 / np.sum(1.0 / syserrs**2 ) )
-    syserr = np.mean(syserrs)
-
-    if verbose:
-        print
-        print '                       Mass [kg] : {:0.4g}'.format(mass)
-        print 'Relative statistical uncertainty : {:0.4g}'.format(sterr/mass)
-        print ' Relative systematic uncertainty : {:0.4g}'.format(syserr/mass)
-        print
-
-    return {'val': mass, 'sterr': sterr, 'syserr': syserr}
-
-
-def get_rbead(mbead={}, date='', rhobead=rhobead, verbose=False):
-    '''Computes the bead radius from the given mass and an assumed density.
-       Loads the mass if a date is provided instead of a mass dictionary
-
-           INPUTS: mbead, dictionary output from get_mbead()
-                   date, string in the format "YYYYMMDD" for the bead of interest
-                   rhobead, density dictionary (default: hardcoded above)
-                   verbose, print some shit (default: False)
-
-           OUTPUTS:    Dictionary with keys:
-                    val, the the computed radius (in m) from the given mass
-                            and the density found in 2019 mass paper
-                    sterr, the combined statistical uncertainty
-                    syserr, the mean of the individual systematic uncertainties
-    '''
-    if not len(mbead.keys()):
-        if not len(date):
-            print 'No input mass or date given. What did you expect to happen?'
-            return
-        try:
-            mbead = get_mbead(date, verbose=verbose)
-        except:
-            print "Couldn't load mass files"
-
-    rbead = {}
-    rbead['val'] = ( (mbead['val'] / rhobead['val']) / ((4.0/3.0)*np.pi) )**(1.0/3.0)
-    rbead['sterr'] = rbead['val'] * np.sqrt( ((1.0/3.0)*(mbead['sterr']/mbead['val']))**2 + \
-                                ((1.0/3.0)*(rhobead['sterr']/rhobead['val']))**2 )
-    rbead['syserr'] = rbead['val'] * np.sqrt( ((1.0/3.0)*(mbead['syserr']/mbead['val']))**2 + \
-                                ((1.0/3.0)*(rhobead['syserr']/rhobead['val']))**2 )
-
-    if verbose:
-        print
-        print '                      Radius [m] : {:0.4g}'.format(rbead['val'])
-        print 'Relative statistical uncertainty : {:0.4g}'.format(rbead['sterr']/rbead['val'])
-        print ' Relative systematic uncertainty : {:0.4g}'.format(rbead['syserr']/rbead['val'])
-        print
-
-    return rbead
-
-
-def get_Ibead(mbead={}, date='', rhobead=rhobead, verbose=False):
-    '''Computes the bead moment of inertia from the given mass and an assumed density.
-       Loads the mass if a date is provided instead of a mass dictionary
-
-           INPUTS: mbead, dictionary output from get_mbead()
-                   date, string in the format "YYYYMMDD" for the bead of interest
-                   rhobead, density dictionary (default: hardcoded above)
-                   verbose, print some shit (default: False)
-
-           OUTPUTS:    Dictionary with keys:
-                    val, the computed moment (in kg m^2) from the given mass
-                            and the density found in 2019 mass paper
-                    sterr, the combined statistical uncertainty
-                    syserr, the mean of the individual systematic uncertainties
-    '''
-
-    if not len(mbead.keys()):
-        if not len(date):
-            print 'No input mass or date given. What did you expect to happen?'
-            return
-        try:
-            mbead = get_mbead(date, verbose=verbose)
-        except:
-            print "Couldn't load mass files"
-
-    Ibead = {}
-    Ibead['val'] = 0.4 * (3.0 / (4.0 * np.pi))**(2.0/3.0) * \
-                    mbead['val']**(5.0/3.0) * rhobead['val']**(-2.0/3.0)
-    Ibead['sterr'] = Ibead['val'] * np.sqrt( ((5.0/3.0)*(mbead['sterr']/mbead['val']))**2 + \
-                                   ((2.0/3.0)*(rhobead['sterr']/rhobead['val']))**2 )
-    Ibead['syserr'] = Ibead['val'] * np.sqrt( ((5.0/3.0)*(mbead['syserr']/mbead['val']))**2 + \
-                                    ((2.0/3.0)*(rhobead['syserr']/rhobead['val']))**2 )
-
-    if verbose:
-        print
-        print '      Moment of inertia [kg m^2] : {:0.4g}'.format(Ibead['val'])
-        print 'Relative statistical uncertainty : {:0.4g}'.format(Ibead['sterr']/Ibead['val'])
-        print ' Relative systematic uncertainty : {:0.4g}'.format(Ibead['syserr']/Ibead['val'])
-        print
-
-    return Ibead
-
-
-
-def get_kappa(mbead={}, date='', T=Troom, rhobead=rhobead, verbose = False):
-    '''Computes the bead kappa from the given mass, temperature, and an assumed 
-       density. This is the geometric factor defining how the bead experiences
-       torsional drag from surrounding gas. Loads the mass if a date is provided 
-       instead of a mass dictionary
-
-           INPUTS: mbead, dictionary output from get_mbead()
-                   date, string in the format "YYYYMMDD" for the bead of interest
-                   T, ambient temperature of rotor
-                   rhobead, density dictionary (default: hardcoded above)
-                   verbose, print some shit (default: False)
-
-           OUTPUTS:    Dictionary with keys:
-                    val, the computed kappa (in J^1/2 m^-4) f
-                    sterr, the combined statistical uncertainty
-                    syserr, the mean of the individual systematic uncertainties
-    '''
-
-    if not len(mbead.keys()):
-        if not len(date):
-            print 'No input mass or date given. What did you expect to happen?'
-            return
-        try:
-            mbead = get_mbead(date, verbose=verbose)
-        except:
-            print "Couldn't load mass files"
-
-    kappa = {}
-    kappa['val'] = ( (4.0 * np.pi * rhobead['val']) / (3.0 * mbead['val']) )**(4.0/3.0) * \
-                np.sqrt( (9.0 * kb * T) / (32 * np.pi) )
-    kappa['sterr'] = kappa['val'] * np.sqrt( ((4.0 / 3.0) * (mbead['sterr'] / mbead['val']))**2 + \
-                                   ((4.0 / 3.0) * (rhobead['sterr'] / rhobead['val']))**2 )
-    kappa['syserr'] = kappa['val'] * np.sqrt( ((4.0 / 3.0) * (mbead['syserr'] / mbead['val']))**2 + \
-                                    ((4.0 / 3.0) * (rhobead['syserr'] / rhobead['val']))**2 )
-
-    if verbose:
-        print 
-        print 'Torsional drag kappa value [J^1/2 m^-4] : {:0.4g}'\
-                            .format(kappa['val'])
-
-        print '       Relative statistical uncertainty : {:0.4g}'\
-                            .format(kappa['sterr']/kappa['val'])
-        print '                   rhobead contribution : {:0.4g}'\
-                            .format(rhobead['sterr']/rhobead['val'])
-        print '                     mbead contribution : {:0.4g}'\
-                            .format(mbead['sterr']/mbead['val'])
-
-        print '        Relative systematic uncertainty : {:0.4g}'\
-                            .format(kappa['syserr']/kappa['val'])
-        print '                   rhobead contribution : {:0.4g}'\
-                            .format(rhobead['syserr']/rhobead['val'])
-        print '                     mbead contribution : {:0.4g}'\
-                            .format(mbead['syserr']/mbead['val'])
-        print
-
-    return kappa
 
 
 def progress_bar(count, total, suffix='', bar_len=50, newline=True):
@@ -613,7 +410,7 @@ def euler_rotation_matrix(rot_angles, radians=True):
 
 
 def rotate_points(pts, rot_matrix, rot_point, plot=False):
-    '''Takes and input of shape (Npts, 3) and performs applies the
+    '''Takes an input of shape (Npts, 3) and applies the
        given rotation matrix to each 3D point. Order of rotations
        follow the Euler convention.
     '''
@@ -648,6 +445,9 @@ def rotate_points(pts, rot_matrix, rot_point, plot=False):
 
 def rotate_meshgrid(xvec, yvec, zvec, rot_matrix, rot_point, \
                     plot=False, microns=True):
+    '''From an set of input vectors defining the xcoords, ycoords, and
+       zcoords of a meshgrid, rotate the meshgrid about a given point 
+       in 3D-Euclidean space. Output can be ploted'''
     xg, yg, zg = np.meshgrid(xvec, yvec, zvec, indexing='ij')
     init_mesh = np.array([xg, yg, zg])
     rot_grids = np.einsum('ij,jabc->iabc', rot_matrix, init_mesh)
@@ -676,129 +476,6 @@ def rotate_meshgrid(xvec, yvec, zvec, rot_matrix, rot_point, \
         plt.show()
 
     return rot_grids
-
-
-
-
-def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
-    """LabVIEW Live HDF5 stopped saving datasets with attributes at some point.
-    To get around this, the attribute cluster is saved to an XML string and 
-    parsed into a dictionary here."""
-
-    attr_fname = fname[:-3] + '.attr'
-
-    xml = open(attr_fname, 'r').read()
-
-    attr_dict = xmltodict.parse(xml)['Cluster']
-    n_attr = int(attr_dict['NumElts'])
-
-    new_attr_dict = {}
-    for attr_type in types:
-    	try:
-        	c_list = attr_dict[attr_type]
-        except:
-        	continue
-        if type(c_list) != list:
-            c_list = [c_list]
-
-        for item in c_list:
-            new_key = item['Name']
-
-            # Keep the time as 64 bit unsigned integer
-            if new_key == 'Time':
-                new_attr_dict['time'] = np.uint64(float(item['Val']))
-
-            if new_key == 'time':
-                new_attr_dict[new_key] = np.uint64(float(item['Val']))
-
-            # Conver 32-bit integers to their correct datatype
-            elif (attr_type == 'I32'):
-                new_attr_dict[new_key] = np.int32(item['Val'])
-
-            # Convert single numbers/bool from their xml string representation
-            elif (attr_type == 'DBL') or (attr_type == 'Boolean'):
-                new_attr_dict[new_key] = float(item['Val'])
-
-            # Convert arrays of numbers from their parsed xml
-            elif (attr_type == 'Array'):
-                new_arr = []
-                vals = item['DBL']
-                for val in vals:
-                    new_arr.append(float(val['Val']))
-                new_attr_dict[new_key] = new_arr
-
-            # Move string attributes to new attribute dictionary
-            elif (attr_type == 'String'):
-                new_attr_dict[new_key] = item['Val']
-
-            # Catch-all for unknown attributes, keep as string
-            else:
-                print 'Found an attribute whose type is unknown. Left as string...'
-                new_attr_dict[new_key] = item['Val']
-
-    # assert n_attr == len(new_attr_dict.keys())
-
-    return new_attr_dict
-
-
-
-
-
-
-def getdata(fname, gain_error=1.0, verbose=False):
-    '''loads a .h5 file from a path into data array and 
-       attribs dictionary, converting ADC bits into 
-       volatage. The h5 file is closed.'''
-
-    #factor to convert between adc bits and voltage 
-    adc_fac = (configuration.adc_params["adc_res"] - 1) / \
-               (2. * configuration.adc_params["adc_max_voltage"])
-
-    message = ''
-    try:
-        try:
-            f = h5py.File(fname,'r')
-        except:
-            message = "Can't find/open HDF5 file : " + fname
-            raise
-
-        try:
-            dset = f['beads/data/pos_data']
-        except Exception:
-            message = "Can't find any dataset in : " + fname
-            f.close()
-            raise
-
-        dat = np.transpose(dset)
-        dat = dat / adc_fac
-        attribs = copy_attribs(dset.attrs)
-        if attribs == {}:
-            attribs = load_xml_attribs(fname)
-        f.close()
-
-    except Exception:
-        print message
-        dat = []
-        attribs = {}
-        f = []
-
-    return dat, attribs
-
-
-
-def get_hdf5_time(fname):
-    try:
-        # f = h5py.File(fname,'r')
-        # dset = f['beads/data/pos_data']
-        # attribs = copy_attribs(dset.attrs)
-        # f.close()
-    	attribs = load_xml_attribs(fname)
-
-    except (KeyError, IOError):
-        # print "Warning, got no keys for: ", fname
-        attribs = {}
-
-    return attribs["time"]
 
 
 def sudo_call(fn, *args):
@@ -1053,7 +730,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
 
 def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
-    '''Slow and derpy function to re-bin based on averaging.'''
+    '''Slow and derpy function to re-bin based on averaging. Works
+       with any value of nbins, but can be slow since it's a for loop.'''
     if len(errs):
         assert len(errs) == len(yvec), 'error vec is not the right length'
 
@@ -1086,16 +764,82 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
     return xvec_new, yvec_new, errs_new
 
 
+
+
+
+
+
+
+def rebin_mean(a, *args):
+    '''Uses a technique based on a scipy cookbook to do vectorized
+       rebinning with the "evList" technique, which some consider
+       'ugly' in implementation:
+       https://scipy-cookbook.readthedocs.io.items/Rebinning.html
+
+       An arbitrarily shaped array a can be rebinned into a shape
+       given by *args. Output will have shape (args[0], args[1], ....),
+       with the caveat the ratio (points in the oversampled array) / 
+       (points in the rebinned array) has to be an integer, much like
+       a downsampling factor. Elements of the rebinned array are the 
+       mean of points within the appropriate window.
+
+       Needs to be applied separately for xvec and yvec'''
+    shape = a.shape
+    lenShape = len(shape)
+    factor = np.asarray(shape)/np.asarray(args)
+    evList = ['a.reshape('] + \
+             ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
+             [')'] + ['.mean(%d)'%(i+1) for i in range(lenShape)]
+    #print ''.join(evList)
+
+    return eval(''.join(evList))
+
+
+def rebin_std(a, *args):
+    '''Refer to rebin_mean() docstring. Not sure why, but this one
+       seems to have trouble with more than 1D nput arrays.'''
+    shape = a.shape
+    lenShape = len(shape)
+    factor = np.asarray(shape)/np.asarray(args)
+
+    evList = ['a.reshape('] + \
+              ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
+              [')'] + ['.std(%d)/np.sqrt(factor[%d])'%(i+1,i) for i in range(lenShape)]
+
+    return eval(''.join(evList))
+
+
+def rebin_vectorized(a, nbin, model=None):
+    '''Takes a vector (1D numpy array) a and rebins it to size nbin,
+       with the caveats stated in rebin_mean() and rebin_std() docstrings.
+       If the underlying data should follow a model, this first fits the data
+       to said model and rebins the residuals to determine the appropriate
+       rebinned error array.'''
+    a_rb = rebin_mean(a, nbin)
+    if model is not None:
+        popt, pcov = opti.curve_fit(model, np.arange(nbin), a_rb)
+        resid = a - model(np.linspace(0, nbin-1, len(a)), *popt)
+        a_err_rb = rebin_std(resid, nbin)
+    else:
+        a_err_rb = rebin_std(a, nbin)
+    return a_rb, a_err_rb
+
+
+
+
+
+
         
-
-
-def parabola(x, a, b, c):
-    return a * x**2 + b * x + c
-
 
 
 def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
     # 90% confidence level for 1sigma errors
+
+    def parabola(x, a, b, c):
+        # Just in case there is some globally defined 'parabola' hanging
+        # around from other minimizations, this defines the standard 
+        # form for the 1d minimization performed here
+        return a * x**2 + b * x + c
 
     chi2dist = stats.chi2(1)
     # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
@@ -1135,6 +879,40 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
     return minparam, err, minval
+
+
+
+
+
+
+def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
+    '''Using output of 4/2/19 COMSOL simulation, return
+       the value of the electric field at the trap based
+       on the applied voltages on each electrode and the
+       principle of superposition.'''
+    if nsamp == 0:
+        nsamp = len(voltages[0])
+    if len(voltages) != 8:
+        print "There are eight electrodes."
+        print "   len(volt arr. passed to 'trap_efield') != 8"
+    else:
+        if only_y or only_z:
+            Ex = np.zeros(nsamp)
+        else:   
+            Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+
+        if only_x or only_z:
+            Ey = np.zeros(nsamp)
+        else:
+            Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+
+        if only_y or only_z:
+            Ez = np.zeros(nsamp)
+        else:
+            Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+
+        return np.array([Ex, Ey, Ez])    
+
 
 
 
@@ -1199,429 +977,3 @@ def print_electrode_indices():
 
 
 
-
-
-
-
-
-########################################################
-########################################################
-########### Functions to Handle FPGA data ##############
-########################################################
-########################################################
-
-
-
-
-
-def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
-    '''Using output of 4/2/19 COMSOL simulation, return
-       the value of the electric field at the trap based
-       on the applied voltages on each electrode and the
-       principle of superposition.'''
-    if nsamp ==0:
-    	nsamp = len(voltages[0])
-    if len(voltages) != 8:
-        print "There are eight electrodes."
-        print "   len(volt arr. passed to 'trap_efield') != 8"
-    else:
-    	if only_y or only_z:
-        	Ex = np.zeros(nsamp)
-        else:	
-        	Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
-
-        if only_x or only_z:
-        	Ey = np.zeros(nsamp)
-        else:
-        	Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
-
-        if only_y or only_z:
-        	Ez = np.zeros(nsamp)
-        else:
-        	Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
-
-        return np.array([Ex, Ey, Ez])    
-
-
-
-
-def extract_quad(quad_dat, timestamp, verbose=False):
-    '''Reads a stream of I32s, finds the first timestamp,
-       then starts de-interleaving the demodulated data
-       from the FPGA'''
-    
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 month.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        diff_thresh = 60.0
-
-    for ind, dat in enumerate(quad_dat): ## % 12
-        # Assemble time stamp from successive I32s, since
-        # it's a 64 bit object
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            high = np.uint32(quad_dat[ind])
-            low = np.uint32(quad_dat[ind+1])
-            dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                      + low.astype(np.uint64)
-
-        # Time stamp from FPGA is a U64 with the UNIX epoch 
-        # time in nanoseconds, synced to the host's clock
-        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
-            if verbose:
-                print "found timestamp  : ", float(dattime) * 10**(-9)
-                print "comparison time  : ", timestamp 
-            break
-
-    # Once the timestamp has been found, select each dataset
-    # wit thhe appropriate decimation of the primary array
-    quad_time_high = np.uint32(quad_dat[ind::12])
-    quad_time_low = np.uint32(quad_dat[ind+1::12])
-    if len(quad_time_low) != len(quad_time_high):
-        quad_time_high = quad_time_high[:-1]
-    quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
-                  + quad_time_low.astype(np.uint64)
-
-    amp = [quad_dat[ind+2::12], quad_dat[ind+3::12], quad_dat[ind+4::12], \
-           quad_dat[ind+5::12], quad_dat[ind+6::12]]
-    phase = [quad_dat[ind+7::12], quad_dat[ind+8::12], quad_dat[ind+9::12], \
-             quad_dat[ind+10::12], quad_dat[ind+11::12]]
-            
-
-    # Since the FIFO read request is asynchronous, sometimes
-    # the timestamp isn't first to come out, but the total amount of data
-    # read out is a multiple of 12 (2 time + 5 amp + 5 phase) so an
-    # amplitude or phase channel ends up with less samples.
-    # The following is coded very generally
-
-    min_len = 10.0**9  # Assumes we never more than 1 billion samples
-    for ind in [0,1,2,3,4]:
-        if len(amp[ind]) < min_len:
-            min_len = len(amp[ind])
-        if len(phase[ind]) < min_len:
-            min_len = len(phase[ind])
-
-    # Re-size everything by the minimum length and convert to numpy array
-    quad_time = np.array(quad_time[:min_len])
-    for ind in [0,1,2,3,4]:
-        amp[ind]   = amp[ind][:min_len]
-        phase[ind] = phase[ind][:min_len]
-    amp = np.array(amp)
-    phase = np.array(phase)
-      
-
-    return quad_time, amp, phase
-
-
-
-
-
-
-def extract_xyz(xyz_dat, timestamp, verbose=False):
-    '''Reads a stream of I32s, finds the first timestamp,
-       then starts de-interleaving the demodulated data
-       from the FPGA'''
-    
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 year.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        # 2-minute difference allowed for longer integrations
-        diff_thresh = 120.0
-
-
-    for ind, dat in enumerate(xyz_dat):
-        # Assemble time stamp from successive I32s, since
-        # it's a 64 bit object
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            high = np.uint32(xyz_dat[ind])
-            low = np.uint32(xyz_dat[ind+1])
-            dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                      + low.astype(np.uint64)
-
-        # Time stamp from FPGA is a U64 with the UNIX epoch 
-        # time in nanoseconds, synced to the host's clock
-        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
-            tind = ind
-            if verbose:
-                print "found timestamp  : ", float(dattime) * 10**(-9)
-                print "comparison time  : ", timestamp 
-            break
-
-    # Once the timestamp has been found, select each dataset
-    # wit thhe appropriate decimation of the primary array
-    xyz_time_high = np.uint32(xyz_dat[tind::11])
-    xyz_time_low = np.uint32(xyz_dat[tind+1::11])
-    if len(xyz_time_low) != len(xyz_time_high):
-        xyz_time_high = xyz_time_high[:-1]
-
-    xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
-                  + xyz_time_low.astype(np.uint64)
-
-    xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
-    xy_2 = [xyz_dat[tind+2::11], xyz_dat[tind+3::11]]
-    xyz_fb = [xyz_dat[tind+8::11], xyz_dat[tind+9::11], xyz_dat[tind+10::11]]
-    
-    sync = np.int32(xyz_dat[tind+7::11])
-
-    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
-    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
-    #plt.show()
-
-    # Since the FIFO read request is asynchronous, sometimes
-    # the timestamp isn't first to come out, but the total amount of data
-    # read out is a multiple of 5 (2 time + X + Y + Z) so the Z
-    # channel usually  ends up with less samples.
-    # The following is coded very generally
-
-    min_len = 10.0**9  # Assumes we never more than 1 billion samples
-    for ind in [0,1,2]:
-        if len(xyz[ind]) < min_len:
-            min_len = len(xyz[ind])
-        if len(xyz_fb[ind]) < min_len:
-            min_len = len(xyz_fb[ind])
-        if ind != 2:
-            if len(xy_2[ind]) < min_len:
-                min_len = len(xy_2[ind])
-
-    # Re-size everything by the minimum length and convert to numpy array
-    xyz_time = np.array(xyz_time[:min_len])
-    sync = np.array(sync[:min_len])
-    for ind in [0,1,2]:
-        xyz[ind]    = xyz[ind][:min_len]
-        xyz_fb[ind] = xyz_fb[ind][:min_len]
-        if ind != 2:
-            xy_2[ind] = xy_2[ind][:min_len]
-    xyz = np.array(xyz)
-    xyz_fb = np.array(xyz_fb)
-    xy_2 = np.array(xy_2)
-
-    return xyz_time, xyz, xy_2, xyz_fb, sync
-
-
-
-
-
-
-def extract_power(pow_dat, timestamp, verbose=False):
-    '''Reads a stream of I32s, finds the first timestamp,
-       then starts de-interleaving the demodulated data
-       from the FPGA'''
-    
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 year.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        # 2-minute difference allowed for longer integrations
-        diff_thresh = 120.0
-
-
-    for ind, dat in enumerate(pow_dat):
-        # Assemble time stamp from successive I32s, since
-        # it's a 64 bit object
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            high = np.uint32(pow_dat[ind])
-            low = np.uint32(pow_dat[ind+1])
-            dattime = (high.astype(np.uint64) << np.uint64(32)) \
-                      + low.astype(np.uint64)
-
-        # Time stamp from FPGA is a U64 with the UNIX epoch 
-        # time in nanoseconds, synced to the host's clock
-        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
-            tind = ind
-            if verbose:
-                print "found timestamp  : ", float(dattime) * 10**(-9)
-                print "comparison time  : ", timestamp 
-            break
-
-    # Once the timestamp has been found, select each dataset
-    # with the appropriate decimation of the primary array
-    pow_time_high = np.uint32(pow_dat[tind::3])
-    pow_time_low = np.uint32(pow_dat[tind+1::3])
-    if len(pow_time_low) != len(pow_time_high):
-        pow_time_high = pow_time_high[:-1]
-
-    pow_time = np.left_shift(pow_time_high.astype(np.uint64), np.uint64(32)) \
-                  + pow_time_low.astype(np.uint64)
-
-    power = pow_dat[tind+2::3]
-
-    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
-    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
-    #plt.show()
-
-    # Since the FIFO read request is asynchronous, sometimes
-    # the timestamp isn't first to come out, but the total amount of data
-    # read out is a multiple of 3 (2 time + power) so the power
-    # channel usually  ends up with less samples.
-    # The following is coded very generally
-
-    min_len = 10.0**9  # Assumes we never more than 1 billion samples
-    if len(power) < min_len:
-        min_len = len(power)
-
-    # Re-size everything by the minimum length and convert to numpy array
-    pow_time = np.array(pow_time[:min_len])
-    power = np.array(power)
-
-    return pow_time, power
-
-
-
-
-
-
-
-
-
-
-def get_fpga_data(fname, timestamp=0.0, verbose=False):
-    '''Raw data from the FPGA is saved in an hdf5 (.h5) 
-       file in the form of 3 continuous streams of I32s
-       (32-bit integers). This script reads it out and 
-       makes sense of it for post-processing'''
-
-    # Open the file and bring datasets into memory
-    try:
-        f = h5py.File(fname,'r')
-        dset1 = f['beads/data/quad_data']
-        dset2 = f['beads/data/pos_data']
-        dat1 = np.transpose(dset1)
-        dat2 = np.transpose(dset2)
-        if 'beads/data/pow_data' in f:
-            dset3 = f['beads/data/pow_data']
-            dat3 = np.transpose(dset3)
-        else:
-            dat3 = []
-        f.close()
-
-    # Shit failure mode. What kind of sloppy coding is this
-    except (KeyError, IOError):
-        if verbose:
-            print "Warning, couldn't load HDF5 datasets: ", fname
-        dat1 = []
-        dat2 = []
-        dat3 = []
-        attribs = {}
-        try:
-            f.close()
-        except:
-            if verbose:
-                print "couldn't close file, not sure if it's open"
-
-    if len(dat1):
-        # Use subroutines to handle each type of data
-        # raw_time, raw_dat = extract_raw(dat0, timestamp)
-        quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-        xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
-        if len(dat3):
-            pow_time, power = extract_power(dat3, timestamp, verbose=verbose)
-    else:
-        quad_time, amp, phase = (None, None, None)
-        xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
-
-    # Assemble the output as a human readable dictionary
-    out = {'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
-           'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
-           'phase': phase, 'sync': sync}
-    if len(dat3):
-        out['pow_time'] = pow_time
-        out['power'] = power
-    else:
-        out['pow_time'] = np.zeros_like(xyz_time)
-        out['power'] = np.zeros_like(xyz[0])
-
-    return out
-
-
-
-def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
-                            encode_len=500, plot_sync=False):
-    '''Align the psuedo-random bits the DAQ card spits out to the FPGA
-       to synchronize the acquisition of the FPGA.'''
-
-    out = {}
-    notNone = False
-    for key in fpga_dat:
-        if type(fpga_dat[key]) != type(None):
-            notNone = True
-    if not notNone:
-        return fpga_dat
-
-    # Cutoff irrelevant zeros
-    if len(encode_bin) < encode_len:
-        encode_len = len(encode_bin)
-    encode_bin = np.array(encode_bin[:encode_len])
-
-    # Load the I32 representation of the synchronization data
-    # At each 500 kHz sample of the FPGA, the state of the sync
-    # digital pin is sampled: True->(I32+1), False->(I32-1)
-    sync_dat = fpga_dat['sync']
-
-    #plt.plot(sync_dat)
-    #plt.show()
-
-    sync_dat = sync_dat[:len(encode_bin) * 10]
-    sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
-
-    dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
-
-    # Find correct starting sample to sync with the DAQ by
-    # maximizing the correlation between the FPGA's digitized
-    # sync line and the encoded bits from the DAQ file.
-    # Because of how the DAQ tasks are setup, the sync bits come
-    # out for the first Nsync samples, and then again after 
-    # Nsamp_DAQ samples. Thus we take the maximum of the correlation
-    # found in the first half of the array corr
-    corr = np.correlate(sync_dat_bin, encode_bin)
-    off_ind = np.argmax(corr[:int(0.5*len(corr))])
-
-    if plot_sync:
-        # Make an array of indices for plotting
-        inds = np.linspace(0,encode_len-1,encode_len)
-        dat_inds = np.linspace(0,len(sync_dat)-1,len(sync_dat))
-
-        plt.step(inds, encode_bin, lw=1.5, where='pre', label='encode_bits', \
-                 linestyle='dotted')
-        plt.step(dat_inds-off_ind, sync_dat_bin, where='pre', label='aligned_data', \
-                 alpha=0.5)
-        plt.xlim(-5, encode_len+10)
-
-        plt.legend()
-        plt.show()
-
-    # Crop the xyz arrays
-    out['xyz_time'] = fpga_dat['xyz_time'][off_ind:off_ind+nsamp]
-    out['xyz'] = fpga_dat['xyz'][:,off_ind:off_ind+nsamp]
-    out['xy_2'] = fpga_dat['xy_2'][:,off_ind:off_ind+nsamp]
-    out['fb'] = fpga_dat['fb'][:,off_ind:off_ind+nsamp]
-    out['sync'] = sync_dat_bin[off_ind:off_ind+nsamp]
-
-    # Crop the quad arrays
-    out['quad_time'] = fpga_dat['quad_time'][off_ind:off_ind+nsamp]
-    out['amp'] = fpga_dat['amp'][:,off_ind:off_ind+nsamp]
-    out['phase'] = fpga_dat['phase'][:,off_ind:off_ind+nsamp]
-
-    out['pow_time'] = fpga_dat['pow_time'][off_ind:off_ind+nsamp]
-    out['power'] = fpga_dat['power'][off_ind:off_ind+nsamp]
-
-    # return data in the same format as it was given
-    return out

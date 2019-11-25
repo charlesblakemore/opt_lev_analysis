@@ -9,6 +9,7 @@ import scipy.constants as constants
 import matplotlib
 import dill as pickle
 import bead_util as bu
+import rga_util as ru
 from iminuit import Minuit, describe
 
 plt.rcParams.update({'font.size': 14})
@@ -31,10 +32,11 @@ base_path = '/data/old_trap_processed/spinning/pramp_data/{:s}'.format(date)
 base_dipole_path = '/data/old_trap_processed/spinning/wobble/{:s}/'.format(date)
 mbead = bu.get_mbead(date)
 ind_offset = 1
+gases_to_consider = ['He', 'N2']
 #ind_offset = 3
 
 savefig = True
-base_plot_path = '/home/cblakemore/plots/20191017/pramp/combined'.format(date)
+base_plot_path = '/home/cblakemore/plots/20191017/pramp/combined_reverse'.format(date)
 #base_plot_path = '/home/cblakemore/plots/{:s}/pramp'.format(date)
 
 # base_path = '/data/old_trap_processed/spinning/pramp_data/20190905'
@@ -80,6 +82,10 @@ plot_each_gas = False
 plot_raw_data = False
 plot_pressures = False
 
+make_example_pramp = True
+example_figname = '/home/cblakemore/plots/20190626/pramp/example_pramp.svg'
+example_gases = ['He', 'Ar', 'SF6']
+
 nbins_user = 200
 grad_thresh = 10
 
@@ -120,7 +126,11 @@ for pathind, path in enumerate(other_paths):
     other_outdat.append(other_dict)
 
 
-
+fig_ex, ax_ex = plt.subplots(1,1,figsize=(6,3),dpi=200)
+temp_colors = bu.get_color_map(len(example_gases), cmap='plasma')[::-1]
+example_colors = {}
+for gasind, gas in enumerate(example_gases):
+    example_colors[gas] = temp_colors[gasind]
 
 
 outgassing_dir = '/data/old_trap_processed/spinning/pramp_data/20190626/outgassing/'
@@ -382,6 +392,7 @@ def analyze_file(fname, nbins=500, grad_thresh=10, use_highp_bara=True, plot_pre
 
 
 gas_keys = gases.keys()
+gas_keys.sort(key = lambda x: ru.raw_mass[x])
 for gas in gas_keys:
     fils = gases[gas][0]
     use_highp_bara = gases[gas][1]
@@ -432,6 +443,27 @@ for gas in gas_keys:
             maxp = cmax
 
 
+    if make_example_pramp and (gas in example_gases):
+
+        if gas == 'He':
+            line_p = np.linspace(-0.5 * pmax, 1.5 * pmax, 100) 
+            min_line = np.ones_like(line_p) * (-0.5)
+            ax_ex.plot(line_p, min_line, '--', color='k', lw=2, alpha=0.6)
+            ax_ex.set_xlim(-0.05*maxp, 1.05*maxp)
+
+        dat = outdat[gas]['data'][filind]
+        pmax = outdat[gas]['pmax'][filind]
+
+        lab_str = gas + ': $P_{{\\rm max }}$ = {:0.3f} mbar'.format(pmax)
+
+        color = example_colors[gas]
+
+        fitp = np.linspace(0, np.max(dat[0]), 100)
+        fit = np.array(phi_ffun(fitp, pmax, 0))
+        ax_ex.scatter(dat[0], dat[1] / np.pi, edgecolors=color, facecolors='none', alpha=0.5)
+        ax_ex.plot(fitp, fit / np.pi, '-', color=color, lw=3, label=lab_str)
+
+
     if plot_each_gas:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -445,7 +477,7 @@ for gas in gas_keys:
             dat = outdat[gas]['data'][filind]
             pmax = outdat[gas]['pmax'][filind]
 
-            lab_str = '$p_{\mathrm{max}}$ = %0.3f' % pmax
+            lab_str = '$P_{\mathrm{max}}$ = %0.3f' % pmax
 
             fitp = np.linspace(0, np.max(dat[0]), 100)
             fit = np.array(phi_ffun(fitp, pmax, 0))
@@ -522,6 +554,17 @@ for gas in gas_keys:
                 other_outdat[baseind][gas]['rot_amp_err'].append(rot_amp_err_o)
 
 
+
+if make_example_pramp:
+    ax_ex.set_xlabel('Pressure [mbar]')
+    ax_ex.set_ylabel('$\\phi_{{\\rm eq}}$ [$\\pi$ rad]')
+    ax_ex.legend(fontsize=10)
+    fig_ex.tight_layout()
+
+    #fig_path = base_plot_path + ('/%s_pramp.png' % gas)
+    #bu.make_all_pardirs(fig_path)
+    fig_ex.savefig(example_figname)
+    plt.show()
 
 pickle.dump(outdat, open(base_path + '/all_data.p', 'wb'))
 
@@ -792,8 +835,16 @@ def fit_kappa(proc_outdat_dict, mbead, plot_chi2=False):
     sigma['syserr'] = sigma['val'] * np.sqrt( (kappa['syserr']/kappa['val'])**2 + \
                                     16.0 * (rbead['syserr']/rbead['val'])**2 )
 
-
     kappa_calc = bu.get_kappa(mbead, verbose=True)
+
+    sigma2 = {}
+    sigma2['val'] = kappa_calc['val'] / kappa['val']
+    sigma2['sterr'] = sigma2['val'] * np.sqrt( (kappa['sterr']/kappa['val'])**2 + \
+                                    (kappa_calc['sterr']/kappa_calc['val'])**2 )
+    sigma2['syserr'] = sigma2['val'] * np.sqrt( (kappa['syserr']/kappa['val'])**2 + \
+                                    (kappa_calc['syserr']/kappa_calc['val'])**2 )
+
+
 
     print
     print 'Kappa (meas) : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
@@ -806,6 +857,8 @@ def fit_kappa(proc_outdat_dict, mbead, plot_chi2=False):
                         .format(mbead['val'], mbead['sterr'], mbead['syserr'])
     print 'sigma        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
                         .format(sigma['val'], sigma['sterr'], sigma['syserr'])
+    print 'sigma2       : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(sigma2['val'], sigma2['sterr'], sigma2['syserr'])
     print 'min chi: {:0.2g}'.format(min_chi)
 
     return {'kappa': kappa, \
@@ -849,7 +902,7 @@ ke_sv = (ke_sv[0] / (10.0**err_exp_diff), k_sv[1])
 #err_exp_diff = r_sv[1] - re_sv[1]
 #re_sv = (re_sv[0] / (10.0**err_exp_diff), r_sv[1])
 
-label = '$ \\kappa_1 = ({0} \\pm {1})$'.format('{:0.2f}'.format(k_sv[0]), '{:0.2f}'.format(ke_sv[0]) ) \
+label = '$ \\kappa_3 = ({0} \\pm {1})$'.format('{:0.2f}'.format(k_sv[0]), '{:0.2f}'.format(ke_sv[0]) ) \
             + '$ \\times 10^{{{0}}}$ '.format('{:d}'.format(k_sv[1])) \
             + '$\\mathrm{J}^{1/2} \\mathrm{m}^{-4}$'
 
@@ -905,7 +958,7 @@ if include_other_beads:
         err_exp_diff_o = k_sv_o[1] - ke_sv_o[1]
         ke_sv_o = (ke_sv_o[0] / (10.0**err_exp_diff_o), k_sv_o[1])
 
-        label3 = '$ \\kappa_{0} = ({1} \\pm {2})$'.format(str(pathind+2), '{:0.2f}'.format(k_sv_o[0]), '{:0.2f}'.format(ke_sv_o[0]) ) \
+        label3 = '$ \\kappa_{0} = ({1} \\pm {2})$'.format(str(2-pathind), '{:0.2f}'.format(k_sv_o[0]), '{:0.2f}'.format(ke_sv_o[0]) ) \
                     + '$ \\times 10^{{{0}}}$ '.format('{:d}'.format(k_sv_o[1])) \
                     + '$\\mathrm{J}^{1/2} \\mathrm{m}^{-4}$'
 
@@ -962,7 +1015,7 @@ axarr3[0].set_xlim(0, 150)
 axarr3[1].set_xlabel('$m_{0,\mathrm{eff}}$ [amu]')
 axarr3[0].set_ylim(0, 1.1*np.max(proc_outdat['pmax_norm_vec'])*1e3)
 #axarr3[0].set_ylabel(r'$p_{\mathrm{max}} / d$'+'\n[$10^{-3}$ mbar / ($e \cdot \mu m$)]')
-axarr3[0].set_ylabel(r'$p_{\mathrm{max}} / d$'+'\n[$\mu$bar / ($e \cdot \mu m$)]')
+axarr3[0].set_ylabel(r'$P_{\mathrm{max}} / d$'+'\n[$\mu$bar / ($e \cdot \mu m$)]')
 #axarr3[1].set_ylabel('Resid. [$\sigma$]')
 #axarr3[1].set_ylabel('Resid. [%]')
 axarr3[1].set_ylabel('Resid.')

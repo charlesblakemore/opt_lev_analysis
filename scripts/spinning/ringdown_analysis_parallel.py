@@ -27,17 +27,15 @@ bandwidth = 500
 debug = False
 plot_raw_dat = False
 plot_phase = False
-
+progress_bar = True
 
 high_pass = 10.0
 
+#nbin = 1000
+nbin = 100
 
-# path = '/data/old_trap/0190626/bead1/spinning/ringdown/50kHz_ringdown'
-# after_path = '/data/old_trap/20190626/bead1/spinning/ringdown/after_pramp'
 
-# paths = [path, path+'2', after_path]
 
-# save_base = '/data/old_trap_processed/spinning/ringdown/20190626/'
 
 date = '20191017'
 base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown/'.format(date)
@@ -46,13 +44,29 @@ base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown/'.format(date)
 save_base = '/data/old_trap_processed/spinning/ringdown/{:s}/'.format(date)
 #save_base = '/data/old_trap_processed/spinning/ringdown_manual/{:s}/'.format(date)
 
+#save_suffix = ''
+save_suffix = '_coarse'
+
 paths = [#base_path + '110kHz_start_1', \
-         #base_path + '110kHz_start_2', \
-         #base_path + '110kHz_start_3', \
+         base_path + '110kHz_start_2', \
+         base_path + '110kHz_start_3', \
          #base_path + '110kHz_start_4', \
          base_path + '110kHz_start_5', \
          base_path + '110kHz_start_6', \
          ]
+
+
+
+
+
+sim_data = False
+# base_path = '/data/old_trap_processed/spinsim_data/spindowns/sim_110kHz_real-noise'
+# base_save_path = '/data/old_trap_processed/spinsim_data/spindowns_processed/sim_110kHz_real-noise'
+# paths = []
+# save_paths = []
+# for subdir in next(os.walk(base_path))[1]:
+#     paths.append(os.path.join(base_path, subdir))
+#     save_paths.append(os.path.join(base_save_path, subdir))
 
 
 
@@ -68,9 +82,11 @@ paths = [#base_path + '110kHz_start_1', \
 # bu.make_all_pardirs(save_paths[0])
 npaths = len(paths)
 
+ncore = npaths
+#ncore = 1
+
 save = True
 load = False
-no_fits = True
 
 lin_fit_seconds = 10
 exp_fit_seconds = 500
@@ -97,29 +113,14 @@ def exponential(x, a, b, c, d):
     return a * np.exp( b * (x + c) ) + d
 
 
-def rebin(a, *args):
-    shape = a.shape
-    lenShape = len(shape)
-    factor = np.asarray(shape)/np.asarray(args)
-    evList = ['a.reshape('] + \
-             ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
-             [')'] + ['.mean(%d)'%(i+1) for i in range(lenShape)]
-    #print ''.join(evList)
-
-    evList2 = ['a.reshape('] + \
-              ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
-              [')'] + ['.std(%d)'%(i+1) for i in range(lenShape)]
-   # print ''.join(evList2)
-
-    return eval(''.join(evList)), eval(''.join(evList2))
 
 
 
 # times = np.arange(100000)
 # vec = np.random.randn(100000)
-# vec_ds, vec_err_ds = rebin(vec, 1000)
+# vec_ds, vec_err_ds = rebin_vectorized(vec, 1000)
 # vec_err_ds *= np.sqrt(1000.0/100000.0)
-# times_ds, times_err_ds = rebin(times, 1000)
+# times_ds, times_err_ds = rebin_vectorized(times, 1000)
 # #plt.plot(times, vec)
 # plt.errorbar(times_ds, vec_ds, yerr=vec_err_ds)
 # plt.show()
@@ -128,8 +129,12 @@ def rebin(a, *args):
 
 
 def proc_dir(path):
-    fc = 2.0*f_rot
-    wc = 2.0*np.pi*fc
+    if sim_data:
+        fc = f_rot
+        wc = 2.0*np.pi*fc
+    else:
+        fc = 2.0*f_rot
+        wc = 2.0*np.pi*fc
 
     strs = path.split('/')
     if len(strs[-1]) == 0:
@@ -137,7 +142,14 @@ def proc_dir(path):
     else:
         dirname = strs[-1]
 
-    out_f = save_base + dirname
+    if sim_data:
+        for thing in save_paths:
+            if dirname in thing:
+                out_f = thing
+                break
+    else:
+        out_f = save_base + dirname
+
     bu.make_all_pardirs(out_f)
 
     # if load:
@@ -149,14 +161,24 @@ def proc_dir(path):
     #     plt.show()
     #     continue
 
-    files, lengths = bu.find_all_fnames(path, sort_time=True)
+    if sim_data:
+        files, lengths = bu.find_all_fnames(path, ext='.npy', sort_time=True, verbose=False)
+
+    else:
+        files, lengths = bu.find_all_fnames(path, sort_time=True, verbose=False)
 
     #files = files[:1000]
 
-    fobj = hsDat(files[0])
-    nsamp = fobj.attribs["nsamp"]
-    fsamp = fobj.attribs["fsamp"]
-    t0 = fobj.attribs["time"]
+    if sim_data:
+        fobj = np.load(files[0])
+        t0 = 0.0
+        nsamp = fobj.shape[1]
+        fsamp = 500000.0
+    else:
+        fobj = hsDat(files[0])
+        nsamp = fobj.attribs["nsamp"]
+        fsamp = fobj.attribs["fsamp"]
+        t0 = fobj.attribs["time"]
 
     time_vec = np.arange(nsamp) * (1.0 / fsamp)
     freqs = np.fft.rfftfreq(nsamp, 1.0/fsamp)
@@ -166,7 +188,7 @@ def proc_dir(path):
     upper1 = (2.0 / fsamp) * (fc + 5 * bandwidth)
     lower1 = (2.0 / fsamp) * (fc - 5 * bandwidth)
     fc_init = fc
-    print fc_init
+    #print fc_init
 
     b1, a1 = signal.butter(3, [lower1, upper1], \
                            btype='bandpass')
@@ -198,12 +220,28 @@ def proc_dir(path):
     spindown = False
     first = False
     for fileind, file in enumerate(files):
-        bu.progress_bar(fileind, nfiles, suffix=suffix)
+        if progress_bar:
+            bu.progress_bar(fileind, nfiles, suffix=suffix)
 
-        fobj = hsDat(file)
-        t = fobj.attribs["time"]
+        if sim_data:
+            fobj = np.load(file)
+            px = fobj[1]
+            # py = fobj[2]
+            # vperp = np.arctan2(py, px)
 
-        vperp = fobj.dat[:,0]
+            # plt.loglog(freqs, np.abs(np.fft.rfft(px)))
+            # plt.loglog(freqs, np.abs(np.fft.rfft(py)))
+            # plt.loglog(freqs, np.abs(np.fft.rfft(vperp)))
+            # plt.show()
+
+            vperp = px
+            t = nsamp * (1.0 / fsamp) * (1.0 + fileind) * 1e9
+
+        else:
+            fobj = hsDat(file)
+            t = fobj.attribs["time"]
+
+            vperp = fobj.dat[:,0]
 
         if not spindown:
             vperp_filt = signal.filtfilt(b1, a1, vperp)
@@ -212,8 +250,8 @@ def proc_dir(path):
             vperp_filt_asd = np.abs(vperp_filt_fft)
 
             # if plot_raw_dat:
-            #     plt.loglog(freqs, vperp_filt_asd)
             #     plt.loglog(freqs, np.abs(np.fft.rfft(vperp)))
+            #     plt.loglog(freqs, vperp_filt_asd)
             #     plt.xlim(fc - bandwidth, fc + bandwidth)
             #     plt.show()
 
@@ -223,7 +261,7 @@ def proc_dir(path):
                 amp = popt[0]
 
             if (np.abs(fc - popt[1]) > 5.0) or (popt[0] < 0.5 * amp):
-                print 'CHIRP STARTED' 
+                #print 'CHIRP STARTED' 
                 spindown = True
                 first = True
                 #fc_old = fc
@@ -305,7 +343,8 @@ def proc_dir(path):
         inst_phase = np.unwrap(np.angle(ht))
 
         inst_freq = (fsamp / (2 * np.pi)) * np.gradient(inst_phase)
-        inst_freq = 0.5 * inst_freq
+        if not sim_data:
+            inst_freq = 0.5 * inst_freq
 
         start_ind = int(0.1 * nsamp)
 
@@ -314,9 +353,9 @@ def proc_dir(path):
         fit_time_vec = time_vec[start_ind:-1000]
 
         start = time.time()
-        fit_time_vec_ds, fit_time_vec_err_ds = rebin( fit_time_vec, 1000 )
-        fit_inst_freq_ds, fit_inst_freq_err_ds = rebin( fit_inst_freq, 1000 )
-        fit_inst_phase_ds, fit_inst_phase_err_ds = rebin( fit_inst_phase, 1000 )
+        fit_time_vec_ds, fit_time_vec_err_ds = bu.rebin_vectorized( fit_time_vec, nbin )
+        fit_inst_phase_ds, fit_inst_phase_err_ds = bu.rebin_vectorized( fit_inst_phase, nbin )
+        fit_inst_freq_ds, fit_inst_freq_err_ds = bu.rebin_vectorized( fit_inst_freq, nbin)#, model=line )
         stop = time.time()
         if debug:
             print "Rebinning time: ", stop - start
@@ -329,15 +368,34 @@ def proc_dir(path):
         #start = time.time()
         popt_line, pcov_line = opti.curve_fit(line, fit_time_vec_ds, fit_inst_freq_ds)
 
-        fc_old = 2.0 * line(np.mean(fit_time_vec_ds), *popt_line)
-        dfdt = 2.0 * popt_line[0]
+        if sim_data:
+            fac = 1.0
+        else:
+            fac = 2.0
+
+        fc_old = fac * line(np.mean(fit_time_vec_ds), *popt_line)
+        dfdt = fac * popt_line[0]
+
+        # resid = fit_inst_freq_ds - line(fit_time_vec_ds, *popt_line)
+        # chisq = (1.0 / (len(fit_time_vec_ds) - len(popt_line)) ) * \
+        #                 np.sum( resid**2 / fit_inst_freq_err_ds**2 )
+        # print chisq
+        # fit_inst_freq_err_ds *= np.sqrt(chisq)
 
         if plot_raw_dat:
             plt.figure()
             plt.errorbar(fit_time_vec_ds, fit_inst_freq_ds, \
                             xerr=fit_time_vec_err_ds, yerr=fit_inst_freq_err_ds)
             plt.plot(fit_time_vec_ds, line(fit_time_vec_ds, *popt_line))
-            plt.plot(fit_time_vec_ds, np.ones_like(fit_time_vec_ds)*0.5*fc_old)
+            plt.plot(fit_time_vec_ds, np.ones_like(fit_time_vec_ds)*(1.0/fac)*fc_old)
+
+
+            # freqs = np.fft.rfftfreq(len(fit_time_vec_ds), \
+            #                         d=(fit_time_vec_ds[1] - fit_time_vec_ds[0]))
+            # fft = np.fft.rfft(resid)
+            # plt.figure()
+            # plt.loglog(freqs, np.abs(fft))
+
             plt.show()
 
         all_freq.append(fit_inst_freq_ds)
@@ -369,20 +427,20 @@ def proc_dir(path):
     all_freq = np.array(all_freq)
     all_freq_err = np.array(all_freq_err)
 
-    resdict = {'init_freq': 0.5 * fc_init, 't_init': t_init, \
+    resdict = {'init_freq': (1.0/fac) * fc_init, 't_init': t_init, \
                 'times': times, 'center_freq': center_freq, \
                 'all_time': all_time, 'all_freq': all_freq, 'all_freq_err': all_freq_err, \
                 'all_phase': all_phase, 'all_phase_err': all_phase_err}
 
     if save:
-        pickle.dump(resdict, open(out_f + '_all.p', 'wb'))
+        pickle.dump(resdict, open(out_f + '{:s}_all.p'.format(save_suffix), 'wb'))
 
     #outdict[out_f] = resdict
     return resdict
 
 outdict = {}
 if not load:
-    results = Parallel(n_jobs=len(paths))(delayed(proc_dir)(path) for path in tqdm(paths))
+    results = Parallel(n_jobs=ncore)(delayed(proc_dir)(path) for path in tqdm(paths))
     for ind, path in enumerate(paths):
         strs = path.split('/')
         if len(strs[-1]) == 0:
@@ -402,157 +460,4 @@ if load:
 
         outdict[out_f] = pickle.load(open(out_f + '_all.p', 'rb'))
 
-if no_fits:
-    exit()
-
-
-dirs = outdict.keys()
-dirs.sort()
-for dirname in dirs:
-
-    print
-    print dirname
-
-    fig_lin, ax_lin = plt.subplots(1,1)
-    fig_exp, ax_exp = plt.subplots(1,1)
-    fig_tau, ax_tau = plt.subplots(1,1)
-    #fig_ext, ax_ext = plt.subplots(1,1)
-
-    f0 = outdict[dirname]['init_freq']
-
-    times = outdict[dirname]['times']
-    center_freq = outdict[dirname]['center_freq']
-
-    all_time = outdict[dirname]['all_time']
-    all_freq = outdict[dirname]['all_freq']
-    all_phase = outdict[dirname]['all_phase']
-
-
-    decay_time = []
-    decay_time_2 = []
-    decay_time_3 = []
-    decay_time_4 = []
-
-    for ind in range(len(times)):
-
-        time_vec = all_time[ind]
-        freq_vec = all_freq[ind]
-        phase_vec = all_phase[ind]
-
-
-        popt_para, pcov_para = opti.curve_fit(parabola, time_vec, phase_vec)
-        tau = -2.0 * np.pi * f0 / popt_para[0]
-        decay_time.append(tau)
-
-        # def para_fit_fun(t, tau, Nopt_Ibead, phi0):
-        #     slope = 2.0 * np.pi * f0
-        #     quad = 0.5 * ((f0 / tau) - (Nopt_Ibead / (2.0 * np.pi)))
-        #     return phi0 + slope * t + quad * t**2
-
-        # p0 = [2000, 10, 0]
-        # bounds = ([100, 0, -np.inf], [np.inf, np.inf, np.inf])
-        # plt.plot(time_vec, phase_vec)
-        # plt.plot(time_vec, para_fit_fun(time_vec, *p0))
-        # plt.show()
-        # popt_modpara, pcov_modpara = opti.curve_fit(para_fit_fun, time_vec, phase_vec, \
-        #                                             p0=p0, bounds=bounds, maxfev=10000)
-        # decay_time_2.append(popt_modpara[0])
-
-
-        popt_line, pcov_line = opti.curve_fit(line, time_vec, freq_vec)
-        tau = -1.0 * f0 / popt_line[0]
-        decay_time_3.append(tau)
-
-        def lin_fit_fun(t, tau, Nopt_Ibead):
-            slope = (f0 / tau) - (Nopt_Ibead / (2.0 * np.pi))
-            return f0 - slope * t
-
-        p0 = [2000, 10]
-        bounds = ([100, 0], [np.inf, np.inf])
-        popt_modline, pcov_modline = opti.curve_fit(lin_fit_fun, time_vec, freq_vec, \
-                                                    p0=p0, bounds=bounds)
-        decay_time_4.append(popt_modline[0])
-
-
-        # tau = -1.0 * (0.5 * fc_init) / popt_line[0]
-        # tau_err = tau * (np.sqrt(pcov_line[0,0]) / popt_line[0])
-
-        # decay_time.append(tau)
-        # decay_time_2.append(tau_p)
-        # decay_time_err.append(tau_err)
-
-
-        # ax1.plot(time_vec[start_ind:-1000], inst_freq[start_ind:-1000])
-        # ax1.plot(time_vec, line(time_vec, *popt_line), '--', lw=2, color='r', alpha=0.75)
-        # plt.draw()
-        # plt.pause(1)
-
-    # decay_time = np.array(decay_time)
-    # decay_time_err = np.array(decay_time_err)
-
-    # 'decay_time': decay_time, 'decay_time_2': decay_time_2, 'decay_time_err': decay_time_err, \
-    #             'decay_time_3': decay_time_3, 'decay_time_4': decay_time_4,
-
-
-
-
-
-
-
-
-    all_time_flat = all_time.flatten()
-    all_freq_flat = all_freq.flatten()
-
-    inds = all_time_flat < lin_fit_seconds
-
-    popt_line, pcov_line = opti.curve_fit(line, all_time_flat[inds], all_freq_flat[inds])
-
-    tau_line = f0 / np.abs(popt_line[0])
-
-    ax_lin.plot(all_time_flat[inds], all_freq_flat[inds], '.')
-    ax_lin.plot(all_time_flat[inds], line(all_time_flat[inds], *popt_line), \
-                    '--', lw=2, color='r', alpha=0.5, label='$\tau = ${:0.2f} s'.format(tau_line))
-
-    def fit_fun(x, tau, toff):
-        return exponential(x, f0, -1.0 / tau, toff, 0)
-
-    p0 = [2000, 0]
-    bounds = ([100, -np.inf], [np.inf, np.inf])
-
-    inds = times < exp_fit_seconds
-
-    tau_time = []
-    tau_from_exp = []
-    fit_time = all_time[0]
-    fit_freq = all_freq[0]
-    end_ind = np.argmin( np.abs(np.array(times) - exp_fit_seconds) )
-    for i in range(end_ind+1):
-        bu.progress_bar(i, end_ind+1, suffix='fitting exponentials')
-        popt_exp, pcov_exp = opti.curve_fit(fit_fun, fit_time, fit_freq, p0=p0, bounds=bounds)
-        tau_from_exp.append(popt_exp[0])
-        tau_time.append(times[i])
-        if i < len(times) - 1:
-            fit_time = np.concatenate((fit_time, all_time[i+1]))
-            fit_freq = np.concatenate((fit_freq, all_freq[i+1]))
-
-    ax_tau.plot(tau_time, tau_from_exp, label='Successive Exp Fits')
-    ax_tau.plot(times, decay_time, label='Successive Parabolic Fits to $\phi$')
-    #ax_tau.plot(times, decay_time_2, label='Successive Mod-Linear Fits to $f$')
-    ax_tau.plot(times, decay_time_3, label='Successive Linear Fits to $f$')
-    ax_tau.plot(times, decay_time_4, label='Successive Mod-Linear Fits to $f$')
-    ax_tau.legend(loc=0)
-    ax_tau.set_ylim(0,3000)
-    ax_tau.set_xlim(0,500)
-
-    print 'From exponential fit: {:0.2f}'.format(popt_exp[0])
-    print 'From initial estimate: {:0.2f}'.format(decay_time_3[0])
-    print 'From first {:d} seconds: {:0.2f}'.format(lin_fit_seconds, tau_line)
-
-    resid = center_freq - fit_fun(times, *popt_exp)
-
-    ax_exp.plot(times, center_freq)
-    ax_exp.plot(times, fit_fun(times, *popt_exp), '--', lw=2, color='r', alpha=0.5)
-    # plt.draw()
-
-    plt.show()
 

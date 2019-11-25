@@ -4,23 +4,28 @@
 ######################################################
 
 
-import sys
+import sys, time
 import numpy as np
+
 import scipy.interpolate as interp
 import scipy.signal as signal
+import scipy.constants as constants
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-import torsion_noise as tn
 
-import time
+import torsion_noise as tn
+import bead_util as bu
+
+from numba import jit
+
 
 ### Constants
-e = 1.602e-19          #  C
+e = constants.e          #  C
 p0 = 100 * e * (1e-6)  #  C * m
-rhobead = 2000
-rbead = 2.4e-6
-mbead = (4. / 3.) * np.pi * rbead**3 * rhobead
-Ibead = (2. / 5.) * mbead * rbead**2 
+rhobead = bu.rhobead['val']
+mbead = 85.0e-15
+Ibead = bu.get_Ibead(mbead={'val': mbead, 'sterr': 1.0e-15, 'syserr': 1.5e-15})['val']
 
 
 ### Set the thermalization time 
@@ -112,7 +117,7 @@ def oscE(ti, tf, dt, fieldmag, xfreq, yfreq, zfreq, \
 
 
 
-
+@jit(nopython=True)
 def rk4(xi_old, t, tind, delt, system):
     '''4th-order Runge-Kutta integrator method. Takes an input vector
        of the form [x_i, y_i, ..., dx_i/dt, dy_i/dt, ...] and uses a 

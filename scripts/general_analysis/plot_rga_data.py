@@ -23,11 +23,11 @@ plt.rcParams.update({'font.size': 14})
 #rga_data_file1 = '/daq2/20190514/bead1/rga_scans/Ar-leak_2_000001.txt'
 #rga_data_file2 = '/daq2/20190514/bead1/rga_scans/post_Ar-leak_4_000001.txt'
 
-#date = '20190626'
-#date = '20191007'
-date = '20191017'
+date = '20190626'
+#date = '20190905'
+#date = '20191017'
 #main_gases = ['He', 'N2', 'Ar', 'Kr', 'Xe', 'SF6']
-main_gases = ['He']
+main_gases = ['He', 'N2']
 #pramps = [1,2,3]
 pramps = [1,2,3]
 # pramp_index = 3
@@ -51,7 +51,7 @@ ion_dict = {'He': ['F+'], \
 plot_extraction = False
 remove_neg_diffs = True
 
-load = False
+load = True
 save_fig = True
 show = False
 measurements = []

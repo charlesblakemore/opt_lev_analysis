@@ -1,13 +1,8 @@
-#################################################################################Configuration file specifying all of the parameters used in the analysis. Column labels for unpacking data attributes passed as lists are stores in dictionaries with the label and the column(s) as the value(s)
+#################################################################################
+# Configuration file specifying all of the parameters used in the analysis. 
+# Column labels for unpacking data attributes passed as lists are stores in 
+# dictionaries with the label and the column(s) as the value(s)
 ###############################################################################
-
-####Physical parameters in si units
-p_param = {"bead_radius": 2.43e-6,
-                "bead_rho": 2.2e3,
-                "kb": 1.3806488e-23,
-                "e_charge": 1.60217662e-19,
-                "nucleon_mass": 1.6749e-27}
-
 
 ####Data column Labels
 col_labels = {"other"     : [0, 1, 2, 3, 4, 5, 6, 7],
@@ -42,10 +37,10 @@ electrodes = {0: "cantilever",
               5: "right",
               6: "left"}
 
-electrode_settings = {'driven'   : [0, 1, 2, 3, 4, 5, 6],
-                     'amplitudes': [8, 9, 10, 11, 12, 13, 14],
-                     'frequencies': [16, 17, 18, 19, 20, 21, 22],
-                     'dc_vals2':     [24, 25, 26, 27, 28, 29, 30]}  
+electrode_settings = {'driven'     : [0, 1, 2, 3, 4, 5, 6],
+                     'amplitudes'  : [8, 9, 10, 11, 12, 13, 14],
+                     'frequencies' : [16, 17, 18, 19, 20, 21, 22],
+                     'dc_vals2'    : [24, 25, 26, 27, 28, 29, 30]}  
 
 ####ADC parameters to convert from bits to voltage when loading raw .h5 files
 adc_params = {"adc_res":2**16,
@@ -79,6 +74,12 @@ stage_inds = {"x DC": 0,
               "z amp": 10,
               "z freq":11} 
 
-stage_cal = 8.0#um/V
+# Taken straight from newport stage datasheet
+stage_cal = 8.0 # um/V
+# From calibration taken by AFieguth, sometime late 2019
+# volt_mon = [-0.007, 4.968, 9.91], pos_setting = [0, 250, 500]
+stage_cal_new = 50.42 # um/V, with ~0.077 um offset
+
+
 #Stage keys that get calibrated by the stage_cal:
 calibrate_stage_keys = ["x DC", "x amp", "y DC", "y amp", "z DC","z amp"] 

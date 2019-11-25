@@ -19,6 +19,8 @@ import configuration
 import transfer_func_util as tf
 
 from bead_util_funcs import *
+from bead_properties import *
+from bead_data_funcs import *
 
 #######################################################
 # This module contains the DataFile class which stores
@@ -341,7 +343,58 @@ class DataFile:
         self.other_data = np.transpose(dat[:, configuration.col_labels["other"]])
 
 
-    def calibrate_stage_position(self):
+
+
+    def load_new(self, fname, plot_raw_dat=False, skip_mon=False, \
+                    load_all_pos=False, verbose=False):
+
+        '''Loads the data from file with fname into DataFile object. 
+           Does not perform any calibrations.  
+        ''' 
+
+        dat1, dat2, dat3, dat4, attribs = getdata(fname)
+
+        # if plot_raw_dat:
+        #     for n in range(20):
+        #         plt.plot(dat[:,n], label=str(n))
+        #     plt.legend()
+        #     plt.show()
+        
+        self.fname = fname
+        self.date = fname.split('/')[2]
+        #print fname
+
+        self.fsamp = attribs['Fsamp'] / attribs['downsamp']
+        self.nsamp = len(dat[:,0])
+
+        self.pos_time, self.pos_data, self.pos_data_2, self.pos_fb, self.sync_data \
+                    = extract_xyz_new(dat1)
+        self.cant_data = dat2
+        self.quad_time, self.amp, self.phase = extract_quad_new(dat3)
+        self.other_data = dat4
+
+        self.time = xyz_time[0]
+
+        if load_all_pos:
+            # run bu.print_quadrant_indices() to see an explanation of these
+            right = self.amp[0] + self.amp[1]
+            left = self.amp[2] + self.amp[3]
+            top = self.amp[0] + self.amp[2]
+            bottom = self.amp[1] + self.amp[3]
+
+            x2 = right - left
+            y2 = top - bottom
+
+            quad_sum = np.sum(self.amp, axis=0)
+
+            self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
+                                        y2.astype(np.float64)/quad_sum, \
+                                        self.pos_data[2]])
+
+
+
+
+    def calibrate_stage_position(self, new_trap=False):
         '''calibrates voltage in cant_data and into microns. 
            Uses stage position file to put origin of coordinate 
            system at trap in x direction with cantilever centered 
@@ -350,13 +403,18 @@ class DataFile:
         if self.cant_calibrated:
             return
 
+        if new_trap:
+            cal_fac = configuration.stage_cal_new
+        else:
+            cal_fac = configuration.stage_cal
+
         # First get everything into microns.
         for k in configuration.calibrate_stage_keys:
             #print k
-            self.stage_settings[k] *= configuration.stage_cal    
+            self.stage_settings[k] *= cal_fac  
             
         try:
-            self.cant_data*=configuration.stage_cal
+            self.cant_data *= cal_fac
             self.cant_calibrated = True
         except:
             1+2
@@ -392,7 +450,8 @@ class DataFile:
                              * avging_fac * cast_fac * bitshift_fac )
 
         self.phase = newphase
-        self.zcal = self.pos_data[2] * (2**(-7) / (100.0)) * np.pi
+        self.zcal = self.pos_data[2] * avging_fac * np.pi
+
 
 
     def get_cant_drive_ax(self):
@@ -402,17 +461,23 @@ class DataFile:
 
            INPUTS: none, uses class attributes from loaded data
 
-           OUTPUTS: none, generates new class attribute.'''
+           OUTPUTS: drive_ind, index with largest amplitude peak in 
+                                    a PSD of the stage monitor.
+        '''
         indmap = {0: 'x', 1: 'y', 2: 'z'}
         driven = [0,0,0]
         
-        if len(self.stage_settings) == 0:
-            print "No data loaded..."
-            return 
+        # if len(self.stage_settings) == 0:
+        #     print "No data loaded..."
+        #     return 
 
         for ind, key in enumerate(['x driven','y driven','z driven']):
-            if self.stage_settings[key]:
-                driven[ind] = 1
+            try:
+                if self.stage_settings[key]:
+                    driven[ind] = 1
+            except Exception:
+                pass
+
         if np.sum(driven) > 1:
             amp = [0,0,0]
             for ind, val in enumerate(driven):
@@ -420,15 +485,14 @@ class DataFile:
                     key = indmap[ind] + ' amp'
                     amp[ind] = self.stage_settings[key]
             drive_ind = np.argmax(np.abs(amp))
-        if np.sum(driven) == 0: # handel case of external drive
+
+        if np.sum(driven) == 0: # handle case of external drive
             drive_fft = np.fft.rfft(self.cant_data)
             mean_sq = np.sum(np.abs(drive_fft[:, 1:])**2, axis = 1)#cut DC
             drive_ind = np.argmax(mean_sq)
 
-        else:
-            drive_ind = np.argmax(np.abs(driven))
-
         return drive_ind
+
 
     def generate_yuk_template(self, yukfuncs_at_lambda, p0, stage_travel = [80., 80., 80.],\
                                 plt_pvec = False, plt_template = False, cf = 1E-6):
