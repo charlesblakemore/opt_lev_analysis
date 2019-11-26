@@ -100,7 +100,7 @@ else:
     agg_dat.fit_alpha_xyz_vs_alldim()
 
     agg_dat.save(agg_path)
-    print 'Saved that new-new'
+    print('Saved that new-new')
 
     '''
     agg_dat.save(agg_path)

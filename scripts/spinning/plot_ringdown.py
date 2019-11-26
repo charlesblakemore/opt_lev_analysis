@@ -90,7 +90,7 @@ Ibead, Ibead_sterr, Ibead_syserr = bu.get_Ibead(mbead, mbead_sterr, mbead_syserr
 
 
 
-print 'Optical torque estimate: ', Ibead * 20.0e3 / 1500.0
+print('Optical torque estimate: ', Ibead * 20.0e3 / 1500.0)
 
 kappa = 6.09e11
 kappa_err = 0.03e11
@@ -108,7 +108,7 @@ for fileind, file in enumerate(newpaths):
     all_freq = data['all_freq']
     all_freq_err = data['all_freq_err']
     f0 = data['init_freq']
-    print f0
+    print(f0)
 
     #ndat = len(all_time)
     ndat = 0
@@ -124,8 +124,8 @@ for fileind, file in enumerate(newpaths):
 
     #print times
 
-    print np.mean(all_freq_err_flat), np.std(all_freq_err_flat)
-    print datetime.utcfromtimestamp(int(data['t_init']*1e-9)).strftime('%Y-%m-%d %H:%M:%S')
+    print(np.mean(all_freq_err_flat), np.std(all_freq_err_flat))
+    print(datetime.utcfromtimestamp(int(data['t_init']*1e-9)).strftime('%Y-%m-%d %H:%M:%S'))
 
     fit_inds = all_time_flat < fit_end_time
     npts = np.sum(fit_inds)
@@ -175,9 +175,9 @@ for fileind, file in enumerate(newpaths):
     # m.draw_mnprofile('tau', bound = 5, bins = 50)
     # plt.show()
 
-    print
-    print file
-    print m.values
+    print()
+    print(file)
+    print(m.values)
 
     popt_modexp = [m.values['t0'], m.values['tau'], m.values['fterm']]
 
@@ -311,8 +311,8 @@ for fileind, file in enumerate(newpaths):
     tau_upper = np.array(tau_upper)
     tau_lower = np.array(tau_lower)
 
-    print 'Original tau error: ', tau_all_err
-    print 'Final successive fit value: ', np.mean(np.abs([tau_upper[-1], tau_lower[-1]]))
+    print('Original tau error: ', tau_all_err)
+    print('Final successive fit value: ', np.mean(np.abs([tau_upper[-1], tau_lower[-1]])))
 
     label = ('$\\tau_{{{:d}}} = ({:d} \\pm {:d})$ s'\
                                 .format(fileind, int(tau_all), int(tau_all_err)))
@@ -334,11 +334,11 @@ for fileind, file in enumerate(newpaths):
     p = (kappa / np.sqrt(m0)) * (Ibead / tau_all)
     #p_err = p * np.sqrt( (kappa_err / kappa)**2 + (Ibead_err / Ibead)**2 + (tau_all_err / tau_all)**2)
 
-    print 'kappa unc. - ', kappa_err / kappa
+    print('kappa unc. - ', kappa_err / kappa)
     #print 'Ibead unc. - ', Ibead_err / Ibead
-    print 'tau unc. - ', tau_all_err / tau_all
+    print('tau unc. - ', tau_all_err / tau_all)
 
-    print label + ': {:0.3g} +- {:0.3g} mbar'.format(p * 0.01, 0)#, p_err * 0.01)
+    print(label + ': {:0.3g} +- {:0.3g} mbar'.format(p * 0.01, 0))#, p_err * 0.01)
 
 axarr[0].set_xlim(0,700)
 #axarr[0].set_ylim(30, 52)

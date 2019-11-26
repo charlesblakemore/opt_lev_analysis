@@ -81,8 +81,8 @@ dat = background_data.dat
 seps = background_data.seps
 heights = background_data.heights
 
-print "looping over %i seps" % len(seps)
-print "looping over %i heights" % len(heights)
+print("looping over %i seps" % len(seps))
+print("looping over %i heights" % len(heights))
 
 #seps = seps[:5]
 #heights = heights[:5]
@@ -137,7 +137,7 @@ per = 0.0
 for ind, yuklambda in enumerate(lambdas):
     newper = (float(ind) / float(len(lambdas))) * 100.
     if newper > per + 1.0:
-        print int(per),
+        print(int(per), end=' ')
         sys.stdout.flush()
         per = newper
     chi_sqs = np.zeros(len(testalphas))
@@ -231,12 +231,12 @@ for ind, yuklambda in enumerate(lambdas):
         diag_chi_sqs[alphaind] = diag_red_chi_sq
 
     stop = time.time()
-    print "time for single lambda: ", stop-start
+    print("time for single lambda: ", stop-start)
 
 
     if setmin_chisq:
-        print np.min(chi_sqs)
-        print np.min(diag_chi_sqs)
+        print(np.min(chi_sqs))
+        print(np.min(diag_chi_sqs))
         min_chisq.append(np.min(chi_sqs))
         diagmin_chisq.append(np.min(diag_chi_sqs))
 
@@ -266,7 +266,7 @@ for ind, yuklambda in enumerate(lambdas):
         popt, pcov = optimize.curve_fit(parabola, fitalphas, chi_sqs, p0 = p0, maxfev = 100000)
         diagpopt, diagpcov = optimize.curve_fit(parabola, fitalphas, diag_chi_sqs, p0 = dp0, maxfev = 100000)
     except:
-        print "Couldn't fit"
+        print("Couldn't fit")
         popt = p0_old
         popt[2] = np.mean(chi_sqs)
         diagpopt = dp0_old

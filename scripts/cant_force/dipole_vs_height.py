@@ -105,11 +105,11 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
         df.get_force_v_pos(verbose=False, nbins=nbins)
 
         # Add the current data to the output dictionary
-        if cantbias not in force_curves.keys():
+        if cantbias not in list(force_curves.keys()):
             force_curves[cantbias] = {}
             if diag:
                 diag_force_curves[cantbias] = {}
-        if ax1pos not in force_curves[cantbias].keys():
+        if ax1pos not in list(force_curves[cantbias].keys()):
             # if height and sep not found, adds them to the directory
             force_curves[cantbias][ax1pos] = [[], [], []]
             if diag:
@@ -151,11 +151,11 @@ def get_force_curve_dictionary(files, cantind=0, ax1='z', fullax1=True, \
                     diag_force_curves[cantbias][ax1pos][resp] = \
                                 [new_diag_bins[diag_sort_inds], new_diag_dat[diag_sort_inds]]
 
-    cantV_keys = force_curves.keys()
-    ax1_keys = force_curves[cantV_keys[0]].keys()
+    cantV_keys = list(force_curves.keys())
+    ax1_keys = list(force_curves[cantV_keys[0]].keys())
 
-    print 
-    print 'Averaging files and building standard deviations'
+    print() 
+    print('Averaging files and building standard deviations')
     sys.stdout.flush()
 
     if fit_xdat:
@@ -302,7 +302,7 @@ if fit_zdat:
         diag_zdat = fits['z'][1]
 
 
-cantV = force_dic.keys()
+cantV = list(force_dic.keys())
 cantV.sort()
 
 figs = []
@@ -331,7 +331,7 @@ for biasind, bias in enumerate(cantV):
         zfits = []
         diag_zfits = []
 
-    stage_settings = force_dic[bias].keys()
+    stage_settings = list(force_dic[bias].keys())
     stage_settings.sort()
     stage_settings = np.array(stage_settings)
 

@@ -152,15 +152,15 @@ if not plot_just_current:
     lambdas = grav_funcs['lambdas']
     lims = grav_funcs['lims']
     grav_funcs.clear()
-    print "Loaded grav sim data"
+    print("Loaded grav sim data")
 
     datafiles = bu.find_all_fnames(data_dir, ext=config.extensions['data'])
 
     datafiles = datafiles[file_inds[0]:file_inds[1]]
-    print "Processing %i files..." % len(datafiles)
+    print("Processing %i files..." % len(datafiles))
 
     if len(datafiles) == 0:
-        print "Found no files in: ", data_dir
+        print("Found no files in: ", data_dir)
         quit()
 
 

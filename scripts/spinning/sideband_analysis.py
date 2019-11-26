@@ -252,9 +252,9 @@ for arrind, arr in enumerate(all_data):
         continue
 
     popt_arr.append(popt)
-    print
-    print popt
-    print
+    print()
+    print(popt)
+    print()
 
     plot_x = np.linspace(0, np.max(field_strength), 100)
     plot_x[0] = 1.0e-9 * plot_x[1]

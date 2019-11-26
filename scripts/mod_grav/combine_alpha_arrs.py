@@ -47,7 +47,7 @@ weighted_errs = []
 
 for ind, path in enumerate(arr_paths):
 
-    print ind, path
+    print(ind, path)
 
     alpha_arr = np.load( open(path, 'rb') )
     lambdas = np.load( open(path[:-4] + '_lambdas.arr', 'rb') )

@@ -4,7 +4,7 @@ import os
 import subprocess
 import time
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 
 maxsubs = 3000
 
@@ -54,7 +54,7 @@ def submit_next_job(params):
         #print output
 
     except:
-        print 'Failed',
+        print('Failed', end=' ')
         params.append(params[0])
         badparams.append(params[0])
 

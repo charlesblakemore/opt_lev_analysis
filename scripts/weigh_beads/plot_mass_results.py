@@ -10,7 +10,7 @@ plt.rcParams.update({'font.size': 14})
 overall_mass_dict = pickle.load(open('./overall_masses.p', 'rb'))
 allres_dict = pickle.load(open('./allres.p', 'rb'))
 
-dates = overall_mass_dict.keys()
+dates = list(overall_mass_dict.keys())
 dates.sort()
 
 newdates = []
@@ -49,13 +49,13 @@ for dateind, date in enumerate(dates):
         if cond[4] > 1.0:
             facecolors[-1] = 'w'
 
-    xvec = np.array(range(ncond)) + plot_ind
+    xvec = np.array(list(range(ncond))) + plot_ind
     
-    axarr[0].errorbar(np.array(range(ncond)) + plot_ind, \
+    axarr[0].errorbar(np.array(list(range(ncond))) + plot_ind, \
                       dat[:,0], yerr=np.sqrt(dat[:,1]**2 + dat[:,2]**2), \
                       fmt='', ls='none', color='k')
 
-    xarr = np.array(range(ncond)) + plot_ind
+    xarr = np.array(list(range(ncond))) + plot_ind
     yarr = dat[:,0]
     for xp, yp, fc, ec in zip(xarr, yarr, facecolors, edgecolors):
         axarr[0].scatter([xp], [yp], s=20, marker='o', \
@@ -77,7 +77,7 @@ for dateind, date in enumerate(dates):
         plot_str = 'No.%i' % int(dateind - (len(dates) - 4))
         #axarr[1].text(plot_ind-0.5, overall[0] - 2.5, plot_str, color='b', fontsize=12)
         axarr[1].text(plot_ind+1, 80, plot_str, color='b', fontsize=10, ha='center')
-        print date, overall[0], np.sqrt(overall[1]**2 + overall[2]**2), overall[3]
+        print(date, overall[0], np.sqrt(overall[1]**2 + overall[2]**2), overall[3])
     else:
         axarr[1].errorbar([plot_ind + 1], [overall[0]], \
                           yerr=[np.sqrt(np.sum(overall[1:]**2))], \
@@ -117,7 +117,7 @@ plt.show()
 overall_mass = np.load('./overall_masses.npy')
 
 rawdat = np.load('./allres.npy')
-print rawdat.shape
+print(rawdat.shape)
 
 dat = []
 for row in rawdat:
@@ -127,8 +127,8 @@ for row in rawdat:
         dat.append(row)
 dat = np.array(dat)
 
-rinds = range(rawdat.shape[0])
-inds = range(dat.shape[0])
+rinds = list(range(rawdat.shape[0]))
+inds = list(range(dat.shape[0]))
 
 ms1 = np.zeros_like(rinds)
 ms1 += (rawdat[:,4] > 1.0) * 50

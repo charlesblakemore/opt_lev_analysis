@@ -30,7 +30,7 @@ for fidx,f in enumerate(flist):
 
     cpos = sort_fun(f)
 
-    print "Vdc = ", cpos
+    print("Vdc = ", cpos)
 
     cdat, attribs, _ = bu.getdata( f )
 
@@ -90,7 +90,7 @@ for cc in avg_dict:
     avg_vals.append( [cc, np.mean( avg_dict[cc] ), np.std( avg_dict[cc] )/len(avg_dict[cc]) ] )
 avg_vals = np.array(avg_vals)
 
-print avg_vals
+print(avg_vals)
 
 def make_plot( x,y,plot=True ):
     if(plot):

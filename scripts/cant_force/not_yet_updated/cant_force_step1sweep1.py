@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
@@ -72,9 +72,9 @@ def proc_dir(d):
     return dir_obj
 
 # Do intial processing
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 if subtract_background:
-    bdir_objs = map(proc_dir, bdirs)
+    bdir_objs = list(map(proc_dir, bdirs))
 
 # Loop over new directory objects and extract cantilever postions
 pos_dict = {}
@@ -98,10 +98,10 @@ if subtract_background:
             bpos_dict[cpos].append(fobj.fname)
 
 
-colors = bu.get_color_map(len(pos_dict.keys()))
+colors = bu.get_color_map(len(list(pos_dict.keys())))
 
 # Obtain the unique cantilever positions and sort them
-pos_keys = pos_dict.keys()
+pos_keys = list(pos_dict.keys())
 pos_keys.sort()
 
 # initialize some dictionaries that will be updated in a for-loop
@@ -156,7 +156,7 @@ for i, pos in enumerate(pos_keys):
 
 
 
-    keys = newobj.avg_diag_force_v_pos.keys() # Should only be one key here
+    keys = list(newobj.avg_diag_force_v_pos.keys()) # Should only be one key here
     cal_facs = newobj.conv_facs
     #cal_facs = [1.,1.,1.]
     color = colors[i]
@@ -238,9 +238,9 @@ if len(fig_title):
 # Analyze the fits (if fits were performed) and find the maximal
 # response at the location specified in the preamble
 if fit_height:
-    keys = fits.keys()
+    keys = list(fits.keys())
     keys.sort()
-    keys = map(float, keys)
+    keys = list(map(float, keys))
     arr1 = []
     arr2 = []
     for key in keys:
@@ -270,7 +270,7 @@ if fit_height:
     plt.xlabel('Cantilever Height [um]')
     plt.ylabel('Force [fN]')
 
-    print "Best fit positions: ", fit1[1], fit2[1]
+    print("Best fit positions: ", fit1[1], fit2[1])
     
 plt.show()
     

@@ -55,14 +55,14 @@ freqs /= 1000
 fc/=1000
 bw/=1000
 for i, f in enumerate(files):
-    print i
+    print(i)
     try:
         obj = hsDat(f)
         fft = np.fft.rfft(obj.dat[:, 0])
         if plot_dat:
             ax.plot(freqs, np.abs(fft), label = labels[i])
     except:
-        print "bad file"
+        print("bad file")
 
 ax.set_yscale("log")
 ax.set_xlim([fc-bw/2., fc+bw/2.])

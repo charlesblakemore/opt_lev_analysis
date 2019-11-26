@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 
 
 load_from_file = False
@@ -60,9 +60,9 @@ freqs = []
 for i in [0,1,2]:
     freqs.append(fits[i].popt[1])
 
-print
-print "X, Y and Z resonant freqs from thermal cal"
-print freqs
+print()
+print("X, Y and Z resonant freqs from thermal cal")
+print(freqs)
 
 
 ######################
@@ -75,10 +75,10 @@ charge_step_facs = charge_cal_dir_obj.conv_facs
 
 therm_facs = charge_cal_dir_obj.thermal_cal_fobj.get_thermal_cal_facs()
 
-print
-print "Calibration Comparison"
-print charge_step_facs
-print therm_facs
+print()
+print("Calibration Comparison")
+print(charge_step_facs)
+print(therm_facs)
 #print therm_facs * np.sqrt(2)
 
 

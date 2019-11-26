@@ -5,6 +5,7 @@ import os
 import glob
 import matplotlib.mlab as ml
 import sys
+import imp
 sys.path.append("../microgravity")
 from scipy.optimize import minimize_scalar as ms
 import alex_limit_v2 as al2
@@ -14,7 +15,7 @@ from scipy.stats import sem
 import build_yukfuncs as yf
 import image_util as iu
 import scipy.signal as ss
-reload(al2)
+imp.reload(al2)
 
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
@@ -32,7 +33,7 @@ plt_increment = 100
 ah5 = lambda fname: fname + '.h5'
 files = bu.find_all_fnames(dat_dir)
 if calculate_sps:
-    sps = np.array(map(iu.getNanoStage, map(ah5, files)))
+    sps = np.array(list(map(iu.getNanoStage, list(map(ah5, files)))))
     np.save("sps.npy", sps)
 else:
     sps = np.load("sps.npy")
@@ -86,7 +87,7 @@ def make_template(mean_data, yukfuncs, p0=p0, cf = 1.E6, stage_travel = [80., 80
     pts = np.stack(pvec, axis = -1)
     fs = np.array([yukfuncs[0](pts), yukfuncs[1](pts), \
                    yukfuncs[2](pts)])
-    fs = map(matplotlib.mlab.detrend_linear, fs)
+    fs = list(map(matplotlib.mlab.detrend_linear, fs))
     return fs
 
 def fit_alpha(mean_data, sems, yukfuncs, p0 = p0, cf = 1.E6, \

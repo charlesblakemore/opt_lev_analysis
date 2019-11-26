@@ -3,7 +3,7 @@
 import os, subprocess
 import time
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 
 maxsubs = 3000
 num_in_q = 500
@@ -50,7 +50,7 @@ def submit_next_job(params):
         pickle.dump([], open(confirmpath + str(params[0]) + '.p', 'wb'))
 
     except:
-        print 'Failed',
+        print('Failed', end=' ')
         params.append(params[0])
         badparams.append(params[0])
 

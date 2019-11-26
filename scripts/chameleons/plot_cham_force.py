@@ -27,8 +27,8 @@ deltaf = np.zeros_like(closest_list)
 delta = 300.
 for i,c in enumerate(closest_list):
     deltaf[i] = np.interp( c, cham_force[:,0], cham_force[:,1] ) - np.interp( c+delta, cham_force[:,0], cham_force[:,1] )
-    print c, deltaf[i]
-print cham_force[:,0]
+    print(c, deltaf[i])
+print(cham_force[:,0])
 
 plt.figure()
 plt.semilogy( closest_list, deltaf, 'ko-' )

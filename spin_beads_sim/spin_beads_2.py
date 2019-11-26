@@ -147,7 +147,7 @@ def system(xi, t, tind):
 
 time, points, energy_vec = bsfuncs.stepper(xi_init, ti, tf, dt, system, \
                                     bsfuncs.rk4, efield=efield, plot=False)
-print points.shape
+print(points.shape)
 
 
 

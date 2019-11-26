@@ -198,7 +198,7 @@ for meas in itertools.product(gases, inds):
             # pressures_mbar[i, :] = np.array(obj.attribs["pressures"]) * 1.333
             # times[i] = obj.attribs['time']
         except:
-            print "bad file"
+            print("bad file")
             return
 
 

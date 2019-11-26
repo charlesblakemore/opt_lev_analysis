@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import pickle as pickle
 
 import bead_util as bu
 import cant_util as cu

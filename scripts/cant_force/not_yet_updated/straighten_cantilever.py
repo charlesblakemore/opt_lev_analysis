@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 import time
 
 ####################################################
@@ -84,7 +84,7 @@ def proc_dir(d):
         amps.append(amp)
     uamps = np.unique(amps)
     if len(uamps) > 1:
-        print 'STUPIDITYERROR: Multiple dirve amplitudes in directory'
+        print('STUPIDITYERROR: Multiple dirve amplitudes in directory')
         
     newlist = []
     for i in [0,1,2]:
@@ -97,7 +97,7 @@ def proc_dir(d):
     return dir_obj
 
 
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 colors_yeay = bu.get_color_map( len(dir_objs) )
 f, axarr = plt.subplots(3,2,sharey='all',sharex='all',figsize=(10,12),dpi=100)
@@ -110,7 +110,7 @@ for ind, obj in enumerate(dir_objs):
 
     obj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size)
 
-    keys = obj.avg_force_v_pos.keys()
+    keys = list(obj.avg_force_v_pos.keys())
     for key in keys:
         amp = obj.drive_amplitude[straighten_axis]
         if straighten_axis == 0:

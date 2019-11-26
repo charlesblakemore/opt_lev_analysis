@@ -62,7 +62,7 @@ sb_ind = np.argmin(np.abs(freqs-sb_freq))
 plot = False
 
 for i, f in enumerate(files[::-1]):
-    print i
+    print(i)
     try:
         obj = hsDat(f)
         fft = np.fft.rfft(obj.dat[:, 0])
@@ -85,7 +85,7 @@ for i, f in enumerate(files[::-1]):
             plt.axvline(x = d_freq, color = 'k')
             plt.show()
     except IOError:
-        print "bad file"
+        print("bad file")
 
 
 c_freqs = np.array(c_freqs)

@@ -88,7 +88,7 @@ def get_dipoles_and_times(gas,wobble_file):
 def plot_dipole_v_time():
     colors = buf.get_color_map(len(load_files),cmap='plasma')
     colors = buf.get_color_map(7,cmap='plasma')
-    print len(colors)
+    print(len(colors))
     fig, ax = plt.subplots(1,1,figsize=(6,3),dpi=200)
     for i in range(len(load_files)):
         
@@ -97,7 +97,7 @@ def plot_dipole_v_time():
         times = data.item().get('times')
         gas = data.item().get('gas')
         time_files = data.item().get('time_files')
-        print(load_files[i])
+        print((load_files[i]))
 
         # if gas == 'initial':
         #     for j in range(len(time_files)):
@@ -113,7 +113,7 @@ def plot_dipole_v_time():
             else:
                 ax.scatter(times,dipoles[:,0] *(1/1.602e-19) * (1e6),c=colors[0])
         else:
-            print i
+            print(i)
             ax.scatter(times,dipoles[:,0] *(1/1.602e-19) * (1e6), \
                         c=colors[i-3], label='{}'.format(gas))
         

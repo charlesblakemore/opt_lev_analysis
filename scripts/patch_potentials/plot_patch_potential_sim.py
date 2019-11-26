@@ -73,7 +73,7 @@ finger_rms = []
 N = 0
 
 for nameind, name in enumerate(names):
-    print 'Processing: ', name
+    print('Processing: ', name)
     xx = np.load(open(base_path + name + '.xx', 'rb'))
     yy = np.load(open(base_path + name + '.yy', 'rb'))
     zz = np.load(open(base_path + name + '.zz', 'rb'))

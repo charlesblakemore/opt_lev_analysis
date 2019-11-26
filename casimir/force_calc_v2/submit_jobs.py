@@ -9,6 +9,6 @@ for i in range(len(gap_list)):
     for j in range(len(lam_list)):
         cc = "bsub -q medium python force_calc_v3.py %e %e" % (gap_list[i], lam_list[j])
     
-        print cc
+        print(cc)
         os.system(cc)
         time.sleep(2)

@@ -41,7 +41,7 @@ for i, f in enumerate(files):
     sr_phis.append(np.std(delta_phi))
     times.append(df.time)
     d_amps.append(d_amp)
-    print i
+    print(i)
 
 
 

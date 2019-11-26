@@ -138,7 +138,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
         if approx_feature_loc == 0.0:
             plt.loglog(freqs0, asd)
             plt.show()
-            center_guess = float(raw_input('Feature location [Hz]: '))
+            center_guess = float(input('Feature location [Hz]: '))
         else:
             center_guess = approx_feature_loc
 
@@ -178,7 +178,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
         feature_locs = []
 
     old_per = 0
-    print "Processing %i files..." % len(files)
+    print("Processing %i files..." % len(files))
     for fil_ind, fil in enumerate(files):
         color = colors[fil_ind]
         
@@ -236,7 +236,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
                                                     p0=[dat_filt_asd[maxind], fc, 5, 0])
                     fc_old = popt[1]
                 except:
-                    print 'bad fit'
+                    print('bad fit')
 
                 times.append((t-t0)*1e-9)
                 feature_locs.append(fc_old)

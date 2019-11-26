@@ -5,7 +5,7 @@ import numpy as np
 gap = float(sys.argv[1])
 lam = float(sys.argv[2])
 
-print gap, lam
+print(gap, lam)
 
 ## calculate potential over cylindrical mass as function of position
 

@@ -49,7 +49,7 @@ f, ax = plt.subplots(dpi = 200)
 
 
 for i, f in enumerate(files[init_file:final_file:ns]):
-    print i
+    print(i)
     try:
         obj = hsDat(f)
         d_amps[i] = obj.attribs["network amp"]
@@ -69,7 +69,7 @@ for i, f in enumerate(files[init_file:final_file:ns]):
 
     
     except IOError:
-        print "bad file"
+        print("bad file")
 
 
 def sqrt_fun(x, poi, toi):

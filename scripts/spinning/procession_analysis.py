@@ -31,7 +31,7 @@ def get_files(path):
     files.sort(key = sfun)
     return files
 
-files = map(get_files, paths)
+files = list(map(get_files, paths))
 
 
 

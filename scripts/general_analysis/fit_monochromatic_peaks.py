@@ -150,15 +150,15 @@ def fit_monochromatic_line(files, data_axes=[0,1], drive_axes=[6], diag=True, \
 
     oldtime = 0
     old_per = 0
-    print files[-1]
-    print "Processing %i files..." % len(files)
-    print "Percent complete: "
+    print(files[-1])
+    print("Processing %i files..." % len(files))
+    print("Percent complete: ")
     for fil_ind, fil in enumerate(files):
         
         # Display percent completion
         per = int(100. * float(fil_ind) / float(len(files)) )
         if per > old_per:
-            print old_per,
+            print(old_per, end=' ')
             sys.stdout.flush()
             old_per = per
 
@@ -249,7 +249,7 @@ def fit_monochromatic_line(files, data_axes=[0,1], drive_axes=[6], diag=True, \
                     errvals.append(val)
 
             except:
-                print 'FAILED'
+                print('FAILED')
                 continue
 
 
@@ -314,7 +314,7 @@ def fit_monochromatic_line(files, data_axes=[0,1], drive_axes=[6], diag=True, \
                     drive_errvals.append(val)
 
             except:
-                print 'FAILED DRIVE ANALYSIS'
+                print('FAILED DRIVE ANALYSIS')
                 continue
 
         freqval = np.mean(cpos)
@@ -405,7 +405,7 @@ def fit_monochromatic_line(files, data_axes=[0,1], drive_axes=[6], diag=True, \
         ax[1].yaxis.grid(which='major', color='k', linestyle='--', linewidth=0.5)
         ax[1].xaxis.grid(which='major', color='k', linestyle='--', linewidth=0.5)
 
-    label_keys = dirmarkers.keys()
+    label_keys = list(dirmarkers.keys())
 
     plot_first = max_hours <= plot_lastn_hours
 

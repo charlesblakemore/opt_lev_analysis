@@ -39,7 +39,7 @@ for pixel_ind, pixel in enumerate(scale_1d[::-1]):
         break
 len = stop_ind - start_ind + 1
 if verbose:
-    print 'resolution [um]: ', 5.0 / float(len)
+    print('resolution [um]: ', 5.0 / float(len))
 
 if plot:
     plt.imshow(sem, cmap='gray')

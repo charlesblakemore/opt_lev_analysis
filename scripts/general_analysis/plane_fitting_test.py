@@ -63,7 +63,7 @@ plt.plot(param_vals, c_sweep)
 
 res = opti.minimize(cost_function, [0,0,3*mu])
 
-print res.x
+print(res.x)
 
 fig = plt.figure()
 ax = fig.gca(projection='3d')

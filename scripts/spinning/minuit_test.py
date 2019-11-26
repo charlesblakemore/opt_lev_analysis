@@ -35,7 +35,7 @@ def chisquare_1d(a, b, c):
     resid = ydat - fit_fun(xdat, a, b, c)
     return (1.0 / (npts - 1.0) ) * np.sum(resid**2 / yerr**2)
 
-print chisquare_1d(-1.0 / 500, 250.0/500.0, 0)
+print(chisquare_1d(-1.0 / 500, 250.0/500.0, 0))
 
 
 m=Minuit(chisquare_1d, 

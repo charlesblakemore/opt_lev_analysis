@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
@@ -39,12 +39,12 @@ start1 = time.time()
 dists1 = dist_p_arrp1(point, xpoints, ypoints, zpoints)
 stop1 = time.time()
 
-print 'Old Method: ', stop1 - start1
+print('Old Method: ', stop1 - start1)
 
 
 start2 = time.time()
 dists2 = dist_p_arrp2(point, xx, yy, zz)
 stop2 = time.time()
 
-print 'New Method: ', stop2 - start2
+print('New Method: ', stop2 - start2)
 

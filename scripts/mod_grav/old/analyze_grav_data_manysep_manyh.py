@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
@@ -117,9 +117,9 @@ def proc_dir(d):
 
 # Do intial processing or load processed dir_objs
 if not load_dir_objs:
-    dir_objs = map(proc_dir, dirs)
+    dir_objs = list(map(proc_dir, dirs))
     if subtract_background:
-        bdir_objs = map(proc_dir, bdirs)
+        bdir_objs = list(map(proc_dir, bdirs))
     if save_dir_objs:
         pickle.dump(dir_objs, open(dir_obj_save_path, 'wb') )
 elif load_dir_objs:
@@ -137,7 +137,7 @@ for objind, obj in enumerate(dir_objs):
     seps = []
     heights = []
 
-    keys = obj.avg_diag_force_v_pos.keys()
+    keys = list(obj.avg_diag_force_v_pos.keys())
     for key in keys:
         seps.append(key[0])
         heights.append(key[1])

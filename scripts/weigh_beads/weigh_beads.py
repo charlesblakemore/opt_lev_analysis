@@ -91,7 +91,7 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
 
     avg_fft = []
 
-    print "Processing %i files..." % nfiles
+    print("Processing %i files..." % nfiles)
     for fil_ind, fil in enumerate(files):
         color = colors[fil_ind]
 
@@ -190,8 +190,8 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
                                 absolute_sigma=True, p0=[1e-3, 160, 750], maxfev=10000)
     #popt2, pcov2 = opti.curve_fit(phase_sc, freqs[inds], np.angle(resp_sc), p0=[1e-3, 160, 750])
 
-    print popt
-    print pcov
+    print(popt)
+    print(pcov)
 
     plt.figure()
     plt.errorbar(freqs[inds], np.abs(resp), np.abs(noise), fmt='.', ms=10, lw=2)
@@ -207,14 +207,14 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
     charge_err = 0.1
     drive_err = drive_noise / drive_amp
 
-    print drive_err
+    print(drive_err)
 
     mass_err = np.sqrt( (fit_err)**2 + (charge_err)**2 + (drive_err)**2  ) * mass
 
     #print "IMPLIED MASS [ng]: ", mass
 
-    print '%0.3f ng,  %0.2f e^-,  %0.1f V'  % (mass, q_bead * (1.602e-19)**(-1), drive_amp)
-    print '%0.6f ng' % (mass_err)
+    print('%0.3f ng,  %0.2f e^-,  %0.1f V'  % (mass, q_bead * (1.602e-19)**(-1), drive_amp))
+    print('%0.6f ng' % (mass_err))
     plt.tight_layout()
 
     plt.show()

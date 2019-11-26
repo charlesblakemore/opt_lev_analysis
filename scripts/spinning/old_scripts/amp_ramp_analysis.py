@@ -55,14 +55,14 @@ f, ax = plt.subplots(dpi = 200)
 files = np.array(files)
 
 for i, f in enumerate(files[init_file:final_file:100]):
-    print i
+    print(i)
     try:
         obj = hsDat(f)
         fft = np.fft.rfft(obj.dat[:, 0])
         if plot_dat:
             ax.plot(freqs, np.abs(fft))
     except:
-        print "bad file"
+        print("bad file")
 
 ax.set_yscale("log")
 ax.set_xlim([fc-bw/2., fc+bw/2.])

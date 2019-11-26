@@ -7,7 +7,7 @@ lam = float(sys.argv[2])
 #zoff = float(sys.argv[3])
 
 
-print gap, lam
+print(gap, lam)
 
 ## calculate the yukawa force over a distributed test mass assumed to be cube
 
@@ -66,8 +66,8 @@ force_list = np.array(force_list)
 ## combine with neighboring
 fcent = (force_list[0,0]+2*force_list[2,0]+2*force_list[4,0])*rhoa - (2*force_list[1,0]+2*force_list[3,0]+2*force_list[5,0])*rhosi 
 
-print force_list
-print fcent
+print(force_list)
+print(fcent)
 fname = 'data_20um/lam_arr_20um_%.3f_%.3f.npy' % (gap*1e6,lam*1e6)
 np.save(fname,fcent)
 

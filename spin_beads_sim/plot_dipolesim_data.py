@@ -19,8 +19,8 @@ time_int = (249, 255)
 time = alldata[:,0]
 data = alldata[:,1:]
 
-print data.shape
-print time.shape
+print(data.shape)
+print(time.shape)
 
 dt = time[1] - time[0]
 

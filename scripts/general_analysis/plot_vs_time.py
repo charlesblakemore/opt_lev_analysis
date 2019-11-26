@@ -77,15 +77,15 @@ def plot_vs_time(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
     colors = bu.get_color_map(len(files), cmap=colormap)
 
     old_per = 0
-    print "Processing %i files..." % len(files)
-    print "Percent complete: "
+    print("Processing %i files..." % len(files))
+    print("Percent complete: ")
     for fil_ind, fil in enumerate(files):
         color = colors[fil_ind]
         
         # Display percent completion
         per = int(100. * float(fil_ind) / float(len(files)) )
         if per > old_per:
-            print old_per,
+            print(old_per, end=' ')
             sys.stdout.flush()
             old_per = per
 

@@ -344,8 +344,8 @@ if gauss_fit:
     data_int = np.sum(bestprof.y) * (bestprof.bins[1] - bestprof.bins[0])
     gauss_int = np.sum(gauss(fitpts, *popt3)) * (fitpts[1] - fitpts[0])
 
-    print 
-    print "Non-Gaussian Part (1): ", (data_int - gauss_int) / data_int
+    print() 
+    print("Non-Gaussian Part (1): ", (data_int - gauss_int) / data_int)
 
     ax1.set_title('Gaussian Fit Waist = %0.2g um' % (np.abs(popt3[2])) )
     ax1.set_ylabel("Intensity Profile [arbitrary]")
@@ -359,7 +359,7 @@ if gauss_fit:
     
         data_int2 = np.sum(bestprof2.y) * (bestprof2.bins[1] - bestprof2.bins[0])
         gauss_int2 = np.sum(gauss(fitpts2, *popt4)) * (fitpts2[1] - fitpts2[0])
-        print "Non-Gaussian Part (2): ", (data_int2 - gauss_int2) / data_int2
+        print("Non-Gaussian Part (2): ", (data_int2 - gauss_int2) / data_int2)
 
         ax2.set_title('Gaussian Fit Waist = %0.2g um' % (np.abs(popt4[2])) )
         ax2.set_xlabel("Cantilever Position [um]")

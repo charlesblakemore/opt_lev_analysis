@@ -5,7 +5,7 @@ import numpy as np
 gap = float(sys.argv[1])
 lam = float(sys.argv[2])
 
-print gap, lam
+print(gap, lam)
 
 ## calculate the yukawa force over a distributed test mass assumed to be cube
 
@@ -61,7 +61,7 @@ result, error = mcint.integrate(integrand, sampler(), measure=domainsize, n=nmc)
 
 
 
-print "integral is: ", result, error
+print("integral is: ", result, error)
 
 #fname = 'data/lam_arr_%.3f_%.3f.npy' % (gap*1e6,lam*1e6)
 #np.save(fname,intval)

@@ -61,7 +61,7 @@ def check_backscatter(files, colormap='jet', sort='time', file_inds=(0,10000)):
 
     amps = []
 
-    print "Processing %i files..." % nfiles
+    print("Processing %i files..." % nfiles)
     for fil_ind, fil in enumerate(files):
 
         bu.progress_bar(fil_ind, nfiles)

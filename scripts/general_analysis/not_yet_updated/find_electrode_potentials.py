@@ -28,7 +28,7 @@ for fidx,f in enumerate(flist):
 
     cpos = sort_fun(f)
 
-    print "Vdc = ", cpos
+    print("Vdc = ", cpos)
 
     cdat, attribs, _ = bu.getdata( f )
 
@@ -113,10 +113,10 @@ plt.title( "electrode potentials" )
 plt.xlim([0,6])
 
 
-print "X best potentials:"
-print pot_arr[:,0]
-print "Y best potentials:"
-print pot_arr[:,1]
+print("X best potentials:")
+print(pot_arr[:,0])
+print("Y best potentials:")
+print(pot_arr[:,1])
 
 
 

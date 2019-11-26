@@ -206,16 +206,16 @@ def get_data_at_harms(files, gfuncs, yukfuncs, lambdas, lims, \
         ax1pos = df.stage_settings[ax1 + ' DC']
         ax2pos = df.stage_settings[ax2 + ' DC']
         
-        if cantbias not in fildat.keys():
+        if cantbias not in list(fildat.keys()):
             fildat[cantbias] = {}
-        if ax1pos not in fildat[cantbias].keys():
+        if ax1pos not in list(fildat[cantbias].keys()):
             fildat[cantbias][ax1pos] = {}
-        if ax2pos not in fildat[cantbias][ax1pos].keys():
+        if ax2pos not in list(fildat[cantbias][ax1pos].keys()):
             fildat[cantbias][ax1pos][ax2pos] = []
 
-        if ax1pos not in temp_gdat.keys():
+        if ax1pos not in list(temp_gdat.keys()):
             temp_gdat[ax1pos] = {}
-        if ax2pos not in temp_gdat[ax1pos].keys():
+        if ax2pos not in list(temp_gdat[ax1pos].keys()):
             temp_gdat[ax1pos][ax2pos] = [[], []]
             temp_gdat[ax1pos][ax2pos][1] = [[]] * len(lambdas)
 
@@ -254,8 +254,8 @@ def get_data_at_harms(files, gfuncs, yukfuncs, lambdas, lims, \
                 newxpos = minsep + (maxthrow - ax2pos)
                 newheight = ax1pos - beadheight
             else:
-                print "Coordinate axes don't make sense for gravity data..."
-                print "Proceeding anyway, but results might be hard to interpret"
+                print("Coordinate axes don't make sense for gravity data...")
+                print("Proceeding anyway, but results might be hard to interpret")
                 newxpos = ax1pos
                 newheight = ax2pos
 
@@ -352,11 +352,11 @@ def get_alpha_lambda(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=Fa
 
     minalphas = [[]] * len(lambdas)
 
-    biasvec = fildat.keys()
+    biasvec = list(fildat.keys())
     biasvec.sort()
-    ax1posvec = fildat[biasvec[0]].keys()
+    ax1posvec = list(fildat[biasvec[0]].keys())
     ax1posvec.sort()
-    ax2posvec = fildat[biasvec[0]][ax1posvec[0]].keys()
+    ax2posvec = list(fildat[biasvec[0]][ax1posvec[0]].keys())
     ax2posvec.sort()
 
     if only_closest:
@@ -427,7 +427,7 @@ def get_alpha_lambda(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=Fa
                         if (ignoreX and resp == 0) or \
                            (ignoreY and resp == 1) or \
                            (ignoreZ and resp == 2):
-                            print ignoreX, ignoreY, ignoreZ, resp
+                            print(ignoreX, ignoreY, ignoreZ, resp)
                             continue
                         re_diff = datfft[resp].real - \
                                   (gfft[resp].real + testalpha * yukfft[resp].real )
@@ -486,7 +486,7 @@ def get_alpha_lambda(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=Fa
                 diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
                                                     p0=diag_p0, maxfev=1000000)
         except:
-            print "Couldn't fit"
+            print("Couldn't fit")
             popt = [0,0,0]
             popt[2] = np.mean(chi_sqs)
 
@@ -541,8 +541,8 @@ def get_alpha_lambda(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=Fa
 
     if save:
         if savepath == '':
-            print 'No save path given, type full path here'
-            savepath = raw_input('path: ')
+            print('No save path given, type full path here')
+            savepath = input('path: ')
         
         np.save(savepath, [lambdas, alphas, diagalphas])
 
@@ -597,11 +597,11 @@ def get_alpha_vs_file(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=F
     diagalphas = np.zeros_like(lambdas)
     testalphas = np.linspace(-10**10, 10**10, 11)
 
-    biasvec = fildat.keys()
+    biasvec = list(fildat.keys())
     biasvec.sort()
-    ax1posvec = fildat[biasvec[0]].keys()
+    ax1posvec = list(fildat[biasvec[0]].keys())
     ax1posvec.sort()
-    ax2posvec = fildat[biasvec[0]][ax1posvec[0]].keys()
+    ax2posvec = list(fildat[biasvec[0]][ax1posvec[0]].keys())
     ax2posvec.sort()
 
     if only_closest:
@@ -711,7 +711,7 @@ def get_alpha_vs_file(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=F
                         diagpopt, diagpcov = opti.curve_fit(parabola, testalphas, diagchi_sqs, \
                                                             p0=diag_p0, maxfev=1000000)
                 except:
-                    print "Couldn't fit"
+                    print("Couldn't fit")
                     popt = [0,0,0]
                     popt[2] = np.mean(chi_sqs)
 
@@ -789,7 +789,7 @@ if not plot_just_current:
     datafiles = datafiles[file_inds[0]:file_inds[1]]
 
     if len(datafiles) == 0:
-        print "Found no files in: ", data_dir
+        print("Found no files in: ", data_dir)
         quit()
 
 

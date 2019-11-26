@@ -52,8 +52,8 @@ for i in range(len(manifolds)):
 
 # Assume all manifolds have same heights and separations
 test_man = manifolds[0]
-xvec = test_man.keys()
-zvec = test_man[xvec[0]].keys()
+xvec = list(test_man.keys())
+zvec = list(test_man[xvec[0]].keys())
 
 xvec = np.sort(np.array(xvec))
 zvec = np.sort(np.array(zvec))

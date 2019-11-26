@@ -20,7 +20,7 @@ def ffn(x,a,b):
 for i,gap in enumerate(gap_list):
     for j,lam in enumerate(lam_list):
         
-        print gap, lam
+        print(gap, lam)
 
         fname = 'data/lam_arr_cu_%.3f_%.3f.npy' % (gap*1e6,lam*1e6)
 
@@ -41,7 +41,7 @@ for i,gap in enumerate(gap_list):
         min_idx = np.argmin( np.abs(zoff_list_new*1e6 - 5.0) )
         max_idx = np.argmin( np.abs(zoff_list_new*1e6 + 5.0) )
         
-        print tot_force[max_idx]-tot_force[min_idx]
+        print(tot_force[max_idx]-tot_force[min_idx])
 
         contrast_arr[i,j] = tot_force[max_idx]-tot_force[min_idx]
         fmax_arr[i,j] = np.max(tot_force)

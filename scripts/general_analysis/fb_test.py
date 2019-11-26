@@ -31,11 +31,11 @@ for filname in files:
     df = bu.DataFile()
     df.load(filname)
 
-    print df.nsamp
-    print df.fsamp
-    print df.pos_data.shape
-    print df.pos_fb.shape
-    raw_input()
+    print(df.nsamp)
+    print(df.fsamp)
+    print(df.pos_data.shape)
+    print(df.pos_fb.shape)
+    input()
 
     freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
     fft_fbx = np.fft.rfft(df.pos_fb[0])

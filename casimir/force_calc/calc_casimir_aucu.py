@@ -70,13 +70,13 @@ L = 1e-6
 D2 = D_s
 cint, err = integrate.dblquad(int_func, 0., 20, lambda x: 0, lambda x: x, epsabs=1e-8, epsrel=1e-8)
 Fcas = cint * np.pi**3 * D1/2.0 * hbar * c/(360*L**3)
-print "Casimir force: ", Fcas
+print("Casimir force: ", Fcas)
 
 
 if(False):
     out_mat = np.zeros((len(tot_thick_list), len(L_list)))
     for j, tot_thick in enumerate(tot_thick_list):
-        print "Working on tot_thick: ", tot_thick
+        print("Working on tot_thick: ", tot_thick)
         for i,L in enumerate(L_list):
             D_s = tot_thick - L
             if( D_s <= 0 ): continue
@@ -89,12 +89,12 @@ if(False):
             D2 = D_s
             cint2, err2 = integrate.dblquad(int_func, 0., 20, lambda x: 0, lambda x: x, epsabs=1e-10, epsrel=1e-10)
             
-            print cint2, cint
+            print(cint2, cint)
 
             Fcas = cint2 * np.pi**3 * D1/2.0 * hbar * c/(360*L**3)
             Fdiffcas = abs(cint2-cint) * np.pi**3 * D1/2.0 * hbar * c/(360*L**3)
 
-            print "For L=%.1f um, D_s = %.1f um: F_cas = %.3e, dF_cas = %.3e" % (L*1e6, D_s*1e6, Fcas, Fdiffcas)
+            print("For L=%.1f um, D_s = %.1f um: F_cas = %.3e, dF_cas = %.3e" % (L*1e6, D_s*1e6, Fcas, Fdiffcas))
 
             out_mat[j,i] = Fdiffcas
 

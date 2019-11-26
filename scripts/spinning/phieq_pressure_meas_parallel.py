@@ -179,7 +179,7 @@ for pathind, path in enumerate(paths):
         drive_phase2 = popt2[2]
         dat_phase2 = popt1[2]
 
-        print drive_amp / drive_amp2
+        print(drive_amp / drive_amp2)
 
         if plot_raw_dat:
             plot_x = time_vec[:10000]

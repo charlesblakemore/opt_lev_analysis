@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 
 #dirs = [42,38,39,40,41]
 dirs = [376,]
@@ -60,7 +60,7 @@ def proc_dir(d):
     
     return dir_obj
 
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 time_dict = {}
 for obj in dir_objs:
@@ -73,7 +73,7 @@ for obj in dir_objs:
             time_dict[time].append(fobj.fname)
 
 
-times = time_dict.keys()
+times = list(time_dict.keys())
 
 colors_yeay = bu.get_color_map( len(times) )
 
@@ -102,7 +102,7 @@ for i, time in enumerate(times):
     newobj.get_avg_force_v_pos(bin_size = bin_size)
     newobj.get_avg_diag_force_v_pos(bin_size = bin_size)
 
-    keys = newobj.avg_force_v_pos.keys()
+    keys = list(newobj.avg_force_v_pos.keys())
     for key in keys:
         offset = 0
         #offset = -1.0 * obj.avg_force_v_pos[key][1][-1]

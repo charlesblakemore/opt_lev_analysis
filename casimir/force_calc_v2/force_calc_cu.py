@@ -6,7 +6,7 @@ gap = float(sys.argv[1])
 lam = float(sys.argv[2])
 xoff = float(sys.argv[3])
 
-print gap, lam
+print(gap, lam)
 
 ## calculate the yukawa force over a distributed test mass assumed to be cube
 
@@ -50,7 +50,7 @@ intval = integrate.tplquad(Fg_tot, -a_depth/2.0, a_depth/2.0, lambda y: -a/4.0, 
 #curr_thick = au_thick
 #intval_shield = integrate.tplquad(Fg_tot, -au_thick/2.0, au_thick/2.0, lambda y: -a/2.0, lambda y: a/2.0, lambda y,z: -a/2.0, lambda y,z: a/2.0, epsabs=1e-4, epsrel=1e-4)
 
-print "integral is: ", intval
+print("integral is: ", intval)
 
 fname = 'data/lam_arr_cu_%.3f_%.3f.npy' % (gap*1e6,lam*1e6)
 np.save(fname,intval)

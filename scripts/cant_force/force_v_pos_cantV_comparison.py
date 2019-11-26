@@ -61,12 +61,12 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', ax1val=0, ax2val=0, \
         diag_force_curves = {}
 
     old_per = 0
-    print "Percent complete: "
+    print("Percent complete: ")
     for fil_ind, fil in enumerate(files):
         # Display percent completion
         per = int(100. * float(fil_ind) / float(len(files)) )
         if per > old_per:
-            print old_per,
+            print(old_per, end=' ')
             sys.stdout.flush()
             old_per = per
 
@@ -90,17 +90,17 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', ax1val=0, ax2val=0, \
 
         df.get_force_v_pos(verbose=False, nbins=nbins, nharmonics=10, width=0)
 
-        if cantbias not in force_curves.keys():
+        if cantbias not in list(force_curves.keys()):
             force_curves[cantbias] = {}
             if diag:
                 diag_force_curves[cantbias] = {}
 
-        if ax1pos not in force_curves[cantbias].keys():
+        if ax1pos not in list(force_curves[cantbias].keys()):
             force_curves[cantbias][ax1pos] = {}
             if diag:
                 diag_force_curves[cantbias][ax1pos] = {}
 
-        if ax2pos not in force_curves[cantbias][ax1pos].keys():
+        if ax2pos not in list(force_curves[cantbias][ax1pos].keys()):
             force_curves[cantbias][ax1pos][ax2pos] = [[], [], []]
             if diag:
                 diag_force_curves[cantbias][ax1pos][ax2pos] = [[], [], []]
@@ -139,9 +139,9 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', ax1val=0, ax2val=0, \
                                 [new_diag_bins[diag_sort_inds], new_diag_dat[diag_sort_inds]]
 
 
-    cantV_keys = force_curves.keys()
-    ax1_keys = force_curves[cantV_keys[0]].keys()
-    ax2_keys = force_curves[cantV_keys[0]][ax1_keys[0]].keys()
+    cantV_keys = list(force_curves.keys())
+    ax1_keys = list(force_curves[cantV_keys[0]].keys())
+    ax2_keys = list(force_curves[cantV_keys[0]][ax1_keys[0]].keys())
 
     for cantV in cantV_keys:
         for ax1 in ax1_keys:
@@ -206,9 +206,9 @@ def select_allbias_onepos(force_dic, ax1pos, ax2pos):
     '''
 
 
-    cantVvec = force_dic.keys()
-    ax1vec = force_dic[cantVvec[0]].keys()
-    ax2vec = force_dic[cantVvec[0]][ax1vec[0]].keys()
+    cantVvec = list(force_dic.keys())
+    ax1vec = list(force_dic[cantVvec[0]].keys())
+    ax2vec = list(force_dic[cantVvec[0]][ax1vec[0]].keys())
 
     ax1pos = ax1vec[ np.argmin( np.abs(np.array(ax1vec) - ax1pos) ) ]
     ax2pos = ax2vec[ np.argmin( np.abs(np.array(ax2vec) - ax2pos) ) ]
@@ -246,7 +246,7 @@ diag_force_dic = select_allbias_onepos(diag_force_dic, ax1_toplot, ax2_toplot)
 
 if plot:
 
-    cantVvec = force_dic.keys()  
+    cantVvec = list(force_dic.keys())  
     cantVvec.sort()
 
     fig, axarr = plt.subplots(3,2,sharex=True,sharey=True,figsize=(6,8),dpi=150)

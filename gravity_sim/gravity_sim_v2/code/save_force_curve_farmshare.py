@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import scipy.interpolate as interpolate
 import scipy, sys, time
 
@@ -12,7 +12,7 @@ height = float(sys.argv[3])
 
 rhopath = '/farmshare/user_data/cblakemo/gravity_sim/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -111,7 +111,7 @@ for ind, xpos in enumerate(beadposvec):
 GforcecurveX = np.array(GforcecurveX)
 GforcecurveZ = np.array(GforcecurveZ)
 
-print 'Computed normal grav'
+print('Computed normal grav')
 sys.stdout.flush()
 
 
@@ -122,7 +122,7 @@ pickle.dump([], open(respath + '.test1', 'wb'))
 for yukind, yuklambda in enumerate(lambdas):
 	per = int(100. * float(yukind) / float(len(lambdas)))
 	if not per % 1:
-		print str(per) + ',',
+		print(str(per) + ',', end=' ')
 	sys.stdout.flush()
 
 	func = np.exp(-2. * rbead / yuklambda) * (1. + rbead / yuklambda) + rbead / yuklambda - 1.

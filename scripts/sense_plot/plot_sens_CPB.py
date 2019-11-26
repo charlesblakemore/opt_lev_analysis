@@ -8,7 +8,7 @@ matplotlib.rcParams.update({'font.size': 14})
 
 gap_list = [6e-6,6e-6,6e-6]
 lam_list = np.logspace(-1.0,3.0,40)*1e-6
-print lam_list
+print(lam_list)
 
 sens_vals = np.zeros((len(lam_list),len(gap_list)))
 

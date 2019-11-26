@@ -43,7 +43,7 @@ date = picodir.split('/')[2]
 numdirs = bu.count_dirs(picodir)
 parent_savepath = '/force_v_pos/' + date + '_' + str(numdirs) + 'picopos_2/'
 if not os.path.exists(parent_savepath):
-    print 'Making directory: ', parent_savepath
+    print('Making directory: ', parent_savepath)
     os.makedirs(parent_savepath)
 
 
@@ -124,7 +124,7 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
     '''
 
     if len(files) == 0:
-        print "No Files Found!!"
+        print("No Files Found!!")
         return
 
     ### Do inital looping over files to concatenate data at the same
@@ -133,10 +133,10 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
     if diag:
         diag_force_curves = {}
     old_per = 0
-    print
-    print os.path.dirname(files[0])
-    print "Processing %i files" % len(files)
-    print "Percent complete: "
+    print()
+    print(os.path.dirname(files[0]))
+    print("Processing %i files" % len(files))
+    print("Percent complete: ")
     for fil_ind, fil in enumerate(files):
 
         bu.progress_bar(fil_ind, len(files))
@@ -175,11 +175,11 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                            width=width, fakedrive=fakedrive, fakefreq=fakefreq, fakeamp=fakeamp)
 
         # Add the current data to the output dictionary
-        if ax1pos not in force_curves.keys():
+        if ax1pos not in list(force_curves.keys()):
             force_curves[ax1pos] = {}
             if diag:
                 diag_force_curves[ax1pos] = {}
-        if ax2pos not in force_curves[ax1pos].keys():
+        if ax2pos not in list(force_curves[ax1pos].keys()):
             # if height and sep not found, adds them to the directory
             force_curves[ax1pos][ax2pos] = [[], [], []]
             if diag:
@@ -218,11 +218,11 @@ def get_force_curve_dictionary(files, ax1='x', ax2='z', fullax1=True, fullax2=Tr
                     diag_force_curves[ax1pos][ax2pos][resp] = \
                                 [new_diag_bins[diag_sort_inds], new_diag_dat[diag_sort_inds]]
 
-    ax1_keys = force_curves.keys()
-    ax2_keys = force_curves[ax1_keys[0]].keys()
+    ax1_keys = list(force_curves.keys())
+    ax2_keys = list(force_curves[ax1_keys[0]].keys())
 
-    print 
-    print 'Averaging files and building standard deviations'
+    print() 
+    print('Averaging files and building standard deviations')
     sys.stdout.flush()
 
     #max_ax1 = np.max( ax1_keys )
@@ -348,7 +348,7 @@ if not load:
         files = files[:maxfiles]
 
         if len(files) == 0:
-            print 'No Files Found!!'
+            print('No Files Found!!')
             quit()
         else:
             force_dic, diag_force_dic = \
@@ -370,7 +370,7 @@ if not load:
                              optional_ext + '_p' + str(i) + '.p'
 
             if len(files) == 0:
-                print 'No Files Found in: ', path
+                print('No Files Found in: ', path)
                 quit()
 
             else:
@@ -403,8 +403,8 @@ if load:
 
 if plot:
 
-    ax1 = force_dic.keys()
-    ax2 = force_dic[ax1[0]].keys()
+    ax1 = list(force_dic.keys())
+    ax2 = list(force_dic[ax1[0]].keys())
 
     sample_yvec = force_dic[ax1[0]][ax2[0]][resp_to_plot][0]
     numbins = len(sample_yvec)

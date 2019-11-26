@@ -16,7 +16,7 @@ plt.rcParams.update({'font.size': 16})
 dir1 = '/data/old_trap/20191017/bead1/spinning/junk/shit_test_10'
 maxfiles = 500
 
-use_dir = True
+use_dir = False
 
 # allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
 #             '/daq2/20190320/bead2/1_5mbar_xzcool_pos.h5', \
@@ -96,6 +96,16 @@ allfiles = ['/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_nofb_nocool.h5', \
             '/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5'
             ]
 
+allfiles = ['/data/new_trap/20191121/Bead1/InitialTest/Data20.h5', \
+            '/data/new_trap/20191121/Bead1/InitialTest/Data21.h5', \
+            '/data/new_trap/20191121/Bead1/InitialTest/Data22.h5', \
+            '/data/new_trap/20191121/Bead1/InitialTest/Data23.h5', \
+            '/data/new_trap/20191121/Bead1/InitialTest/Data24.h5', \
+            '/data/new_trap/20191121/Bead1/InitialTest/Data25.h5'
+            ]
+
+new_trap = True
+
 
 tfdate = '20190619'
 
@@ -110,7 +120,7 @@ fb_axes = [0,1,2]
 other_axes = []
 #other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
-plot_power = True
+plot_power = False
 
 drive_ax = 1
 
@@ -200,7 +210,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
     #colors = ['C0', 'C1', 'C2']
 
     old_per = 0
-    print "Processing %i files..." % len(files)
+    print("Processing %i files..." % len(files))
     for fil_ind, fil in enumerate(files):
         color = colors[fil_ind]
         
@@ -209,7 +219,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         # Load data
         df = bu.DataFile()
-        df.load(fil)
+        if new_trap:
+            df.load_new(fil)
+        else:
+            df.load(fil)
 
         if len(other_axes):
             df.load_other_data()
@@ -227,7 +240,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         df.diagonalize(maxfreq=lpf, interpolate=False, date=tfdate)
 
-        if fil_ind == 0:
+        if fil_ind == 0 and len(cant_axes):
             drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
             driveind = np.argmax(drivepsd[1:]) + 1
             drive_freq = freqs[driveind]
@@ -238,6 +251,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 fac = df.conv_facs[ax]# * (1.0 / 0.12e-12)
             except:
                 fac = 1.0
+
             if fullNFFT:
                 NFFT = len(df.pos_data[ax])
             else:
@@ -247,9 +261,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                                   NFFT=NFFT, window=window)
             fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
-
-            dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
-                                    NFFT=NFFT, window=window)
 
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
@@ -308,7 +319,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
     if len(fb_axes):
         fbaxarr[0].legend()
 
-    daxarr[0].set_xlim(0.5, 25000)
+    #daxarr[0].set_xlim(0.5, 25000)
     
     if len(ylim):
         daxarr[0].set_ylim(ylim[0], ylim[1])

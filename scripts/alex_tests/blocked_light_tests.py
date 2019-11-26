@@ -5,12 +5,13 @@ import os
 import glob
 import matplotlib.mlab as ml
 import sys
+import imp
 sys.path.append("../microgravity")
 from scipy.optimize import minimize_scalar as ms
 import alex_limit_v2 as al2
 from scipy.optimize import curve_fit
 import matplotlib
-reload(al2)
+imp.reload(al2)
 #################################################################################testing code
 dat_dir = "/data/20180404/bead2/scatt_light_tests_20180419/pinhole_lens_tube_initial_freq_sweep2"
 

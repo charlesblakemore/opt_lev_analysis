@@ -99,7 +99,7 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
 
     q_arr = []
 
-    print "Processing %i files..." % nfiles
+    print("Processing %i files..." % nfiles)
     for fil_ind, fil in enumerate(files):
 
         date = fil.split('/')[2]

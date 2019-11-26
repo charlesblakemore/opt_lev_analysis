@@ -53,13 +53,13 @@ scatter(d2t[inds],f2t[inds],color="black")
 plot(xnew,exp(s(xnew)),'-',label="Prediction, g="+str(gs),color="black")
 plot(xnew,exp(s(xnew))*1.08,':',label="Prediction Uncertainty, g="+str(gs),color="black")
 plot(xnew,exp(s(xnew))*0.92,':',color="black")
-print(d2t[inds])
-print(f2t[inds])
+print((d2t[inds]))
+print((f2t[inds]))
 
 xnew=np.arange(3, 30, 1)
 print("interpolated")
 for i in range(0,len(xnew)):
-    print '{0:4.0f} & {1:4.2e} \\\\'.format(xnew[i],exp(s(xnew[i])))
+    print('{0:4.0f} & {1:4.2e} \\\\'.format(xnew[i],exp(s(xnew[i]))))
 
 
 plot([1,30],[1e3,1e3],':',color="black")

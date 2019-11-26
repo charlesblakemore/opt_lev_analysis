@@ -43,7 +43,7 @@ for file in files:
     fig2, axarr2 = plt.subplots(2,1,sharex=True,sharey=False)
     
     for quad in [0,1,2,3]:
-        print type(df.amp[quad])
+        print(type(df.amp[quad]))
         fft = np.fft.rfft(df.amp[quad])
         fft2 = np.fft.rfft(df.phase[quad])
 

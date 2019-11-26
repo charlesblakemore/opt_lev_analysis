@@ -89,7 +89,7 @@ def weigh_bead_efield(files, colormap='jet', sort='time', file_inds=(0,10000)):
     masses = []
 
     nfiles = len(files)
-    print "Processing %i files..." % nfiles
+    print("Processing %i files..." % nfiles)
 
     eforce = []
     power = []
@@ -167,8 +167,8 @@ def weigh_bead_efield(files, colormap='jet', sort='time', file_inds=(0,10000)):
 
     #masses.append(mass)
 
-    print mass * 1e12
-    print mass_err * 1e12
+    print(mass * 1e12)
+    print(mass_err * 1e12)
 
 
 

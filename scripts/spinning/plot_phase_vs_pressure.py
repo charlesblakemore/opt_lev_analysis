@@ -39,9 +39,9 @@ def pressure_model(pressures, break_ind = 0, p_ind = 0, plt_press = False):
 def phi_ffun(p, k, phinot):
     return -1.*np.arcsin(np.clip(p/k, 0., 1.)) + phinot
 
-phases = np.array(map(get_phi, in_fs))
-pressures = np.array(map(get_pressure, in_fs))
-p_fits = np.array(map(pressure_model, pressures))
+phases = np.array(list(map(get_phi, in_fs)))
+pressures = np.array(list(map(get_pressure, in_fs)))
+p_fits = np.array(list(map(pressure_model, pressures)))
 
 p_maxs = [0.011, 0.024, 0.036, 0.048, 0.062, 0.074, 0.085, 0.099]
 popts = []

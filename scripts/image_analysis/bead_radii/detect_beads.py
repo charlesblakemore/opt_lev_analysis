@@ -43,8 +43,8 @@ for pixel_ind, pixel in enumerate(scale_1d[::-1]):
 len = stop_ind - start_ind + 1
 resolution = 5.0 / float(len)
 if verbose:
-    print 'length of scale: ', len
-    print 'resolution [um]: ', resolution
+    print('length of scale: ', len)
+    print('resolution [um]: ', resolution)
 
 if plot_scale:
     #plt.imshow(sem, cmap='gray')
@@ -62,14 +62,14 @@ if plot_scale:
 circles = cv2.HoughCircles(sem, cv2.HOUGH_GRADIENT, dp=1.3, \
                            minDist=200, param1=75, param2=100)#, \
                            #minRadius=20, maxRadius=100)
-print circles
+print(circles)
 
 fig = plt.figure()
 ax = plt.subplot(111)
 ax.imshow(sem, cmap='gray')
 plot_circles = []
 for circle in circles[0]:
-    print 'RADIUS DETECTED: ', circle[2] * resolution 
+    print('RADIUS DETECTED: ', circle[2] * resolution) 
     plot_circles.append( plt.Circle((circle[0], circle[1]), circle[2], \
                                     color='r', fill=False) )
     ax.add_artist(plot_circles[-1])

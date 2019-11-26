@@ -169,15 +169,15 @@ def generate_alpha_lambda_limit(data_manifold, gfuncs, yukfuncs, lambdas, \
 
     colors = bu.get_color_map(len(lambdas))
 
-    xarr = np.sort( np.array(data_manifold.keys()) )
-    zarr = np.sort( np.array(data_manifold[xarr[0]].keys()) )
+    xarr = np.sort( np.array(list(data_manifold.keys())) )
+    zarr = np.sort( np.array(list(data_manifold[xarr[0]].keys())) )
 
     per = 0.0
     for lambind, yuklambda in enumerate(lambdas):
         sys.stdout.flush()
         newper = (float(lambind) / float(len(lambdas))) * 100.
         if newper > per + 1.0:
-            print int(per),
+            print(int(per), end=' ')
             sys.stdout.flush()
             per = newper
         chi_sqs = np.zeros(len(testalphas))
@@ -260,7 +260,7 @@ def generate_alpha_lambda_limit(data_manifold, gfuncs, yukfuncs, lambdas, \
             popt, pcov = opti.curve_fit(parabola, fitalphas, chi_sqs, \
                                             p0=p0, maxfev = 100000)
         except:
-            print "Couldn't fit"
+            print("Couldn't fit")
             popt = [0,0,0]
             popt[2] = np.mean(chi_sqs)
 
@@ -289,8 +289,8 @@ def generate_alpha_lambda_limit(data_manifold, gfuncs, yukfuncs, lambdas, \
 
     if save:
         if savepath == '':
-            print 'No save path given, type full path here'
-            savepath = raw_input('path: ')
+            print('No save path given, type full path here')
+            savepath = input('path: ')
 
         np.save(savepath, [lambdas, alphas])
 

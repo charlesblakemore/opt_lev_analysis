@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
@@ -44,7 +44,7 @@ def proc_dir(d):
     
     return dir_obj
 
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 pos_dict = {}
 for obj in dir_objs:
@@ -56,9 +56,9 @@ for obj in dir_objs:
             pos_dict[cpos] = []
         pos_dict[cpos].append(fobj.fname)
 
-colors = bu.get_color_map(len(pos_dict.keys()))
+colors = bu.get_color_map(len(list(pos_dict.keys())))
 
-pos_keys = pos_dict.keys()
+pos_keys = list(pos_dict.keys())
 pos_keys.sort()
 
 
@@ -85,7 +85,7 @@ for i, pos in enumerate(pos_keys):
 
 
 
-    keys = newobj.avg_diag_force_v_pos.keys()
+    keys = list(newobj.avg_diag_force_v_pos.keys())
     cal_facs = newobj.conv_facs
     color = colors[i]
 

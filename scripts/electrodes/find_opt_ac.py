@@ -29,7 +29,7 @@ for f in flist:
     dclist.append(sort_fun( f ))
 
 dclist = np.unique(dclist)
-print "AC offsets: ", dclist
+print("AC offsets: ", dclist)
 
 elec_list = [0,]
 dcol_list = [1,]
@@ -39,7 +39,7 @@ for fidx,f in enumerate(dclist):
 
     cpos = f ##sort_fun(f)
 
-    print "Vdc = ", cpos
+    print("Vdc = ", cpos)
 
     cflist = glob.glob(os.path.join(data_dir, "*elec0_%dmV*.h5"%cpos))
 
@@ -49,7 +49,7 @@ for fidx,f in enumerate(dclist):
     for f2 in cflist:
         cdat, attribs, fhand = bu.getdata( f2 )
         if( len(cdat) == 0 ):
-            print "Empty file, skipping: ", f2
+            print("Empty file, skipping: ", f2)
             continue
 
         Fs = attribs['Fsamp']
@@ -128,7 +128,7 @@ bp, bcov = sp.curve_fit( ffn, tot_dat[:,0], tot_dat[:,1], p0=p, sigma = tot_dat[
 
 xx = np.linspace(np.min(tot_dat),np.max(tot_dat),1e2)
 #plt.plot(xx, ffn(xx,bp[0],bp[1]), 'k', linewidth=1.5 )
-print "Offset voltage: ", -bp[1]/bp[0]
+print("Offset voltage: ", -bp[1]/bp[0])
 
 
 plt.title("Correlation")

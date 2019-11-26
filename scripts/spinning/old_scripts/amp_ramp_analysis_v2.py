@@ -53,7 +53,7 @@ b_freqs = np.abs(freqs-fc)>2000.
 plot = False
 labels = ["62.0kV/m", "49.9kV/m", "37.3kV/m", "24.9kV/m", "12.4kV/m", "0kV/m"]
 for i, f in enumerate(files[:1]):
-    print i
+    print(i)
     try:
         obj = hsDat(f)
         fft = np.fft.rfft(obj.dat[:, 0])
@@ -67,7 +67,7 @@ for i, f in enumerate(files[:1]):
         if (i%100==0)*(i==len(files)):
             ax.plot(freqs[freqs<1000], np.abs(fft_phase[freqs<1000]))#/len(fft), label = labels[i])
     except IOError:
-        print "bad file"
+        print("bad file")
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.set_xlabel("Frequency [Hz]")

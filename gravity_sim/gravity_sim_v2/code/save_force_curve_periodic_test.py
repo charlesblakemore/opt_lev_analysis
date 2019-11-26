@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import scipy.interpolate as interp
 import scipy.signal as signal
 import scipy.optimize as opti
@@ -20,7 +20,7 @@ height = 2.0e-6
 
 rhopath = '/home/charles/gravity/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -265,7 +265,7 @@ GforcecurveX2 = np.array(GforcecurveX2)
 GforcecurveY2 = np.array(GforcecurveY2)
 GforcecurveZ2 = np.array(GforcecurveZ2)
 
-print 'Computed normal grav'
+print('Computed normal grav')
 sys.stdout.flush()
 
 
@@ -273,7 +273,7 @@ sys.stdout.flush()
 for yukind, yuklambda in enumerate(lambdas):
     per = int(100. * float(yukind) / float(len(lambdas)))
     if not per % 1:
-        print str(per) + ',',
+        print(str(per) + ',', end=' ')
     sys.stdout.flush()
 
     func = np.exp(-2. * rbead / yuklambda) * (1. + rbead / yuklambda) + rbead / yuklambda - 1.
@@ -414,7 +414,7 @@ partial_sim = (newGX, newGY, newGZ, newyukX, newyukY, newyukZ)
 full_sim = pickle.load( open('/home/charles/gravity/code/full_sim.p', 'rb') )
 
 #print "Full sim time: ", stop - start
-print "Periodic sim time: ", stop2 - start2
+print("Periodic sim time: ", stop2 - start2)
 
 def quadratic(x, a, b, c):
     return a * x**2 + b * x + c

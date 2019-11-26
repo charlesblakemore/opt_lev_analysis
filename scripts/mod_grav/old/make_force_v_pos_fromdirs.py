@@ -84,14 +84,14 @@ def proc_dir(d):
     dir_obj.get_avg_force_v_pos(cant_axis=SWEEP_AX, bin_size = bin_size, diag=True, cantfilt=cantfilt)
 
     dir_obj.cant_corner_img = (0, minval + stepval * derp_ind, 0)
-    print dir_obj.cant_corner_img
+    print(dir_obj.cant_corner_img)
     derp_ind += 1
 
     return dir_obj
 
 
 # Do processing
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 
 

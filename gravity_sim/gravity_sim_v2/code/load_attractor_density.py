@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import scipy, sys, time
 
 
@@ -147,7 +147,7 @@ def clean_up_rho(rho, xx, yy, zz):
 
 
 
-print 'Cleaning up density profile...'
+print('Cleaning up density profile...')
 sys.stdout.flush()
 clean_up_rho(rho, xx, yy, zz)
 

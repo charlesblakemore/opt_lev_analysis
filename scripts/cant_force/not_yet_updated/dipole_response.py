@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 import time
 
 
@@ -56,7 +56,7 @@ def proc_dir(d):
     
     return dir_obj
 
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 thermal_cal_file_path = '/data/20170629/bead6/1_6mbar_nocool.h5'
 
@@ -73,7 +73,7 @@ for i, obj in enumerate(dir_objs):
 
     obj.get_avg_diag_force_v_pos(cant_axis = cant_axis, bin_size = bin_size, bias=True)
 
-    keys = obj.avg_force_v_pos.keys()
+    keys = list(obj.avg_force_v_pos.keys())
     keys.sort()
 
     colors_yeay = bu.get_color_map( len(keys) )

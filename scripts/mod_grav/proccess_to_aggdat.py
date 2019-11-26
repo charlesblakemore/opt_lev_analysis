@@ -56,7 +56,7 @@ for ddir in data_dirs:
     # Skip the ones I've already calculated
     #if ddir == data_dirs[0]:
     #    continue
-    print
+    print()
 
     paths = gu.build_paths(ddir, opt_ext)
     agg_path = paths['agg_path']

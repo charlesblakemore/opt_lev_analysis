@@ -40,7 +40,7 @@ harms_to_track = [1,2,3]
 #harms_to_track = [1,2,3,4,5,6,7,8,9,10]
 
 harms_to_label = [1,2,3]#,21,35]
-harms_to_label = range(10)
+harms_to_label = list(range(10))
 
 sub_cant_phase = True
 plot_first_drive = False
@@ -73,7 +73,7 @@ allfiles, lengths = bu.find_all_fnames(dir1)
 sep0background = bgu.Background(allfiles)
 sep0background.load_axvecs(find_again=True)#False)
 
-xposvec = np.array(sep0background.axvecs[0].keys())
+xposvec = np.array(list(sep0background.axvecs[0].keys()))
 xposvec.sort()
 nxpos = len(xposvec)
 
@@ -91,7 +91,7 @@ for xind, xpos in enumerate(xposvec):
             temp_obj = pickle.load(open(path, 'rb'))
             sepXbackground = temp_obj
         except:
-            print "Couldn't load data..."
+            print("Couldn't load data...")
             load = False
     if not load:
         sepXbackground.select_by_position(ax0val=xpos)

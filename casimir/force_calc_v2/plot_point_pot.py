@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 gap_list = [5.0e-6, 7.5e-6, 10e-6]
 lam_list = np.logspace(-1.0,2.0,20)*1e-6
-print lam_list
+print(lam_list)
 sens_vals_num = np.zeros((len(lam_list),len(gap_list)))
 
 for i in range(len(gap_list)):
@@ -41,16 +41,16 @@ grav_pot = alpha*G*m*Ma * (2.0*np.exp(-(d/lam))/d - np.exp(-np.abs(d-xvals)/lam)
 
 grav_pot_approx = -2*alpha*G*m*Ma/d**3*np.exp(-d/lam)*(1 + d/lam + 0.5*(d/lam)**2)*xvals**2
 
-print (1 + d/lam + 0.5*(d/lam)**2)
+print((1 + d/lam + 0.5*(d/lam)**2))
 
 ## now fit to a quadratic term near the minimum
 fit_win = [400,600]
 p1 = np.polyfit(xvals[fit_win[0]:fit_win[1]], harm_pot[fit_win[0]:fit_win[1]],2)
-print p1
+print(p1)
 
 tot_pot = harm_pot + grav_pot
 p2 = np.polyfit(xvals[fit_win[0]:fit_win[1]], tot_pot[fit_win[0]:fit_win[1]],2)
-print p2
+print(p2)
 
 fig = plt.figure(33)
 plt.plot(xvals,harm_pot)

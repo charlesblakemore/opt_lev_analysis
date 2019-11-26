@@ -15,7 +15,7 @@ def submit_next_job(params):
         command = 'srun --time=48:00:00' + ' ' + str(int(params[0]))
         os.system(command)
     except:
-        print 'Failed',
+        print('Failed', end=' ')
         params.append(params[0])
     return params[1:]
 

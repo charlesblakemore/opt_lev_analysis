@@ -83,7 +83,7 @@ for fileind, file in enumerate(files):
         phase = np.angle(fft[loc]) - drivephase
         omega = 2.0 * np.pi * freqs[loc]
 
-        if freqs[loc] in real_drive.keys():
+        if freqs[loc] in list(real_drive.keys()):
             amp_avg, phase_avg, Ndat = real_drive[freqs[loc]]
             real_drive[freqs[loc]]  = ((amp_avg * Ndat + amp) / (Ndat + 1.0), \
                                        (phase_avg * Ndat + phase) / (Ndat + 1.0), \
@@ -118,7 +118,7 @@ for fileind, file in enumerate(files):
     # plt.loglog(freqs[sort_inds], asd[sort_inds])
     # plt.show()
 
-keys = real_drive.keys()
+keys = list(real_drive.keys())
 for key in keys:
     amp, phase, Ndat = real_drive[key]
     if (Ndat < 3.0) and (key != 0.0):

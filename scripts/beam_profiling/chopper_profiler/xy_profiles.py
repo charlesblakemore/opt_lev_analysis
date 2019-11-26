@@ -67,15 +67,15 @@ binned_y_d, binned_y_prof, y_errs = chopfuncs.rebin(y_d, y_prof, numbins=500)
 
 
 
-print "X diam (2 * waist): ", x_popt[-1] * 1e3 * 2
-print "Y diam (2 * waist): ", y_popt[-1] * 1e3 * 2
+print("X diam (2 * waist): ", x_popt[-1] * 1e3 * 2)
+print("Y diam (2 * waist): ", y_popt[-1] * 1e3 * 2)
 
-print 
+print() 
 
-print "X waist: ", x_popt[-1] * 1e3 
-print "Y waist: ", y_popt[-1] * 1e3 
+print("X waist: ", x_popt[-1] * 1e3) 
+print("Y waist: ", y_popt[-1] * 1e3) 
 
-print
+print()
 
 #LP_p0 = [1, 0.001]
 #final_x_LP_popt, final_x_LP_pcov = \

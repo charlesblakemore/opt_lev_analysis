@@ -20,7 +20,7 @@ dirnames = ['/daq2/20190619/bead1/orbit_test/test1', \
 
 def plot_xy_orbit(dirname, allfiles=True, user_filind=0, filter=True, fdrive=41.0):
 
-    print 'Analyzing: ', dirname, '  ...'
+    print('Analyzing: ', dirname, '  ...')
 
     files, lengths = bu.find_all_fnames(dirname)
     nfiles = len(files)

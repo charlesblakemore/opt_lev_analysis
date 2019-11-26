@@ -85,7 +85,7 @@ dz = zz[1] - zz[0]
 field = np.load(open(patches_base_path + patches_name + '.field', 'rb'))
 potential = np.load(open(patches_base_path + patches_name + '.potential', 'rb')) 
 
-print field[0].shape
+print(field[0].shape)
 
 gradE = []
 gradE_func = []
@@ -204,7 +204,7 @@ for ddir in data_dirs:
     #    raw_input()
 
     volt_drive = np.mean(force_plane_dict['drive'])
-    print 'Voltage Drive: ', volt_drive
+    print('Voltage Drive: ', volt_drive)
     #raw_input()
     
     hist_scale_fac = np.std(dat) * 0.1
@@ -446,13 +446,13 @@ for ddir in data_dirs:
     x2 = res2[0]
     pcov2 = res2[1]
     if pcov2 is None:
-        print res2
+        print(res2)
 
     res3 = opti.leastsq(diff_function_rot, init_rot, full_output=True)
     x3 = res3[0]
     pcov3 = res3[1]
     if pcov3 is None:
-        print res3
+        print(res3)
 
     res4 = opti.minimize(cost_function_rot, init_rot)
     x4 = res4.x
@@ -465,11 +465,11 @@ for ddir in data_dirs:
     pcov4 = 4.0 * np.linalg.inv(hessian_ndt2)
 
     
-    print 'PARAMETER ESTIMATES: sep, ypos, height, charge, (rotx, roty, rotz)'
-    print "No rot 1 :  ", x
-    print "No rot 2 :  ", x2
-    print "Rot 1    :  ", x4
-    print "Rot 2    :  ", x3
+    print('PARAMETER ESTIMATES: sep, ypos, height, charge, (rotx, roty, rotz)')
+    print("No rot 1 :  ", x)
+    print("No rot 2 :  ", x2)
+    print("Rot 1    :  ", x4)
+    print("Rot 2    :  ", x3)
 
 
     var = np.diag(pcov)# * np.std(diff_function(x))**2)
@@ -478,16 +478,16 @@ for ddir in data_dirs:
     var4 = np.diag(pcov4)# * np.std(diff_function_rot(x4,no_penalty=True))**2)
 
 
-    print
+    print()
 
-    print 'PARAMETER ERRORS: sep, ypos, height, charge, (rotx, roty, rotz)'
-    print 'Minimize     : ', np.sqrt(var)
-    print 'Leastsq      : ', np.sqrt(var2)
-    print 'Minimize rot : ', np.sqrt(var4)
-    print 'Leastsq rot  : ', np.sqrt(var3)
-    print
+    print('PARAMETER ERRORS: sep, ypos, height, charge, (rotx, roty, rotz)')
+    print('Minimize     : ', np.sqrt(var))
+    print('Leastsq      : ', np.sqrt(var2))
+    print('Minimize rot : ', np.sqrt(var4))
+    print('Leastsq rot  : ', np.sqrt(var3))
+    print()
 
-    raw_input()
+    input()
 
 
 
@@ -547,7 +547,7 @@ for ddir in data_dirs:
         for resp2 in range(err_mat.shape[0]):
             err_mat_norm[resp,resp2] *= 1.0 / np.abs(soln[resp] * soln[resp2])
 
-    print np.min(err_mat_norm)
+    print(np.min(err_mat_norm))
 
     plt.figure()
     plt.imshow(err_mat_norm)
@@ -558,14 +558,14 @@ for ddir in data_dirs:
     #plt.show()
 
        
-    print "Separation offset from p0: %0.2f +- %0.3f" % (soln[0], np.sqrt(err_mat[0,0]))
-    print "Ypos:                      %0.2f +- %0.3f" % (soln[1], np.sqrt(err_mat[1,1]))
-    print "Height offset from p0:     %0.2f +- %0.3f" % (soln[2], np.sqrt(err_mat[2,2]))
-    print "Qbead * Vcant product:     %0.2f +- %0.3f" % (soln[3], np.sqrt(err_mat[3,3]))
+    print("Separation offset from p0: %0.2f +- %0.3f" % (soln[0], np.sqrt(err_mat[0,0])))
+    print("Ypos:                      %0.2f +- %0.3f" % (soln[1], np.sqrt(err_mat[1,1])))
+    print("Height offset from p0:     %0.2f +- %0.3f" % (soln[2], np.sqrt(err_mat[2,2])))
+    print("Qbead * Vcant product:     %0.2f +- %0.3f" % (soln[3], np.sqrt(err_mat[3,3])))
 
-    print 
-    print "Implied sep:    ", p0_bead[0] + soln[0]
-    print "Implied height: ", p0_bead[2] + soln[2]
+    print() 
+    print("Implied sep:    ", p0_bead[0] + soln[0])
+    print("Implied height: ", p0_bead[2] + soln[2])
 
                        
     F_comsol = [np.zeros((len(seps), len(heights))), \

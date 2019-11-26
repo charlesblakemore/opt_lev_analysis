@@ -8,7 +8,7 @@ lam = float(sys.argv[2])
 
 zoff_list = np.linspace(-100,100,501)*1e-6
 
-print gap, lam
+print(gap, lam)
 
 ## calculate the yukawa force over a distributed test mass assumed to be cube
 
@@ -37,7 +37,7 @@ def Vg_tot(currx,curry,currz):
     return Vout
 
 fix_term = alpha*np.exp(-rb/lam)*( (lam**2 + rb**2) * (np.exp(2*rb/lam) -1) - lam*rb*(np.exp(2*rb/lam)) )
-print fix_term
+print(fix_term)
 
 def Fz_tot(currx,curry,currz):
     x = currx + gap + rb + a_depth/2.0

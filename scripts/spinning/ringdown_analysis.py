@@ -360,12 +360,12 @@ if no_fits:
     exit()
 
 
-dirs = outdict.keys()
+dirs = list(outdict.keys())
 dirs.sort()
 for dirname in dirs:
 
-    print
-    print dirname
+    print()
+    print(dirname)
 
     fig_lin, ax_lin = plt.subplots(1,1)
     fig_exp, ax_exp = plt.subplots(1,1)
@@ -498,9 +498,9 @@ for dirname in dirs:
     ax_tau.set_ylim(0,3000)
     ax_tau.set_xlim(0,500)
 
-    print 'From exponential fit: {:0.2f}'.format(popt_exp[0])
-    print 'From initial estimate: {:0.2f}'.format(decay_time_3[0])
-    print 'From first {:d} seconds: {:0.2f}'.format(lin_fit_seconds, tau_line)
+    print('From exponential fit: {:0.2f}'.format(popt_exp[0]))
+    print('From initial estimate: {:0.2f}'.format(decay_time_3[0]))
+    print('From first {:d} seconds: {:0.2f}'.format(lin_fit_seconds, tau_line))
 
     resid = center_freq - fit_fun(times, *popt_exp)
 

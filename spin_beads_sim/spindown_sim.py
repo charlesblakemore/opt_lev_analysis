@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import sys, time, os
 import numpy as np
@@ -92,7 +92,7 @@ seed_init = 123456 # for sim_0
 
 
 
-real_freqs = real_efield_params.keys()
+real_freqs = list(real_efield_params.keys())
 real_freqs.sort(key = lambda x: real_efield_params[x][0])
 
 real_freqs = np.array(real_freqs)

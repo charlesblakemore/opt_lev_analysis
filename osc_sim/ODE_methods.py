@@ -50,7 +50,7 @@ def stepper(xi_0, ti, tf, delt, system, method):
         xi_old = xi_new
         points.append(xi_new)
         if (t / tf) > (i * 0.1):
-            print i
+            print(i)
             i += 1
 
     return tt, points

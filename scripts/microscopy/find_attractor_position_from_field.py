@@ -135,7 +135,7 @@ dz = zz[1] - zz[0]
 field = np.load(open(patches_base_path + patches_name + '.field', 'rb'))
 potential = np.load(open(patches_base_path + patches_name + '.potential', 'rb')) 
 
-print field[0].shape
+print(field[0].shape)
 
 gradE = []
 gradE_func = []
@@ -268,7 +268,7 @@ for ddir in data_dirs:
     #    raw_input()
 
     volt_drive = np.mean(force_plane_dict['drive'])
-    print 'Voltage Drive: ', volt_drive
+    print('Voltage Drive: ', volt_drive)
     #raw_input()
     
     #hist_scale_fac = np.std(dat) * 1000
@@ -296,11 +296,11 @@ for ddir in data_dirs:
     y_fit_inds = (yposvec > -250.0) * (yposvec < 250.0)
     height_fit_inds = (heights > -50.0) * (heights < 50.0)
 
-    print len(seps), len(sep_fit_inds)
-    print len(yposvec), len(y_fit_inds)
-    print len(heights), len(height_fit_inds)
+    print(len(seps), len(sep_fit_inds))
+    print(len(yposvec), len(y_fit_inds))
+    print(len(heights), len(height_fit_inds))
 
-    print dat_sc.shape
+    print(dat_sc.shape)
     #raw_input()
 
     def F_comsol_func(sep_off, ypos, height_off, charge, eval_resp=0, \
@@ -535,18 +535,18 @@ for ddir in data_dirs:
     #plt.plot(test_angles, test_cost)
     #plt.show()
 
-    print "FIT RESULTS"
-    print "            NO ROT      ROT "
-    print "SEP:         %0.2f      %0.2f"  %  (no_rot_soln[0], rot_soln[0])
-    print "YPOS:       %0.2f      %0.2f"  %  (no_rot_soln[1], rot_soln[1])
-    print "HEIGHT:     %0.2f      %0.2f"  %  (no_rot_soln[2], rot_soln[2])
-    print "CHARGE:   %0.2f     %0.2f"  %  (no_rot_soln[3], rot_soln[3])
-    print "ROTX:                  %0.2f"  %  rot_soln[4]
-    print "ROTY:                  %0.2f"  %  rot_soln[5]
-    print "ROTZ:                  %0.2f"  %  rot_soln[6]
-    print "FROTX:                 %0.2f"  %  rot_soln[7]
-    print "FROTY:                 %0.2f"  %  rot_soln[8]
-    print "FROTZ:                 %0.2f"  %  rot_soln[9]
+    print("FIT RESULTS")
+    print("            NO ROT      ROT ")
+    print("SEP:         %0.2f      %0.2f"  %  (no_rot_soln[0], rot_soln[0]))
+    print("YPOS:       %0.2f      %0.2f"  %  (no_rot_soln[1], rot_soln[1]))
+    print("HEIGHT:     %0.2f      %0.2f"  %  (no_rot_soln[2], rot_soln[2]))
+    print("CHARGE:   %0.2f     %0.2f"  %  (no_rot_soln[3], rot_soln[3]))
+    print("ROTX:                  %0.2f"  %  rot_soln[4])
+    print("ROTY:                  %0.2f"  %  rot_soln[5])
+    print("ROTZ:                  %0.2f"  %  rot_soln[6])
+    print("FROTX:                 %0.2f"  %  rot_soln[7])
+    print("FROTY:                 %0.2f"  %  rot_soln[8])
+    print("FROTZ:                 %0.2f"  %  rot_soln[9])
 
 
 
@@ -555,12 +555,12 @@ for ddir in data_dirs:
     no_rot_var = np.diag(no_rot_pcov) #* np.sum(diff_function(no_rot_soln, no_weights=True)**2)
     rot_var = np.diag(rot_pcov) #* np.sum(diff_function_rot_2(rot_soln, no_weights=True)**2)
 
-    print
+    print()
 
-    print 'PARAMETER ERRORS: sep, ypos, height, charge, (rotx, roty, rotz)'
-    print 'No Rot     : ', np.sqrt(no_rot_var)
-    print 'Rot        : ', np.sqrt(rot_var)
-    print
+    print('PARAMETER ERRORS: sep, ypos, height, charge, (rotx, roty, rotz)')
+    print('No Rot     : ', np.sqrt(no_rot_var))
+    print('Rot        : ', np.sqrt(rot_var))
+    print()
 
     #raw_input()
 

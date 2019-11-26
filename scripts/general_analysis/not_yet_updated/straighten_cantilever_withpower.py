@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 import time
 
 ####################################################
@@ -70,7 +70,7 @@ def proc_dir(d):
         amps.append(amp)
     uamps = np.unique(amps)
     if len(uamps) > 1:
-        print 'STUPIDITYERROR: Multiple dirve amplitudes in directory'
+        print('STUPIDITYERROR: Multiple dirve amplitudes in directory')
         
     newlist = []
     for i in [0,1,2]:
@@ -83,7 +83,7 @@ def proc_dir(d):
     return dir_obj
 
 
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 colors_yeay = bu.get_color_map( len(dir_objs) )
 
@@ -121,7 +121,7 @@ for ind, obj in enumerate(dir_objs):
     bpows[amp] = totbadpow
     
 
-amps = pows.keys()
+amps = list(pows.keys())
 amps.sort()
 powsarr = []
 bpowsarr = []

@@ -190,8 +190,8 @@ for ddir in data_dirs:
 
         pos_dict = agg_dat.make_ax_arrs()
         seps = pos_dict['seps']
-        print agg_dat.p0_bead
-        print seps
+        print(agg_dat.p0_bead)
+        print(seps)
         sep_sort = pos_dict['sep_sort']
         heights = pos_dict['heights']
         height_sort = pos_dict['height_sort']
@@ -276,7 +276,7 @@ for ddir in data_dirs:
 
         init = [1.0, 1.0, 0.0]
         patch_init = [1.0, 0.0]
-        print cost_both(init)
+        print(cost_both(init))
         res_both_x = opti.minimize(cost_both, init, method='L-BFGS-B', \
                                    bounds=((0, None), (0, None), (0, None)), args=([0]) )
         res_both_y = opti.minimize(cost_both, init, method='L-BFGS-B', \
@@ -302,11 +302,11 @@ for ddir in data_dirs:
         y = res_both_y.x[0]
         yconst = res_both_y.x[-1] * const_scale
 
-        print "RESULT: ", x, y
+        print("RESULT: ", x, y)
 
 
-        print res_both_x.x
-        print res_both_y.x
+        print(res_both_x.x)
+        print(res_both_y.x)
 
 
         #Hfun = ndt.Hessian(cost_function, full_output=True)
@@ -355,8 +355,8 @@ for ddir in data_dirs:
                                   bounds=((0, None), (0, None), (0, None)), args=([1]) )
 
 
-        print cost_pow(init, axes=[0])
-        raw_input()
+        print(cost_pow(init, axes=[0]))
+        input()
 
         #xvec = seps
         #yvec = rms_grid[0,:,height_ind] * 1e15
@@ -431,8 +431,8 @@ for ddir in data_dirs:
         ann_str_x = r'Xfit: $V_{\rm patch,rms}$~100 mV$_{\rm rms}$ for $l_{\rm patch}$~%0.1f $\mu$m' % (x * 20.0)
         ann_str_y = r'Yfit:               ~100 mV$_{\rm rms}$              ~%0.1f $\mu$m' % (y * 20.0)
 
-        print "X Size: %0.1f" % (x*20.0)
-        print "Y Size: %0.1f" % (y*20.0)
+        print("X Size: %0.1f" % (x*20.0))
+        print("Y Size: %0.1f" % (y*20.0))
         
         if annotate_fit:
             ax.annotate(ann_str_x, xy=(0.29, 0.9), xycoords='axes fraction')

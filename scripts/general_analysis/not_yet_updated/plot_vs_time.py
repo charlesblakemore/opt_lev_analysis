@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 import time
 
 
@@ -42,7 +42,7 @@ def proc_dir(d):
     return dir_obj
 
 
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 
 time_dict = {}
 for obj in dir_objs:
@@ -57,7 +57,7 @@ for obj in dir_objs:
             time_dict[time].append(fobj.fname)
 
 
-times = time_dict.keys()
+times = list(time_dict.keys())
 
 colors_yeay = bu.get_color_map( len(times) )
 f, axarr = plt.subplots(len(axes_to_plot),2,sharey='row',sharex='all',figsize=(10,12),dpi=100)

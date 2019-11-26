@@ -56,7 +56,7 @@ if fit_type == 'Planar':
 
 
 for ddir in data_dirs:
-    print
+    print()
 
     parts = ddir.split('/')
     date = parts[2]
@@ -72,7 +72,7 @@ for ddir in data_dirs:
 
     if load_agg:
 
-        print agg_path
+        print(agg_path)
 
         agg_dat = gu.AggregateData([], p0_bead=p0_bead, harms=harms)
         agg_dat.load(agg_path)

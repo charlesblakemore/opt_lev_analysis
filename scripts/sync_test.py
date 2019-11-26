@@ -20,13 +20,13 @@ files = bu.find_all_fnames(dirname)
 
 #files = ['/data/20180618/bead1/discharge/fine3/turbombar_xyzcool_elec3_10000mV41Hz0mVdc_56.h5']
 
-print files[:5]
+print(files[:5])
 
 for filname in files[:1000]:
     df = bu.DataFile()
     df.load(filname, plot_sync = True)
 
-    print filname
+    print(filname)
 
     posdat_range = np.max(df.pos_data[0]) - np.min(df.pos_data[0])
     cantdat_range = np.max(df.electrode_data[3]) - np.min(df.electrode_data[3])

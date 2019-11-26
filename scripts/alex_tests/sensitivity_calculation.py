@@ -5,6 +5,7 @@ import os
 import glob
 import matplotlib.mlab as ml
 import sys
+import imp
 sys.path.append("../microgravity")
 from scipy.optimize import minimize_scalar as ms
 import alex_limit_v2 as al2
@@ -14,7 +15,7 @@ from scipy.stats import sem
 import build_yukfuncs as yf
 import image_util as iu
 import scipy.signal as ss
-reload(al2)
+imp.reload(al2)
 
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
@@ -40,7 +41,7 @@ def make_template(pos_data, yukfuncs, cf = 1.E6, plot_pos = False):
         plt.show()
     fs = np.array([yukfuncs[0](template_pts), yukfuncs[1](template_pts), \
                    yukfuncs[2](template_pts)])
-    fs = map(matplotlib.mlab.detrend_linear, fs)
+    fs = list(map(matplotlib.mlab.detrend_linear, fs))
     return fs
 
 def sensitivity_at_lambdai(pos_data, yukfuncsi, tint, noise, \
@@ -61,10 +62,10 @@ sensitivityer1e4 = lambda i: sensitivity_at_lambdai(pos_data, yf.yukfuncs[:, i],
 sensitivityer1e5 = lambda i: sensitivity_at_lambdai(pos_data, yf.yukfuncs[:, i], 1e5, fn)
 sensitivityer1e6 = lambda i: sensitivity_at_lambdai(pos_data, yf.yukfuncs[:, i], 1e6, fn)
 
-alphase3 = map(sensitivityer1e3, range(len(yf.lambdas)))
-alphase4 = map(sensitivityer1e4, range(len(yf.lambdas)))
-alphase5 = map(sensitivityer1e5, range(len(yf.lambdas)))
-alphase6 = map(sensitivityer1e6, range(len(yf.lambdas)))
+alphase3 = list(map(sensitivityer1e3, list(range(len(yf.lambdas)))))
+alphase4 = list(map(sensitivityer1e4, list(range(len(yf.lambdas)))))
+alphase5 = list(map(sensitivityer1e5, list(range(len(yf.lambdas)))))
+alphase6 = list(map(sensitivityer1e6, list(range(len(yf.lambdas)))))
 
 pre_decca = np.loadtxt(pre_decca_path, delimiter = ',', skiprows = 1)
 decca = np.loadtxt(decca_path, delimiter = ',', skiprows = 1)

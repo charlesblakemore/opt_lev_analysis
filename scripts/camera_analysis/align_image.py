@@ -16,7 +16,7 @@ date = '20170831'
 def get_stage_column(attribs, stage_cols = [17, 18, 19], attrib_inds = [3, 6, 9], ortho_columns = [18, 17, 19]):
     '''gets the first driven stage axis from data attribs'''
     stage_settings = attribs['stage_settings']
-    driven = np.array(map(bool, stage_settings[attrib_inds]))
+    driven = np.array(list(map(bool, stage_settings[attrib_inds])))
     return (np.array(stage_cols)[driven])[0], (np.array(ortho_columns)[driven])[0]
 
 def gauss_beam(r, mu, w, A):
@@ -59,8 +59,8 @@ def profile(fname, ends = 100, stage_cal = 8., data_column = 5, make_plot = Fals
 def find_edge(xsweep_dir, ysweep_dir, over_plot = 10.):
     xfs = glob.glob(xsweep_dir + '/*.h5')
     yfs = glob.glob(ysweep_dir + '/*.h5')
-    xdata = np.array(map(profile, xfs))
-    ydata = np.array(map(profile, yfs))
+    xdata = np.array(list(map(profile, xfs)))
+    ydata = np.array(list(map(profile, yfs)))
     plt.plot(xdata[:, 0], xdata[:, 1], 'x')
     plt.plot(ydata[:, 1], ydata[:, 0], 'x')
     p0x = [xdata[-1, 0]-xdata[0, 0]/(xdata[-1, 1]-xdata[0, 1]), 0]

@@ -22,7 +22,7 @@ for i,sep in enumerate(sep_vec):
 
     fs = 4*np.pi*epsilon_0*R/(k_vec[-1]**2 - k_vec[0]**2) * np.sum( patch_vec**2 * k_vec**2 * np.exp(-k_vec*sep)/(np.sinh(k_vec*sep)) * dk)
 
-    print sep, fs
+    print(sep, fs)
 
     fvec[i] = fs
 

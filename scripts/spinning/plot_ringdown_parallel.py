@@ -135,7 +135,7 @@ for pathind, path in enumerate(fterm_paths):
     all_fterm += list(data[1])
 all_fterm = np.array(all_fterm)
 
-print np.std(all_fterm)
+print(np.std(all_fterm))
 
 fig_term, ax_term = plt.subplots(1,1,dpi=200)
 
@@ -193,7 +193,7 @@ Ibead = bu.get_Ibead(mbead)
 
 
 
-print 'Optical torque estimate: ', Ibead['val'] * 20.0e3 / 1500.0
+print('Optical torque estimate: ', Ibead['val'] * 20.0e3 / 1500.0)
 
 kappa = {}
 kappa['val'] = 6.47e11
@@ -233,7 +233,7 @@ for fileind, file in enumerate(newpaths):
     #fterm_prior = 7000.0
     #fterm_prior_width = 50.0
 
-    print 'PRIORS: ', fterm_prior, fterm_prior_width
+    print('PRIORS: ', fterm_prior, fterm_prior_width)
 
     #color = 'C{:d}'.format(fileind)
     #color = colors[fileind*2 + 1]
@@ -250,7 +250,7 @@ for fileind, file in enumerate(newpaths):
     popt_line, pcov_line = opti.curve_fit(line, all_time[0], all_freq[0], p0=[0, f0])
     t0_line = (f0 - popt_line[1]) /  popt_line[0]
 
-    print f0, 'at', t0_line
+    print(f0, 'at', t0_line)
 
 
 
@@ -333,7 +333,7 @@ for fileind, file in enumerate(newpaths):
     #print times
 
     #print np.mean(all_freq_err_flat), np.std(all_freq_err_flat)
-    print datetime.utcfromtimestamp(int(data['t_init']*1e-9)).strftime('%Y-%m-%d %H:%M:%S')
+    print(datetime.utcfromtimestamp(int(data['t_init']*1e-9)).strftime('%Y-%m-%d %H:%M:%S'))
 
     #continue
 
@@ -367,7 +367,7 @@ for fileind, file in enumerate(newpaths):
 
     two_point_tau = np.mean(two_point_estimates[-1])
     two_point_tau_err = np.std(two_point_estimates[-1])
-    print two_point_tau
+    print(two_point_tau)
 
     m=Minuit(chisquare_1d_2,
              #t0 = 0,
@@ -389,8 +389,8 @@ for fileind, file in enumerate(newpaths):
     # m.draw_mnprofile('tau', bound = 5, bins = 50)
     # plt.show()
 
-    print
-    print file
+    print()
+    print(file)
 
     # popt_modexp = [m.values['t0'], m.values['tau'], m.values['fterm']]
     popt_modexp = [t0_line, m.values['tau'], m.values['fterm']]
@@ -550,9 +550,9 @@ for fileind, file in enumerate(newpaths):
     # popt_modexp = [t0_line, np.mean(tau_many[inds]), np.mean(fterm_many[inds])]
     # tau_fit_err = np.mean(np.abs([tau_upper[inds], tau_lower[inds]]))
 
-    print 'TAU     : ', popt_modexp[1]
-    print 'TAU ERR : ', tau_fit_err
-    print 'FTERM   : ', popt_modexp[2]
+    print('TAU     : ', popt_modexp[1])
+    print('TAU ERR : ', tau_fit_err)
+    print('FTERM   : ', popt_modexp[2])
 
     label = ('$\\tau_{{{:d}}} = ({:d} \\pm {:d})$ s'\
                                 .format(fileind, int(popt_modexp[1]), int(tau_fit_err)))
@@ -594,11 +594,11 @@ for fileind, file in enumerate(newpaths):
     #print 'Ibead unc. - ', Ibead_err / Ibead
     #print 'tau unc. - ', tau_all_err / tau_all
 
-    print 'PRESSURE: {:0.3g} +- {:0.3g} (st) +- {:0.3g} (sys) mbar'\
-                .format(p * 0.01, p_sterr * 0.01, p_syserr * 0.01)#, p_err * 0.01)
+    print('PRESSURE: {:0.3g} +- {:0.3g} (st) +- {:0.3g} (sys) mbar'\
+                .format(p * 0.01, p_sterr * 0.01, p_syserr * 0.01))#, p_err * 0.01)
 
-    print 'PRESSURE: {:0.3g} +- {:0.3g} (st) +- {:0.3g} (sys) mbar'\
-                .format(p2 * 0.01, p2_sterr * 0.01, p2_syserr * 0.01)#, p_err * 0.01)
+    print('PRESSURE: {:0.3g} +- {:0.3g} (st) +- {:0.3g} (sys) mbar'\
+                .format(p2 * 0.01, p2_sterr * 0.01, p2_syserr * 0.01))#, p_err * 0.01)
 
     all_fits.append( [popt_modexp[1], tau_fit_err, p2*0.01, p2_sterr*0.01, p2_syserr*0.01] )
 
@@ -687,9 +687,9 @@ if savefig:
 
 # plt.show()
 
-print two_point_estimates
+print(two_point_estimates)
 for i in range(len(two_point_estimates)):
-    print np.mean(two_point_estimates[i])
+    print(np.mean(two_point_estimates[i]))
 
 
 

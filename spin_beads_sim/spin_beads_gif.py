@@ -153,7 +153,7 @@ def stepper(xi_0, ti, tf, delt, system, method, plot=False, spherical=False):
         xi_old = xi_new
 
         if (t / tf) > (i * 0.01):
-            print i,
+            print(i, end=' ')
             sys.stdout.flush()
             i += 1
         ticker += 1
@@ -165,7 +165,7 @@ def stepper(xi_0, ti, tf, delt, system, method, plot=False, spherical=False):
 
 
 time, points, energy_vec = stepper(xi_init, ti, tf, dt, system, rk4, plot=False, spherical=True)
-print points.shape
+print(points.shape)
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
@@ -229,8 +229,8 @@ if __name__ == '__main__':
     stride = int((lastframe-firstframe) / numframes)
     cframes = initframes[firstframe:lastframe:stride]
     cframes = cframes.astype(np.int64)
-    print len(cframes)
-    print "Building gif..."
+    print(len(cframes))
+    print("Building gif...")
     #cframes = np.array([1,10000])
     anim = FuncAnimation(fig, update, frames=cframes, interval=200)
 

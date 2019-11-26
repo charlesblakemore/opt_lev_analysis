@@ -1,6 +1,6 @@
 #!/usr/local/bin/python
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
@@ -36,7 +36,7 @@ def dist_p_arrp(p1, xs, ys, zs):
 rhopath = '/Users/charlesblakemore/Stanford/beads/' + \
 			'gravity/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -109,7 +109,7 @@ for iterind, iterval in enumerate(iterlist):
 		labval = round_sig(rbead, 3)
 		lab = 'Rbead: ' + str(labval*1e6) + ' um'
 
-	print 'Params %i / %i :' % (iterind+1, Nparams),
+	print('Params %i / %i :' % (iterind+1, Nparams), end=' ')
 
 	############## INTEGRATE THINGS ###################
 
@@ -119,7 +119,7 @@ for iterind, iterval in enumerate(iterlist):
 	for ind, xpos in enumerate(beadposvec):
 		per = int(100. * float(ind) / float(Npoints))
 		if not per % 10:
-			print '.', #str(per) + ',',
+			print('.', end=' ') #str(per) + ',',
 		sys.stdout.flush()
 		beadpos = [xpos, sep+rbead, 0]
 
@@ -141,7 +141,7 @@ for iterind, iterval in enumerate(iterlist):
 	forcediffs.append(np.max(forcevpos) - np.min(forcevpos))
 	plt.plot(beadposvec*1e6, forcevpos*1e15, marker='o', \
 				linestyle='solid', color=col, label=lab, mew=0)
-	print
+	print()
 
 forcediffs = np.array(forcediffs)
 
@@ -197,7 +197,7 @@ if radiisweep:
 
 plt.show()
 
-raw_input()
+input()
 
 
 

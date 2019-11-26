@@ -70,7 +70,7 @@ if load_dir:
         try:
             df.load(fil, load_other=True, skip_mon=True)
         except:
-            print 'bad'
+            print('bad')
             continue
 
         mean_fb = np.mean(df.pos_fb[2])
@@ -106,7 +106,7 @@ else:
     for entry in meas_to_plot:
         meas, label = entry
         dat = np.loadtxt(meas, delimiter=',')
-        print dat.shape
+        print(dat.shape)
         bits = dat[0]
         pows = dat[1]
         inds = (bits < 10000) * (bits > -33000)

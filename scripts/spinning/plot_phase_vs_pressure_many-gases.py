@@ -113,7 +113,7 @@ keys = ['data', 'pmax', 'pmax_sterr', 'pmax_syserr', 'p_outgassing', 'dipole', '
 
 outdat = {}
 other_outdat = []
-for gas in gases.keys():
+for gas in list(gases.keys()):
     outdat[gas] = {}
     for key in keys:
         outdat[gas][key] = []
@@ -186,7 +186,7 @@ def build_full_pressure(pressures, pirani_ind=0, highp_baratron_ind=1, \
     # baratron is always used. Sometimes, high pressure data is taken from 
     # the pirani and sometimes from the other baratron.
 
-    inds = np.array(range(len(pressures[:,0])))
+    inds = np.array(list(range(len(pressures[:,0]))))
 
     pirani_p = pressures[:,pirani_ind]
     bara_p = pressures[:,baratron_ind]
@@ -295,7 +295,7 @@ def analyze_file(fname, nbins=500, grad_thresh=10, use_highp_bara=True, plot_pre
     raw_grad_init = np.std(raw_grad[:init_ind])
     raw_grad -= np.mean(raw_grad[:init_ind])
 
-    bad_inds = np.array(range(len(raw_grad)))[np.abs(raw_grad) > grad_thresh * raw_grad_init]
+    bad_inds = np.array(list(range(len(raw_grad))))[np.abs(raw_grad) > grad_thresh * raw_grad_init]
     
     lock_lost_ind = -1
     # Make sure we didn't just find an anomolous fluctuation
@@ -391,7 +391,7 @@ def analyze_file(fname, nbins=500, grad_thresh=10, use_highp_bara=True, plot_pre
 
 
 
-gas_keys = gases.keys()
+gas_keys = list(gases.keys())
 gas_keys.sort(key = lambda x: ru.raw_mass[x])
 for gas in gas_keys:
     fils = gases[gas][0]
@@ -507,7 +507,7 @@ for gas in gas_keys:
             if gas not in other_gases[baseind]:
                 continue
             base_dipole = other_dipole_paths[baseind]
-            print base
+            print(base)
             for filind, fil in enumerate(fils):
                 other_filname = base + '/' + gas + '/' + fil
                 #print 'Other file: ', other_filname
@@ -520,10 +520,10 @@ for gas in gas_keys:
                 mass_filename_o = base + '/' + gas + '/rga-m0_%i.mass' % (filind + ind_offset)
                 mass_arr_o = np.load(open(mass_filename_o, 'rb'), allow_pickle=True)
                 if debug:
-                    print
-                    print 'NAME'
-                    print mass_filename_o
-                    print
+                    print()
+                    print('NAME')
+                    print(mass_filename_o)
+                    print()
 
                 dipole_filename_o = base_dipole + '/' + gas + '_pramp_' + str(filind + ind_offset) + '.dipole'
                 dipole_dat_o = np.load(open(dipole_filename_o, 'rb'))
@@ -598,7 +598,7 @@ def process_outdat(outdat_dict):
     rot_amp_err_vec = []
     for gas in gas_keys:
 
-        if gas not in outdat_dict.keys():
+        if gas not in list(outdat_dict.keys()):
             continue
         
         #if gas == 'N2':
@@ -644,10 +644,10 @@ def process_outdat(outdat_dict):
 
         mass_arr = np.array(outdat_dict[gas]['mass'])
         if debug:
-            print
-            print outdat_dict[gas]['filenames']
-            print mass_arr
-            print 
+            print()
+            print(outdat_dict[gas]['filenames'])
+            print(mass_arr)
+            print() 
         mean_mass, mean_mass_err = bu.weighted_mean(mass_arr[:,0], mass_arr[:,1])
         mass_vec.append( mean_mass )
         mass_err_vec.append( mean_mass_err )
@@ -674,9 +674,9 @@ def process_outdat(outdat_dict):
 proc_outdat = process_outdat(outdat)
 
 if debug:
-    print
-    print 'OTHERS'
-    print 
+    print()
+    print('OTHERS')
+    print() 
 
 if include_other_beads:
     other_processed = []
@@ -846,20 +846,20 @@ def fit_kappa(proc_outdat_dict, mbead, plot_chi2=False):
 
 
 
-    print
-    print 'Kappa (meas) : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
-                        .format(kappa['val'], kappa['sterr'], kappa['syserr'])
-    print 'Kappa (calc) : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
-                        .format(kappa_calc['val'], kappa_calc['sterr'], kappa_calc['syserr'])
-    print 'Rbead        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
-                        .format(rbead['val'], rbead['sterr'], rbead['syserr'])
-    print 'mbead        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
-                        .format(mbead['val'], mbead['sterr'], mbead['syserr'])
-    print 'sigma        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
-                        .format(sigma['val'], sigma['sterr'], sigma['syserr'])
-    print 'sigma2       : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
-                        .format(sigma2['val'], sigma2['sterr'], sigma2['syserr'])
-    print 'min chi: {:0.2g}'.format(min_chi)
+    print()
+    print('Kappa (meas) : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(kappa['val'], kappa['sterr'], kappa['syserr']))
+    print('Kappa (calc) : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(kappa_calc['val'], kappa_calc['sterr'], kappa_calc['syserr']))
+    print('Rbead        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(rbead['val'], rbead['sterr'], rbead['syserr']))
+    print('mbead        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(mbead['val'], mbead['sterr'], mbead['syserr']))
+    print('sigma        : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(sigma['val'], sigma['sterr'], sigma['syserr']))
+    print('sigma2       : {:0.4g} +- {:0.4g} (st) +- {:0.4g} (sys)'\
+                        .format(sigma2['val'], sigma2['sterr'], sigma2['syserr']))
+    print('min chi: {:0.2g}'.format(min_chi))
 
     return {'kappa': kappa, \
             'kappa_calc': kappa_calc, \

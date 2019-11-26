@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import scipy, sys, time
 
 import matplotlib.pyplot as plt
@@ -152,7 +152,7 @@ for pathind, path in enumerate(paths):
             Ez[:,j,k] = new_Ezline
 
 
-    print 'Done!'
+    print('Done!')
 
 
 
@@ -163,14 +163,14 @@ for pathind, path in enumerate(paths):
     xx = yy_tmp
     yy = xx_tmp
 
-    print Ex.shape, Ey.shape, Ez.shape
+    print(Ex.shape, Ey.shape, Ez.shape)
 
     Ex = np.swapaxes(np.copy(Ex), 0, 1)
     Ey = np.swapaxes(np.copy(Ey), 0, 1)
     Ez = np.swapaxes(np.copy(Ez), 0, 1)
     potential = np.swapaxes(np.copy(potential), 0, 1)
 
-    print Ex.shape, Ey.shape, Ez.shape
+    print(Ex.shape, Ey.shape, Ez.shape)
 
     xx = -1.0 * xx[::-1]
     Ex = np.flip(np.copy(Ex), 0)
@@ -194,7 +194,7 @@ for pathind, path in enumerate(paths):
     np.save(open(field_path, 'wb'), field)
     np.save(open(pot_path, 'wb'), potential)
 
-    print field_path
+    print(field_path)
 
 
     if plot:

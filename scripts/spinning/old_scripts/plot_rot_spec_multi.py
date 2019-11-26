@@ -20,11 +20,11 @@ inds = np.arange(len(files)-1)[::1]
 dater = lambda ind: hsDat(files[ind])
 timer = lambda ob: ob.attribs["time"]/1e9
 
-objs = map(dater, inds)
-times = np.array(map(timer, objs))
+objs = list(map(dater, inds))
+times = np.array(list(map(timer, objs)))
 times-=times[0]
 ffter = lambda ob: np.fft.rfft(ss.detrend(ob.dat[:, 0]))
-ffts = map(ffter, objs)
+ffts = list(map(ffter, objs))
 freqs = np.fft.rfftfreq(objs[0].attribs['nsamp'], 1./objs[0].attribs['fsamp'])
 f_rot = 0.
 

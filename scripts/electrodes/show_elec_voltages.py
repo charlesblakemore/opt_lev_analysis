@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 
 #######################
 # Simple script to plot electrode potentials and compute
@@ -49,7 +49,7 @@ def proc_dir(d):
     return dir_obj
 
 if dirs:
-    dir_objs = map(proc_dir, dirs)
+    dir_objs = list(map(proc_dir, dirs))
 else:
     dir_objs = []
 
@@ -74,7 +74,7 @@ for fobj in fil_objs:
     time_dict[time] = fobj
 
 
-times = time_dict.keys()
+times = list(time_dict.keys())
 times.sort()
 
 colors_yeay = bu.get_color_map( len(times) )
@@ -102,7 +102,7 @@ for i, time in enumerate(times):
     
 
 avgs = avgs * (1. / len(times))
-print avgs * (1. / (1. -  100./10000.))
+print(avgs * (1. / (1. -  100./10000.)))
 
 
 plt.legend(loc=0)

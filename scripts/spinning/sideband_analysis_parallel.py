@@ -53,7 +53,7 @@ inds = [1, 2, 3]
 
 path_dict = {}
 for gas in gases:
-    if gas not in path_dict.keys():
+    if gas not in list(path_dict.keys()):
         path_dict[gas] = {}
     for ind in inds:
         #if ind not in path_dict[gas].keys():
@@ -251,7 +251,7 @@ for meas in itertools.product(gases, inds):
                 fit_max = popt[1]
                 fit_std = np.abs(popt[2])
             except:
-                print 'bad fit...'
+                print('bad fit...')
                 fit_max = max_freq
                 fit_std = 5.0*(freqs[1]-freqs[0])
                 popt = p0
@@ -260,7 +260,7 @@ for meas in itertools.product(gases, inds):
                 plot_freqs = np.linspace(freqs[max_ind-30], freqs[max_ind+30], 100)
                 plt.loglog(freqs, phase_asd_filt_2)
                 plt.loglog(plot_freqs, lorentzian(plot_freqs, *popt))
-                print fit_max, fit_std
+                print(fit_max, fit_std)
                 plt.show()
 
             if fit_max < 10:
@@ -353,7 +353,7 @@ for meas in itertools.product(gases, inds):
         if cleanup_outarr:
             clean = False
             new_nfiles = nfiles
-            print 'Cleaning...',
+            print('Cleaning...', end=' ')
             while not clean:
                 for i in range(new_nfiles):
                     if i == 0:
@@ -368,15 +368,15 @@ for meas in itertools.product(gases, inds):
                         out_arr_2 = out_arr[:,i+1:]
                         out_arr = np.concatenate((out_arr_1, out_arr_2), axis=-1)
                         new_nfiles = len(out_arr[0])
-                        print i,
+                        print(i, end=' ')
                         break
-            print
+            print()
 
         # plt.hist(out_arr[3] / out_arr[2])
         # plt.show()
 
         if save:
-            print('Saving: ', save_paths[pathind])
+            print(('Saving: ', save_paths[pathind]))
             np.save(save_paths[pathind], out_arr)
             # print('Saving: ', save_path)
             # np.save(save_path, out_arr)

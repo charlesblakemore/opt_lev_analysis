@@ -41,7 +41,7 @@ for attr_type in types:
         elif (attr_type == 'String'):
             new_attr_dict[new_key] = item['Val']
 
-print new_attr_dict
+print(new_attr_dict)
             
     
     

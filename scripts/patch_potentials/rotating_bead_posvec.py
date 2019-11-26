@@ -56,7 +56,7 @@ rxyz = np.matmul(rz, rxy)
 mesh_list = np.meshgrid(pts[0] - xval, posvec, pts[2] - zval, \
                                   indexing='ij')
 
-print rxyz
+print(rxyz)
 
 new_pts = []
 for resp in [0,1,2]:

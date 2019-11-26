@@ -300,8 +300,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
     try:
         q_bead = (np.load(charge_file)[0]) * constants.elementary_charge
     except:
-        nq = raw_input('No charge file. Guess q: ')
-        print int(nq)
+        nq = input('No charge file. Guess q: ')
+        print(int(nq))
         q_bead = int(nq) * constants.elementary_charge
 
     suffix = files[0].split('/')[-2]
@@ -313,7 +313,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
 
     nfiles = len(files)
     if not print_res:
-        print "Processing %i files..." % nfiles
+        print("Processing %i files..." % nfiles)
 
     all_eforce = []
     all_power = []
@@ -534,10 +534,10 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
 
 
     if noise:
-        print 'DC power: ', np.mean(p_dc), np.std(p_dc)
-        print 'AC power: ', np.mean(p_ac), np.std(p_ac)
-        print 'DC field: ', np.mean(e_dc), np.std(e_dc)
-        print 'AC field: ', np.mean(e_ac), np.std(e_ac)
+        print('DC power: ', np.mean(p_dc), np.std(p_dc))
+        print('AC power: ', np.mean(p_ac), np.std(p_ac))
+        print('DC field: ', np.mean(e_dc), np.std(e_dc))
+        print('AC field: ', np.mean(e_ac), np.std(e_ac))
         return
 
 
@@ -629,19 +629,19 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         save_arr = [final_mass, final_err_stat, final_err_sys]
         np.save(open(save_filename, 'wb'), save_arr)
 
-    print 'Bad Files: %i / %i' % (Nbad, nfiles)
+    print('Bad Files: %i / %i' % (Nbad, nfiles))
     if print_res:
         gresid_fac = (2.0 * np.pi * freqs[drive_ind])**2 / 9.8
 
-        print '      mass    [pg]: %0.1f' % (final_mass*1e15)
-        print '      st.err  [pg]: %0.2f' % (final_err_stat*1e15)
-        print '      sys.err [pg]: %0.2f' % (final_err_sys*1e15)
-        print '      qbead    [e]: %i' % (q_bead/constants.elementary_charge)
-        print '      P     [mbar]: %0.2e' % final_pressure
-        print '      <P>    [arb]: %0.2e' % (power_avg / power_N)
-        print '      zresid   [g]: %0.3e' % ((zamp_avg / zamp_N) * gresid_fac)
-        print '      zphase [rad]: %0.3e' % (zphase_avg / zamp_N)
-        print '      zfb    [arb]: %0.3e' % (zfb_avg / zfb_N)
+        print('      mass    [pg]: %0.1f' % (final_mass*1e15))
+        print('      st.err  [pg]: %0.2f' % (final_err_stat*1e15))
+        print('      sys.err [pg]: %0.2f' % (final_err_sys*1e15))
+        print('      qbead    [e]: %i' % (q_bead/constants.elementary_charge))
+        print('      P     [mbar]: %0.2e' % final_pressure)
+        print('      <P>    [arb]: %0.2e' % (power_avg / power_N))
+        print('      zresid   [g]: %0.3e' % ((zamp_avg / zamp_N) * gresid_fac))
+        print('      zphase [rad]: %0.3e' % (zphase_avg / zamp_N))
+        print('      zfb    [arb]: %0.3e' % (zfb_avg / zfb_N))
         outarr = [ final_mass*1e15, final_err_stat*1e15, final_err_sys*1e15, \
                    q_bead/constants.elementary_charge, \
                    final_pressure, power_avg / power_N, \
@@ -671,13 +671,13 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
 
 
 
-dates = file_dict.keys()
+dates = list(file_dict.keys())
 dates.sort()
 
 allres = []
 overall_mass = []
 for date in dates:
-    print date
+    print(date)
     allres_dict[date] = []
     data = file_dict[date]
     dirs = data[0]
@@ -688,7 +688,7 @@ for date in dates:
     err_stat = []
     err_sys = []
     for cdir in dirs:
-        print '  ', cdir
+        print('  ', cdir)
 
         if type(cdir) == list:
             nametest = cdir[0]
@@ -712,7 +712,7 @@ for date in dates:
         err_sys.append(dat[2])
         
         #print allres
-        print
+        print()
     err_stat = np.array(err_stat)
     err_sys = np.array(err_sys)
     err_tot = np.sqrt(err_stat**2 + err_sys**2)
@@ -723,8 +723,8 @@ for date in dates:
     overall_mass_dict[date] = overall_mass_vec
     allres.append(list(np.zeros_like(dat)))
 
-    print
-    print
+    print()
+    print()
 
 allres = np.array(allres)
 overall_mass = np.array(overall_mass)

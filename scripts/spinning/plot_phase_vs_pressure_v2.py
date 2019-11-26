@@ -29,7 +29,7 @@ def build_full_pressure(pressures, pirani_ind=0, highp_baratron_ind=2, \
                         baratron_ind=2, bara_lim=0.015, pirani_lim=5.0e-4, \
                         plot=False):
 
-    inds = np.array(range(len(pressures[:,0])))
+    inds = np.array(list(range(len(pressures[:,0]))))
 
     pirani_p = pressures[:,pirani_ind]
     bara_p = pressures[:,baratron_ind]
@@ -76,7 +76,7 @@ def build_full_pressure_2(pressures, pirani_ind=0, highp_baratron_ind=2, \
                           baratron_ind=2, bara_lim=0.015, pirani_lim=5.0e-4, \
                           highp_bara_lim=0.001, plot=False, use_highp_bara=False):
 
-    inds = np.array(range(len(pressures[:,0])))
+    inds = np.array(list(range(len(pressures[:,0]))))
 
     pirani_p = pressures[:,pirani_ind]
     bara_p = pressures[:,baratron_ind]
@@ -132,8 +132,8 @@ def build_full_pressure_2(pressures, pirani_ind=0, highp_baratron_ind=2, \
 
 # Get raw phase difference at fundamental rotation freq
 # from previously analyzed files.
-phases = np.array(map(get_delta_phi, in_fs))
-pressures = np.array(map(get_pressure, in_fs))
+phases = np.array(list(map(get_delta_phi, in_fs)))
+pressures = np.array(list(map(get_pressure, in_fs)))
 
 uphases_all = []
 pressures_all = []
@@ -143,7 +143,7 @@ for dir_ind in range(phases.shape[0]):
     pressures_real = build_full_pressure(pressures[dir_ind], plot=False)
     pressures_real_2, pressures_real_smooth = build_full_pressure_2(pressures[dir_ind], plot=False)
 
-    t = np.array(range(len(pressures[dir_ind]))) * 2.0
+    t = np.array(list(range(len(pressures[dir_ind])))) * 2.0
 
     plt.plot(pressures_real_2, label='Raw: Pirani + Baratron')
     plt.plot(pressures_real_smooth, label='Smoothed')
@@ -167,7 +167,7 @@ for dir_ind in range(phases.shape[0]):
     plt.show()
 
     raw_grad_init = np.std(raw_grad[:int(0.01*len(raw_grad))])
-    bad_inds = np.array(range(len(raw_grad)))[np.abs(raw_grad) > 10 * raw_grad_init]
+    bad_inds = np.array(list(range(len(raw_grad))))[np.abs(raw_grad) > 10 * raw_grad_init]
     
     for indind, ind in enumerate(bad_inds):
         if ind == bad_inds[-2]:
@@ -248,9 +248,9 @@ for ind, lock_ind in enumerate(lock_lost_ind_all):
     plt.subplots_adjust(top=0.90)
     plt.show()
     
-    print 'init: ', p0[0]
-    print 'fit: ', pphi[0]
-    print
+    print('init: ', p0[0])
+    print('fit: ', pphi[0])
+    print()
 
 
 

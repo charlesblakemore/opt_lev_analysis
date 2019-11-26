@@ -95,14 +95,14 @@ y_popt, y_pcov = opti.curve_fit(w, x[fit_pts], wy[fit_pts], \
 x_test = [62e-2, 0.8e-3, 0]
 y_test = [62e-2, 0.8e-3, 0] 
 
-print "xoffset / w_0x: ", x_popt[2] / x_popt[1]
-print "yoffset / w_0y: ", y_popt[2] / y_popt[1]
+print("xoffset / w_0x: ", x_popt[2] / x_popt[1])
+print("yoffset / w_0y: ", y_popt[2] / y_popt[1])
 
 xinterp = interp.interp1d(x, wx, kind="cubic")
 
 
-print "w_0x [mm] and position [cm]: ", x_popt[1]*1e3, x_popt[0]*1e2
-print "w_0y [mm] and position [cm]: ", y_popt[1]*1e3, y_popt[0]*1e2
+print("w_0x [mm] and position [cm]: ", x_popt[1]*1e3, x_popt[0]*1e2)
+print("w_0y [mm] and position [cm]: ", y_popt[1]*1e3, y_popt[0]*1e2)
 
 
 plt_pts = np.linspace(np.min(x), np.max(x), 200)

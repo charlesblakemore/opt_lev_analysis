@@ -5,11 +5,12 @@ import os
 import glob
 import matplotlib.mlab as ml
 import sys
+import imp
 sys.path.append("../microgravity")
 import build_yukfuncs as yf
 from scipy.optimize import minimize_scalar as ms
 import alex_limit_v2 as al2
-reload(al2)
+imp.reload(al2)
 decca_path = "/home/arider/limit_data/just_decca.csv"
 pre_decca_path = "/home/arider/limit_data/pre_decca.csv"
 #################################################################################testing code

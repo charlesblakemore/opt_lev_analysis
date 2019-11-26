@@ -177,7 +177,7 @@ for meas in itertools.product(gases, inds):
             pressures_mbar[i, :] = np.array(obj.attribs["pressures"]) * 1.333
             times[i] = obj.attribs['time']
         except:
-            print "bad file"
+            print("bad file")
 
     # There is likely an artificial, unknown phase offset (which we
     # assume to be constant) introduced by various front-end electronics

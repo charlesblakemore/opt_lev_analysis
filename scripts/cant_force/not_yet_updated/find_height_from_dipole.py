@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import scipy.optimize as optimize
@@ -108,9 +108,9 @@ def proc_dir(d):
     return dir_obj
 
 # Do intial processing
-dir_objs = map(proc_dir, dirs)
+dir_objs = list(map(proc_dir, dirs))
 if subtract_background:
-    bdir_objs = map(proc_dir, bdirs)
+    bdir_objs = list(map(proc_dir, bdirs))
 
 sys.stdout.flush()
 # initialize some dictionaries that will be updated in a for-loop
@@ -139,7 +139,7 @@ for objind, obj in enumerate(dir_objs):
     if subtract_background:
         bobj = bdir_objs[objind]
 
-    keys = obj.avg_diag_force_v_pos.keys() 
+    keys = list(obj.avg_diag_force_v_pos.keys()) 
     cal_facs = obj.conv_facs
     #cal_facs = [1.,1.,1.]
 
@@ -233,9 +233,9 @@ if len(fig_title):
 # Analyze the fits (if fits were performed) and find the maximal
 # response at the location specified in the preamble
 if fit_height:
-    keys = fits.keys()
+    keys = list(fits.keys())
     keys.sort(key = lambda x: float(x))
-    fkeys = map(float, keys)
+    fkeys = list(map(float, keys))
     arr1 = []
     arr2 = []
     for key in keys:
@@ -274,7 +274,7 @@ if fit_height:
     min2res = optimize.minimize(min2fun, x0=0)
     min2 = min2res.x[0]
 
-    print "Best fit positions: ", min1, min2
+    print("Best fit positions: ", min1, min2)
     
 plt.show()
     

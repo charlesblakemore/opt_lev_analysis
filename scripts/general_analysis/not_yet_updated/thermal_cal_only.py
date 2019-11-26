@@ -38,8 +38,8 @@ if get_bead_mass:
     MTratio = 2 * bu.kb / (A * w0**2) * volts_per_meter**2
     mass = MTratio * temp * 10**12  # convert the mass to nanograms
 
-    print "M/T Ratio: %0.2g kg/K" % MTratio
-    print "Implied Mass at %i K: %0.2g ng" % (temp, mass)
+    print("M/T Ratio: %0.2g kg/K" % MTratio)
+    print("Implied Mass at %i K: %0.2g ng" % (temp, mass))
 
 # Resonant Frequencies
 
@@ -49,17 +49,17 @@ freqs = []
 for i in [0,1,2]:
     freqs.append(fits[i].popt[1])
 
-print
-print "X, Y and Z resonant freqs from thermal cal"
-print freqs
+print()
+print("X, Y and Z resonant freqs from thermal cal")
+print(freqs)
 
 
 
 therm_facs = cal_dir_obj.thermal_cal_fobj.get_thermal_cal_facs(temp=temp)
 
-print
-print "Calibration"
-print therm_facs
+print()
+print("Calibration")
+print(therm_facs)
 #print therm_facs * np.sqrt(2)
 
 

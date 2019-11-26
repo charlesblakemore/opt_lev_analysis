@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
@@ -11,7 +11,7 @@ import scipy, sys, time
 
 rhopath = '/home/charles/opt_lev_analysis/scripts/gravity_sim/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -98,13 +98,13 @@ for rind, rbead in enumerate(rbeads):
 			Gforcecurve.append(totforce)
 		Gforcecurve = np.array(Gforcecurve)
 
-		print "Computed gravitational contribution."
+		print("Computed gravitational contribution.")
 		sys.stdout.flush()
 
 		for yukind, yuklambda in enumerate(lambdas):
 			per = int(100. * float(yukind) / float(len(lambdas)))
 			if not per % 1:
-				print str(per) + ',',
+				print(str(per) + ',', end=' ')
 			sys.stdout.flush()
 
 			func = np.exp(-2. * rbead / yuklambda) * (1. + rbead / yuklambda) + rbead / yuklambda - 1.

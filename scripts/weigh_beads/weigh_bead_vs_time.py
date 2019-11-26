@@ -93,7 +93,7 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
     mass_arr = []
     times = []
 
-    print "Processing %i files..." % nfiles
+    print("Processing %i files..." % nfiles)
     for fil_ind, fil in enumerate(files):
         color = colors[fil_ind]
 

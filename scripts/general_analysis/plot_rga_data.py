@@ -225,7 +225,7 @@ for output in outputs:
 
 
     gases_to_label = ru.gases_to_label[gas]
-    gas_keys = gases_to_label.keys()
+    gas_keys = list(gases_to_label.keys())
     gas_keys.sort(key = lambda x: gases_to_label[x])
     labels = []
     neg = False

@@ -8,7 +8,7 @@ matplotlib.rcParams.update({'font.size': 14})
 
 gap_list = [6e-6,6e-6,6e-6]
 lam_list = np.logspace(-1.0,2.0,40)*1e-6
-print lam_list
+print(lam_list)
 
 sens_vals = np.zeros((len(lam_list),len(gap_list)))
 force_vals = np.zeros((len(lam_list),len(gap_list)))
@@ -23,10 +23,10 @@ for i in range(len(gap_list)):
         lam = lam_list[j]
 
         fname = 'data_20um/lam_arr_20um_%.3f_%.3f.npy' % (gap*1e6,lam*1e6)
-        print fname
+        print(fname)
         if( not os.path.isfile(fname)): continue
         cval = np.load(fname)
-        print cval 
+        print(cval) 
 
         if( i==0):
             sigf = 1e-19  ## force sensitivity with integration time
@@ -52,7 +52,7 @@ y1 = np.exp(np.interp(np.log(cmeas[gpts,0]*1e6),np.log([1e-1, 2.0443]),np.log([1
 y2 = cmeas[gpts,1]               
 xtot = np.hstack((x,x[-1::-1]))
 ytot = np.hstack((y1,y2[-1::-1]))
-zippts = zip(xtot,ytot)
+zippts = list(zip(xtot,ytot))
 ax = plt.gca()
 #ax.add_patch(Polygon(zippts,closed=True,fill=False,hatch='//'))
 
@@ -79,7 +79,7 @@ ytot = np.hstack((y1l,y2l,y2h[-1::-1],y3h[-1::-1]))
 ##raw_input('e')
 ##xtot = np.hstack((x2,x2[-1::-1]))
 ##ytot = np.hstack((y2l,y2h[-1::-1]))
-zippts = zip(xtot,ytot)
+zippts = list(zip(xtot,ytot))
 #ax.add_patch(Polygon(zippts,closed=True,fill=False,hatch='...',color=[0.5, 0.5, 0.5]))
 
 #prev meas

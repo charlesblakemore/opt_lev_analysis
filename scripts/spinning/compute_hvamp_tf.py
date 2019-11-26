@@ -100,14 +100,14 @@ def build_hvamp_tf(files, hvamp_key='trek', drive_axes=[4], resp_axes=[6],\
     tfvals = []
 
     old_per = 0
-    print "Processing %i files..." % len(files)
-    print "Percent complete: "
+    print("Processing %i files..." % len(files))
+    print("Percent complete: ")
     for fil_ind, fil in enumerate(files):
         
         # Display percent completion
         per = int(100. * float(fil_ind) / float(len(files)) )
         if per > old_per:
-            print old_per,
+            print(old_per, end=' ')
             sys.stdout.flush()
             old_per = per
 
@@ -198,9 +198,9 @@ def build_hvamp_tf(files, hvamp_key='trek', drive_axes=[4], resp_axes=[6],\
     if save:
         pickle.dump(computed_tf_dict, open(computed_tf_path, 'wb'))
 
-    print
-    print "AMP FIT: %0.1e gain, %0.1e cutoff" % (popt1[0], popt1[1])
-    print "PHASE FIT: %0.1e gain, %0.1e cutoff" % (popt2[0], popt2[1])
+    print()
+    print("AMP FIT: %0.1e gain, %0.1e cutoff" % (popt1[0], popt1[1]))
+    print("PHASE FIT: %0.1e gain, %0.1e cutoff" % (popt2[0], popt2[1]))
     sys.stdout.flush()
     
     plt.show()

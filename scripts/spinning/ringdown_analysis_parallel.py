@@ -308,7 +308,7 @@ def proc_dir(path):
                                     p0=p0, maxfev=3000)
         stop = time.time()
         if debug:
-            print "Init fit: ", stop-start
+            print("Init fit: ", stop-start)
 
         fc = popt[1]
 
@@ -325,7 +325,7 @@ def proc_dir(path):
         vperp_filt_asd = np.abs(vperp_filt_fft)
         stop = time.time()
         if debug:
-            print "Filtering time: ", stop - start
+            print("Filtering time: ", stop - start)
 
         fc_old = fc
         # stop = time.time()
@@ -358,7 +358,7 @@ def proc_dir(path):
         fit_inst_freq_ds, fit_inst_freq_err_ds = bu.rebin_vectorized( fit_inst_freq, nbin)#, model=line )
         stop = time.time()
         if debug:
-            print "Rebinning time: ", stop - start
+            print("Rebinning time: ", stop - start)
 
         # plt.plot(fit_time_vec, fit_inst_freq)
         # plt.plot(fit_time_vec_ds, fit_inst_freq_ds)

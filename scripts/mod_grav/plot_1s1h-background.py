@@ -70,7 +70,7 @@ for ddir in data_dirs:
     # Skip the ones I've already calculated
     #if ddir == data_dirs[0]:
     #    continue
-    print
+    print()
 
     paths = gu.build_paths(ddir, opt_ext=opt_ext)
     p0_bead = p0_bead_dict[paths['date']]
@@ -90,7 +90,7 @@ for ddir in data_dirs:
         agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)
         agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
 
-    alpha_arr = agg_dat.alpha_xyz_dict[agg_dat.alpha_xyz_dict.keys()[0]]\
+    alpha_arr = agg_dat.alpha_xyz_dict[list(agg_dat.alpha_xyz_dict.keys())[0]]\
                 [agg_dat.ax1vec[0]][agg_dat.ax2vec[0]]
 
     fig1, axarr1 = plt.subplots(2,1,sharex=True,sharey=True)

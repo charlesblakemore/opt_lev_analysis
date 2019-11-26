@@ -40,7 +40,7 @@ allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=True)
 Hout = allH['Hout']
 Hamp = allH['Hout_amp']
 Hphase = allH['Hout_phase']
-freqs = Hamp.keys()
+freqs = list(Hamp.keys())
 freqs.sort()
 
 ampfig, ampax = plt.subplots(5,3,sharex=True,sharey=True)

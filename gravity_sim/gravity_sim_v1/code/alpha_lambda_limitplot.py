@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
@@ -29,7 +29,7 @@ def dist_p_arrp(p1, xs, ys, zs):
 rhopath = '/Users/charlesblakemore/Stanford/beads/' + \
 			'gravity/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -83,7 +83,7 @@ for ind, xpos in enumerate(beadposvec):
 	Gforcecurve.append(totforce)
 
 Gdiff = np.max(Gforcecurve) - np.min(Gforcecurve)
-print "Computed gravitational contribution."
+print("Computed gravitational contribution.")
 sys.stdout.flush()
 
 
@@ -97,7 +97,7 @@ sys.stdout.flush()
 for yukind, yuklambda in enumerate(lambdas):
 	per = int(100. * float(yukind) / float(len(lambdas)))
 	if not per % 1:
-		print str(per) + ',',
+		print(str(per) + ',', end=' ')
 	sys.stdout.flush()
 
 	func = np.exp(-2. * rbead / yuklambda) * (1. + rbead / yuklambda) + rbead / yuklambda - 1.
@@ -160,7 +160,7 @@ plt.loglog(lambdas, alphas)
 plt.show()
 
 
-raw_input()
+input()
 
 
 

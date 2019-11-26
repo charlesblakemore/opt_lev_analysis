@@ -33,7 +33,7 @@ base_path = '/data/old_trap_processed/spinning/wobble/{:s}/'.format(date)
 
 base_plot_path = '/home/cblakemore/plots/{:s}/pramp/'.format(date)
 bu.make_all_pardirs(base_plot_path)
-savefig = True
+savefig = False
 
 baselen = len(base_path)
 
@@ -46,7 +46,7 @@ baselen = len(base_path)
 path_dict = {}
 for meas in itertools.product(gases, inds):
     gas, pramp_ind = meas
-    if gas not in path_dict.keys():
+    if gas not in list(path_dict.keys()):
         path_dict[gas] = []
     path_dict[gas].append(base_path + '{:s}_pramp_{:d}/'.format(gas, pramp_ind))
 
@@ -214,7 +214,7 @@ for gas in gases:
             d_sterr = d * np.sqrt( (A_sterr/A_val)**2 + (Ibead['sterr']/Ibead['val'])**2 )
             d_syserr = d * np.sqrt( (A_syserr/A_val)**2 + (Ibead['syserr']/Ibead['val'])**2 )
 
-            print A_sterr / A_val, Ibead['sterr'] / Ibead['val']
+            print(A_sterr / A_val, Ibead['sterr'] / Ibead['val'])
 
             d_scaled = d * (1.0 / 1.602e-19) * 1e6
             d_sterr_scaled = d_sterr * (1.0 / 1.602e-19) * 1e6

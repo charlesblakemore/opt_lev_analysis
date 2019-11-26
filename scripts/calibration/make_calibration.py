@@ -148,7 +148,7 @@ if save_charge:
     else:
         charge_path = prefix + step_date + '.charge'
 
-    print charge_path
+    print(charge_path)
 
 bu.make_all_pardirs(savepath)
 bu.make_all_pardirs(charge_path)
@@ -316,7 +316,7 @@ if not fake_step_cal:
         zpos_vec.append(zpos)
 
     vpn, off, err, q0 = cal.step_cal(step_cal_vec)
-    print vpn
+    print(vpn)
 
 if save_charge:
     if recharge:

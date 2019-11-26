@@ -117,7 +117,7 @@ def fit_gauss_and_truncate(t, prof, twidth, numbins = 500):
                                             p0=neg_p0, maxfev=10000)
     
     except:
-        print "FAILED THIS ONE"
+        print("FAILED THIS ONE")
         plt.plot(pos_t, pos_prof)
         plt.plot(neg_t, neg_prof)
         plt.show()
@@ -211,7 +211,7 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
     elif neg_peaks[0][0] > pos_peaks[0][0]:
         neg_first = False
     else:
-        print "Couldn't figure out positive or negative first..."
+        print("Couldn't figure out positive or negative first...")
 
     if neg_first:
         pos_peaks = pos_peaks[:-1]
@@ -246,7 +246,7 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
                 tot_prof = np.hstack((tot_prof, new_prof))
 
         except:
-            print 'Failed to fit and return result'
+            print('Failed to fit and return result')
 
     sort_inds = tot_t.argsort()
 
@@ -270,7 +270,7 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
                                         new_prof, p0 = newguess)
             return xvec, new_prof, popt
         except:
-            print "Fit didn't work!"
+            print("Fit didn't work!")
 
     if return_pos:
         return new_d, new_prof

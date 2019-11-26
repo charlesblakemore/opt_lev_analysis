@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys
 from scipy.optimize import curve_fit
 import bead_util as bu
@@ -32,8 +32,8 @@ Hmat_diag = np.linalg.inv(Hmat)
 plt.imshow(np.abs(Hmat_diag))
 plt.show()
 
-print np.abs(Hmat)
+print(np.abs(Hmat))
 
-print np.abs(Hmat_diag)
+print(np.abs(Hmat_diag))
 
-print np.abs(np.einsum('ij,jk -> ik', Hmat, Hmat_diag))
+print(np.abs(np.einsum('ij,jk -> ik', Hmat, Hmat_diag)))

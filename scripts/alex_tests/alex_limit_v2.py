@@ -5,10 +5,11 @@ import os
 import glob
 import matplotlib.mlab as ml
 import sys
+import imp
 sys.path.append("microgravity")
 import build_yukfuncs as yf
 from scipy.optimize import minimize_scalar as ms
-reload(bu)
+imp.reload(bu)
 
 
 #first define methods for extracting data from the df objects
@@ -172,7 +173,7 @@ class GravFile(bu.DataFile):
             return template_fft[:, self.harmonic_bins]
 
         except ValueError:
-            print "warning out of bounds position"
+            print("warning out of bounds position")
             plt.plot(pvec[0, :], label = "x")
             plt.plot(pvec[1, :], label = 'y')
             plt.plot(pvec[2, :], label = 'z')
@@ -232,13 +233,13 @@ class GravFile(bu.DataFile):
         alpha_min = res0.x*alpha_scale
         error = np.abs((res0.x - res1.x))*alpha_scale
         if not res0.success or not res1.success:
-            print "Warning: cant find min alpha"
+            print("Warning: cant find min alpha")
 
         if plot_profile:
             test_alphas = np.linspace(alpha_min - 2.*error,\
                     alpha_min + 2.*error, 1000)
             #test_alphas = np.linspace(-10, 10, 10000)
-            chi_sqs = np.array(map(chi_sq, test_alphas))
+            chi_sqs = np.array(list(map(chi_sq, test_alphas)))
             plt.plot(test_alphas, chi_sqs)
             plt.xlabel("alpha")
             plt.ylabel("RCS")

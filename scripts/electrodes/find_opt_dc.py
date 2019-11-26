@@ -51,7 +51,7 @@ for f in flist:
     dclist.append(sort_fun( f ))
 
 dclist = np.unique(dclist)
-print "DC offsets: ", dclist
+print("DC offsets: ", dclist)
 
 elec = elec_list[0]
 dcol = 0
@@ -61,7 +61,7 @@ for fidx,f in enumerate(dclist):
 
     cpos = f ##sort_fun(f)
 
-    print "Vdc = ", cpos
+    print("Vdc = ", cpos)
 
     cflist = []
     for data_dir in data_dirs:
@@ -80,7 +80,7 @@ for fidx,f in enumerate(dclist):
     for f2 in cflist:
         cdat, attribs, fhand = bu.getdata( f2 )
         if( len(cdat) == 0 ):
-            print "Empty file, skipping: ", f2
+            print("Empty file, skipping: ", f2)
             continue
 
         Fs = attribs['Fsamp']
@@ -182,7 +182,7 @@ plt.plot(xx, ffn(xx,*bp), col[cidx], linewidth=1.5 )
 intcpt = -bp[1]/bp[0]
 yy = plt.ylim()
 plt.plot([intcpt,intcpt],yy,col[cidx]+'--') ##,label="%.3f"%intcpt)
-print "Offset voltage: ", intcpt
+print("Offset voltage: ", intcpt)
 #print "Offset voltage: ", -bp[1]/(2*bp[0])
 
 plt.title("Correlation with drive")

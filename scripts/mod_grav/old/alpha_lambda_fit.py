@@ -123,7 +123,7 @@ if show_data_at_modulation:
 
     rdat = np.fft.irfft(datfft)
     filt_dat = np.fft.irfft(filt_datfft)
-    print len(bins), len(filt_dat), len(rdat)
+    print(len(bins), len(filt_dat), len(rdat))
     plt.plot(bins, rdat)
     plt.plot(bins, filt_dat)
     plt.show()
@@ -220,7 +220,7 @@ for ind, yuklambda in enumerate(lambdas):
         popt, pcov = optimize.curve_fit(parabola, fitalphas, chi_sqs, p0 = p0, maxfev = 100000)
         diagpopt, diagpcov = optimize.curve_fit(parabola, fitalphas, diag_chi_sqs, p0 = dp0, maxfev = 100000)
     except:
-        print "Couldn't fit"
+        print("Couldn't fit")
         popt = p0_old
         popt[2] = np.mean(chi_sqs)
         diagpopt = dp0_old

@@ -57,8 +57,8 @@ for pathind, path in enumerate(paths):
     plt.show()
 
     try:
-        guess = raw_input('Fit times (lower, upper): ')
-        lower, upper = map(float, guess.split(','))
+        guess = input('Fit times (lower, upper): ')
+        lower, upper = list(map(float, guess.split(',')))
 
         fit_inds = (times > lower) * (times < upper)
 
@@ -67,8 +67,8 @@ for pathind, path in enumerate(paths):
         plt.plot(times[fit_inds], line(times[fit_inds], *popt), '--', lw=2, color='r')
         plt.draw()
 
-        print 'Plotting linear fit for 5 seconds...'
-        print '    found {:0.4g} mbar/s'.format(popt[0])
+        print('Plotting linear fit for 5 seconds...')
+        print('    found {:0.4g} mbar/s'.format(popt[0]))
         plt.pause(5)
 
         plt.close(1)

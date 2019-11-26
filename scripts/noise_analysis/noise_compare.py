@@ -78,7 +78,7 @@ def plot_shot_noise(ax, beam_params, f0 = f0, label = "Shot Noise Limit"):
         k**2*bp['d']**2*c**2 
 
     Sxx = num/denom
-    print np.sqrt(Sxx)
+    print(np.sqrt(Sxx))
     ax.plot(fs, np.sqrt(Sxx)*np.ones_like(fs), label = label)
 
 def plot_z_shot_noise(ax, beam_params, label = "Shot Noise Limit"):
@@ -91,7 +91,7 @@ def plot_z_shot_noise(ax, beam_params, label = "Shot Noise Limit"):
     denom = bp['xi'] * bp['p1'] * bp['p2']
 
     Sxx = prefac * num / denom
-    print np.sqrt(Sxx)
+    print(np.sqrt(Sxx))
     ax.plot(fs, np.sqrt(Sxx)*np.ones_like(fs), label = label)
     
 
@@ -109,7 +109,7 @@ key = lambda kk: plt_order[kk]
 cf = cal_constant(f0)
 
 #plot noise spectra
-keys = bead_files.keys()
+keys = list(bead_files.keys())
 keys.sort(key = key)
 for ind, k in enumerate(keys):
     style = styles[ind]
@@ -122,7 +122,7 @@ zkey = lambda kk: z_plt_order[kk]
 zcf = 1.0 / (1.3e14)
 zcf = zcf / spring_k(159)
 
-zkeys = z_bead_files.keys()
+zkeys = list(z_bead_files.keys())
 zkeys.sort(key = zkey)
 for ind, k in enumerate(zkeys):
     style = styles[ind]

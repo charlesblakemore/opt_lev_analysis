@@ -5,7 +5,7 @@ import os
 import glob
 import matplotlib.mlab as ml
 import alex_test as at
-execfile('microgravity/alpha_lambda_test.py')
+exec(compile(open('microgravity/alpha_lambda_test.py').read(), 'microgravity/alpha_lambda_test.py', 'exec'))
 
 
 dat_dir = "/data/20180308/bead2/grav_data/onepos_long"

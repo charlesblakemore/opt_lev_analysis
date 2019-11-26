@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob 
 import bead_util as bu
-import Tkinter
-import tkFileDialog
+import tkinter
+import tkinter.filedialog
 import os, sys, re
 from scipy.optimize import curve_fit
 import bead_util as bu
 from scipy.optimize import minimize_scalar as minimize
-import cPickle as pickle
+import pickle as pickle
 
 plot_vs_time = True
 plot_vs_sep = False
@@ -70,7 +70,7 @@ def proc_dir(d):
         entries = [(stat.st_ctime, path) for stat, path in entries]
     entries.sort(key = lambda x: (x[0]))
     for thing in entries[-10:]:
-        print thing
+        print(thing)
     for thing in entries:
         if '.npy' in thing[1]:
             continue
@@ -83,7 +83,7 @@ def proc_dir(d):
     return dir_obj
 
 if dirs:
-    dir_objs = map(proc_dir, dirs)
+    dir_objs = list(map(proc_dir, dirs))
 else:
     dir_objs = []
 
@@ -100,7 +100,7 @@ for obj in dir_objs:
     for fobj in obj.fobjs:
         if filstring not in fobj.fname:
             continue
-        sep = re.findall('[0-9]*X([0-9]+)*\u', fobj.fname)
+        sep = re.findall('[0-9]*X([0-9]+)*\\u', fobj.fname)
         sep = float(sep[0])
         fobj.detrend()
         fobj.psd(NFFT = NFFT)
@@ -128,10 +128,10 @@ for fobj in fil_objs:
     #    sep_dict[sep] = []
     #sep_dict[sep].append(fobj)
 
-seps = sep_dict.keys()
+seps = list(sep_dict.keys())
 seps.sort()
 
-times = time_dict.keys()
+times = list(time_dict.keys())
 times.sort()
 
 if plot_vs_time:
@@ -149,7 +149,7 @@ f, axarr = plt.subplots(plots,1,sharex='all')
 
 colors_yeay = ['r', 'k']
 
-print time_dict.keys()
+print(list(time_dict.keys()))
 
 for i, iterobj in enumerate(iterlist):
     col = colors_yeay[i]

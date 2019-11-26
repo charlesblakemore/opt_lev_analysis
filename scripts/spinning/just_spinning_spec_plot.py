@@ -18,7 +18,7 @@ files= glob.glob(path + "/*.h5")
 
 data_ax = 0
 
-print files
+print(files)
 
 sfun = lambda fname: int(re.findall('\d+.h5', fname)[0][:-3])
 files.sort(key = sfun)

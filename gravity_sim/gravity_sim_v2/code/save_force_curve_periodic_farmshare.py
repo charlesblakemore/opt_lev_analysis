@@ -1,14 +1,14 @@
 #!/usr/bin/python
 
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import scipy.interpolate as interp
 import scipy.signal as signal
 import scipy.optimize as opti
 import scipy, sys, time
 
-print "numpy: ", np.version.version
-print "scipy: ", scipy.version.version
+print("numpy: ", np.version.version)
+print("scipy: ", scipy.version.version)
 
 
 rbead = float(sys.argv[1])
@@ -19,7 +19,7 @@ height = float(sys.argv[3])
 rhopath = '/farmshare/user_data/cblakemo/gravity_sim/test_masses/attractor_v2/rho_arr.p'
 #rhopath = '/home/charles/gravity/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -188,7 +188,7 @@ for ind, pos in enumerate(beadposvec):
     newGY[ind] = np.sum(GY(newpos + (finger_inds+finger_ind) * width))
     newGZ[ind] = np.sum(GZ(newpos + (finger_inds+finger_ind) * width))  
 
-print 'Computed normal grav'
+print('Computed normal grav')
 sys.stdout.flush()
 
 
@@ -196,7 +196,7 @@ sys.stdout.flush()
 for yukind, yuklambda in enumerate(lambdas):
     per = int(100. * float(yukind) / float(len(lambdas)))
     if not per % 1:
-        print str(per) + ',',
+        print(str(per) + ',', end=' ')
     sys.stdout.flush()
 
     func = np.exp(-2. * rbead / yuklambda) * (1. + rbead / yuklambda) + rbead / yuklambda - 1.
@@ -274,11 +274,11 @@ for yukind, yuklambda in enumerate(lambdas):
 
 
 
-print "100! Done!"
+print("100! Done!")
 
 results_dic['posvec'] = beadposvec
 try:
     pickle.dump(results_dic, open(respath, 'wb') )
-    print "Saved: ", respath
+    print("Saved: ", respath)
 except:
-    print "Save didn't work!"
+    print("Save didn't work!")

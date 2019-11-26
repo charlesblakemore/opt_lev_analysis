@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import matplotlib.pyplot as plt
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
@@ -28,7 +28,7 @@ def dist_p_arrp(p1, xs, ys, zs):
 rhopath = '/Users/charlesblakemore/Stanford/beads/' + \
 			'gravity/test_masses/attractor_v2/rho_arr.p'
 rho, xx, yy, zz = pickle.load(open(rhopath, 'rb'))
-print "Density Loaded."
+print("Density Loaded.")
 sys.stdout.flush()
 
 xx = np.array(xx)
@@ -65,7 +65,7 @@ for sepind, sep in enumerate(bead_seps):
 	for beadind, rbead in enumerate(bead_rbeads):
 
 		counter += 1
-		print 'Params %i / %i :' % (counter, Ncombos),
+		print('Params %i / %i :' % (counter, Ncombos), end=' ')
 
 		#if sep < 2.0 * rbead:
 		#	detforce[sepind, beadind] = 0
@@ -94,7 +94,7 @@ for sepind, sep in enumerate(bead_seps):
 		for ind, xpos in enumerate(beadposvec):
 			per = int(100. * float(ind) / float(Npoints))
 			if not per % 10:
-				print '.', #str(per) + ',',
+				print('.', end=' ') #str(per) + ',',
 			sys.stdout.flush()
 			beadpos = [xpos, sep+rbead, 0]
 
@@ -115,7 +115,7 @@ for sepind, sep in enumerate(bead_seps):
 		deriv = np.gradient(force1)
 		zeros = np.where(np.diff(np.signbit(deriv)))[0]
 
-		print
+		print()
 
 		if len(zeros) == 1:
 			detforce[sepind, beadind] = 0.

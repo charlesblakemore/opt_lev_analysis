@@ -5,7 +5,7 @@ import numpy as np
 gap = float(sys.argv[1])
 lam = float(sys.argv[2])
 
-print gap, lam
+print(gap, lam)
 
 ## calculate the yukawa force over a distributed test mass assumed to be cube
 
