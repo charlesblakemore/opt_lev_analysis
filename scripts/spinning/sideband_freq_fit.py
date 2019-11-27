@@ -199,7 +199,7 @@ if plot:
 	plt.ylabel('$\omega_{\phi} [rad/s]$')
 	plt.show()
 
-
+l
 #fig, ax = plt.subplots(2,1)
 #ax[0].plot(dic['dipoles'])
 #
