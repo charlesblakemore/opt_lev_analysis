@@ -13,13 +13,12 @@ import os
 
 matplotlib.rcParams['agg.path.chunksize'] = 10000
 
-save = True
+save = False
 wobble = False
 
-overwrite = True 
+overwrite = True
 
-
-fils = ['/data/old_trap/20191105/bead4/phase_mod/changing_phase_mod_freq_4_fine/']
+fils = ['/data/old_trap/20191105/bead4/phase_mod/changing_phase_mod_freq/00005amp/']
 
 #fils = ['/daq2/20190805/bead1/spinning/wobble/reset_dipole_1/', '/daq2/20190805/bead1/spinning/wobble/reset_dipole_2/',\
 #		'/daq2/20190805/bead1/spinning/wobble/reset_dipole_3/']
@@ -32,12 +31,12 @@ skip_files = ['none']
 start_path = 0
 end_path = 0
 
-start_file = 0 
+start_file = 50
 end_file = 0
 
 
 
-out_paths = ['/home/dmartin/Desktop/analyzedData/20191105/']
+out_paths = ['/home/dmartin/Desktop/analyzedData/20191105/phase_mod/forced_libration/']
 
 #Uncomment for single file input and ouput and remove for multi file loop at bottom of the script which spits out multiple outputs	
 #path = '/daq2/20190805/bead1/spinning/wobble/reset_dipole_4/'
@@ -46,8 +45,8 @@ out_paths = ['/home/dmartin/Desktop/analyzedData/20191105/']
 
 tabor_fac = 100.
 spinning_freq = 25e3
-pm_bandwidth = 550
-drive_pm_freq = 300
+pm_bandwidth = 200
+drive_pm_freq = 330
 
 plot = False
 gauss_fit = False
@@ -218,8 +217,13 @@ def forced_libration(obj, prev_pm_freq):
     
     fft_phase_drive = np.fft.rfft(phase_drive_filt)
 
+    #plt.loglog(freqs, np.abs(fft_phase_drive))
+    #plt.show()
+
     freq_ind_max = np.argmax(np.abs(fft_phase_drive))
     freq_guess = freqs[freq_ind_max]
+
+    print(freq_guess)
 
     p0 = [0, freq_guess, 0]
     
@@ -231,6 +235,10 @@ def forced_libration(obj, prev_pm_freq):
     #plt.plot(phase_drive_filt)
     #plt.show()
     
+    if E_pm_freq < 30:
+        plt.plot(sine(t,*popt))
+        plt.plot(phase_drive_filt)
+        plt.show()
 
     #plt.loglog(freqs, np.abs(fft_phase_drive))
     #plt.show()
@@ -242,22 +250,33 @@ def forced_libration(obj, prev_pm_freq):
     z = ss.hilbert(spin_sig)
     phase = ss.detrend(np.unwrap(np.angle(z)))
   
-    phase_filt = bp_filt(phase,E_pm_freq, Ns, Fs, 10)
+    fft = np.fft.rfft(phase)
+    #plt.loglog(freqs,np.abs(fft))
+    #plt.show()
 
+    phase_filt = bp_filt(phase,E_pm_freq, Ns, Fs, 50)
+
+    x = np.arange(0,len(phase_filt))
+
+    cut = (x > 700) & (x < len(phase_filt)-700) 
+    
     #phase_filt = flattop(len(phase_filt)) * phase_filt
         
     z_phase_filt = ss.hilbert(phase_filt)
     
     
     pm_amp = np.abs(z_phase_filt)
-    
+    pm_amp = pm_amp[cut]
+
     fft_phase = np.fft.rfft(phase_filt)
     
-    fft = np.fft.rfft(phase)
+    plt.loglog(freqs,np.abs(fft_phase))
+    plt.show()
+
     
     #plt.plot(phase)
     #plt.show()
-    #
+    
     plt.plot(phase_filt, label=r'$\phi$')
     plt.plot(pm_amp, label=r'Envelope of $\phi$')
     plt.ylabel(r'Amplitude')
@@ -440,7 +459,7 @@ for k, path in enumerate(fils):
 
                 if save and libration:
                     print(save_path)
-                    np.save('/home/dmartin/Desktop/analyzedData/20191105/phase_mod/forced_libration/no_window/forced_libration_4_fine_no_window.npy', np.array([E_pm_freqs,pm_amp_avgs]))
+                    np.save(out_paths[0] + '00005amp', np.array([E_pm_freqs,pm_amp_avgs]))
 
                 
 

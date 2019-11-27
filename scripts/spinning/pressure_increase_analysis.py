@@ -88,6 +88,7 @@ for i, path in enumerate(path_list):
             dphases[i] = np.angle(np.sum(fft2))
             pressures[i, :] = obj.attribs["pressures"]
             times[i] = obj.attribs['time']
+        
         except:
             print "bad file"
         
