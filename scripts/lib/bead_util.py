@@ -77,6 +77,9 @@ class DataFile:
         
 
     def load_only_attribs(self, fname):
+
+        fname = os.path.abspath(fname)
+
         dat, attribs = getdata(fname)
         if len(dat) == 0:
             self.badfile = True
@@ -144,6 +147,8 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
+
+        fname = os.path.abspath(fname)
 
         dat, attribs = getdata(fname)
 
@@ -257,6 +262,8 @@ class DataFile:
 
         #dat, attribs = getdata(fname)
 
+        fname = os.path.abspath(fname)
+
         self.date = fname.split('/')[2]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
@@ -349,6 +356,8 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
+
+        fname = os.path.abspath(fname)
 
         dat1, dat2, dat3, dat4, attribs = getdata_new(fname)
 

@@ -82,8 +82,15 @@ step_cal_dir = ['/data/old_trap/20190905/bead1/discharge/after_rga_recharge']
 
 step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
 
+step_cal_dir = ['/data/new_trap/20191114/Bead1/Discharge/']
+
+
 using_tabor = True
 tabor_ind = 3
+
+
+new_trap = True
+
 
 recharge = False
 if type(step_cal_dir) == str:

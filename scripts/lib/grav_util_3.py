@@ -22,19 +22,17 @@ import transfer_func_util as tf
 import configuration as config
 import pandas as pd
 
-sys.path.append('../microgravity')
-
 import warnings
 warnings.filterwarnings("ignore")
 
 
 ### Current constraints
 
-limitdata_path = '/sensitivities/decca1_limits.txt'
+limitdata_path = '/data/old_trap_processed/sensitivities/decca1_limits.txt'
 limitdata = np.loadtxt(limitdata_path, delimiter=',')
 limitlab = 'No Decca 2'
 
-limitdata_path2 = '/sensitivities/decca2_limits.txt'
+limitdata_path2 = '/data/old_trap_processed/sensitivities/decca2_limits.txt'
 limitdata2 = np.loadtxt(limitdata_path2, delimiter=',')
 limitlab2 = 'With Decca 2'
 
@@ -55,15 +53,15 @@ ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 
 def build_paths(dir, opt_ext=''):
     parts = dir.split('/')
-    date = parts[2]
+    date = parts[3]
     
     nobead = ('no_bead' in parts) or ('nobead' in parts) or ('no-bead' in parts)
     if nobead:
         opt_ext += '_NO-BEAD'
 
-    agg_path = '/processed_data/aggdat/' + date + '_' + parts[-1] + opt_ext + '.agg'
-    alpha_dict_path = '/processed_data/alpha_dicts/' + date + '_' + parts[-1] + opt_ext + '.dict'
-    alpha_arr_path = '/processed_data/alpha_arrs/' + date + '_' + parts[-1] + opt_ext + '.arr'
+    agg_path = '/data/old_trap_processed/aggdat/' + date + '_' + parts[-1] + opt_ext + '.agg'
+    alpha_dict_path = '/data/old_trap_processed/alpha_dicts/' + date + '_' + parts[-1] + opt_ext + '.dict'
+    alpha_arr_path = '/data/old_trap_processed/alpha_arrs/' + date + '_' + parts[-1] + opt_ext + '.arr'
 
     return {'agg_path': agg_path, \
             'alpha_dict_path': alpha_dict_path, \
@@ -501,7 +499,8 @@ class FileData:
        what is relevant for higher level analysis.'''
     
 
-    def __init__(self, fname, tfdate='', tophatf=2500, plot_tf=False, empty=False):
+    def __init__(self, fname, tfdate='', tophatf=2500, plot_tf=False, \
+                    new_trap=False, empty=False):
         '''Load an hdf5 file into a bead_util.DataFile obj. Calibrate the stage position.
            Calibrate the microsphere response with th transfer function.'''
 
@@ -514,7 +513,10 @@ class FileData:
             df = bu.DataFile()
             self.fname = fname
             try:
-                df.load(fname)
+                if new_trap:
+                    df.load_new(fname)
+                else:
+                    df.load(fname)
                 self.badfile = False
             except:
                 self.badfile = True
@@ -668,7 +670,10 @@ class FileData:
         if not self.data_closed:
             ax_keys = {'x': 0, 'y': 1, 'z': 2}
 
-            self.cantbias = self.df.electrode_settings['dc_settings'][0]
+            try:
+                self.cantbias = self.df.electrode_settings['dc_settings'][0]
+            except Exception:
+                self.cantbias = 0.0
 
             ax0pos = np.mean(self.df.cant_data[ax_keys[ax0]])
             self.ax0pos = round(ax0pos, 1)
@@ -723,7 +728,7 @@ class FileData:
             if verbose:
                 print('Saving FileData object... ', end=' ')
                 sys.stdout.flush()
-            savepath = '/processed_data/fildat' + parts[0] + '.fildat'
+            savepath = '/data/old_trap_processed/fildat' + parts[0] + '.fildat'
             bu.make_all_pardirs(savepath)
             pickle.dump(self, open(savepath, 'wb'))
             if verbose:
@@ -739,7 +744,7 @@ class FileData:
             print("Bad file name... too many periods/extensions")
             return
         else:
-            loadpath = '/processed_data/fildat' + parts[0] + '.fildat'
+            loadpath = '/data/old_trap_processed/fildat' + parts[0] + '.fildat'
             
             #try:
             old_class = pickle.load( open(loadpath, 'rb') )
@@ -765,7 +770,7 @@ class AggregateData:
                  reload_dat=True, plot_harm_extraction=False, \
                  elec_drive=False, elec_ind=0, maxfreq=2500, \
                  dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
-                 tfdate=''):
+                 tfdate='', new_trap=False):
         
         self.fnames = fnames
         self.p0_bead = p0_bead
@@ -795,7 +800,7 @@ class AggregateData:
 
 
             # Initialize FileData obj, extract the data, then close the big file
-            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate)
+            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap)
 
             if new_obj.badfile:
                 print('FOUND BADDIE: ')

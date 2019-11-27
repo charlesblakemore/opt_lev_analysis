@@ -14,30 +14,33 @@ warnings.filterwarnings("ignore")
 
 
 
-theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
+theory_data_dir = '/data/old_trap/grav_sim_data/2um_spacing_data/'
 
-data_dirs = ['/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
-             '/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term', \
+data_dirs = ['/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
+             '/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term', \
              #\
-             '/data/20180704/bead1/grav_data/shield', \
-             '/data/20180704/bead1/grav_data/shield_1s_1h', \
-             #'/data/20180704/bead1/grav_data/shield2', \
-             #'/data/20180704/bead1/grav_data/shield3', \
-             #'/data/20180704/bead1/grav_data/shield4', \
-             #'/data/20180704/no_bead/grav_data/shield', \
+             '/data/old_trap/20180704/bead1/grav_data/shield', \
+             '/data/old_trap/20180704/bead1/grav_data/shield_1s_1h', \
+             #'/data/old_trap/20180704/bead1/grav_data/shield2', \
+             #'/data/old_trap/20180704/bead1/grav_data/shield3', \
+             #'/data/old_trap/20180704/bead1/grav_data/shield4', \
+             #'/data/old_trap/20180704/no_bead/grav_data/shield', \
              #\
-             #'/data/20180808/bead4/grav_data/shield1'
+             #'/data/old_trap/20180808/bead4/grav_data/shield1'
              ]
+
+
+data_dirs = ['/data/new_trap/20191114/Bead1/Shaking/Shaking24']
 
 Nfiles = 100000
 
 redo_alphafit = False
-save = True
+save = False
 plot_end_result = False
 
-plot_harms = False
-plot_basis = False
-plot_alpha_xyz = False
+plot_harms = True
+plot_basis = True
+plot_alpha_xyz = True
 
 save_hists = False
 
@@ -45,6 +48,12 @@ p0_bead_dict = {'20180625': [19.0,40.0,20.0], \
                 '20180704': [18.7,40.0,20.0], \
                 '20180808': [18.0,40.0,20.0] \
                 }
+
+
+p0_bead_dict = {'20191114': [391.0,200.0,27.0], \
+                }
+
+new_trap = True
 
 harms = [1,2,3,4,5,6]
 
@@ -63,10 +72,10 @@ for ddir in data_dirs:
     p0_bead = p0_bead_dict[paths['date']]
 
     if not redo_alphafit:
-        datafiles = bu.find_all_fnames(ddir, ext=config.extensions['data'])[:Nfiles]
+        datafiles, lengths = bu.find_all_fnames(ddir, ext=config.extensions['data'])[:Nfiles]
 
         agg_dat = gu.AggregateData(datafiles, p0_bead=p0_bead, harms=harms, reload_dat=True, \
-                                   plot_harm_extraction=plot_harms)
+                                   plot_harm_extraction=plot_harms, new_trap=new_trap)
 
         agg_dat.load_grav_funcs(theory_data_dir)
 
