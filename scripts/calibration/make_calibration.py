@@ -132,8 +132,8 @@ tf_date = step_date
 plot_Hfunc = True
 plot_without_fits = True
 interpolate = False 
-save = True
-save_charge = True
+save = False
+save_charge = False
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
@@ -273,22 +273,17 @@ if recharge:
 
 
 ## for 20191017 discharge
-step_cal_files.pop(3)
-step_cal_files.pop(4)
-step_cal_files.pop(8)
-step_cal_files.pop(8)
-step_cal_files.pop(11)
-step_cal_files.pop(180)
-step_cal_files.pop(243)
-step_cal_files.pop(255)
-step_cal_files.pop(255)
+# step_cal_files.pop(3)
+# step_cal_files.pop(4)
+# step_cal_files.pop(8)
+# step_cal_files.pop(8)
+# step_cal_files.pop(11)
+# step_cal_files.pop(180)
+# step_cal_files.pop(243)
+# step_cal_files.pop(255)
+# step_cal_files.pop(255)
 
-tf_cal_files = []
-for root, dirnames, filenames in os.walk(tf_cal_dir):
-    for filename in fnmatch.filter(filenames, '*' + config.extensions['data']):
-        if '_fpga.h5' in filename:
-            continue
-        tf_cal_files.append(os.path.join(root, filename))
+tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir)
 
 if decimate:
     step_cal_files = step_cal_files[::dec_fac]
@@ -308,11 +303,14 @@ if not fake_step_cal:
         bu.progress_bar(fileind, nstep_files)
         df = bu.DataFile()
         try:
-            df.load(filname)
+        	if new_trap:
+        		df.load_new(filname)
+        	else:
+            	df.load(filname)
         except:
             continue
 
-        if using_tabor:
+        if using_tabor and not new_trap:
             df.load_other_data()
 
         step_resp, power, zpos = \

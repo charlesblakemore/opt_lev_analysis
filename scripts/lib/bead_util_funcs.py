@@ -49,17 +49,18 @@ import warnings
 #######################################################
 
 
+my_path = os.path.abspath( os.path.dirname(__file__) )
 
 
+#calib_path = '/data/old_trap_processed/calibrations/'
+calib_path = os.path.abspath( os.path.join(my_path, '../../data/') )
 
-calib_path = '/data/old_trap_processed/calibrations/'
-
-e_top_dat   = np.loadtxt(calib_path + 'e-top_1V_optical-axis.txt', comments='%')
-e_bot_dat   = np.loadtxt(calib_path + 'e-bot_1V_optical-axis.txt', comments='%')
-e_left_dat  = np.loadtxt(calib_path + 'e-left_1V_left-right-axis.txt', comments='%')
-e_right_dat = np.loadtxt(calib_path + 'e-right_1V_left-right-axis.txt', comments='%')
-e_front_dat = np.loadtxt(calib_path + 'e-front_1V_front-back-axis.txt', comments='%')
-e_back_dat  = np.loadtxt(calib_path + 'e-back_1V_front-back-axis.txt', comments='%')
+e_top_dat   = np.loadtxt(os.path.join(calib_path, 'e-top_1V_optical-axis.txt'), comments='%')
+e_bot_dat   = np.loadtxt(os.path.join(calib_path, 'e-bot_1V_optical-axis.txt'), comments='%')
+e_left_dat  = np.loadtxt(os.path.join(calib_path, 'e-left_1V_left-right-axis.txt'), comments='%')
+e_right_dat = np.loadtxt(os.path.join(calib_path, 'e-right_1V_left-right-axis.txt'), comments='%')
+e_front_dat = np.loadtxt(os.path.join(calib_path, 'e-front_1V_front-back-axis.txt'), comments='%')
+e_back_dat  = np.loadtxt(os.path.join(calib_path, 'e-back_1V_front-back-axis.txt'), comments='%')
 
 E_front  = interp.interp1d(e_front_dat[0], e_front_dat[-1])
 E_back   = interp.interp1d(e_back_dat[0],  e_back_dat[-1])
