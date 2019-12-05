@@ -89,13 +89,19 @@ filename_labels = True #False
 #allfiles = ['/daq2/20190408/bead1/spinning/49kHz_200Vpp_pramp-N2_1']
 #allfiles = ['/daq2/20190430/bead1/height_finding/zcool_init.h5','/daq2/20190430/bead1/height_finding/zcool_u200k.h5','/daq2/20190430/bead1/height_finding/zcool_d500k.h5','/daq2/20190430/bead1/height_finding/zcool_d700k.h5','/daq2/20190430/bead1/height_finding/zcool_d900k.h5','/daq2/20190430/bead1/zcool_nominal.h5','/daq2/20190430/bead1/xzcool_nominal.h5']
 
-allfiles = ['/data/old_trap/20191105/bead4/1_5mbar_powfb_zcool_lower_9.h5',\
-            '/data/old_trap/20191105/bead4/1_5mbar_powfb_xzcool.h5',\
-            '/data/old_trap/20191105/bead4/1_5mbar_powfb_yzcool.h5',\
-            '/data/old_trap/20191105/bead4/1_5mbar_powfb_xyzcool_lower.h5',\
-            '/data/old_trap/20191105/bead4/1_5mbar_powfb_xyzcool_lower_1.h5' ]
-#allfiles = ['/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5', \
-#            '/data/old_trap/20191017/bead1/1_5mbar_powfb_xyzcool.h5' ]
+allfiles = ['/data/old_trap/20191204/bead1/1_5mbar_powfb_init.h5',\
+            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool.h5',\
+            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower.h5',\
+            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
+            '/data/old_trap/20191204/bead1/1_5mbar_powfb_xzcool.h5']
+allfiles = ['/data/old_trap/20191204/bead1/1_5mbar_powfb_xzcool_1.h5',\
+            '/data/old_trap/20191204/bead1/1_5mbar_powfb_yzcool_pos.h5',\
+            '/data/old_trap/20191204/bead1/1_5mbar_powfb_yzcool_neg.h5'
+            ]#'/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_1.h5',\
+            #'/data/old_trap/20191204/bead1/1_5mbar_powfb_yzcool.h5']
+#allfiles = ['/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5',\
+#            '/data/old_trap/20191017/bead1/1_5mbar_powfb_xzcool.h5',\
+#            '/data/old_trap/20191017/bead1/1_5mbar_powfb_yzcool.h5']
 
 tfdate = '20190327'
 
@@ -222,9 +228,12 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         df.diagonalize(maxfreq=lpf, interpolate=False, date=tfdate)
 
         if fil_ind == 0:
-            drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
-            driveind = np.argmax(drivepsd[1:]) + 1
-            drive_freq = freqs[driveind]
+            print(drive_ax)
+            print(len(df.cant_data))
+            if len(df.cant_data):
+                drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
+                driveind = np.argmax(drivepsd[1:]) + 1
+                drive_freq = freqs[driveind]
 
         for axind, ax in enumerate(data_axes):
 
@@ -244,7 +253,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
             dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                     NFFT=NFFT, window=window)
-
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                         NFFT=NFFT, window=window)

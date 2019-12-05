@@ -146,7 +146,8 @@ def bp_filt(signal,frequency,Ns,Fs,bandwidth):
 		low_freq = 1e-20	
 	
 	b, a = ss.butter(2,[low_freq,high_freq],btype='bandpass')
-	
+
+
 	sig = ss.filtfilt(b,a,signal)
 
 	return sig	
@@ -155,8 +156,8 @@ def hp_filt(signal,frequency,Ns,Fs):
     freqs = np.fft.rfftfreq(Ns,1./Fs)
 
     freq = frequency/freqs[-1]
-    b, a = ss.butter(1, freq, 'high')
-
+    b, a = ss.butter(1,freq, btype='high')
+    
     sig = ss.filtfilt(b,a,signal)
 
     return sig

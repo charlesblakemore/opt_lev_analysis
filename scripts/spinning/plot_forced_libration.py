@@ -33,7 +33,8 @@ phase = signal.detrend(np.unwrap(np.angle(z)))
 
 phase_fft = np.fft.rfft(phase)
 
-data = np.load(files[0])
+data = np.load(files[1])
+print(files[1])
 #data1 = np.load(files[1])
 
 labels = ['']#'large frequency step', 'small frequency step 1']
@@ -45,19 +46,21 @@ def lorenztian(f, A, f0, g, c):
 
     denom = ((w0**2 - w**2)**2 + (g*w)**2)**(1./2.)
 
-    return A/denom
+    return (A/denom) + c
 
 def fit(df):
-    mask = df[0] > 270
+    mask = df[0] > 310
     
-    x = df[0][mask]
-    y = df[1][mask]
+    x = df[0]
+    y = df[1]
+    
+    print(x)
 
-    p0=[1e4,280,0.1,0.5]
+    p0=[1e4,280,100,0.]
     popt, pcov = curve_fit(lorenztian, x, y,p0=p0)
     
     print(popt)
-    freqs = np.linspace(x[0],x[-1], 1000)
+    freqs = np.linspace(x[0],x[-1], 10000)
     
 
     plt.plot(freqs, lorenztian(freqs, *popt))

@@ -1062,6 +1062,13 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         dset2 = f['beads/data/pos_data']
         dat1 = np.transpose(dset1)
         dat2 = np.transpose(dset2)
+        
+        if 'beads/data/pow_data' in f:
+            dset3 = f['beads/data/pow_data']
+            dat3 = np.transpose(dset3)
+        else:
+            dat3 = []
+
         f.close()
 
     # Shit failure mode. What kind of sloppy coding is this
@@ -1070,6 +1077,7 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
             print "Warning, got no keys for: ", fname
         dat1 = []
         dat2 = []
+        dat3 = []
         attribs = {}
         try:
             f.close()

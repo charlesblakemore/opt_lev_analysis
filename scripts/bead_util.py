@@ -144,7 +144,7 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
-
+        print('hi')
         dat, attribs = getdata(fname)
         if plot_raw_dat:
             for n in range(20):
@@ -209,6 +209,9 @@ class DataFile:
             self.pos_time = fpga_dat['xyz_time']
             self.pos_fb = fpga_dat['fb']
 
+            print('hi_1')            
+            self.power = fpga_dat['power']
+            print('hi',self.power)
             #print self.pos_data
 
             # Load quadrant and backscatter amplitudes and phases

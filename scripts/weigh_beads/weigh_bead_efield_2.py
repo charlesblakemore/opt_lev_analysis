@@ -267,16 +267,17 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
     Nbad = 0
 
     powpsd = []
-
+    
+    
     for fil_ind, fil in enumerate(files):# 15-65
-
         bu.progress_bar(fil_ind, nfiles)
 
         # Load data
         df = bu.DataFile()
         try:
             df.load(fil, load_other=True)
-        except Exception:
+        except Exception as e:
+            #print(e)
             continue
 
         df.calibrate_stage_position()
@@ -351,14 +352,21 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
         zphase_avg += (zphase[drive_ind] - np.angle(eforce2)[drive_ind])
 
 
-
-        if chopper:
-            current = np.abs(df.other_data[7]) / trans_gain
+        if np.sum(df.power) == 0.0:
+            current = np.abs(df.other_data[pow_ind]) / trans_gain
         else:
-            current = np.abs(df.other_data[4]) / trans_gain
+            fac = 1e-6
+            current = fac * df.power / trans_gain
 
-        if year2019:
-            current = np.abs(df.other_data[0]) / trans_gain
+
+        #if chopper:
+        #    current = np.abs(df.other_data[7]) / trans_gain
+        #else:
+        #    current = np.abs(df.other_data[4]) / trans_gain
+
+        #if year2019:
+        #    current = np.abs(df.other_data[0]) / trans_gain
+        
         power = current / pd_gain
         power = power / line_filter_trans
         power = power / bs_fac

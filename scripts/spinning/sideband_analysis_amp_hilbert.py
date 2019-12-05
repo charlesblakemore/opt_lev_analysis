@@ -5,6 +5,7 @@ import scipy.signal as ss
 from scipy.optimize import curve_fit
 from amp_ramp_3 import flattop
 from amp_ramp_3 import bp_filt
+from amp_ramp_3 import hp_filt
 from ring_down_analysis_v3 import track_frequency
 import bead_util_funcs as buf
 import bead_util as bu
@@ -13,13 +14,13 @@ import os
 
 matplotlib.rcParams['agg.path.chunksize'] = 10000
 
-save = False
+save = True
 wobble = False
 
 overwrite = True
 
-fils = ['/data/old_trap/20191105/bead4/phase_mod/changing_phase_mod_freq/00005amp/']
-
+#fils = ['/data/old_trap/20191105/bead4/phase_mod/changing_phase_mod_freq/changing_phase_mod_freq_10/']
+fils = ['/data/old_trap/20191105/bead4/phase_mod/changing_phase_mod_freq/changing_phase_mod_freq_9/']
 #fils = ['/daq2/20190805/bead1/spinning/wobble/reset_dipole_1/', '/daq2/20190805/bead1/spinning/wobble/reset_dipole_2/',\
 #		'/daq2/20190805/bead1/spinning/wobble/reset_dipole_3/']
 #out_paths = ['/home/dmartin/analyzedData/20190805/wobble/reset_dipole_1_redo/', \
@@ -31,7 +32,7 @@ skip_files = ['none']
 start_path = 0
 end_path = 0
 
-start_file = 50
+start_file = 0
 end_file = 0
 
 
@@ -46,7 +47,7 @@ out_paths = ['/home/dmartin/Desktop/analyzedData/20191105/phase_mod/forced_libra
 tabor_fac = 100.
 spinning_freq = 25e3
 pm_bandwidth = 200
-drive_pm_freq = 330
+drive_pm_freq = 100
 
 plot = False
 gauss_fit = False
@@ -59,7 +60,7 @@ mask_on = False
 
 
 def lorentzian(x, A, x0, g, B):
-	return A * (1./ (1 + ((x - x0)/g)**2)) + B
+	return A * (1./ np.sqrt((1 + ((x - x0)/g)**2)))
 
 def gauss(x, A, mean, std):
 	return  A * np.exp(-(x-mean)**2/(2.*std**2))
@@ -212,13 +213,15 @@ def forced_libration(obj, prev_pm_freq):
 
     z_drive = ss.hilbert(drive_sig)
     phase_drive = ss.detrend(np.unwrap(np.angle(z_drive)))
+    
+    fft_phase_drive = np.fft.rfft(phase_drive)
 
-    phase_drive_filt = bp_filt(phase_drive, drive_pm_freq, Ns, Fs, pm_bandwidth)
+    phase_drive_filt = bp_filt(phase_drive, 380, Ns, Fs, pm_bandwidth)
     
     fft_phase_drive = np.fft.rfft(phase_drive_filt)
 
-    #plt.loglog(freqs, np.abs(fft_phase_drive))
-    #plt.show()
+    plt.loglog(freqs, np.abs(fft_phase_drive))
+    plt.show()
 
     freq_ind_max = np.argmax(np.abs(fft_phase_drive))
     freq_guess = freqs[freq_ind_max]
@@ -230,7 +233,7 @@ def forced_libration(obj, prev_pm_freq):
     popt, pcov = curve_fit(sine, t, phase_drive_filt, p0)
 
     E_pm_freq = popt[1]
-   
+    print(popt[1])
     #plt.plot(sine(t,*popt))
     #plt.plot(phase_drive_filt)
     #plt.show()
@@ -254,7 +257,7 @@ def forced_libration(obj, prev_pm_freq):
     #plt.loglog(freqs,np.abs(fft))
     #plt.show()
 
-    phase_filt = bp_filt(phase,E_pm_freq, Ns, Fs, 50)
+    phase_filt = bp_filt(phase,E_pm_freq, Ns, Fs, 10)
 
     x = np.arange(0,len(phase_filt))
 
@@ -264,9 +267,8 @@ def forced_libration(obj, prev_pm_freq):
         
     z_phase_filt = ss.hilbert(phase_filt)
     
-    
     pm_amp = np.abs(z_phase_filt)
-    pm_amp = pm_amp[cut]
+    #pm_amp = pm_amp[cut]
 
     fft_phase = np.fft.rfft(phase_filt)
     
@@ -399,10 +401,11 @@ for k, path in enumerate(fils):
 	else:
 		paths = paths[start_path:end_path]
 	
-	for j, path in enumerate(paths):
-                meas_name = path.split('/')[-1]
-		save_path = out_path + '{}'.format(meas_name)
-                       
+        for j, path in enumerate(paths):
+                meas_name = path.split('/')[-2]
+                save_path = out_path + '{}'.format(meas_name)
+                
+                print(save_path)
 		if not overwrite and os.path.exists(save_path + '.npy'):		
 			continue
 	
@@ -448,8 +451,15 @@ for k, path in enumerate(fils):
                             pm_amp_avgs.append(arr[1])
                             #libration_chirp(data)
                 
-                print(E_pm_freqs,pm_amp_avgs)
+                #print(E_pm_freqs,pm_amp_avgs)
 
+                popt,pcov = curve_fit(lorentzian, E_pm_freqs,pm_amp_avgs)
+
+                x = np.arange(0, E_pm_freqs[-1], len(E_pm_freqs)*100)
+
+                print(popt)
+
+                plt.plot(x, lorentzian(x,*popt))
                 plt.scatter(E_pm_freqs,pm_amp_avgs)
                 plt.show()
 
@@ -458,8 +468,7 @@ for k, path in enumerate(fils):
 										spin_freqs,spin_freq_errs,times]))
 
                 if save and libration:
-                    print(save_path)
-                    np.save(out_paths[0] + '00005amp', np.array([E_pm_freqs,pm_amp_avgs]))
+                    np.save(save_path, np.array([E_pm_freqs,pm_amp_avgs]))
 
                 
 
