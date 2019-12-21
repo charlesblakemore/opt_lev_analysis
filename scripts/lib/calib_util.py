@@ -1,4 +1,4 @@
-import sys, time
+import sys, time, traceback
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,8 +8,11 @@ import configuration as config
 
 import scipy.signal as signal
 import scipy.optimize as optimize
+import scipy.constants as constants
 
 import sklearn.cluster as cluster
+
+plt.rcParams.update({'font.size': 14})
 
 #######################################################
 # Core module for handling calibrations, both the step 
@@ -90,7 +93,8 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 
 def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
-                           using_tabor=False, tabor_ind=3, mon_fac=100):
+                           using_tabor=False, tabor_ind=3, mon_fac=100, \
+                           ecol=-1, pcol=-1, new_trap=False, plot=False):
     '''Analyze a data step-calibraiton data file, find the drive frequency,
        correlate the response to the drive
 
@@ -100,12 +104,16 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
        OUTPUTS:  H, (response / drive)'''
 
     if not using_tabor:
-        ecol = np.argmax(file_obj.electrode_settings['driven'])
-        pcol = config.elec_map[ecol]
+        if pcol == -1:
+            if ecol == -1:
+                ecol = np.argmax(file_obj.electrode_settings['driven'])
+            pcol = config.elec_map[ecol]
 
-        # Extract the drive, detrend it, and compute an fft
         #drive = file_obj.electrode_data[ecol]
-        drive = bu.trap_efield(file_obj.electrode_data)[pcol]
+        efield = bu.trap_efield(file_obj.electrode_data)
+        drive = efield[pcol]
+        #drive = efield[ecol]
+
     elif using_tabor:
         pcol = 0
         v3 = file_obj.other_data[tabor_ind]
@@ -113,19 +121,35 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         zeros = np.zeros(len(v3))
         drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros])[pcol]
 
-    power = np.mean(file_obj.other_data[0])
+    try:
+        power = np.mean(file_obj.other_data[0])
+    except Exception:
+        power = 0.0
+        traceback.print_exc()
+
     zpos = np.mean(file_obj.pos_data[2])
 
-    drive = signal.detrend(drive)
+    #drive = bu.detrend_poly(drive, order=1.0, plot=True)
     drive_fft = np.fft.rfft(drive)
 
     # Find the drive frequency
     freqs = np.fft.rfftfreq(len(drive), d=1./file_obj.fsamp)
-    drive_freq = freqs[np.argmax(np.abs(drive_fft))]
+    drive_freq = freqs[np.argmax(np.abs(drive_fft[1:])) + 1]
+
+    # print(drive_freq)
+    # for i in range(3):
+    #     plt.plot(efield[i], label=str(i))
+    # plt.legend()
+    # plt.show()
 
     # Extract the response and detrend
-    response = file_obj.pos_data[pcol]
-    response = signal.detrend(response)
+    # response = file_obj.pos_data[pcol]
+    if new_trap:
+        response = file_obj.pos_data_3[pcol]
+    else:
+        response = file_obj.pos_data[pcol]
+    #response = bu.detrend_poly(response, order=1.0, plot=True)
+
 
     # Configure a time array for plotting and fitting
     cut_samp = config.adc_params["ignore_pts"]
@@ -139,16 +163,23 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
                           2.*(drive_freq+bandwidth/2.)/file_obj.fsamp ], btype = 'bandpass')
     responsefilt = signal.filtfilt(b, a, response)
 
-    ### CORR_FUNC TESTING ###
-    #test = 3.14159 * np.sin(2 * np.pi * drive_freq * t)
-    #test_corr = correlation(7 * drive, test, file_obj.fsamp, drive_freq)
-    #print np.sqrt(2) * np.std(test)
-    #print np.max(test_corr)
-    #########################
+    if plot:
+        plt.figure()
+        plt.loglog(np.abs(np.fft.rfft(drive)))
+        plt.loglog(np.abs(np.fft.rfft(responsefilt)))
+        plt.show()
+
+    # ### CORR_FUNC TESTING ###
+    # test = 3.14159 * np.sin(2 * np.pi * drive_freq * t)
+    # test_corr = correlation(3 * drive, test, file_obj.fsamp, drive_freq)
+    # print(np.sqrt(2) * np.std(test))
+    # print(np.max(test_corr))
+    # input()
+    # #########################
 
     # Compute the full, normalized correlation and extract amplitude
-    corr_full = correlation(drive, response, file_obj.fsamp, drive_freq)
-    #corr_full = correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
+    #corr_full = correlation(drive, response, file_obj.fsamp, drive_freq)
+    corr_full = correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
 
     response_amp = np.max(corr_full)
     #response_amp2 = corr_full[0]
@@ -156,29 +187,29 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
     # Compute the drive amplitude. Two methods included, should decide on one 
     drive_amp = np.sqrt(2) * np.std(drive) # Assume drive is sinusoidal
+    #print(drive_amp)
 
-    def drive_fun(x, A, f, phi):
-        return A * np.sin( 2 * np.pi * f * x + phi )
+    # def drive_fun(x, A, f, phi):
+    #     return A * np.sin( 2 * np.pi * f * x + phi )
         
-    # Estimate some parameters and try fitting a sine
-    #p0_drive = [drive_amp, drive_freq, 0]
-    #popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
+    # # Estimate some parameters and try fitting a sine
+    # p0_drive = [drive_amp, drive_freq, 0]
+    # popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
 
-    #drive_amp2 = popt[0]
+    # drive_amp2 = popt[0]
 
-    #print drive_amp, drive_amp2
+    # print drive_amp, drive_amp2
 
     # Include the possibility of a different sign of response
     sign = np.sign(np.mean(drive*responsefilt))
 
-    return response_amp / drive_amp, power, zpos
+    return response_amp / drive_amp, response_amp, power, zpos
 
 
 
 
 
-def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
-             amp_gain = 1., bandwidth=1.0, first_file=0):
+def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    plate_sep, face-to-face separation of electrodes
@@ -190,19 +221,26 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
 
 
     step_cal_vec = np.array(step_cal_vec)
-    
+
+
     yfit = np.abs(step_cal_vec)
+    yfit = yfit[first_file:]
+
     #bvec = yfit == yfit #[yfit<10.*np.mean(yfit)] #exclude cray outliers
     #yfit = yfit[bvec] 
 
     plt.figure(1)
-    plt.ion()
-    plt.plot(yfit, 'o')
+    #plt.ion()
+    plt.plot(np.arange(len(yfit))*10.0, yfit, 'o')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Response [Arb]')
+    plt.tight_layout()
     plt.show()
-    guess = input('Enter a guess for volt / step: ')
+    guess = input('Enter a guess for response / step: ')
     guess = float(guess)
+    guess0 = guess
     #plt.ioff()
-    plt.close(1)
+    #plt.close(1)
 
     step_inds = []
     step_qs = []
@@ -215,15 +253,18 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
             current_charge = [yfit[0]]
             continue
 
-        std = np.std(yfit[last_step+1:i-1])
-
         diff = np.mean(current_charge) - yfit[i]
         diff_abs = np.abs(diff)
 
-        #if len(step_sizes) > 0:
-        #    guess = np.mean(step_sizes)
+        cond1 = (diff_abs > 0.5 * guess)
 
-        if (diff_abs > 0.75 * guess) and (diff_abs > 2 * std):
+        if not new_trap:
+            std = np.std(yfit[last_step+1:i-1])
+            cond2 = diff_abs > 2.0 * std
+        else:
+            cond2 = True
+
+        if cond1 and cond2:
             #big = diff_abs > 4 * guess
             #zero = (diff_abs - np.mean(current_charge)) < (2 * std)
 
@@ -231,8 +272,6 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
             #    continue
             
             current_charge = [yfit[i]]
-            
-            last_step = i-1
 
             if diff_abs > 4.5 * guess:
                 step_sizes.append(diff_abs * 0.2)
@@ -250,7 +289,11 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
                 step_sizes.append(diff_abs)
                 step_qs.append(np.sign(diff) * 1)
 
-            step_inds.append(last_step)
+            step_inds.append(i-1)
+            last_step = step_inds[-1]
+
+            guess = np.mean(step_sizes + [guess0])
+
         else:
             current_charge.append(yfit[i])
 
@@ -278,7 +321,7 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
                             gridspec_kw = {'height_ratios':[2,1]}, \
                             figsize=(10,4),dpi=150)#Plot fit
     normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
-                       axarr[0], ylabel="Normalized Response [e]", xlabel="")
+                       axarr[0], ylabel="Norm. Response [e]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
                              xlabel="Integration Number")
     for x in xfit:
@@ -303,7 +346,7 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
 
     while not happy_with_fit:
         plt.figure(1)
-        plt.ion()
+        #plt.ion()
         plt.plot(yfit, 'o')
         plt.show()
 
@@ -346,7 +389,7 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
             time.sleep(5)
             continue
 
-    plt.ioff()
+    #plt.ioff()
 
     print(fitobj.popt[0])
 
@@ -355,7 +398,7 @@ def step_cal(step_cal_vec, plate_sep = 0.004, drive_freq = 41., \
     print('q0: ', q0)
 
     #Determine force calibration.
-    e_charge = config.p_param['e_charge']
+    e_charge = constants.elementary_charge
     #fitobj.popt = fitobj.popt * 1./(amp_gain*e_charge/plate_sep)
     #fitobj.errs = fitobj.errs * 1./(amp_gain*e_charge/plate_sep)
 

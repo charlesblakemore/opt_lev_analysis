@@ -1,4 +1,4 @@
-import os, fnmatch
+import os, fnmatch, traceback, re
 
 import dill as pickle
 
@@ -15,7 +15,6 @@ import configuration as config
 # functions making use of the calib_util and 
 # transfer_func_util libraries.
 #######################################################
-
 
 #### PREAMBLE
 ####   include paths and saving options
@@ -81,12 +80,21 @@ import configuration as config
 step_cal_dir = ['/data/old_trap/20190905/bead1/discharge/after_rga_recharge']
 
 step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
+first_file = 0
 
-step_cal_dir = ['/data/new_trap/20191114/Bead1/Discharge/']
 
 
-using_tabor = True
+
+step_cal_dir = ['/data/new_trap/20191204/Bead1/Discharge/']
+first_file = 60
+elec_channel_select = 1
+
+
+using_tabor = False
 tabor_ind = 3
+
+#pcol = -1
+pcol = 2
 
 
 new_trap = True
@@ -94,13 +102,13 @@ new_trap = True
 
 recharge = False
 if type(step_cal_dir) == str:
-    step_date = step_cal_dir.split('/')[3]
+    step_date = re.search(r"\d{8,}", step_cal_dir)[0]
     if 'recharge' in step_cal_dir:
         recharge = True
     else:
         recharge = False
 else:
-    step_date = step_cal_dir[0].split('/')[3]
+    step_date = re.search(r"\d{8,}", step_cal_dir[0])[0]
     for dir in step_cal_dir:
         if 'recharge' in dir:
             recharge = True
@@ -111,7 +119,10 @@ decimate = False
 dec_fac = 2
 
 fake_step_cal = False
+## OLD TRAP
 vpn = 7.264e16
+## NEW TRAP
+vpn = 7.1126e17
 
 #tf_cal_dir = '/data/20180625/bead1/tf_20180625/'
 #tf_cal_dir = '/data/20180704/bead1/tf_20180704/'
@@ -125,18 +136,29 @@ vpn = 7.264e16
 
 tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
 
-tf_date = tf_cal_dir.split('/')[3]
+tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
+
+
+
+tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]
 
 tf_date = step_date
 
 plot_Hfunc = True
-plot_without_fits = True
-interpolate = False 
-save = False
+plot_without_fits = False
+interpolate = True
+save = True
 save_charge = False
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
+
+
+
+
+
+
+
 
 #######################################################
 
@@ -157,9 +179,13 @@ if save_charge:
 
     print(charge_path)
 
-bu.make_all_pardirs(savepath)
-bu.make_all_pardirs(charge_path)
+    if new_trap:
+        charge_path = charge_path.replace('old_trap', 'new_trap')
+    bu.make_all_pardirs(charge_path)
 
+if new_trap:
+    savepath = savepath.replace('old_trap', 'new_trap')
+bu.make_all_pardirs(savepath)
 
 
 
@@ -290,7 +316,6 @@ if decimate:
 
 #### BODY OF CALIBRATION
 
-
 nstep_files = np.min([max_file, len(step_cal_files)])
 # Do the step calibration
 if not fake_step_cal:
@@ -303,24 +328,31 @@ if not fake_step_cal:
         bu.progress_bar(fileind, nstep_files)
         df = bu.DataFile()
         try:
-        	if new_trap:
-        		df.load_new(filname)
-        	else:
-            	df.load(filname)
-        except:
+            if new_trap:
+                df.load_new(filname)
+                if not df.electrode_settings['driven'][elec_channel_select]:
+                    continue
+            else:
+                df.load(filname)
+        except Exception:
+            traceback.print_exc()
             continue
 
         if using_tabor and not new_trap:
             df.load_other_data()
 
-        step_resp, power, zpos = \
-            cal.find_step_cal_response(df, bandwidth=0.02, tabor_ind=tabor_ind,\
-                                       using_tabor=using_tabor)
+        step_resp, step_resp_nonorm, power, zpos = \
+            cal.find_step_cal_response(df, bandwidth=5.0, tabor_ind=tabor_ind,\
+                                       using_tabor=using_tabor, pcol=pcol, \
+                                       new_trap=new_trap)
+
         step_cal_vec.append(step_resp)
+
         pow_vec.append(power)
         zpos_vec.append(zpos)
 
-    vpn, off, err, q0 = cal.step_cal(step_cal_vec)
+    vpn, off, err, q0 = cal.step_cal(step_cal_vec, new_trap=new_trap, \
+                                     first_file=first_file)
     print(vpn)
 
 if save_charge:
@@ -337,18 +369,22 @@ tf_file_objs = []
 for fil_ind, filname in enumerate(tf_cal_files):
     bu.progress_bar(fil_ind, len(tf_cal_files), suffix='opening files')
     df = bu.DataFile()
-    df.load(filname)
+    if new_trap:
+        df.load_new(filname)
+    else:
+        df.load(filname)
+
     tf_file_objs.append(df)
 
 # Build the uncalibrated TF: Vresp / Vdrive
-allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False)
+allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False, new_trap=new_trap)
 
 Hout = allH['Hout']
 Hnoise = allH['Hout_noise']
 
 # Calibrate the transfer function to Vresp / Newton_drive
 # for a particular charge step calibration
-Hcal, q = tf.calibrate_H(Hout, vpn)
+Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, drive_freq=151.0)
 
 # Build the Hfunc object
 if not interpolate:
@@ -359,7 +395,7 @@ if not interpolate:
                             deweight_peak=True, lowf_weight_fac=0.001)
 if interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, interpolate=True, plot_fits=plot_Hfunc, \
-                             max_freq=600, dpsd_thresh=1.0e-1)
+                             max_freq=700)
 
 # Save the Hfunc object
 if save:

@@ -1,4 +1,5 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math, xmltodict
+import h5py, os, re, glob, time, sys, fnmatch, inspect
+import subprocess, math, xmltodict, traceback
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -68,6 +69,19 @@ E_right  = interp.interp1d(e_right_dat[1], e_right_dat[-1])
 E_left   = interp.interp1d(e_left_dat[1],  e_left_dat[-1])
 E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
 E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
+
+# plt.figure()
+# plt.plot(e_front_dat[0], e_front_dat[-1])
+# plt.plot(e_back_dat[0], e_back_dat[-1])
+# plt.figure()
+# plt.plot(e_right_dat[1], e_right_dat[-1])
+# plt.plot(e_left_dat[1], e_left_dat[-1])
+# plt.figure()
+# plt.plot(e_top_dat[2], e_top_dat[-1])
+# plt.plot(e_bot_dat[2], e_bot_dat[-1])
+# plt.show()
+
+
 
 
 #### Generic Helper functions
@@ -306,10 +320,11 @@ def sort_files_by_timestamp(files):
     '''Pretty self-explanatory function.'''
     try:
         files = [(get_hdf5_time(path), path) for path in files]
-    except:
+    except Exception:
         print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
         files = [(os.stat(path), path) for path in files]
         files = [(stat.st_ctime, path) for stat, path in files]
+        traceback.print_exc()
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -487,8 +502,9 @@ def fix_time(fname, dattime):
         f['beads/data/pos_data'].attrs.create("time", dattime)
         f.close()
         print("Fixed time.")
-    except:
+    except Exception:
         print("Couldn't fix the time...")
+        traceback.print_exc()
 
 
 def labview_time_to_datetime(lt):
@@ -514,6 +530,25 @@ def unpack_config_dict(dic, vec):
     for k in list(dic.keys()):
         out_dict[k] = vec[dic[k]]
     return out_dict 
+
+
+
+def detrend_poly(arr, order=1.0, plot=False):
+    xarr = np.arange( len(arr) )
+    fit_model = np.polyfit(xarr, arr, order)
+    fit_eval = np.polyval(fit_model, xarr)
+
+    if plot:
+        fig, axarr = plt.subplots(2,1,sharex=True, \
+                        gridspec_kw={'height_ratios': [1,1]})
+        axarr[0].plot(xarr, arr, color='k')
+        axarr[0].plot(xarr, fit_eval, lw=2, color='r')
+        axarr[1].plot(xarr, arr - fit_eval, color='k')
+        fig.tight_layout()
+        plt.show()
+
+    return arr - fit_eval
+
 
 
 
@@ -929,16 +964,28 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
             Ex = np.zeros(nsamp)
         else:   
             Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+            # plt.plot(voltages[3], label='3')
+            # plt.plot(voltages[4], label='4')
+            # plt.legend()
+            # plt.show()
 
         if only_x or only_z:
             Ey = np.zeros(nsamp)
         else:
             Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+            # plt.plot(voltages[5], label='5')
+            # plt.plot(voltages[6], label='6')
+            # plt.legend()
+            # plt.show()
 
         if only_y or only_z:
             Ez = np.zeros(nsamp)
         else:
             Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+            # plt.plot(voltages[1], label='1')
+            # plt.plot(voltages[2], label='2')
+            # plt.legend()
+            # plt.show()
 
         return np.array([Ex, Ey, Ez])    
 

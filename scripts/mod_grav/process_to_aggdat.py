@@ -30,13 +30,15 @@ data_dirs = ['/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_1
              ]
 
 
-data_dirs = ['/data/new_trap/20191114/Bead1/Shaking/Shaking24']
+data_dirs = ['/data/new_trap/20191204/Bead1/Shaking/Shaking370/']
+new_trap = True
 
-Nfiles = 100000
+
+Nfiles = 100
 
 redo_alphafit = False
 save = False
-plot_end_result = False
+plot_end_result = True
 
 plot_harms = True
 plot_basis = True
@@ -50,7 +52,7 @@ p0_bead_dict = {'20180625': [19.0,40.0,20.0], \
                 }
 
 
-p0_bead_dict = {'20191114': [391.0,200.0,27.0], \
+p0_bead_dict = {'20191204': [385.0, 200.0, 29.0], \
                 }
 
 new_trap = True
@@ -75,7 +77,8 @@ for ddir in data_dirs:
         datafiles, lengths = bu.find_all_fnames(ddir, ext=config.extensions['data'])[:Nfiles]
 
         agg_dat = gu.AggregateData(datafiles, p0_bead=p0_bead, harms=harms, reload_dat=True, \
-                                   plot_harm_extraction=plot_harms, new_trap=new_trap)
+                                   plot_harm_extraction=plot_harms, new_trap=new_trap, \
+                                   step_cal_drive_freq=151.0)
 
         agg_dat.load_grav_funcs(theory_data_dir)
 

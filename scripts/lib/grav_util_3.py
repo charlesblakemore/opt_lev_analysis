@@ -1,4 +1,4 @@
-import sys, time, itertools, copy
+import sys, time, itertools, copy, re
 
 import dill as pickle
 
@@ -52,9 +52,9 @@ ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 
 
 def build_paths(dir, opt_ext=''):
+    date = re.search(r"\d{8,}", dir)[0]
     parts = dir.split('/')
-    date = parts[3]
-    
+
     nobead = ('no_bead' in parts) or ('nobead' in parts) or ('no-bead' in parts)
     if nobead:
         opt_ext += '_NO-BEAD'
@@ -417,7 +417,7 @@ def fit_parabola_to_chi2(params, chi_sqs, plot=False):
 
     try:
         popt, pcov = opti.curve_fit(parabola, params, chi_sqs, p0=p0, maxfev=100000)
-    except:
+    except Exception:
         print("Couldn't fit")
         popt = [0,0,0]
         popt[2] = np.mean(chi_sqs)
@@ -500,7 +500,7 @@ class FileData:
     
 
     def __init__(self, fname, tfdate='', tophatf=2500, plot_tf=False, \
-                    new_trap=False, empty=False):
+                    step_cal_drive_freq=41.0, new_trap=False, empty=False):
         '''Load an hdf5 file into a bead_util.DataFile obj. Calibrate the stage position.
            Calibrate the microsphere response with th transfer function.'''
 
@@ -518,12 +518,14 @@ class FileData:
                 else:
                     df.load(fname)
                 self.badfile = False
-            except:
+            except Exception:
                 self.badfile = True
                 return
 
             df.calibrate_stage_position()
-            df.diagonalize(date=tfdate, maxfreq=tophatf, plot=plot_tf)
+            df.diagonalize(date=tfdate, maxfreq=tophatf, \
+                            step_cal_drive_freq=step_cal_drive_freq, \
+                            plot=True)#plot_tf)
 
             self.xy_tf_res_freqs = df.xy_tf_res_freqs
 
@@ -533,7 +535,7 @@ class FileData:
             self.time = df.time
             self.fsamp = df.fsamp
             self.nsamp = df.nsamp
-            self.phi_cm = df.phi_cm
+            #self.phi_cm = df.phi_cm
             self.df = df
 
             self.data_closed = False
@@ -752,7 +754,7 @@ class FileData:
             ### Load all of the class attributes
             self.__dict__.update(old_class.__dict__)
 
-            # except:
+            # except Exception:
             #     print "Couldn't find previously saved fildat"
 
 
@@ -770,7 +772,7 @@ class AggregateData:
                  reload_dat=True, plot_harm_extraction=False, \
                  elec_drive=False, elec_ind=0, maxfreq=2500, \
                  dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
-                 tfdate='', new_trap=False):
+                 tfdate='', step_cal_drive_freq=41.0, new_trap=False):
         
         self.fnames = fnames
         self.p0_bead = p0_bead
@@ -800,7 +802,8 @@ class AggregateData:
 
 
             # Initialize FileData obj, extract the data, then close the big file
-            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap)
+            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap, \
+                                step_cal_drive_freq=step_cal_drive_freq)
 
             if new_obj.badfile:
                 print('FOUND BADDIE: ')
@@ -934,7 +937,7 @@ class AggregateData:
     def reload_grav_funcs(self):
         try:
             self.load_grav_funcs(self.theory_data_dir,verbose=False)
-        except:
+        except Exception:
             print('No theory_data_dir saved')
 
 
@@ -983,7 +986,7 @@ class AggregateData:
             try:
                 gforcet = gforce_func(drivevec)
                 gfft[resp] = np.fft.rfft(gforcet)[ginds]
-            except:
+            except Exception:
                 print(xpos)
                 print(height)
                 plt.plot(drivevec)
@@ -1498,7 +1501,7 @@ class AggregateData:
             try:
                 self.reload_grav_funcs()
                 print("UN-FAILED: Loaded dat therory dat!")
-            except:
+            except Exception:
                 return
 
         alpha_xyz_dict = {}
@@ -1966,7 +1969,7 @@ class AggregateData:
         if not self.grav_loaded:
             try:
                 self.reload_grav_funcs()
-            except:
+            except Exception:
                 print('No grav funcs... Tried to reload but no filename')
 
         alpha_xyz_best_fit = [[[[] for k in range(2 * len(self.ginds))] \
@@ -2180,7 +2183,7 @@ class AggregateData:
                             cauchy_r2 = r2_goodness_of_fit(cauchy, bin_centers[inds], \
                                                            n[inds], popt_c)
 
-                        except:
+                        except Exception:
                             lamb_str = '%0.4e' % self.lambdas[lambind]
                             print("COULDN'T FIT", resp, k, lamb_str)
                             popt_g = p0
@@ -2205,9 +2208,9 @@ class AggregateData:
                             if prefix[-1] != '_':
                                 prefix += '_'
 
-                            fig_path = '/home/charles/plots/' + date + '/grids/' + prefix + save_title
+                            fig_path = '/home/cblakemore/plots/' + date + '/grids/' + prefix + save_title
 
-                            fig2_path = '/home/charles/plots/' + date + '/dists/' + prefix + save_title
+                            fig2_path = '/home/cblakemore/plots/' + date + '/dists/' + prefix + save_title
 
 
                             startplot = time.time()
@@ -2303,7 +2306,7 @@ class AggregateData:
         if not self.grav_loaded:
             try:
                 self.reload_grav_funcs()
-            except:
+            except Exception:
                 print('No grav funcs... Tried to reload but no filename')
 
         self.alpha_best_fit = []
@@ -2371,7 +2374,7 @@ class AggregateData:
                 try:
                     x = res[0]
                     residue = linalg.inv(res[1])[2,2]
-                except:
+                except Exception:
                     2+2
                 
                 ### Deplane the data and extract some statistics

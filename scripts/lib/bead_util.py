@@ -1,4 +1,4 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect
+import h5py, os, re, glob, time, sys, fnmatch, inspect, traceback
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -88,7 +88,7 @@ class DataFile:
             self.badfile = False
 
         self.fname = fname
-        self.date = fname.split('/')[2]
+        self.date = re.search(r"\d{8,}", fname)[0]
 
         self.fsamp = attribs["Fsamp"]
         self.time = attribs["Time"]
@@ -99,9 +99,10 @@ class DataFile:
             # labels for pressure gauge specified by configuration.pressure_inds    
             self.pressures = unpack_config_dict(configuration.pressure_inds, \
                                                 attribs["pressures"]) 
-        except:
+        except Exception:
             self.temps = 'Temps not loaded!'
             self.pressures = 'Pressures not loaded!'
+            traceback.print_exc()
         # Unpacks stage settings into a dictionay with keys specified by
         # configuration.stage_inds
         self.stage_settings = \
@@ -147,6 +148,7 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
+        self.new_trap = False
 
         fname = os.path.abspath(fname)
 
@@ -159,7 +161,7 @@ class DataFile:
             plt.show()
         
         self.fname = fname
-        self.date = fname.split('/')[2]
+        self.date = re.search(r"\d{8,}", fname)[0]
         #print fname
 
         self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
@@ -178,8 +180,9 @@ class DataFile:
 
         try:
             imgrid = bool(attribs["imgrid"])
-        except:
+        except Exception:
             imgrid = False
+            traceback.print_exc()
 
         # If it's not an imgrid file, process all the fpga data
         if (not imgrid) and (not skip_fpga):
@@ -192,8 +195,9 @@ class DataFile:
                     self.encode_bits = np.array(list(encode), dtype=int)
                 else:
                     self.encode_bits = encode
-            except:
+            except Exception:
                 self.encode_bits = []
+                traceback.print_exc()
 
             fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
                                                self.encode_bits, plot_sync=plot_sync)
@@ -264,7 +268,7 @@ class DataFile:
 
         fname = os.path.abspath(fname)
 
-        self.date = fname.split('/')[2]
+        self.date = re.search(r"\d{8,}", fname)[0]
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
 
         if debug:
@@ -276,15 +280,17 @@ class DataFile:
 
         try:
             self.cant_data = np.transpose(dat[:, configuration.col_labels["stage_pos"]])
-        except:
+        except Exception:
             self.cant_data = []
             print("Couldn't load stage data...")
+            traceback.print_exc()
 
         try:
             self.electrode_data = np.transpose(dat[:, configuration.col_labels["electrodes"]])
-        except:
+        except Exception:
             self.electrode_data = []
             print("Couldn't load electrode data...")
+            traceback.print_exc()
 
         #freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
         #for ind in [0,1,2]:
@@ -300,10 +306,11 @@ class DataFile:
             # labels for pressure gauge specified by configuration.pressure_inds    
             self.pressures = unpack_config_dict(configuration.pressure_inds, \
                                                 attribs["pressures"]) 
-        except:
+        except Exception:
             self.temps = 'Temps not loaded!'
             self.pressures = 'Pressures not loaded!'
             print("Couldn't load environmental data...")
+            traceback.print_exc()
 
         # Unpacks stage settings into a dictionay with keys specified by
         # configuration.stage_inds
@@ -351,15 +358,16 @@ class DataFile:
 
 
     def load_new(self, fname, plot_raw_dat=False, skip_mon=False, \
-                    load_all_pos=False, verbose=False):
+                    verbose=False):
 
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
+        self.new_trap = True
 
         fname = os.path.abspath(fname)
 
-        dat1, dat2, dat3, dat4, attribs = getdata_new(fname)
+        dat1, dat2, dat3, dat4, dat5, attribs = getdata_new(fname)
 
         # if plot_raw_dat:
         #     for n in range(20):
@@ -368,41 +376,121 @@ class DataFile:
         #     plt.show()
         
         self.fname = fname
-        self.date = fname.split('/')[2]
+        self.date = re.search(r"\d{8,}", fname)[0]
         #print fname
 
         self.fsamp = attribs['Fsamp'] / attribs['downsamp']
 
         self.pos_time, self.pos_data, self.pos_data_2, self.pos_fb, self.sync_data \
                     = extract_xyz_new(dat1)
-        self.cant_data = dat2
-        self.quad_time, self.amp, self.phase = extract_quad_new(dat3)
-        self.other_data = dat4
+        self.quad_time, self.amp, self.phase = extract_quad_new(dat2)
+        self.other_data = dat3
+        self.cant_data = dat4
 
         self.nsamp = len(self.pos_data[0])
 
         self.time = self.pos_time[0]
 
-        if load_all_pos:
-            # run bu.print_quadrant_indices() to see an explanation of these
-            right = self.amp[0] + self.amp[1]
-            left = self.amp[2] + self.amp[3]
-            top = self.amp[0] + self.amp[2]
-            bottom = self.amp[1] + self.amp[3]
+        discharge = False
+        trans_func = False
+        if 'Discharge' in self.fname:
+            discharge = True
+            amp = np.sqrt(2) * np.std(dat5[0])
+        elif 'TransFunc' in self.fname:
+            trans_func = True
+            amp = 0.65
+        else:
+            amp = 1.0
 
-            x2 = right - left
-            y2 = top - bottom
+        # print(amp)
 
-            quad_sum = np.sum(self.amp, axis=0)
+        self.electrode_settings = {}
+        self.electrode_settings['driven'] = np.zeros(8)
+        self.electrode_settings['amplitudes'] = np.zeros(8)
+        self.electrode_settings['frequencies'] = np.zeros(8)
+        self.electrode_settings['dc_settings'] = np.zeros(8)
 
-            self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
-                                        y2.astype(np.float64)/quad_sum, \
-                                        self.pos_data[2]])
+        if len(dat5):
+            tarr = np.arange(self.nsamp) * (1.0 / self.fsamp)
+            dumb_tarr = np.arange(dat5.shape[1]) * (1.0 / self.fsamp)
+
+            freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+            dumb_freqs = np.fft.rfftfreq(dat5.shape[1], d=1.0/self.fsamp)
+            #elec_data = np.zeros((8,self.nsamp))
+            elec_data = (1.0e-9) * amp * np.random.randn(8,self.nsamp)
+
+            channels = np.copy(attribs['electrode_channel'])
+            #channels.sort()
+
+            # print(channels)
+            # plt.plot(dumb_tarr, dat5[0])
+            # plt.plot(dumb_tarr, dat5[1])
+            # plt.show()
+
+            for ind, elec_ind in enumerate(channels):
+                sign = 1.0
+                if ind != 0:
+                    sign = -1.0
+
+                self.electrode_settings['driven'][elec_ind] = 1.0
+                self.electrode_settings['amplitudes'][elec_ind] = amp
+                fft = np.fft.rfft(dat5[ind])
+
+                if discharge:
+                    max_freq = dumb_freqs[np.argmax(np.abs(fft[1:])) + 1]
+                    self.electrode_settings['frequencies'][elec_ind] = max_freq
+                    reconstructed = sign * amp * np.sin(2.0 * np.pi * max_freq * tarr)
+                    reconstructed += (1.0e-7) * amp * np.random.randn(self.nsamp)
+                    elec_data[elec_ind] = reconstructed
+
+                elif trans_func:
+                    thresh = 0.5 * np.max(np.abs(fft))
+                    drive_freqs = dumb_freqs[np.abs(fft) > thresh]
+                    drive_freq_inds = np.arange(len(dumb_freqs))[np.abs(fft) > thresh]
+                    for freq_ind, freq in zip(drive_freq_inds, drive_freqs):
+                        phase = np.angle(fft[freq_ind])
+                        reconstructed = amp * np.cos(2.0 * np.pi * freq * tarr + phase)
+                        elec_data[elec_ind] += reconstructed
+
+
+            #     plt.plot(tarr, elec_data[elec_ind], label=elec_ind, \
+            #                 color='C'+str(ind), lw=2, ls=':')
+            #     plt.plot(dumb_tarr, dat5[ind], color='C'+str(ind))
+                
+            # plt.legend()
+            # plt.show()
+
+            # for channel in range(8):
+            #     plt.plot(tarr, elec_data[channel], label=str(channel))
+            # plt.show()
+
+            # print(self.electrode_settings)
+        else:
+            elec_data = []
+
+        self.electrode_data = elec_data
+
+        # run bu.print_quadrant_indices() to see an explanation of these
+        right = self.amp[0] + self.amp[1]
+        left = self.amp[2] + self.amp[3]
+        top = self.amp[0] + self.amp[2]
+        bottom = self.amp[1] + self.amp[3]
+
+        x2 = right - left
+        y2 = top - bottom
+
+        quad_sum = right + left
+
+
+        self.pos_data_3 = np.array([x2.astype(np.float64)/quad_sum, \
+                                    y2.astype(np.float64)/quad_sum, \
+                                    self.phase[4]])
+
+        self.pos_data = np.copy(self.pos_data_3)
 
 
 
-
-    def calibrate_stage_position(self, new_trap=False):
+    def calibrate_stage_position(self):
         '''calibrates voltage in cant_data and into microns. 
            Uses stage position file to put origin of coordinate 
            system at trap in x direction with cantilever centered 
@@ -411,37 +499,41 @@ class DataFile:
         if self.cant_calibrated:
             return
 
-        if new_trap:
+        if self.new_trap:
             cal_fac = configuration.stage_cal_new
         else:
             cal_fac = configuration.stage_cal
 
-        try:
-            # First get everything into microns.
-            for k in configuration.calibrate_stage_keys:
-                #print k
-                self.stage_settings[k] *= cal_fac
-        except Exception:
-            print("No 'stage_settings' attribute")
+            try:
+                # First get everything into microns.
+                for k in configuration.calibrate_stage_keys:
+                    #print k
+                    self.stage_settings[k] *= cal_fac
+            except Exception:
+                print("No 'stage_settings' attribute")
+                traceback.print_exc()
             
         try:
             self.cant_data *= cal_fac
             self.cant_calibrated = True
+
         except Exception:
             print("No 'cant_data' attribute to calibrate")
+            traceback.print_exc()
         
-        # Now load the cantilever position file.
-        # First get the path to the position file from the file base name
-        # and get the extension from configuration.extensions["stage_position"].
-        filename, file_extension = os.path.splitext(self.fname)
-        posfname = \
-            os.path.join(filename, configuration.extensions["stage_position"])
-        # Load position of course stage. If file cant be found 
-        try: 
-            pos_arr = pickle.load(open(posfname, "rb"))
-        except:
-            1 + 2
-            #print "shit is fucked"
+        # # Now load the cantilever position file.
+        # # First get the path to the position file from the file base name
+        # # and get the extension from configuration.extensions["stage_position"].
+        # filename, file_extension = os.path.splitext(self.fname)
+        # posfname = \
+        #     os.path.join(filename, configuration.extensions["stage_position"])
+        # # Load position of course stage. If file cant be found 
+        # try: 
+        #     pos_arr = pickle.load(open(posfname, "rb"))
+        # except Exception:
+        #     1 + 2
+        #     #print "shit is fucked"
+        #     traceback.print_exc()
 
 
     def calibrate_phase(self, z_bitshift=0):
@@ -487,6 +579,7 @@ class DataFile:
                 if self.stage_settings[key]:
                     driven[ind] = 1
             except Exception:
+                traceback.print_exc()
                 pass
 
         if np.sum(driven) > 1:
@@ -775,6 +868,8 @@ class DataFile:
 
             if plot:
                 normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
+
+                #normfac = fft_norm(N, self.fsamp)
                 
                 avg_inds = np.arange(len(freqs))[(freqs > 10.0) * (freqs < 100.0)]
                 new_avg_inds = []
@@ -897,7 +992,8 @@ class DataFile:
             self.pos_data[resp] = signal.filtfilt(b, a, self.pos_data[resp])
 
 
-    def diagonalize(self, date='', interpolate=False, maxfreq=1000, plot=False):
+    def diagonalize(self, date='', interpolate=False, maxfreq=1000, \
+                    step_cal_drive_freq=41.0, plot=False):
         '''Diagonalizes data, adding a new attribute to the DataFile object.
 
            INPUTS: date, date in form YYYYMMDD if you don't want to use
@@ -908,7 +1004,11 @@ class DataFile:
 
            OUTPUTS: none, generates new class attribute.'''
 
-        tf_path = '/data/old_trap_processed/calibrations/transfer_funcs/'
+        if self.new_trap:
+            tf_path = '/data/new_trap_processed/calibrations/transfer_funcs/'
+        else:
+            tf_path = '/data/old_trap_processed/calibrations/transfer_funcs/'
+
         ext = configuration.extensions['trans_fun']
         if not len(date):
             tf_path +=  self.date
@@ -926,8 +1026,9 @@ class DataFile:
         # drive -> response, so we will need to invert
         try:
             Hfunc = pickle.load(open(tf_path, 'rb'))
-        except:
+        except Exception:
             print("Couldn't automatically find correct TF")
+            traceback.print_exc()
             return
 
         # Generate FFT frequencies for given data
@@ -948,7 +1049,7 @@ class DataFile:
         maxfreq_ind = np.argmin( np.abs(freqs - maxfreq) )
         Harr[maxfreq_ind+1:,:,:] = 0.0+0.0j
 
-        f_ind = np.argmin( np.abs(freqs - 41) )
+        f_ind = np.argmin( np.abs(freqs - step_cal_drive_freq) )
         mat = Harr[f_ind,:,:]
         conv_facs = [0, 0, 0]
         for i in [0,1,2]:
@@ -961,10 +1062,11 @@ class DataFile:
 
 
         if plot:
+            norm = fft_norm(N, self.fsamp)
             fig, axarr = plt.subplots(3,1,sharex=True,sharey=True)
             for ax in [0,1,2]:
-                axarr[ax].loglog(freqs, np.abs(data_fft[ax])*conv_facs[ax])
-                axarr[ax].loglog(freqs, np.abs(diag_fft[ax]))
+                axarr[ax].loglog(freqs, norm*np.abs(data_fft[ax])*conv_facs[ax])
+                axarr[ax].loglog(freqs, norm*np.abs(diag_fft[ax]))
             plt.tight_layout()
             plt.show()
 

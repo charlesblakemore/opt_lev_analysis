@@ -16,6 +16,12 @@ plt.rcParams.update({'font.size': 16})
 dir1 = '/data/old_trap/20191017/bead1/spinning/junk/shit_test_10'
 maxfiles = 500
 
+
+
+#dir1 = '/data/old_trap/20191203/daq_tests/nominal'
+dir1 = '/data/old_trap/20191203/daq_tests/new_wiring'
+
+
 use_dir = False
 
 # allfiles = ['/daq2/20190320/bead2/1_5mbar_zcool.h5', \
@@ -96,18 +102,25 @@ allfiles = ['/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_nofb_nocool.h5', \
             '/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5'
             ]
 
-allfiles = ['/data/new_trap/20191121/Bead1/InitialTest/Data20.h5', \
-            '/data/new_trap/20191121/Bead1/InitialTest/Data21.h5', \
-            '/data/new_trap/20191121/Bead1/InitialTest/Data22.h5', \
-            '/data/new_trap/20191121/Bead1/InitialTest/Data23.h5', \
-            '/data/new_trap/20191121/Bead1/InitialTest/Data24.h5', \
-            '/data/new_trap/20191121/Bead1/InitialTest/Data25.h5'
+allfiles = ['/data/new_trap/20191204/Bead1/InitialTest/Data28.h5', \
+            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_18.h5', \
+            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_19.h5', \
+            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_20.h5', \
+            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_21.h5', \
+            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_22.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_X_1.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_X_4.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_X_7.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Y_2.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Y_5.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Y_8.h5', \
+            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Z_3.h5', \
             ]
 
 new_trap = True
 
 
-tfdate = '20190619'
+tfdate = '20191204'
 
 #filename_labels = True 
 filename_labels = False
@@ -115,9 +128,14 @@ filename_labels = False
 #labs = ['1','2', '3']
 
 data_axes = [0,1,2]
-fb_axes = [0,1,2]
+fb_axes = []
 #fb_axes = [0,1,2]
+
 other_axes = []
+#other_axes = [5,6,7]
+
+cant_axes = []
+#cant_axes = [0,1,2]
 #other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
 plot_power = False
@@ -131,20 +149,22 @@ invert_order = False
 savefigs = False
 title_pre = '/home/charles/plots/20180105_precession/test1_100V_muchlater3'
 
+#lim = ()
+xlim = (1, 1000)
 
-#ylim = (1e-21, 1e-14)
-#ylim = (1e-7, 1e-1)
-ylim = ()
+#ylim = ()
+ylim = (1e-18, 1e-15)
+#ylim = (1e-7, 1e+4)
 
 lpf = 2500   # Hz
 
 #file_inds = (0, 3)
 file_inds = (0, 1800)
 
-userNFFT = 2**11
-diag = False
+userNFFT = 2**13
+diag = True
 
-fullNFFT = True
+fullNFFT = False
 
 #window = mlab.window_hanning
 window = mlab.window_none
@@ -178,7 +198,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         dfig, daxarr = plt.subplots(len(data_axes),2,sharex=True,sharey=True, \
                                     figsize=(8,8))
     else:
-        dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=False, \
+        dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
                                     figsize=(8,8))
 
     if len(cant_axes):
@@ -199,6 +219,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
             fbaxarr = [fbaxarr]
     if plot_power:
         pfig, paxarr = plt.subplots(1,1)
+
+    kludge_fig, kludge_ax = plt.subplots(1,1)
 
     files = files[file_inds[0]:file_inds[1]]
     if step10:
@@ -229,8 +251,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         df.calibrate_stage_position()
         
-        df.high_pass_filter(fc=1)
-        df.detrend_poly()
+        #df.high_pass_filter(fc=1)
+        #df.detrend_poly()
 
         #plt.figure()
         #plt.plot(df.pos_data[0])
@@ -262,21 +284,36 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
             fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
 
+            norm = bu.fft_norm(df.nsamp, df.fsamp)
+            new_freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
+            #fac = 1.0
+
+            kludge_fac = 1.0
+            #kludge_fac = 1.0 / np.sqrt(10)
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                         NFFT=NFFT, window=window)
-                daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, color=color)
+                kludge_ax.loglog(freqs, np.sqrt(dpsd) *kludge_fac, color='C'+str(axind), \
+                                    label=posdic[axind])
+                kludge_ax.set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                kludge_ax.set_xlabel('Frequency [Hz]')
+
+                daxarr[axind,0].loglog(new_freqs, fac*norm*np.abs(np.fft.rfft(df.pos_data[ax]))*kludge_fac, color='k', label='np.fft with manual normalization')
+                daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac *kludge_fac, color=color, label='mlab.psd')
                 daxarr[axind,0].grid(alpha=0.5)
-                daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
+                daxarr[axind,1].loglog(new_freqs, norm*np.abs(np.fft.rfft(df.diag_pos_data[ax])) *kludge_fac, color='k')
+                daxarr[axind,1].loglog(freqs, np.sqrt(dpsd) *kludge_fac, color=color)
                 daxarr[axind,1].grid(alpha=0.5)
                 daxarr[axind,0].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
                 if ax == data_axes[-1]:
                     daxarr[axind,0].set_xlabel('Frequency [Hz]')
                     daxarr[axind,1].set_xlabel('Frequency [Hz]')
             else:
-                daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color, label=fil)
+                daxarr[axind].loglog(new_freqs, norm*np.abs(np.fft.rfft(df.pos_data[ax])), color='k', label='np.fft with manual normalization')
+                daxarr[axind].loglog(freqs, np.sqrt(psd)*fac, color=color, label='mlab.psd')
                 daxarr[axind].grid(alpha=0.5)
-                daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                daxarr[axind].set_ylabel('$\\sqrt{\mathrm{PSD}}$ $[\\mathrm{Arb}/\\sqrt{\mathrm{Hz}}]$')
+                #daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
 
                 if len(fb_axes):
                     fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
@@ -321,9 +358,25 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
     #daxarr[0].set_xlim(0.5, 25000)
     
+    if diag:
+        derp_ax = daxarr[0,0]
+    else:
+        derp_ax = daxarr[0]
+
+    derp_ax.legend(fontsize=10)
+
     if len(ylim):
-        daxarr[0].set_ylim(ylim[0], ylim[1])
-    plt.tight_layout()
+        derp_ax.set_ylim(*ylim)
+        kludge_ax.set_ylim(*ylim)
+    if len(xlim):
+        derp_ax.set_xlim(*xlim)
+        kludge_ax.set_xlim(1,500)
+
+    dfig.tight_layout()
+
+    kludge_ax.grid()
+    kludge_ax.legend()
+    kludge_fig.tight_layout()
 
     if len(cant_axes):
         cfig.tight_layout()
@@ -362,4 +415,5 @@ allfiles = allfiles[:maxfiles]
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
-                  fb_axes=fb_axes, plot_power=plot_power, colormap=cmap)
+                  fb_axes=fb_axes, cant_axes=cant_axes, \
+                  plot_power=plot_power, colormap=cmap)

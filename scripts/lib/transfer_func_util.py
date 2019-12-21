@@ -8,6 +8,7 @@ import scipy
 import scipy.optimize as opti
 import scipy.signal as signal
 import scipy.interpolate as interp
+import scipy.constants as constants
 
 import bead_util as bu
 import image_util as imu
@@ -160,7 +161,7 @@ def make_extrapolator(interpfunc, pts=10, order=1, inverse=(False, False)):
 
 
 def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 1., \
-                         plot_qpd_response=False, drop_bad_bins=True):
+                         plot_qpd_response=False, drop_bad_bins=True, new_trap=False):
     '''Generates a transfer function from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    average_first, boolean specifying whether to average responses
@@ -202,13 +203,20 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         sidefig, side_axarr = plt.subplots(4,3,sharex=True,sharey=True,dpi=150,figsize=(6,7))
         fbfig, fb_axarr = plt.subplots(3,3,sharex=True,sharey=True,dpi=150,figsize=(6,6))
         posfig, pos_axarr = plt.subplots(3,3,sharex=True,sharey=True,dpi=150,figsize=(6,6))
-        drivefig, drive_axarr = plt.subplots(8,3,sharex=True,sharey=True,dpi=150,figsize=(6,8))
+        drivefig, drive_axarr = plt.subplots(3,3,sharex=True,sharey=True,dpi=150,figsize=(6,8))
 
     filind = 0
     for fobj in fobjs:
 
-        dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis. 
-        data_fft = np.fft.rfft(fobj.pos_data)
+        drive = bu.trap_efield(fobj.electrode_data)
+        #drive = np.roll(drive, -10, axis=-1)
+
+        # dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis.
+        dfft = np.fft.rfft( drive )
+        if new_trap: 
+            data_fft = np.fft.rfft(fobj.pos_data_3)
+        else:
+            data_fft = np.fft.rfft(fobj.pos_data)
         amp_fft = np.fft.rfft(fobj.amp)
         phase_fft = np.fft.rfft(fobj.phase)
         fb_fft = np.fft.rfft(fobj.pos_fb)
@@ -224,9 +232,18 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
         fft_freqs = np.fft.rfftfreq(N, d=1.0/fsamp)
 
+        # plt.loglog(fft_freqs, np.abs(dfft[3]))
+        # plt.loglog(fft_freqs, np.abs(dfft[4]))
+        # plt.loglog(fft_freqs, np.abs(data_fft[0]))
+        # plt.show()
+
         dpsd = np.abs(dfft)**2 * 2./(N*fobj.fsamp) #psd for all electrode drives   
         inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
         eind = np.unique(inds[0])[0]
+        # print(eind)
+        # plt.plot(drive[eind], label=eind)
+        # plt.legend()
+        # plt.show()
 
         if eind not in avg_drive_fft:
             avg_drive_fft[eind] = np.zeros(dfft.shape, dtype=np.complex128)
@@ -247,6 +264,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         counts[eind] += 1.
 
     for eind in list(counts.keys()):
+        #rint(eind, counts[eind])
         avg_drive_fft[eind] = avg_drive_fft[eind] / counts[eind]
         avg_data_fft[eind] = avg_data_fft[eind] / counts[eind]
         avg_amp_fft[eind] = avg_amp_fft[eind] / counts[eind]
@@ -256,7 +274,8 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
     poslabs = {0: 'X', 1: 'Y', 2: 'Z'}
     sidelabs = {0: 'Right', 1: 'Left', 2: 'Top', 3: 'Bottom'}
-    quadlabs = {0: 'Top Right', 1: 'Bottom Right', 2: 'Top Left', 3: 'Bottom Left', 4: 'Backscatter'}
+    quadlabs = {0: 'Top Right', 1: 'Bottom Right', 2: 'Top Left', \
+                3: 'Bottom Left', 4: 'Backscatter'}
 
 
     for eind in list(avg_drive_fft.keys()):
@@ -279,18 +298,19 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         Hmatst = np.einsum('ij, kj -> ikj', \
                              avg_data_fft[eind], 1. / avg_drive_fft[eind])
 
-        outind = config.elec_map[eind]
+        # outind = config.elec_map[eind]
+        outind = eind
 
         if plot_qpd_response:
             
-            for elec in [0,1,2,3,4,5,6,7]:
+            for elec in [0,1,2]: #,3,4,5,6,7]:
                 drive_axarr[elec,outind].loglog(fft_freqs, \
                                                 np.abs(avg_drive_fft[eind][elec]), alpha=0.75)
                 drive_axarr[elec,outind].loglog(fft_freqs[inds[1]], \
                                                 np.abs(avg_drive_fft[eind][elec])[inds[1]], alpha=0.75)
                 if outind == 0:
-                    drive_axarr[elec,outind].set_ylabel('Elec ' + str(elec))
-                if elec == 7:
+                    drive_axarr[elec,outind].set_ylabel('Efield axis ' + str(elec))
+                if elec == 2: #7:
                     drive_axarr[elec,outind].set_xlabel('Frequency [Hz]')
 
 
@@ -370,7 +390,8 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
         # Map the 3x7xNfreq arrays to dictionaries with keys given by the drive
         # frequencies and values given by 3x3 complex-values TF matrices
-        outind = config.elec_map[eind]
+        #outind = config.elec_map[eind]
+        outind = eind
         for i, freq in enumerate(freqs):
             if freq not in Hout:
                 if i != 0 and drop_bad_bins:
@@ -427,8 +448,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
 
 
-def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
-                plate_sep = 0.004):
+def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.):
     '''Calibrates a transfer function with a given charge step calibration.
        This inherently assumes all the gains are matched between the step response
        and transfer function measurement
@@ -456,11 +476,18 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
     for freq in freqs_to_avg:
         resps.append(np.abs(Hout[freq][j,j]))
 
-    qfac = np.mean(resps)  
-    qfac = qfac * plate_sep # convert V -> E-field -> Force
+    #test_voltages = np.zeros(8)
+    #test_voltages[ind_map[j]] = 1.0
+    #test_efield = np.abs(bu.trap_efield(test_voltages, nsamp=1)[j])
 
-    q = qfac / vpn
-    e_charge = config.p_param["e_charge"]
+    mean_resp = np.mean(resps)
+
+    mean_resp = np.abs(Hout[freqs[ind]][j,j])
+    #qfac = mean_resp / test_efiel
+
+    q = mean_resp / vpn
+    e_charge = constants.elementary_charge
+
     outstr = "Charge-step calibration implies "+\
              "%0.2f charge during H measurement" % (q / e_charge)
 
@@ -472,7 +499,7 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel = 0, drive_freq = 41.,\
         # and convert to force with capacitor plate separation
         # F = q*E = q*(V/d) so we take
         # (Vresp / Vdrive) * d / q = Vresp / Fdrive
-        Hout_cal[freq] = np.copy(Hout[freq]) * (plate_sep / q)
+        Hout_cal[freq] = np.copy(Hout[freq]) * (vpn / mean_resp)
 
     return Hout_cal, q / e_charge
 
@@ -508,8 +535,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
     fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]   
 
     if plot_fits or plot_without_fits:
-        f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='all')
-        f2, axarr2 = plt.subplots(3,3, sharex='all', sharey='all')
+        f1, axarr1 = plt.subplots(3,3, sharex='all', sharey='all', figsize=(10,8))
+        f2, axarr2 = plt.subplots(3,3, sharex='all', sharey='all', figsize=(10,8))
         f1.suptitle("Magnitude of Transfer Function", fontsize=18)
         f2.suptitle("Phase of Transfer Function", fontsize=18)
 
@@ -795,12 +822,12 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                 axarr4[2, drive].set_xlabel("Frequency [Hz]")
 
         for response in [0,1,2]:
-            axarr1[response, 0].set_ylabel("Resp \'%i\' [V/N]" %response)
-            axarr2[response, 0].set_ylabel("Resp \'%i\' [$\pi\cdot$rad]" %response)
+            axarr1[response, 0].set_ylabel("Resp \'%i\' [Arb/N]" %response)
+            axarr2[response, 0].set_ylabel("Resp \'%i\' [$\\pi\\cdot$rad]" %response)
 
             if fit_osc_sum:
 
-                axarr3[response, 0].set_ylabel("Resp \'%i\' [V/N]" %response)
+                axarr3[response, 0].set_ylabel("Resp \'%i\' [Arb/N]" %response)
                 axarr4[response, 0].set_ylabel("Resp \'%i\' [rad]" %response)
 
         plt.show()

@@ -1,4 +1,5 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math, xmltodict
+import h5py, os, re, glob, time, sys, fnmatch, inspect
+import subprocess, math, xmltodict, traceback
 import numpy as np
 import datetime as dt
 import dill as pickle 
@@ -43,8 +44,9 @@ def getdata(fname, gain_error=1.0, verbose=False):
     try:
         try:
             f = h5py.File(fname,'r')
-        except:
+        except Exception:
             message = "Can't find/open HDF5 file : " + fname
+            traceback.print_exc()
             raise
 
         try:
@@ -52,6 +54,7 @@ def getdata(fname, gain_error=1.0, verbose=False):
         except Exception:
             message = "Can't find any dataset in : " + fname
             f.close()
+            traceback.print_exc()
             raise
 
         dat = np.transpose(dset)
@@ -66,6 +69,7 @@ def getdata(fname, gain_error=1.0, verbose=False):
         dat = []
         attribs = {}
         f = []
+        traceback.print_exc()
 
     return dat, attribs
 
@@ -84,30 +88,38 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
             f = h5py.File(fname,'r')
         except Exception:
             message = "Can't find/open HDF5 file : " + fname
+            traceback.print_exc()
             raise
 
         try:
             dset1 = np.copy(f['pos_data'])
-            dset3 = np.copy(f['quad_data'])
+            dset2 = np.copy(f['quad_data'])
 
             try:
-                dset4 = np.copy(f['spin_data'])
+                dset3 = np.copy(f['spin_data'])
             except Exception:
-                dset4 = []
+                dset3 = []
                 print('No spin data')
 
             try:
-                dset2 = np.copy(f['cant_data'])
+                dset4 = np.copy(f['cant_data'])
                 cant_settings = np.copy(f['cantilever_settings'])
             except Exception:
-                dset2 = []
+                dset4 = []
                 print('No attractor data')
+
+            try:
+                dset5 = np.copy(f['electrode_data'])
+            except Exception:
+                dset5 = []
+                print('No electrode data')
 
             attribs = copy_attribs(f.attrs)
 
         except Exception:
             message = "Can't find any dataset in : " + fname
             f.close()
+            traceback.print_exc()
             raise
 
         if attribs == {}:
@@ -116,6 +128,7 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
             except Exception:
                 message = "Can't find any attributes for : " + fname
                 f.close()
+                traceback.print_exc()
                 raise
 
         f.close()
@@ -125,8 +138,9 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
         dat = []
         attribs = {}
         f = []
+        traceback.print_exc()
 
-    return dset1, dset2, dset3, dset4, attribs
+    return dset1, dset2, dset3, dset4, dset5, attribs
 
 
 
@@ -163,8 +177,10 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
     for attr_type in types:
         try:
             c_list = attr_dict[attr_type]
-        except:
+        except Exception:
+            traceback.print_exc()
             continue
+
         if type(c_list) != list:
             c_list = [c_list]
 
@@ -443,8 +459,8 @@ def extract_xyz_new(xyz_dat, verbose=False):
     xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
 
-    xyz = [xyz_dat[0::11], xyz_dat[1::11], xyz_dat[2::11]]
-    xy_2 = [xyz_dat[3::11], xyz_dat[4::11]]
+    xyz = [xyz_dat[2::11], xyz_dat[3::11], xyz_dat[4::11]]
+    xy_2 = [xyz_dat[0::11], xyz_dat[1::11]]
     sync = np.int32(xyz_dat[5::11])
     xyz_fb = [xyz_dat[6::11], xyz_dat[7::11], xyz_dat[8::11]]
     
@@ -597,9 +613,10 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         attribs = {}
         try:
             f.close()
-        except:
+        except Exception:
             if verbose:
                 print("couldn't close file, not sure if it's open")
+            traceback.print_exc()
 
     if len(dat1):
         # Use subroutines to handle each type of data
