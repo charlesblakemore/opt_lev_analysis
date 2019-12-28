@@ -18,36 +18,51 @@ matplotlib.rcParams['figure.figsize'] = [7,5]
 matplotlib.rcParams['figure.dpi'] = 150
 matplotlib.rcParams['agg.path.chunksize'] = 10000
 
-save = False
+fit = False
+save = True
 
 overwrite = True
 
-#fils = ['/data/old_trap/20191105/bead4/phase_mod/change_dg/neg_2_0_to_0_7/']
-#fils = ['/data/old_trap/20191105/bead4/phase_mod/deriv_feedback/deriv_feedback_1/']
-#fils = ['/data/old_trap/20191017/bead1/spinning/pramp/He/50kHz_4Vpp_2/']
-fils = ['/data/old_trap/20190905/bead1/spinning/ringdown_manual/100kHz_start_1/']
+fils = ['/data/old_trap/20191105/bead4/phase_mod/change_dg/neg_2_0_to_0_7/']
+fils = ['/data/old_trap/20191105/bead4/phase_mod/deriv_feedback/deriv_feedback_1/']
+fils = ['/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191211/dg_x/neg_0_005amp/']
 
-out_paths = ['/home/dmartin/Desktop/analyzedData/20191105/changing_pm_freq_7_8/']
+base_name = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191216/change_dg/'
+#base_name = '/data/old_trap/20191105/bead4/phase_mod/deriv_feedback/deriv_feedback_1/'
+fils = ['no_dg_0000','no_dg_0001','no_dg_0002','no_dg_0003','no_dg_0004',\
+        'no_dg_0005','no_dg_0006','no_dg_0007','no_dg_0008','no_dg_0009']
+fils = ['no_dg']
 
+save_base_name = '/home/dmartin/Desktop/analyzedData/20191204/spinning/deriv_feedback/20191216/change_dg_window/crossp_psds/' 
 
-files, zero = bu.find_all_fnames(fils[0])
+bu.make_all_pardirs(save_base_name)
 
-files = files[0:]
+out_paths = ['/home/dmartin/Desktop/analyzedData/20191204/dg_xz/']
+
+files, zero, folders = bu.find_all_fnames(base_name, add_folders=True, sort_time=True)
+folders.pop(0)
+
+overwrite = True
 
 tabor_fac = 100.
-spinning_freq = 100e3
-filt = True
-avg_psd = True
+spinning_freq = 25e3
+filt = False
 
 
 pm_bandwidth = 200
 drive_pm_freq = 330
 
-num_files = 10
+num_files = 40
 
-
+plot = False
+avg_psd = True
 press_increase = False
-dg_increase = True 
+dg_increase = False 
+
+data_ind = 0 
+drive_ind = 1
+ind = data_ind
+
 def lorentzian(x, A, x0, g, B):
     return A * (1./ (1 + ((x - x0)/g)**2)) + B
 
@@ -79,52 +94,85 @@ def sine(x, A, f, c):
 def line(x,a,b):
     return a * x + b
 
-def avg_phase_psd(files, num_files=1):
+def avg_phase_fft(files):
+    obj_init = hd.hsDat(files[0])
+    Ns = obj_init.attribs['nsamp']
+    Fs = obj_init.attribs['fsamp']
+
+    freqs = np.fft.rfftfreq(Ns, 1./Fs)
+    tarr = np.arange(Ns)/Fs
+    #psd_sum = np.zeros((Ns/2) + 1)
+
+    psds = []
+    for i in range(len(files)):
+        print(files[i])
+        obj = hd.hsDat(files[i])
+
+        spin_sig = obj.dat[:,ind]
+
+
+        if filt:
+            spin_sig = bp_filt(spin_sig,2*spinning_freq,Ns,Fs,1800)
+
+        fft = np.fft.rfft(spin_sig)
+
+        phase = np.angle(fft)
+
+
+def avg_phase_psd(files):
     
     obj_init = hd.hsDat(files[0])
     Ns = obj_init.attribs['nsamp']
     Fs = obj_init.attribs['fsamp']
     
     freqs = np.fft.rfftfreq(Ns, 1./Fs)
-    
-    psd_sum = np.zeros((Ns/2) + 1)
+    tarr = np.arange(Ns)/Fs
+    #psd_sum = np.zeros((Ns/2) + 1)
 
     psds = []
-
     for i in range(len(files)):
+        print(files[i])    
         obj = hd.hsDat(files[i])
 
-        spin_sig = obj.dat[:,0]
+        spin_sig = obj.dat[:,ind]
+
 
         if filt:
-            spin_sig = bp_filt(spin_sig,2*spinning_freq,Ns,Fs,1000)
-
+            spin_sig = bp_filt(spin_sig,2*spinning_freq,Ns,Fs,1800)
+        
         fft = np.fft.rfft(spin_sig)
 
-       # plt.loglog(freqs,np.abs(fft))
+        #plt.loglog(freqs,np.abs(fft))
+        #plt.ylabel(r'FFT Drive [arb units]')
+        #plt.xlabel('Frequency [Hz]')
         #plt.show()
 
         z = ss.hilbert(spin_sig)
         phase = ss.detrend(np.unwrap(np.angle(z)))
         
-        psd, freqs_ = mlab.psd(phase, NFFT=len(phase), Fs=Fs, window = mlab.window_none)
-
-        psds.append(psd)
-
-        plt.loglog(freqs,psd)
+        #plt.plot(tarr, phase)
         #plt.show()
 
-    plt.ylabel(r'PSD $[rad^{2}/Hz]$')
-    plt.xlabel('Frequency [Hz]')
-    plt.show()
+        psd, freqs_ = mlab.psd(phase, NFFT=len(phase), Fs=Fs, window = np.hanning(len(phase)))
+        
+        psds.append(psd)
+
+        #plt.loglog(freqs,psd,label='{}'.format(files[i].split('/')[-1]))
+        
+        #plt.show()
+
+#    plt.ylabel(r'PSD $[rad^{2}/Hz]$')
+#    plt.xlabel('Frequency [Hz]')
+    #plt.legend()
+#    plt.show()
 
     #avg = psd_sum/len(files)
 
     avg = np.mean(psds,axis=0)
     std = np.std(psds,axis=0)
     
-    mask_high = 357
-    mask_low = 210
+    mask_high = 860
+    mask_low = 810
     mask = (freqs > mask_low) & (freqs < mask_high)
 
     max_ind = np.argmax(avg[mask])
@@ -154,34 +202,44 @@ def avg_phase_psd(files, num_files=1):
 #    plt.xlabel('Frequency [Hz]')
 #    
 #    plt.show()
-#    
-    res = (freqs[1]-freqs[0])/Ns
-#    
+#   
+    if plot:
+        if fit:
+            res = (freqs[1]-freqs[0])/Ns
+#            
 #
-    p0 = [1e6, freq_guess, 1e-1, 1e-1]
-    bounds = ([0,freq_guess-res,1e-2, 1e-2], [1e10,freq_guess+res, 1e4, 1e4])
+            p0 = [1e6, freq_guess, 1e-1, 1e-1]
+            bounds = ([0,freq_guess-res,1e-2, 1e-2], [1e10,freq_guess+res, 1e4, 1e4])
 
-    popt, pcov = curve_fit(psd_lorentzian, freqs[mask], avg[mask], p0=p0, bounds=bounds)
+            popt, pcov = curve_fit(psd_lorentzian, freqs[mask], avg[mask], p0=p0, bounds=bounds)
 
-    print(popt)
+            print(popt)
+   
+            label1 = r'$1/\tau$' +' = {} Hz'.format(popt[2].round(2))
+            label2 = r'a' + ' = {} Hz'.format(popt[3].round(2))
+            label3 = r'$\omega_{peak}$' + ' = {} radHz'.format(popt[1].round(2))
+
+            full = label1 + ', ' + label2 + ', ' + label3
+
+            x = np.linspace(freqs[mask][0], freqs[mask][-1], 10000)
+            plt.loglog(freqs, avg)
+            plt.loglog(x, psd_lorentzian(x, *popt),label=full)
+
+            leg = plt.legend()
+            leg.get_frame().set_linewidth(0.0)
+        else:
+            plt.loglog(freqs, avg)
+
+            leg = plt.legend()
+            leg.get_frame().set_linewidth(0.0)
+
+        plt.ylabel(r'PSD $[rad^{2}/Hz]$')
+        plt.xlabel('Frequency [Hz]')
+        plt.show()
     
-    label1 = r'$1/\tau$' +' = {} Hz'.format(popt[2].round(2))
-    label2 = r'a' + ' = {} Hz'.format(popt[3].round(2))
-    label3 = r'$\omega_{peak}$' + ' = {} radHz'.format(popt[1].round(2))
+    num_files = len(psds)
+    return freqs, avg, Ns, Fs, num_files, np.array(psds), std
 
-    full = label1 + ', ' + label2 + ', ' + label3
-
-    x = np.linspace(freqs[mask][0], freqs[mask][-1], 10000)
-    plt.loglog(freqs, avg)
-    plt.loglog(x, psd_lorentzian(x, *popt),label=full)
-
-    leg = plt.legend()
-    leg.get_frame().set_linewidth(0.0)
-    
-    plt.ylabel(r'PSD $[rad^{2}/Hz]$')
-    plt.xlabel('Frequency [Hz]')
-    plt.show()
-    
 def extract_libration_freq(obj):
     Ns = obj.attribs['nsamp']
     Fs = obj.attribs['fsamp']
@@ -323,17 +381,38 @@ def change_dg(obj):
     plt.show()
  
     
-
-
-pressures = np.zeros((len(files), 3))
-libration_freqs = np.zeros(len(files))
+folders.sort(key=lambda f: int(filter(str.isdigit,f)))
 
 if avg_psd:
-    files = files[:-(len(files)-num_files)]
-    print(files)
-    avg_phase_psd(files,num_files)
+    #for i in range(len(files)):
+    for i in range(len(folders)):
+        
+        print(folders[i])
+        files, zero = bu.find_all_fnames(folders[i], sort_time=True, ext='.h5')
+        meas_name = folders[i].split('/')[-1] 
+       
+        if ind == data_ind:
+            save_name = save_base_name + meas_name
+            print(save_name)
+        
+        elif ind == drive_ind:
+            save_name = save_base_name + meas_name + '_drive_psds'
+            print('drive_psds', save_name)
 
+        if not os.path.exists(save_name + '.npz') or overwrite:
+            
+            freqs, avgs, Ns, Fs, num_files, psds, std = avg_phase_psd(files)
+            
+            if save: 
+                np.savez(save_name, freqs=freqs, avgs=avgs, std=std, Ns=Ns, Fs=Fs, num_files=num_files, psds=psds)
+        else:
+            print(save_name + '.npz')
+            print('File exits. Skipping.')
+            continue
 if press_increase:
+    pressures = np.zeros((len(files), 3))
+    libration_freqs = np.zeros(len(files))
+
     for i in range(len(files)):
         obj = hd.hsDat(files[i])
         

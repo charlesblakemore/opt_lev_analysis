@@ -188,7 +188,7 @@ def make_all_pardirs(path):
 
 
 def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
-                    exclude_fpga=True, verbose=True):
+                    exclude_fpga=True, verbose=True, add_folders=False):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -207,17 +207,20 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
 
     lengths = []
     files = []
+    folders = []
 
     if type(dirlist) == str:
         dirlist = [dirlist]
         was_list = False
-
+    
     for dirname in dirlist:
         for root, dirnames, filenames in os.walk(dirname):
             for filename in fnmatch.filter(filenames, '*' + ext):
                 if ('_fpga.h5' in filename) and exclude_fpga:
                     continue
                 files.append(os.path.join(root, filename))
+            if add_folders:
+                folders.append(root)
         if was_list:
             if len(lengths) == 0:
                 lengths.append(len(files))
@@ -239,7 +242,11 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
     if was_list:
         return files, lengths
     else:
-        return files, 0
+        if add_folders:
+            return files, 0, folders
+        
+        else:
+            return files, 0
 
 
 
@@ -1043,7 +1050,74 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     return xyz_time, xyz, xy_2, xyz_fb, sync
 
+def extract_power(pow_dat, timestamp, verbose=False):
+    '''Reads a stream of I32s, finds the first timestamp,
+       then starts de-interleaving the demodulated data
+       from the FPGA'''
 
+    if timestamp == 0.0:
+        # if no timestamp given, use current time
+        # and set the timing threshold for 1 year.
+        # This threshold is used to identify the timestamp 
+        # in the stream of I32s
+        timestamp = time.time()
+        diff_thresh = 365.0 * 24.0 * 3600.0
+    else:
+        timestamp = timestamp * (10.0**(-9))
+        # 2-minute difference allowed for longer integrations
+        diff_thresh = 120.0
+
+    for ind, dat in enumerate(pow_dat):
+        # Assemble time stamp from successive I32s, since
+        # it's a 64 bit object
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.uint32(pow_dat[ind])
+            low = np.uint32(pow_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
+
+       # Time stamp from FPGA is a U64 with the UNIX epoch 
+        # time in nanoseconds, synced to the host's clock
+        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
+            if verbose:
+                print("found timestamp  : ", float(dattime) * 10**(-9))
+                print("comparison time  : ", timestamp)
+            break
+
+    # Once the timestamp has been found, select each dataset
+    # with the appropriate decimation of the primary array
+    pow_time_high = np.uint32(pow_dat[tind::3])
+    pow_time_low = np.uint32(pow_dat[tind+1::3])
+    if len(pow_time_low) != len(pow_time_high):
+        pow_time_high = pow_time_high[:-1]
+
+    pow_time = np.left_shift(pow_time_high.astype(np.uint64), np.uint64(32)) \
+                  + pow_time_low.astype(np.uint64)
+
+    power = pow_dat[tind+2::3]
+
+
+    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
+    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
+    #plt.show()
+
+    # Since the FIFO read request is asynchronous, sometimes
+    # the timestamp isn't first to come out, but the total amount of data
+    # read out is a multiple of 3 (2 time + power) so the power
+    # channel usually  ends up with less samples.
+    # The following is coded very generally
+
+    min_len = 10.0**9  # Assumes we never more than 1 billion samples
+    if len(power) < min_len:
+        min_len = len(power)
+
+    # Re-size everything by the minimum length and convert to numpy array
+    pow_time = np.array(pow_time[:min_len])
+    power = np.array(power)
+
+    return pow_time, power
 
 
 
@@ -1090,6 +1164,9 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
         quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
         xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+        if len(dat3):
+            pow_time, power = extract_power(dat3, timestamp, verbose=verbose)
+
     else:
         quad_time, amp, phase = (None, None, None)
         xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
@@ -1099,6 +1176,13 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
            'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
            'phase': phase, 'sync': sync}
 
+    if len(dat3):
+        out['pow_time'] = pow_time
+        out['power'] = power
+    else:
+        out['pow_time'] = np.zeros_like(xyz_time)
+        out['power'] = np.zeros_like(xyz[0])
+
     return out
 
 
@@ -1107,7 +1191,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
                             encode_len=500, plot_sync=False):
     '''Align the psuedo-random bits the DAQ card spits out to the FPGA
        to synchronize the acquisition of the FPGA.'''
-
     out = {}
     notNone = False
     for key in fpga_dat:
@@ -1115,7 +1198,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
             notNone = True
     if not notNone:
         return fpga_dat
-
     # Cutoff irrelevant zeros
     if len(encode_bin) < encode_len:
         encode_len = len(encode_bin)
@@ -1128,7 +1210,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
 
     #plt.plot(sync_dat)
     #plt.show()
-
     sync_dat = sync_dat[:len(encode_bin) * 10]
     sync_dat_bin = np.zeros(len(sync_dat)) + 1.0 * (np.array(sync_dat) > 0)
 
@@ -1170,5 +1251,9 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
     out['amp'] = fpga_dat['amp'][:,off_ind:off_ind+nsamp]
     out['phase'] = fpga_dat['phase'][:,off_ind:off_ind+nsamp]
 
+    out['pow_time'] = fpga_dat['pow_time'][off_ind:off_ind+nsamp]
+    out['power'] = fpga_dat['power'][off_ind:off_ind+nsamp]
     # return data in the same format as it was given
     return out
+
+

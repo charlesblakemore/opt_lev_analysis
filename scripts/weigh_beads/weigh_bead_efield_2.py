@@ -157,12 +157,18 @@ file_dict = {'20190514': (False, arr)}
 arr = []
 arr.append('/data/old_trap/20190626/bead1/weigh/lowp_neg_8Vpp')
 
-file_dict = {'20190626': (False, arr)}
+file_dict = {'20190626': (True, arr)}
 
 arr = []
 arr.append('/data/old_trap/20191105/bead4/weigh/lowp_neg_3Vpp')
 
 file_dict = {'20191105': (True, arr)}
+
+arr = []
+arr.append('/data/old_trap/20191204/bead1/weigh/')
+
+file_dict = {'20191204': (True, arr)}
+
 # Noise data
 #chopper = True
 noise = False
@@ -277,7 +283,7 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
         try:
             df.load(fil, load_other=True)
         except Exception as e:
-            #print(e)
+            print(e)
             continue
 
         df.calibrate_stage_position()

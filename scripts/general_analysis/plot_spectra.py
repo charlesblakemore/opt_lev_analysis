@@ -94,11 +94,10 @@ allfiles = ['/data/old_trap/20191204/bead1/1_5mbar_powfb_init.h5',\
             '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower.h5',\
             '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
             '/data/old_trap/20191204/bead1/1_5mbar_powfb_xzcool.h5']
-allfiles = ['/data/old_trap/20191204/bead1/1_5mbar_powfb_xzcool_1.h5',\
-            '/data/old_trap/20191204/bead1/1_5mbar_powfb_yzcool_pos.h5',\
-            '/data/old_trap/20191204/bead1/1_5mbar_powfb_yzcool_neg.h5'
-            ]#'/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_1.h5',\
-            #'/data/old_trap/20191204/bead1/1_5mbar_powfb_yzcool.h5']
+allfiles = ['/data/old_trap/20191223/bead1/1_5mbar_powfb_zcool_higher.h5',\
+            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xyzcool.h5',\
+            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xyzcool_higher.h5']
 #allfiles = ['/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5',\
 #            '/data/old_trap/20191017/bead1/1_5mbar_powfb_xzcool.h5',\
 #            '/data/old_trap/20191017/bead1/1_5mbar_powfb_yzcool.h5']

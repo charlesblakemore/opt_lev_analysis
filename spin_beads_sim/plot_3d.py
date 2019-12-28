@@ -2,13 +2,26 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import animation
 from mpl_toolkits.mplot3d import Axes3D
+import bead_util as bu
+import hs_digitizer as hd
 
 filepath = '/home/dmartin/Desktop/simulations/libration_3/slow_rot_field/16.5e3Vm_data.npy'
 #filepath = '/home/dmartin/Desktop/simulations/libration_2/33e3Vm_5k_data.npy'
 
+filepath = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191210/tests/dds_output_34/turbombar_powfb_xyzcool_25kHz_Vpp_0.h5'
 
-frames = 10000
-interval = 1
+obj = hd.hsDat(filepath)
+
+Ns = obj.attribs['nsamp']
+Fs = obj.attribs['fsamp']
+
+x = obj.dat[:,0]
+y = obj.dat[:,1]
+
+
+
+frames = 100
+interval = 0.0016
 
 start = 0
 stop = 1000
@@ -85,50 +98,58 @@ def plotter(t,frames, interval,arr, arr1 = []):
     plt.show()
 
 
-data = np.load(filepath)
+#data = np.load(filepath)
+#
+#time = data[:,0]
+#
+#time = time[start:stop]
+#
+#efieldx = data[:,-3]
+#efieldy = data[:,-2]
+#efieldz = data[:,-1]
+#
+#px = data[:,-6]
+#py = data[:,-5]
+#pz = data[:,-4]
+#
+#px = px[start:stop]
+#py = py[start:stop]
+#pz = pz[start:stop]
+#
+#p = [px,py,pz]
+#
+#efieldx = data[:,-3]
+#efieldy = data[:,-2]
+#efieldz = data[:,-1]
+#
+#efieldx = efieldx[start:stop]
+#efieldy = efieldy[start:stop]
+#efieldz = efieldz[start:stop]
+#
+#efield = [efieldx, efieldy, efieldz]
+#
+#
+#px = 0.2*np.cos(2 * np.pi * 200 * time + 0.8* 0.5*np.pi*np.sin(2*np.pi * 50*time ))
+#py = 0.2*np.sin(2 * np.pi * 200 * time + 0.8* 0.5*np.pi*np.sin(2*np.pi * 50*time ))
+#pz = np.zeros_like(px)
+#
+#fft = np.fft.rfft(px)
+#freqs = np.fft.rfftfreq(len(px), time[1]-time[0])
+#
+#plt.plot(freqs, np.abs(fft))
+#plt.show()
+#
+#plt.plot(time, px)
+#plt.plot(time, py)
+#plt.show()
+#
+#p = [px,py,0*pz]
+scale = 0.1
 
-time = data[:,0]
-
-time = time[start:stop]
-
-efieldx = data[:,-3]
-efieldy = data[:,-2]
-efieldz = data[:,-1]
-
-px = data[:,-6]
-py = data[:,-5]
-pz = data[:,-4]
-
-px = px[start:stop]
-py = py[start:stop]
-pz = pz[start:stop]
-
-p = [px,py,pz]
-
-efieldx = data[:,-3]
-efieldy = data[:,-2]
-efieldz = data[:,-1]
-
-efieldx = efieldx[start:stop]
-efieldy = efieldy[start:stop]
-efieldz = efieldz[start:stop]
-
-efield = [efieldx, efieldy, efieldz]
-
-
-px = 0.2*np.cos(2 * np.pi * 200 * time + 0.8* 0.5*np.pi*np.sin(2*np.pi * 50*time ))
-py = 0.2*np.sin(2 * np.pi * 200 * time + 0.8* 0.5*np.pi*np.sin(2*np.pi * 50*time ))
-pz = np.zeros_like(px)
-
-fft = np.fft.rfft(px)
-freqs = np.fft.rfftfreq(len(px), time[1]-time[0])
-
-plt.plot(freqs, np.abs(fft))
+time = np.arange(Ns)/Fs
+p = [scale*x[0:500],scale*y[0:500],0]
+plt.plot(time[0:500],scale*x[0:500])
+plt.plot(time[0:500],scale*y[0:500])
 plt.show()
 
-plt.plot(time, px)
-plt.plot(time, py)
-plt.show()
-
-p = [px,py,0*pz]
-plotter(time, frames, interval, p)
+plotter(time[0:500], frames, interval, p)
