@@ -525,7 +525,7 @@ class FileData:
             df.calibrate_stage_position()
             df.diagonalize(date=tfdate, maxfreq=tophatf, \
                             step_cal_drive_freq=step_cal_drive_freq, \
-                            plot=True)#plot_tf)
+                            plot=plot_tf)
 
             self.xy_tf_res_freqs = df.xy_tf_res_freqs
 
@@ -809,6 +809,14 @@ class AggregateData:
                 print('FOUND BADDIE: ')
                 print(name)
                 #new_obj.load_position_and_bias(dim3=dim3)
+                continue
+
+            no_drive = [0, 0, 0]
+            for i in range(3):
+                if np.std(new_obj.df.cant_data[i]) > 10.0:
+                    no_drive[i] = 1
+            if not np.sum(no_drive):
+                print('Bad attractor data')
                 continue
                 
             if not reload_dat and not new_obj.badfile:

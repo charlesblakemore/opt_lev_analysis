@@ -557,7 +557,7 @@ class DataFile:
 
 
 
-    def get_cant_drive_ax(self):
+    def get_cant_drive_ax(self, plot=True, verbose=False):
         '''Determine the index of cant_data with the largest drive voltage,
            which is either exrtacted from stage setting or determined
            from the RMS of the stage monitor.
@@ -574,12 +574,17 @@ class DataFile:
         #     print "No data loaded..."
         #     return 
 
+        # for i in range(3):
+        #     plt.plot(self.cant_data[i])
+        # plt.show()
+
         for ind, key in enumerate(['x driven','y driven','z driven']):
             try:
                 if self.stage_settings[key]:
                     driven[ind] = 1
             except Exception:
-                traceback.print_exc()
+                if verbose:
+                    traceback.print_exc()
                 pass
 
         if np.sum(driven) > 1:
@@ -1057,7 +1062,11 @@ class DataFile:
         self.conv_facs = conv_facs
 
         # Compute the FFT, apply the TF and inverse FFT
-        data_fft = np.fft.rfft(self.pos_data)
+        if self.new_trap:
+            data = self.pos_data_3
+        else:
+            data = self.pos_data
+        data_fft = np.fft.rfft(data)
         diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
 
 

@@ -70,6 +70,23 @@ E_left   = interp.interp1d(e_left_dat[1],  e_left_dat[-1])
 E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
 E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
 
+
+
+
+e_xp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-x_+x-elec-1V_x-axis.txt'), comments='%').transpose()
+e_xn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-x_-x-elec-1V_x-axis.txt'), comments='%').transpose()
+e_yp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-y_+y-elec-1V_y-axis.txt'), comments='%').transpose()
+e_yn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-y_-y-elec-1V_y-axis.txt'), comments='%').transpose()
+e_zp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-z_+z-elec-1V_z-axis.txt'), comments='%').transpose()
+e_zn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-z_-z-elec-1V_z-axis.txt'), comments='%').transpose()
+
+E_xp  = interp.interp1d(e_xp_dat[0], e_xp_dat[-1])
+E_xn  = interp.interp1d(e_xn_dat[0], e_xn_dat[-1])
+E_yp  = interp.interp1d(e_yp_dat[1], e_yp_dat[-1])
+E_yn  = interp.interp1d(e_yn_dat[1], e_yn_dat[-1])
+E_zp  = interp.interp1d(e_zp_dat[2], e_zp_dat[-1])
+E_zn  = interp.interp1d(e_zn_dat[2], e_zn_dat[-1])
+
 # plt.figure()
 # plt.plot(e_front_dat[0], e_front_dat[-1])
 # plt.plot(e_back_dat[0], e_back_dat[-1])
@@ -949,7 +966,8 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
 
-def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
+def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
+                new_trap=False):
     '''Using output of 4/2/19 COMSOL simulation, return
        the value of the electric field at the trap based
        on the applied voltages on each electrode and the
@@ -962,8 +980,11 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
     else:
         if only_y or only_z:
             Ex = np.zeros(nsamp)
-        else:   
-            Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+        else:
+            if new_trap:
+                Ex = voltages[3] * E_xp(0.0) + voltages[4] * E_xn(0.0)
+            else:   
+                Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
             # plt.plot(voltages[3], label='3')
             # plt.plot(voltages[4], label='4')
             # plt.legend()
@@ -972,7 +993,10 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
         if only_x or only_z:
             Ey = np.zeros(nsamp)
         else:
-            Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+            if new_trap:
+                Ey = voltages[5] * E_yp(0.0) + voltages[6] * E_yn(0.0)
+            else:
+                Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
             # plt.plot(voltages[5], label='5')
             # plt.plot(voltages[6], label='6')
             # plt.legend()
@@ -981,13 +1005,20 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
         if only_y or only_z:
             Ez = np.zeros(nsamp)
         else:
-            Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+            if new_trap:
+                Ez = voltages[1] * E_zp(0.0)   + voltages[2] * E_zn(0.0)
+            else:
+                Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
             # plt.plot(voltages[1], label='1')
             # plt.plot(voltages[2], label='2')
             # plt.legend()
             # plt.show()
 
-        return np.array([Ex, Ey, Ez])    
+        return np.array([Ex, Ey, Ez])   
+
+
+
+
 
 
 

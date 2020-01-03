@@ -110,7 +110,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             pcol = config.elec_map[ecol]
 
         #drive = file_obj.electrode_data[ecol]
-        efield = bu.trap_efield(file_obj.electrode_data)
+        efield = bu.trap_efield(file_obj.electrode_data, new_trap=new_trap)
         drive = efield[pcol]
         #drive = efield[ecol]
 
@@ -119,7 +119,8 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         v3 = file_obj.other_data[tabor_ind]
         v4 = file_obj.other_data[tabor_ind+1]
         zeros = np.zeros(len(v3))
-        drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros])[pcol]
+        drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros], \
+                                new_trap=new_trap)[pcol]
 
     try:
         power = np.mean(file_obj.other_data[0])

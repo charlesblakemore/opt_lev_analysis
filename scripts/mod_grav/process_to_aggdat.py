@@ -40,7 +40,7 @@ redo_alphafit = False
 save = False
 plot_end_result = True
 
-plot_harms = True
+plot_harms = False
 plot_basis = True
 plot_alpha_xyz = True
 
@@ -91,9 +91,9 @@ for ddir in data_dirs:
         agg_dat.bin_rough_stage_positions()
         #agg_dat.average_resp_by_coordinate()
 
-        #agg_dat.plot_force_plane(resp=0, fig_ind=1, show=False)
-        #agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)
-        #agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
+        agg_dat.plot_force_plane(resp=0, fig_ind=1, show=False)
+        agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)
+        agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
 
         agg_dat.find_alpha_xyz_from_templates(plot=plot_alpha_xyz, plot_basis=plot_basis)
 

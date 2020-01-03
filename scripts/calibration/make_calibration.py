@@ -146,7 +146,7 @@ tf_date = step_date
 
 plot_Hfunc = True
 plot_without_fits = False
-interpolate = True
+interpolate = False
 save = True
 save_charge = False
 
