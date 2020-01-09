@@ -79,6 +79,7 @@ stage_cal = 8.0 # um/V
 # From calibration taken by AFieguth, sometime late 2019
 # volt_mon = [-0.007, 4.968, 9.91], pos_setting = [0, 250, 500]
 stage_cal_new = 50.42 # um/V, with ~0.077 um offset
+stage_cal_new_z = 10.0
 
 
 #Stage keys that get calibrated by the stage_cal:

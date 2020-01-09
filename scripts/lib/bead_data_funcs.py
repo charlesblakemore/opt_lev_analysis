@@ -147,17 +147,26 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
 
 def get_hdf5_time(fname):
     try:
-        # f = h5py.File(fname,'r')
-        # dset = f['beads/data/pos_data']
-        # attribs = copy_attribs(dset.attrs)
-        # f.close()
-        attribs = load_xml_attribs(fname)
+        try:
+            f = h5py.File(fname,'r')
+            attribs = copy_attribs(f.attrs)
+            f.close()
+        except:
+            attribs = load_xml_attribs(fname)
 
-    except (KeyError, IOError):
+    except Exception:
         # print "Warning, got no keys for: ", fname
         attribs = {}
 
-    return attribs["time"]
+    print(attribs)
+    input()
+
+    try:
+        file_time = attribs["time"]
+    except:
+        file_time = attribs["Time"]
+
+    return file_time
 
 
 

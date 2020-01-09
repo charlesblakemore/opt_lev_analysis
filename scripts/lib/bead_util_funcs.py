@@ -21,7 +21,7 @@ import transfer_func_util as tf
 
 import warnings
 
-
+from bead_data_funcs import get_hdf5_time
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -278,7 +278,7 @@ def make_all_pardirs(path):
 
 
 def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
-                    exclude_fpga=True, verbose=True):
+                    exclude_fpga=True, verbose=True, substr=''):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -307,6 +307,9 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
             for filename in fnmatch.filter(filenames, '*' + ext):
                 if ('_fpga.h5' in filename) and exclude_fpga:
                     continue
+                if substr:
+                    if substr not in filename:
+                        continue
                 files.append(os.path.join(root, filename))
         if was_list:
             if len(lengths) == 0:

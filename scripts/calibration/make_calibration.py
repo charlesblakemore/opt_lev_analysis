@@ -87,6 +87,11 @@ first_file = 0
 
 step_cal_dir = ['/data/new_trap/20191204/Bead1/Discharge/']
 first_file = 60
+
+step_cal_dir = ['/data/new_trap/20191215/Bead1/Discharge/']
+first_file = 250
+
+
 elec_channel_select = 1
 
 
@@ -137,7 +142,7 @@ vpn = 7.1126e17
 tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
 
 tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
-
+tf_cal_dir = '/data/new_trap/20191215/Bead1/TransFunc/'
 
 
 tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]

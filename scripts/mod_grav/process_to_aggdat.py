@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore")
 
 
 
+
 theory_data_dir = '/data/old_trap/grav_sim_data/2um_spacing_data/'
 
 data_dirs = ['/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
@@ -33,34 +34,39 @@ data_dirs = ['/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_1
 data_dirs = ['/data/new_trap/20191204/Bead1/Shaking/Shaking370/']
 new_trap = True
 
+#substr = ''
+substr = 'Shaking4'
 
-Nfiles = 100
+Nfiles = 1000
 
-redo_alphafit = False
-save = False
+reprocess = True
+save = True
 plot_end_result = True
 
 plot_harms = False
-plot_basis = True
-plot_alpha_xyz = True
+plot_basis = False
+plot_alpha_xyz = False
 
 save_hists = False
 
+# Position of bead relative to attractor AT FULLEST EXTENT OF ATTRACTOR
+# Thus for new trap data where the bead is usually within the range of 
+# x-axis, this number can be negative
 p0_bead_dict = {'20180625': [19.0,40.0,20.0], \
                 '20180704': [18.7,40.0,20.0], \
                 '20180808': [18.0,40.0,20.0] \
                 }
 
-
-p0_bead_dict = {'20191204': [385.0, 200.0, 29.0], \
+p0_bead_dict = {#'20191204': [385.0, 200.0, 29.0], \
+                '20191204': [-115.0, 200.0, 29.0],
                 }
-
-new_trap = True
 
 harms = [1,2,3,4,5,6]
 
 #opt_ext = 'TEST'
 opt_ext = '_6harm-full'
+if len(substr):
+    opt_ext += '_{:s}'.format(substr)
 
 
 for ddir in data_dirs:
@@ -69,12 +75,18 @@ for ddir in data_dirs:
     #    continue
     print()
 
-    paths = gu.build_paths(ddir, opt_ext)
+    paths = gu.build_paths(ddir, opt_ext, new_trap=new_trap)
     agg_path = paths['agg_path']
     p0_bead = p0_bead_dict[paths['date']]
 
-    if not redo_alphafit:
-        datafiles, lengths = bu.find_all_fnames(ddir, ext=config.extensions['data'])[:Nfiles]
+    if save:
+        bu.make_all_pardirs(agg_path)
+
+
+    if reprocess:
+        datafiles, lengths = bu.find_all_fnames(ddir, ext=config.extensions['data'], \
+                                                substr=substr)
+        datafiles = datafiles[:Nfiles]
 
         agg_dat = gu.AggregateData(datafiles, p0_bead=p0_bead, harms=harms, reload_dat=True, \
                                    plot_harm_extraction=plot_harms, new_trap=new_trap, \
@@ -110,13 +122,22 @@ for ddir in data_dirs:
 
 
     else:
-        agg_dat = gu.AggregateData([], p0_bead=p0_bead, harms=harms)
+        agg_dat = gu.AggregateData([], p0_bead=p0_bead, harms=harms, new_trap=new_trap)
         agg_dat.load(agg_path)
 
         agg_dat.bin_rough_stage_positions()
         #agg_dat.average_resp_by_coordinate()
 
-        agg_dat.find_alpha_xyz_from_templates(plot=False, plot_basis=False)
+        #agg_dat.plot_force_plane(resp=0, fig_ind=1, show=False)
+        #agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)
+        #agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
+
+        agg_dat.find_alpha_xyz_from_templates(plot=plot_alpha_xyz, plot_basis=plot_basis)
+        # agg_dat.plot_alpha_xyz_dict(k=0)
+        # agg_dat.plot_alpha_xyz_dict(k=1)
+        # agg_dat.plot_alpha_xyz_dict(k=2)
+        # agg_dat.plot_alpha_xyz_dict(lambind=10)
+        # agg_dat.plot_alpha_xyz_dict(lambind=50)
 
         if save:
             agg_dat.save(agg_path)
@@ -125,7 +146,8 @@ for ddir in data_dirs:
         agg_dat.reload_grav_funcs()
         #agg_dat.plot_alpha_xyz_dict(resp=2, lambind=35)
 
-        hist_prefix = date + '_' + parts[-1] + opt_ext + '_'
+        date = paths['date']
+        hist_prefix = date + '_' + paths['name'] + opt_ext + '_'
         hist_info = {'date': date, 'prefix': hist_prefix}
 
         agg_dat.fit_alpha_xyz_vs_alldim(weight_planar=True, plot=plot_alpha_xyz, \
@@ -138,7 +160,7 @@ for ddir in data_dirs:
 
 
 
-        if plot:
+        if plot_end_result:
             alpha_w = np.sum(alpha_arr[:,0:2,:,0]*alpha_arr[:,0:2,:,1]**(-2), axis=1) / \
                       np.sum(alpha_arr[:,0:2,:,1]**(-2), axis=1)
 
@@ -169,6 +191,7 @@ for ddir in data_dirs:
             plt.ylabel('Strength: |$\\alpha$| [arb]')
             plt.legend()
             plt.grid()
+            plt.tight_layout()
             plt.show()
         
 

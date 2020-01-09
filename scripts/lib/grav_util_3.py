@@ -1,4 +1,4 @@
-import sys, time, itertools, copy, re
+import os, sys, time, itertools, copy, re
 
 import dill as pickle
 
@@ -22,9 +22,15 @@ import transfer_func_util as tf
 import configuration as config
 import pandas as pd
 
+from tqdm import tqdm
+from joblib import Parallel, delayed
+
 import warnings
 warnings.filterwarnings("ignore")
 
+
+#ncore = 24
+ncore = 24
 
 ### Current constraints
 
@@ -51,7 +57,7 @@ ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 
 
 
-def build_paths(dir, opt_ext=''):
+def build_paths(dir, opt_ext='', new_trap=False):
     date = re.search(r"\d{8,}", dir)[0]
     parts = dir.split('/')
 
@@ -59,14 +65,32 @@ def build_paths(dir, opt_ext=''):
     if nobead:
         opt_ext += '_NO-BEAD'
 
-    agg_path = '/data/old_trap_processed/aggdat/' + date + '_' + parts[-1] + opt_ext + '.agg'
-    alpha_dict_path = '/data/old_trap_processed/alpha_dicts/' + date + '_' + parts[-1] + opt_ext + '.dict'
-    alpha_arr_path = '/data/old_trap_processed/alpha_arrs/' + date + '_' + parts[-1] + opt_ext + '.arr'
+    newstr = 'old'
+    if new_trap:
+        newstr = 'new'
+
+    if not len(parts[-1]):
+        name = parts[-2]
+    else:
+        name = parts[-1]
+
+    agg_path = '/data/{:s}_trap_processed/aggdat/'.format(newstr) \
+                    + date + '_' + name + opt_ext + '.agg'
+    alpha_dict_path = '/data/{:s}_trap_processed/alpha_dicts/'.format(newstr) \
+                        + date + '_' + name + opt_ext + '.dict'
+    alpha_arr_path = '/data/{:s}_trap_processed/alpha_arrs/'.format(newstr) \
+                        + date + '_' + name + opt_ext + '.arr'
+    plot_dir = '/home/cblakemore/plots/{:s}/mod_grav/'.format(date)
+    if len(opt_ext):
+        plot_dir = os.path.join(plot_dir, opt_ext)
+        if plot_dir[-1] != '/':
+            plot_dir += '/'
 
     return {'agg_path': agg_path, \
             'alpha_dict_path': alpha_dict_path, \
             'alpha_arr_path': alpha_arr_path, \
-            'date': date}
+            'date': date, \
+            'name': name}
 
 
 
@@ -469,6 +493,11 @@ def build_mod_grav_funcs(theory_data_dir):
     ylim = (np.min(ypos), np.max(ypos))
     zlim = (np.min(zpos), np.max(zpos))
 
+    # print('Lims')
+    # print(xlim)
+    # print(ylim)
+    # print(zlim)
+
     ### Build interpolating functions for regular gravity
     gfuncs = [0,0,0]
     for resp in [0,1,2]:
@@ -503,6 +532,11 @@ class FileData:
                     step_cal_drive_freq=41.0, new_trap=False, empty=False):
         '''Load an hdf5 file into a bead_util.DataFile obj. Calibrate the stage position.
            Calibrate the microsphere response with th transfer function.'''
+
+        if new_trap:
+            self.new_trap = True
+        else:
+            self.new_trap = False
 
         if empty:
             self.empty = True
@@ -543,7 +577,12 @@ class FileData:
 
 
 
-    def rebuild_drive(self, mean_pos=40.0):
+    def rebuild_drive(self):
+
+        if self.new_trap:
+            mean_pos = 250.0
+        else:
+            mean_pos = 40.0
 
         ## Transform ginds array to array of indices for drive freq
         #temp_inds = np.array(range(int(self.nsamp*0.5) + 1))
@@ -557,7 +596,7 @@ class FileData:
             full_drive_fft[freq_ind] = self.drivefft[ind]
         drivevec = np.fft.irfft(full_drive_fft)
 
-        return drivevec + mean_pos
+        return drivevec + self.meandrive
 
 
 
@@ -603,6 +642,7 @@ class FileData:
         self.noisefft = fftdat['noiseffts']
 
         self.drivefft = fftdat['driveffts']
+        self.meandrive = fftdat['meandrive']
 
         ### Get the binned data and calibrate the non-diagonalized part
         self.df.get_force_v_pos(elec_drive=elec_drive, maxfreq=maxfreq, \
@@ -627,7 +667,6 @@ class FileData:
             maxdrive = np.max(self.df.cant_data[self.drive_ind])
 
         self.posvec = np.linspace(mindrive, maxdrive, npos)
-
 
         if find_xy_resonance:
             # Assumes you were driving two tones on the electrode drive
@@ -695,8 +734,14 @@ class FileData:
 
 
 
-    def generate_pts(self, p0, attractor_travel = 80.):
+    def generate_pts(self, p0):
         '''generates pts arry for determining gravitational template.'''
+
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
         xpos = p0[0] + (attractor_travel - self.ax0pos)
         height = self.ax1pos - p0[2]
             
@@ -774,6 +819,11 @@ class AggregateData:
                  dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
                  tfdate='', step_cal_drive_freq=41.0, new_trap=False):
         
+        if new_trap:
+            self.new_trap = True
+        else:
+            self.new_trap = False
+
         self.fnames = fnames
         self.p0_bead = p0_bead
         self.file_data_objs = []
@@ -784,22 +834,27 @@ class AggregateData:
         per = 0
         times = []
 
-        suff = 'Processing %i files' % Nnames
-        for name_ind, name in enumerate(self.fnames):
 
-            ### Stuff for printing an ETA with the progress bar
-            new_per = int( np.floor( 100.0 * float(name_ind) / float(Nnames) ) )
-            if new_per != per:
-                ctime = time.time()
-                per_time = ctime - old_time
-                times.append(per_time)
-                old_time = ctime
-                eta = np.mean(times) * (100.0 - new_per) * (1.0 / 60.0)
-                per = new_per
-                suff = 'Minutes remaining: %0.1f' % eta
 
-            bu.progress_bar(name_ind, Nnames, suffix=suff)
+        # suff = 'Processing %i files' % Nnames
+        # for name_ind, name in enumerate(self.fnames):
 
+        #     ### Stuff for printing an ETA with the progress bar
+        #     new_per = int( np.floor( 100.0 * float(name_ind) / float(Nnames) ) )
+        #     if new_per != per:
+        #         ctime = time.time()
+        #         per_time = ctime - old_time
+        #         times.append(per_time)
+        #         old_time = ctime
+        #         eta = np.mean(times) * (100.0 - new_per) * (1.0 / 60.0)
+        #         per = new_per
+        #         suff = 'Minutes remaining: %0.1f' % eta
+
+        #     bu.progress_bar(name_ind, Nnames, suffix=suff)
+
+
+
+        def process_file(name):
 
             # Initialize FileData obj, extract the data, then close the big file
             new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap, \
@@ -809,7 +864,7 @@ class AggregateData:
                 print('FOUND BADDIE: ')
                 print(name)
                 #new_obj.load_position_and_bias(dim3=dim3)
-                continue
+                return
 
             no_drive = [0, 0, 0]
             for i in range(3):
@@ -817,7 +872,7 @@ class AggregateData:
                     no_drive[i] = 1
             if not np.sum(no_drive):
                 print('Bad attractor data')
-                continue
+                return
                 
             if not reload_dat and not new_obj.badfile:
                 new_obj.load()
@@ -832,7 +887,11 @@ class AggregateData:
 
             new_obj.save(verbose=False)
 
-            self.file_data_objs.append(new_obj)
+            return new_obj
+            #self.file_data_objs.append(new_obj)
+
+        file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) for name in tqdm(self.fnames))
+        self.file_data_objs = file_data_objs
 
         self.grav_loaded = False
 
@@ -889,6 +948,9 @@ class AggregateData:
 
 
     def load(self, loadpath):
+
+        new_p0 = self.p0_bead
+
         parts = loadpath.split('.')
         if len(parts) > 2:
             print("Bad file name... too many periods/extensions")
@@ -901,6 +963,8 @@ class AggregateData:
                 loadpath = parts[0] + '.agg'
             old_class = pickle.load( open(loadpath, 'rb') )
             self.__dict__.update(old_class.__dict__)
+            self.p0_bead = new_p0
+
             print('Done!')
 
 
@@ -960,8 +1024,13 @@ class AggregateData:
 
     def make_templates(self, posvec, drivevec, ax0pos, ax1pos, ginds, \
                        single_lambda=False, single_lambind=0):
-        
-        xpos = self.p0_bead[0] + (80 - ax0pos)
+
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
+        xpos = self.p0_bead[0] + (attractor_travel - ax0pos)
         height = ax1pos - self.p0_bead[2]
         posvec = posvec - self.p0_bead[1]
         drivevec = drivevec - self.p0_bead[1]
@@ -995,9 +1064,13 @@ class AggregateData:
                 gforcet = gforce_func(drivevec)
                 gfft[resp] = np.fft.rfft(gforcet)[ginds]
             except Exception:
-                print(xpos)
-                print(height)
+                print("Can't make template from attractor drive...")
+                print('  xpos: ', xpos)
+                print('height: ', height)
                 plt.plot(drivevec)
+                plt.ylabel('Drivevec [um]')
+                plt.xlabel('Sample number')
+                plt.tight_layout()
                 plt.show()
 
         gfft = np.array(gfft)
@@ -1244,20 +1317,20 @@ class AggregateData:
             self.ax2vec = ax2vec
         self.agg_dict = agg_dict
 
-        '''
-        print 'Bin vecs'
-        print ax0vec
-        print ax1vec
-        print ax2vec
+        
+        # print('Bin vecs')
+        # print(ax0vec)
+        # print(ax1vec)
+        # print(ax2vec)
 
-        print
-        print 'key vecs'
-        print np.sort(agg_dict[biasvec[0]].keys())
-        print np.sort(agg_dict[biasvec[0]][ax0vec[0]].keys())
-        print np.sort(agg_dict[biasvec[0]][ax0vec[0]][ax1vec[0]].keys())
+        # print()
+        # print('key vecs')
+        # print(np.sort(agg_dict[biasvec[0]].keys()))
+        # print(np.sort(agg_dict[biasvec[0]][ax0vec[0]].keys()))
+        # print(np.sort(agg_dict[biasvec[0]][ax0vec[0]][ax1vec[0]].keys()))
 
-        raw_input()
-        '''
+        # raw_input()
+        
 
 
     def get_max_files(self, dim3=False, bad_axkeys=[[], [], []]):
@@ -1380,14 +1453,19 @@ class AggregateData:
 
 
     def make_ax_arrs(self, dim3=False):
+    
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
 
         if dim3:
             ### Assume separations are encoded in ax0 and heights in ax1
-            seps = 80 + self.p0_bead[0] - np.array(self.ax0vec)
+            seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
             ypos = self.p0_bead[1] - np.array(self.ax1vec)
             heights = self.p0_bead[2] - np.array(self.ax2vec) 
         else:
-            seps = 80 + self.p0_bead[0] - np.array(self.ax0vec)
+            seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
             heights = self.p0_bead[2] - np.array(self.ax1vec) 
             
         
@@ -1417,6 +1495,11 @@ class AggregateData:
         '''Once data has been binned, average together the response and drive
            for every file at a given (height, sep)'''
     
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
         avg_dict = {}
         for bias in list(self.agg_dict.keys()):
             avg_dict[bias] = {}
@@ -1461,7 +1544,7 @@ class AggregateData:
                     self.nsamp = obj.nsamp
                     self.fsamp = obj.fsamp
 
-                xpos += filfac * (self.p0_bead[0] + (80 - obj.ax0pos))
+                xpos += filfac * (self.p0_bead[0] + (attractor_travel - obj.ax0pos))
                 height += filfac * (obj.ax1pos - self.p0_bead[2])
 
                 if not len(old_ginds):
@@ -1542,11 +1625,13 @@ class AggregateData:
 
             file_data_objs = self.agg_dict[bias][ax0][ax1]
 
-            j = 0
-            totlen_2 = len(file_data_objs) * len(self.lambdas)
-            for objind, obj in enumerate(file_data_objs):
-                
-                alpha_xyz_dict[bias][ax0][ax1].append([])
+            # j = 0
+            # totlen_2 = len(file_data_objs) * len(self.lambdas)
+            # for objind, obj in enumerate(file_data_objs):
+            def process_file_data(obj):
+
+                # alpha_xyz_dict[bias][ax0][ax1].append([])
+                out_list = []
 
                 drivevec = obj.rebuild_drive()
                 posvec = obj.posvec
@@ -1554,12 +1639,15 @@ class AggregateData:
                 daterr = obj.daterr
                 binned = obj.binned
 
+                # print(np.min(posvec), np.max(posvec))
+                # print(np.min(drivevec), np.max(drivevec))
+                # input()
 
                 ## Loop over lambdas and do the template analysis for each value of lambda
                 for lambind, yuklambda in enumerate(self.lambdas):
                     ### Progress bar shit
-                    bu.progress_bar(j, totlen_2, suffix=suff, newline=newline)
-                    j += 1
+                    # bu.progress_bar(j, totlen_2, suffix=suff, newline=newline)
+                    # j += 1
     
                     amps = [[], [], []]
                     errs = [[], [], []]
@@ -1615,7 +1703,14 @@ class AggregateData:
                     if plot and i == 1:
                         plt.show()
 
-                    alpha_xyz_dict[bias][ax0][ax1][objind].append([amps, errs, sig_amps])
+                    # alpha_xyz_dict[bias][ax0][ax1][objind].append([amps, errs, sig_amps])
+                    out_list.append([amps, errs, sig_amps])
+
+                return out_list
+
+            results = Parallel(n_jobs=ncore)(delayed(process_file_data)(obj) \
+                                                    for obj in tqdm(file_data_objs))
+            alpha_xyz_dict[bias][ax0][ax1] = results
 
         #derp_sep_g, derp_height_g = np.meshgrid(derp_sep, derp_height, indexing='ij')
         #
@@ -1646,12 +1741,17 @@ class AggregateData:
 
     
     def plot_alpha_xyz_dict(self, resp=0, k=0, nobjs=1e9, lambind=0):
+    
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
 
         self.get_max_files()
         ngrids = int( np.min([self.max_files, nobjs]) )
 
         ### Assume separations are encoded in ax0 and heights in ax1
-        seps = 80 + self.p0_bead[0] - np.array(self.ax0vec)
+        seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
         heights = self.p0_bead[2] - np.array(self.ax1vec) 
         
         ### Sort the heights and separations and build a grid
@@ -1704,9 +1804,14 @@ class AggregateData:
 
         self.get_max_files()
         ngrids = int( np.min([self.max_files, nobjs]) )
+    
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
 
         ### Assume separations are encoded in ax0 and heights in ax1
-        seps = 80 + self.p0_bead[0] - np.array(self.ax0vec)
+        seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
         heights = self.p0_bead[2] - np.array(self.ax1vec) 
         
         ### Sort the heights and separations and build a grid
@@ -1753,6 +1858,13 @@ class AggregateData:
         ax.set_xlabel('X-separation [um]')
         ax.set_ylabel('Z-position [um]')
         ax.set_zlabel('%s RMS [N]' % ax_dict[resp])
+        ax.xaxis._axinfo['label']['space_factor'] = 2.0
+        ax.xaxis.labelpad = 30
+        ax.yaxis._axinfo['label']['space_factor'] = 2.0
+        ax.yaxis.labelpad = 30
+        ax.zaxis._axinfo['label']['space_factor'] = 2.0
+        ax.zaxis.labelpad = 30
+        fig.tight_layout()
 
         if show:
             plt.show()
@@ -1980,12 +2092,17 @@ class AggregateData:
             except Exception:
                 print('No grav funcs... Tried to reload but no filename')
 
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
         alpha_xyz_best_fit = [[[[] for k in range(2 * len(self.ginds))] \
                                     for resp in [0,1,2]] \
                                    for yuklambda in self.lambdas]
 
         ### Assume separations are encoded in ax0 and heights in ax1
-        seps = 80 + self.p0_bead[0] - np.array(self.ax0vec)
+        seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
         heights = self.p0_bead[2] - np.array(self.ax1vec) 
         
         ### Sort the heights and separations and build a grid
@@ -2097,7 +2214,7 @@ class AggregateData:
                                 cost += np.sum( diff**2 / var )
                                 N += diff.size
                             if Ndof:
-                                cost *= (1.0 / float(N))
+                                cost *= (1.0 / float(N-1))
                             return cost
 
                         def err_cost_function(params, Ndof=True):
@@ -2111,7 +2228,7 @@ class AggregateData:
                                 cost += np.sum( diff**2 / var )
                                 N += diff.size
                             if Ndof:
-                                cost *= (1.0 / float(N))
+                                cost *= (1.0 / float(N-1))
                             return cost
     
                         ### Optimize the previously defined function
@@ -2311,6 +2428,11 @@ class AggregateData:
 
     def fit_mean_alpha_vs_alldim(self, weight_planar=True):
 
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
         if not self.grav_loaded:
             try:
                 self.reload_grav_funcs()
@@ -2321,7 +2443,7 @@ class AggregateData:
         self.alpha_95cl = []
 
         ### Assume separations are encoded in ax0 and heights in ax1
-        seps = 80 + self.p0_bead[0] - np.array(self.ax0vec)
+        seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
         heights = self.p0_bead[2] - np.array(self.ax1vec) 
         
         ### Sort the heights and separations and build a grid

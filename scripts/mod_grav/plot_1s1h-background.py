@@ -30,8 +30,14 @@ data_dirs = [#'/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
              #'/data/20180808/bead4/grav_data/shield1'
              ]
 
-load_agg = False
-load_alpha_arr = True
+data_dirs = ['/data/new_trap/20191204/Bead1/Shaking/Shaking370/']
+new_trap = True
+
+#substr = ''
+substr = 'Shaking2'
+
+load_agg = True
+load_alpha_arr = False
 
 Nfiles = 100000
 
@@ -51,7 +57,13 @@ p0_bead_dict = {'20180625': [19.0,40.0,20.0], \
                 '20180808': [18.0,40.0,20.0] \
                 }
 
+p0_bead_dict = {#'20191204': [385.0, 200.0, 29.0], \
+                '20191204': [-115.0, 200.0, 29.0],
+                }
+
 harms = [1,2,3,4,5,6]
+
+lambind = 70
 
 #opt_ext = 'TEST'
 opt_ext = '_6harm-full'
@@ -72,13 +84,14 @@ for ddir in data_dirs:
     #    continue
     print()
 
-    paths = gu.build_paths(ddir, opt_ext=opt_ext)
+    paths = gu.build_paths(ddir, opt_ext=opt_ext, new_trap=new_trap)
     p0_bead = p0_bead_dict[paths['date']]
 
     agg_dat = gu.AggregateData([], p0_bead=p0_bead, harms=harms)
     if load_agg:
         agg_dat.load(paths['agg_path'])
         agg_dat.reload_grav_funcs()
+        bu.make_all_pardirs(paths['alpha_dict_path'])
         agg_dat.save_alpha_dict(paths['alpha_dict_path'])
         #agg_dat.save_alpha_arr(alpha_arr_path)
     elif load_alpha_arr:
@@ -90,8 +103,19 @@ for ddir in data_dirs:
         agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)
         agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
 
-    alpha_arr = agg_dat.alpha_xyz_dict[list(agg_dat.alpha_xyz_dict.keys())[0]]\
-                [agg_dat.ax1vec[0]][agg_dat.ax2vec[0]]
+    #print(agg_dat.alpha_xyz_dict[0.0][370.0].keys())#.keys())
+    #input()
+
+    keys0 = list(agg_dat.alpha_xyz_dict.keys())
+    keys0.sort()
+    keys01 = list(agg_dat.alpha_xyz_dict[keys0[0]].keys())
+    keys01.sort()
+    keys012 = list(agg_dat.alpha_xyz_dict[keys0[0]][keys01[0]].keys())
+    keys012.sort()
+
+    # alpha_arr = agg_dat.alpha_xyz_dict[list(agg_dat.alpha_xyz_dict.keys())[0]]\
+    #             [agg_dat.ax1vec[0]][agg_dat.ax2vec[0]]
+    alpha_arr = agg_dat.alpha_xyz_dict[keys0[0]][keys01[0]][keys012[0]]
 
     fig1, axarr1 = plt.subplots(2,1,sharex=True,sharey=True)
     #fig2, axarr2 = plt.subplots(3,1,sharex=True)
@@ -100,15 +124,17 @@ for ddir in data_dirs:
         background = []
         vol = []
         for fileind, filedat in enumerate(alpha_arr):
-            background.append(filedat[70][0][resp][0])
-            vol.append(volume_ndim_ellipsoid( np.abs(filedat[70][0][resp][:]) ))
-        axarr1[resp].plot(background, label='Signal Axis Projection')
-        axarr1[resp].plot(np.array(vol)**(1.0/11.0), alpha=0.4, \
+            background.append(filedat[lambind][0][resp][0])
+            vol.append(volume_ndim_ellipsoid( np.abs(filedat[lambind][0][resp][:]) ))
+        xvec = np.arange(len(background)) * 10
+        axarr1[resp].plot(xvec, background, label='Signal Axis Projection')
+        axarr1[resp].plot(xvec, np.array(vol)**(1.0/11.0), alpha=0.4, \
                           label='$(V_{12D})^{1/12}$')
-    axarr1[0].set_ylabel('X Projection [alpha]')
-    axarr1[1].set_ylabel('Y Projection [alpha]')
+    axarr1[0].set_ylabel('X Projection $[\\alpha]$')
+    axarr1[1].set_ylabel('Y Projection $[\\alpha]$')
     axarr1[0].legend()
-    axarr1[1].set_xlabel('Time [m]')
+    axarr1[1].set_xlabel('Time [s]')
+    fig1.tight_layout()
     plt.show()
             
         

@@ -501,8 +501,10 @@ class DataFile:
 
         if self.new_trap:
             cal_fac = configuration.stage_cal_new
+            cal_fac_z = configuration.stage_cal_new_z
         else:
             cal_fac = configuration.stage_cal
+            cal_fac_z = cal_fac
 
             try:
                 # First get everything into microns.
@@ -514,7 +516,9 @@ class DataFile:
                 traceback.print_exc()
             
         try:
-            self.cant_data *= cal_fac
+            self.cant_data[0] *= cal_fac
+            self.cant_data[1] *= cal_fac
+            self.cant_data[2] *= cal_fac_z
             self.cant_calibrated = True
 
         except Exception:
@@ -824,8 +828,10 @@ class DataFile:
 
         if elec_drive:
             drivefft_full = np.fft.rfft(self.electrode_data[elec_ind])
+            meandrive = np.mean(self.electrode_data[elec_ind])
         else:
             drivefft_full = np.fft.rfft(self.cant_data[drive_ind])
+            meandrive = np.mean(self.cant_data[drive_ind])
         driveffts = drivefft_full[ginds]
 
         for resp in [0,1,2]:
@@ -890,6 +896,7 @@ class DataFile:
                 plt.loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, '.', ms=10)
                 plt.ylabel('Force [N]')
                 plt.xlabel('Frequency [Hz]')
+                plt.tight_layout()
 
                 plt.figure()
                 plt.plot(freqs[ginds], datfft[ginds].real * normfac, '.', \
@@ -901,11 +908,13 @@ class DataFile:
                 plt.ylabel('Force [N]')
                 plt.xlabel('Frequency [Hz]')
                 plt.legend()
+                plt.tight_layout()
 
                 plt.figure()
                 plt.loglog(freqs, np.abs(drivefft_full)*normfac)
                 plt.ylabel('Drive Amplitude [um or V]')
                 plt.xlabel('Frequency [Hz]')
+                plt.tight_layout()
 
                 plt.show()
 
@@ -923,7 +932,8 @@ class DataFile:
 
         outdic = {'datffts': datffts, 'diagdatffts': diagdatffts, \
                   'daterrs': daterrs, 'diagdaterrs': diagdaterrs, \
-                  'driveffts': driveffts, 'noiseffts': noiseffts}
+                  'driveffts': driveffts, 'noiseffts': noiseffts, \
+                  'meandrive': meandrive}
 
         return outdic
 
