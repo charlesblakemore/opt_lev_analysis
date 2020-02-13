@@ -102,25 +102,14 @@ allfiles = ['/data/old_trap/20191017/bead1/fb_tuning/1_5mbar_nofb_nocool.h5', \
             '/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5'
             ]
 
-allfiles = ['/data/new_trap/20191204/Bead1/InitialTest/Data28.h5', \
-            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_18.h5', \
-            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_19.h5', \
-            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_20.h5', \
-            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_21.h5', \
-            #'/data/new_trap/20191204/Bead1/Discharge/Discharge_22.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_X_1.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_X_4.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_X_7.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Y_2.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Y_5.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Y_8.h5', \
-            #'/data/new_trap/20191204/Bead1/TransFunc/TransFunc_Z_3.h5', \
+
+allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
             ]
 
 new_trap = True
 
 
-tfdate = '20191204'
+tfdate = '20200210'
 
 #filename_labels = True 
 filename_labels = False
@@ -164,7 +153,7 @@ file_inds = (0, 1800)
 userNFFT = 2**13
 diag = True
 
-fullNFFT = False
+fullNFFT = True
 
 #window = mlab.window_hanning
 window = mlab.window_none

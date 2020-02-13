@@ -422,10 +422,6 @@ class DataFile:
             channels = np.copy(attribs['electrode_channel'])
             #channels.sort()
 
-            # print(channels)
-            # plt.plot(dumb_tarr, dat5[0])
-            # plt.plot(dumb_tarr, dat5[1])
-            # plt.show()
 
             for ind, elec_ind in enumerate(channels):
                 sign = 1.0
@@ -452,13 +448,13 @@ class DataFile:
                         reconstructed = amp * np.cos(2.0 * np.pi * freq * tarr + phase)
                         elec_data[elec_ind] += reconstructed
 
-
-            #     plt.plot(tarr, elec_data[elec_ind], label=elec_ind, \
-            #                 color='C'+str(ind), lw=2, ls=':')
-            #     plt.plot(dumb_tarr, dat5[ind], color='C'+str(ind))
-                
-            # plt.legend()
-            # plt.show()
+                    # print(channels)
+                    # plt.plot(tarr, elec_data[elec_ind], label=elec_ind, \
+                    #             color='C'+str(ind), lw=2, ls=':')
+                    # plt.plot(dumb_tarr, dat5[ind], color='C'+str(ind))
+                    
+                    # plt.legend()
+                    # plt.show()
 
             # for channel in range(8):
             #     plt.plot(tarr, elec_data[channel], label=str(channel))
@@ -721,7 +717,8 @@ class DataFile:
 
 
     def get_boolean_cantfilt(self, ext_cant=(False,1), ext_cant_drive=False, ext_cant_ind=1, \
-                             nharmonics=10, harms=[], width=0, maxfreq=2500):
+                             nharmonics=10, harms=[], width=0, maxfreq=2500, \
+                             drive_harms=5):
         '''Builds a boolean notch filter for the cantilever drive
 
            INPUTS: ext_cant, tuple with bool specifying if an external drive
@@ -743,12 +740,20 @@ class DataFile:
                     self.build_drive_filt(drivefft, freqs, nharmonics=nharmonics, \
                                           harms=harms, width=width, maxfreq=maxfreq)
 
+        all_inds = np.arange(len(freqs)).astype(np.int)
+        drive_ginds = []
+        for i in range(drive_harms):
+            if width != 0:
+                drive_ginds += list( all_inds[np.abs(freqs - (i+1)*drive_freq) < 0.5*width] )
+            else:
+                drive_ginds.append( np.argmin(np.abs(freqs - (i+1)*drive_freq)) )
+
         # Apply filter by indexing with a boolean array
         bool_ginds = drivefilt > 0
         ginds = np.arange(len(drivefilt)).astype(np.int)[bool_ginds]
 
         outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
-                  'drive_ind': drive_ind}
+                  'drive_ind': drive_ind, 'drive_ginds': drive_ginds}
 
         return outdic
 
@@ -775,12 +780,20 @@ class DataFile:
                     self.build_drive_filt(drivefft, freqs, nharmonics=nharmonics, \
                                           harms=harms, width=width, maxfreq=maxfreq)
 
+        all_inds = np.arange(len(freqs)).astype(np.int)
+        drive_ginds = []
+        for i in range(drive_harms):
+            if width != 0:
+                drive_ginds += list( all_inds[np.abs(freqs - (i+1)*drive_freq) < 0.5*width] )
+            else:
+                drive_ginds.append( np.argmin(np.abs(freqs - (i+1)*drive_freq)) )
+
         # Apply filter by indexing with a boolean array
         bool_ginds = drivefilt > 0
         ginds = np.arange(len(drivefilt)).astype(np.int)[bool_ginds]
 
         outdic = {'ginds': ginds, 'fund_ind': fund_ind, 'drive_freq': drive_freq, \
-                  'drive_ind': elec_ind}
+                  'drive_ind': elec_ind, 'drive_ginds': drive_ginds}
 
         return outdic
 
@@ -788,8 +801,9 @@ class DataFile:
 
 
 
-    def get_datffts_and_errs(self, ginds, drive_freq, noiseband=10, plot=False, diag=True, \
-                             drive_ind=1, elec_drive=False, elec_ind=0, noiselim=(10,100)):   
+    def get_datffts_and_errs(self, ginds, drive_freq, drive_ginds, noiseband=10, \
+                             plot=False, diag=True, drive_ind=1, elec_drive=False, \
+                             elec_ind=0, noiselim=(10,100)):   
         '''Applies a cantilever notch filter and returns the filtered data
            with an error estimate based on the neighboring bins of the PSD.
 
@@ -833,12 +847,16 @@ class DataFile:
             drivefft_full = np.fft.rfft(self.cant_data[drive_ind])
             meandrive = np.mean(self.cant_data[drive_ind])
         driveffts = drivefft_full[ginds]
+        driveffts_all = drivefft_full[drive_ginds]
 
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
 
             datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
+            # plt.loglog(freqs, np.abs(datfft)*fft_norm(self.nsamp, self.fsamp))
+            # plt.show()
+            # input()
             datffts[resp] = datfft[ginds]
             daterrs[resp] = np.zeros_like(datffts[resp])
 
@@ -918,13 +936,16 @@ class DataFile:
 
                 plt.show()
 
-        datffts = np.array(datffts)
+        normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
+
+        datffts = np.array(datffts) * normfac
         driveffts = np.array(driveffts)
-        daterrs = np.array(daterrs)
-        noiseffts = np.array(noiseffts)
+        driveffts_all = np.array(driveffts_all)
+        daterrs = np.array(daterrs) * normfac
+        noiseffts = np.array(noiseffts) * normfac
         if diag:
-            diagdatffts = np.array(diagdatffts)
-            diagdaterrs = np.array(diagdaterrs)
+            diagdatffts = np.array(diagdatffts) * normfac
+            diagdaterrs = np.array(diagdaterrs) * normfac
 
         if not diag:
             diagdatffts = np.zeros_like(datffts)
@@ -932,8 +953,8 @@ class DataFile:
 
         outdic = {'datffts': datffts, 'diagdatffts': diagdatffts, \
                   'daterrs': daterrs, 'diagdaterrs': diagdaterrs, \
-                  'driveffts': driveffts, 'noiseffts': noiseffts, \
-                  'meandrive': meandrive}
+                  'driveffts': driveffts, 'driveffts_all': driveffts_all, \
+                  'noiseffts': noiseffts, 'meandrive': meandrive}
 
         return outdic
 

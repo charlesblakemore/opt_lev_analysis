@@ -28,9 +28,11 @@ import configuration as config
 #step_cal_dir = '/data/20180927/bead1/discharge/fine0'
 #step_cal_dir = '/data/20180927/bead1/discharge/recharge_20181018'
 
-#step_cal_dir = '/data/20181119/bead1/discharge/fine'
-#step_cal_dir = '/data/20181119/bead1/discharge/fine_neg_to_0_20181120'
+# step_cal_dir = '/data/old_trap/20181119/bead1/discharge/fine'
+# step_cal_dir = '/data/old_trap/20181119/bead1/discharge/fine_neg_to_0_20181120'
 #step_cal_dir = '/data/20181119/bead1/discharge/fine_0_to_pos_20181120'
+# first_file = 0
+# last_file = -1
 
 #step_cal_dir = ['/data/20181129/bead1/discharge/fine', \
 #                '/data/20181129/bead1/discharge/fine2', \
@@ -77,29 +79,50 @@ import configuration as config
 
 #step_cal_dir = ['/data/old_trap/20190626/bead1/discharge/fine']
 
-step_cal_dir = ['/data/old_trap/20190905/bead1/discharge/after_rga_recharge']
+# step_cal_dir = ['/data/old_trap/20190905/bead1/discharge/after_rga_recharge']
 
-step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
-first_file = 0
-
-
+# step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
+# first_file = 0
 
 
-step_cal_dir = ['/data/new_trap/20191204/Bead1/Discharge/']
-first_file = 60
-
-step_cal_dir = ['/data/new_trap/20191215/Bead1/Discharge/']
-first_file = 250
 
 
-elec_channel_select = 1
+# step_cal_dir = ['/data/new_trap/20191204/Bead1/Discharge/']
+# first_file = 60
+
+# step_cal_dir = ['/data/new_trap/20191215/Bead1/Discharge/']
+# first_file = 250
+# first_file = 0
+
+# step_cal_dir = ['/data/new_trap/20200113/Bead1/Discharge/']
+# first_file = 0
+# files_to_end = 20
+
+# step_cal_dir = ['/data/new_trap/20200107/Bead3/Discharge/']
+# first_file = -20
+# last_file = -1
+
+# step_cal_dir = ['/data/new_trap/20200203/Bead1/Discharge/']
+# first_file = 0
+# last_file = -1
+# first_file = -18
+# last_file = -3
+
+step_cal_dir = ['/data/new_trap/20200210/Bead2/Discharge/']
+first_file = 15
+last_file = -1
 
 
 using_tabor = False
 tabor_ind = 3
 
+
+elec_channel_select = 1
 #pcol = -1
 pcol = 2
+
+auto_try = 0.25   ### for Z direction in new trap
+# auto_try = 0.0
 
 
 new_trap = True
@@ -119,7 +142,7 @@ else:
             recharge = True
 recharge = False
 
-max_file = 5000
+max_file = 145
 decimate = False
 dec_fac = 2
 
@@ -137,12 +160,22 @@ vpn = 7.1126e17
 #tf_cal_dir = '/data/20180925/bead1/tf_20180926/'
 #tf_cal_dir = '/data/20180927/bead1/tf_20180928/'
 
-#tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
+# tf_cal_dir = '/data/old_trap/20181119/bead1/tf_20181119/'
 
-tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
+# tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
 
-tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
-tf_cal_dir = '/data/new_trap/20191215/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20191215/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200113/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200107/Bead3/TransFunc/TransFunc2'
+# tf_cal_dir = '/data/new_trap/20200203/Bead1/TransFunc/TransFunc2'
+tf_cal_dir = '/data/new_trap/20200210/Bead2/TransFunc/'
+
+
+
+
+
+
 
 
 tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]
@@ -151,7 +184,7 @@ tf_date = step_date
 
 plot_Hfunc = True
 plot_without_fits = False
-interpolate = False
+interpolate = True
 save = True
 save_charge = False
 
@@ -215,11 +248,11 @@ if recharge:
     step_cal_files = step_cal_files[::-1]
 
 ## for 20181119 recharge charge AND discharge
-#step_cal_files.pop(17)
-#step_cal_files.pop(17)
-#step_cal_files.pop(17)
-#step_cal_files.pop(17)
-#step_cal_files.pop(212)
+step_cal_files.pop(17)
+step_cal_files.pop(17)
+step_cal_files.pop(17)
+step_cal_files.pop(17)
+# step_cal_files.pop(212)
 
 
 ## for 20181129 combined discharge
@@ -316,12 +349,35 @@ if recharge:
 
 tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir)
 
+tf_cal_files_2 = []
+for file in tf_cal_files:
+    if '_1.h5' in file:
+        continue
+    tf_cal_files_2.append(file)
+tf_cal_files = tf_cal_files_2
+
+
+
+
+
 if decimate:
     step_cal_files = step_cal_files[::dec_fac]
 
+
+
+
+
+
+
+
+
 #### BODY OF CALIBRATION
 
-nstep_files = np.min([max_file, len(step_cal_files)])
+
+step_cal_files = step_cal_files[first_file:last_file]
+
+# nstep_files = np.min([max_file, len(step_cal_files)])
+nstep_files = len(step_cal_files)
 # Do the step calibration
 if not fake_step_cal:
 
@@ -329,7 +385,8 @@ if not fake_step_cal:
     step_cal_vec = []
     pow_vec = []
     zpos_vec = []
-    for fileind, filname in enumerate(step_cal_files[:max_file]):
+    #for fileind, filname in enumerate(step_cal_files[:max_file]):
+    for fileind, filname in enumerate(step_cal_files):
         bu.progress_bar(fileind, nstep_files)
         df = bu.DataFile()
         try:
@@ -349,15 +406,17 @@ if not fake_step_cal:
         step_resp, step_resp_nonorm, power, zpos = \
             cal.find_step_cal_response(df, bandwidth=5.0, tabor_ind=tabor_ind,\
                                        using_tabor=using_tabor, pcol=pcol, \
-                                       new_trap=new_trap)
+                                       new_trap=new_trap, plot=False)
 
         step_cal_vec.append(step_resp)
+        # step_cal_vec.append(step_resp_nonorm)
+
 
         pow_vec.append(power)
         zpos_vec.append(zpos)
 
     vpn, off, err, q0 = cal.step_cal(step_cal_vec, new_trap=new_trap, \
-                                     first_file=first_file)
+                                     first_file=first_file, auto_try=auto_try)
     print(vpn)
 
 if save_charge:
@@ -389,6 +448,11 @@ Hnoise = allH['Hout_noise']
 
 # Calibrate the transfer function to Vresp / Newton_drive
 # for a particular charge step calibration
+keys = np.array(list(Hout.keys()))
+keys.sort()
+close_freq = keys[ np.argmin(np.abs(keys - 151.0)) ]
+# print(vpn, pcol, Hout[close_freq][2,2])
+
 Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, drive_freq=151.0)
 
 # Build the Hfunc object
@@ -397,7 +461,7 @@ if not interpolate:
                             weight_lowf=True, plot_fits=plot_Hfunc, \
                             plot_without_fits=plot_without_fits, \
                             plot_inits=False, weight_phase=True, grid=True,\
-                            deweight_peak=True, lowf_weight_fac=0.001)
+                            deweight_peak=True, lowf_weight_fac=0.01)
 if interpolate:
     Hfunc = tf.build_Hfuncs(Hcal, interpolate=True, plot_fits=plot_Hfunc, \
                              max_freq=700)

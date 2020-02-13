@@ -28,9 +28,7 @@ from joblib import Parallel, delayed
 import warnings
 warnings.filterwarnings("ignore")
 
-
-#ncore = 24
-ncore = 24
+plt.rcParams.update({'font.size': 14})
 
 ### Current constraints
 
@@ -523,6 +521,164 @@ def build_mod_grav_funcs(theory_data_dir):
 
 
 
+
+
+class GravFuncs:
+
+    def __init__(self, theory_data_dir, load=True, verbose=True):
+        if load:
+            self.load_grav_funcs(theory_data_dir, verbose=verbose)
+        else:
+            self.grav_loaded = False
+
+
+    def load_grav_funcs(self, theory_data_dir, verbose=True):
+        self.theory_data_dir = theory_data_dir
+        if verbose:
+            print("Loading Gravity Data...", end=' ')
+            sys.stdout.flush()
+        grav_dict = build_mod_grav_funcs(theory_data_dir)
+        self.gfuncs = grav_dict['gfuncs']
+        self.yukfuncs = grav_dict['yukfuncs']
+        self.lambdas = grav_dict['lambdas']
+        self.lims = grav_dict['lims']
+        self.grav_loaded = True
+        if verbose:
+            print("Done!")
+
+
+    def reload_grav_funcs(self):
+        try:
+            self.load_grav_funcs(self.theory_data_dir,verbose=False)
+        except Exception:
+            print('No theory_data_dir saved')
+
+
+    def clear_grav_funcs(self):
+        self.gfuncs = ''
+        self.yukfuncs = ''
+        self.lambdas = ''
+        self.lims = ''
+        self.grav_loaded = False
+
+
+
+    def make_templates(self, posvec, drivevec, ax0pos, ax1pos, ginds, \
+                       p0_bead, fsamp, single_lambda=False, single_lambind=0, \
+                       new_trap=False):
+
+        if new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
+        xpos = p0_bead[0] + (attractor_travel - ax0pos)
+        height = ax1pos - p0_bead[2]
+        posvec = posvec - p0_bead[1]
+        drivevec = drivevec - p0_bead[1]
+
+        # print(np.min(drivevec), np.max(drivevec), np.min(posvec), np.max(posvec))
+
+        ones = np.ones_like(posvec)
+        pts = np.stack((xpos*ones, posvec, height*ones), axis=-1)
+
+        #print 
+        #print ax1pos, '->', height
+        #print
+        #print self.p0_bead
+        #print self.ax0vec
+        #print self.ax1vec
+
+        #print
+        #print np.min(drivevec)
+        #print np.max(drivevec)
+
+        #print np.min(posvec)
+        #print np.max(posvec)
+        #print
+
+        nsamp = len(drivevec)
+        freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+
+        bin_sp = freqs[1] - freqs[0]
+        normfac = np.sqrt(2.0 * bin_sp) * bu.fft_norm(nsamp, fsamp)
+
+        ## Include normal gravity in fit. But why???
+        # gfft = [[], [], []]
+        gfft = np.zeros((3, len(ginds)), dtype=np.complex128)
+        for resp in [0,1,2]:
+                    
+            gforce = self.gfuncs[resp](pts*1.0e-6)
+            gforce_func = interp.interp1d(posvec, gforce)
+
+            # try:
+            gforcet = gforce_func(drivevec)
+            gfft[resp] += np.fft.rfft(gforcet)[ginds] * normfac
+            # except Exception:
+            #     print("Can't make template from attractor drive...")
+            #     print('  xpos: ', xpos)
+            #     print('height: ', height)
+            #     plt.plot(drivevec)
+            #     plt.ylabel('Drivevec [um]')
+            #     plt.xlabel('Sample number')
+            #     plt.tight_layout()
+            #     plt.show()
+
+        # gfft = np.array(gfft)
+
+        yuks = []
+        yuks = np.zeros( (len(self.lambdas), 3, len(ginds)), dtype=np.complex128)
+        for lambind, yuklambda in enumerate(self.lambdas):
+
+            if single_lambda and (lambind != single_lambind):
+                continue
+
+            # plt.plot((1.0 / fsamp) * np.arange(nsamp), drivevec)
+            # plt.xlabel('Time [s]')
+            # plt.ylabel('Attractor drive [um]')
+            # plt.tight_layout()
+            # plt.figure()
+
+            # yukfft = [[], [], []]
+            resp_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+            for resp in [0,1,2]:
+                yukforce = self.yukfuncs[resp][lambind](pts*1.0e-6)
+                yukforce_func = interp.interp1d(posvec, yukforce)
+
+                # plt.plot(posvec, yukforce)
+
+                yukforcet = yukforce_func(drivevec)
+                yuks[lambind][resp] += np.fft.rfft(yukforcet)[ginds] * normfac
+
+                # plt.loglog(freqs, np.abs(np.fft.rfft(yukforcet))*bu.fft_norm(nsamp, fsamp), \
+                #                 label=resp_dict[resp])
+            # yukfft = np.array(yukfft)
+            # yuks.append(yukfft)
+
+
+            # print(yuks[lambind])
+            # plt.xlabel('Frequency [Hz]')
+            # plt.ylabel('Force Spectral Density [N/$\\sqrt{\\rm{Hz}}$]')
+            # plt.legend()
+            # plt.tight_layout()
+            # plt.show()
+            # input()
+
+        yukamp = np.mean(np.abs(yuks[0]))
+        #yukstr = '%0.3e' % yukamp
+        #print xpos, height, yukstr,
+
+        outdict = {'gfft': gfft, 'yukffts': yuks, 'debug': (xpos, height, yukamp)}
+        return outdict
+
+
+
+
+
+
+
+
+
 class FileData:
     '''A class to store data from a single file, only
        what is relevant for higher level analysis.'''
@@ -587,16 +743,19 @@ class FileData:
         ## Transform ginds array to array of indices for drive freq
         #temp_inds = np.array(range(int(self.nsamp*0.5) + 1))
         #inds = temp_inds[self.ginds]
-        inds = self.ginds
+        inds = self.drive_ginds
 
         freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
 
         full_drive_fft = np.zeros(len(freqs), dtype=np.complex128)
         for ind, freq_ind in enumerate(inds):
-            full_drive_fft[freq_ind] = self.drivefft[ind]
-        drivevec = np.fft.irfft(full_drive_fft)
+            full_drive_fft[freq_ind] = self.drivefft_all[ind]
+        drivevec = np.fft.irfft(full_drive_fft) + self.meandrive
 
-        return drivevec + self.meandrive
+        npos = len(self.posvec)
+        self.posvec = np.linspace(np.min(drivevec), np.max(drivevec), npos)
+
+        return drivevec
 
 
 
@@ -623,6 +782,7 @@ class FileData:
         #cantfilt_ginds = cantfilt['ginds']
         #self.ginds = np.arange(len(drivefilt_ginds)).astype(np.int)[drivefilt_ginds]
 
+        self.drive_ginds = drivefilt['drive_ginds']
         self.ginds = drivefilt['ginds']
         self.fund_ind = drivefilt['fund_ind']
         self.drive_freq = drivefilt['drive_freq']
@@ -630,7 +790,8 @@ class FileData:
 
 
         ## Apply the notch filter
-        fftdat = self.df.get_datffts_and_errs(self.ginds, self.drive_freq, noiseband=noiseband, \
+        fftdat = self.df.get_datffts_and_errs(self.ginds, self.drive_freq, self.drive_ginds, \
+                                              noiseband=noiseband, \
                                               plot=plot_harm_extraction, \
                                               elec_drive=elec_drive, elec_ind=elec_ind, \
                                               noiselim=noiselim)
@@ -642,6 +803,7 @@ class FileData:
         self.noisefft = fftdat['noiseffts']
 
         self.drivefft = fftdat['driveffts']
+        self.drivefft_all = fftdat['driveffts_all']
         self.meandrive = fftdat['meandrive']
 
         ### Get the binned data and calibrate the non-diagonalized part
@@ -807,7 +969,6 @@ class FileData:
 
 
 
-
 class AggregateData:
     '''A class to store data from many files. Stores a FileDat object for each and
        has some methods that work on each object in a loop.'''
@@ -815,9 +976,9 @@ class AggregateData:
     
     def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[], \
                  reload_dat=True, plot_harm_extraction=False, \
-                 elec_drive=False, elec_ind=0, maxfreq=2500, \
+                 elec_drive=False, elec_ind=0, maxfreq=2500, noiseband=5,\
                  dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
-                 tfdate='', step_cal_drive_freq=41.0, new_trap=False):
+                 tfdate='', step_cal_drive_freq=41.0, new_trap=False, ncore=1):
         
         if new_trap:
             self.new_trap = True
@@ -828,13 +989,11 @@ class AggregateData:
         self.p0_bead = p0_bead
         self.file_data_objs = []
 
-        Nnames = len(self.fnames)
+        # Nnames = len(self.fnames)
 
-        old_time = time.time()
-        per = 0
-        times = []
-
-
+        # old_time = time.time()
+        # per = 0
+        # times = []
 
         # suff = 'Processing %i files' % Nnames
         # for name_ind, name in enumerate(self.fnames):
@@ -877,7 +1036,7 @@ class AggregateData:
             if not reload_dat and not new_obj.badfile:
                 new_obj.load()
             else:
-                new_obj.extract_data(harms=harms, \
+                new_obj.extract_data(harms=harms, noiseband=noiseband, \
                                      plot_harm_extraction=plot_harm_extraction, \
                                      elec_drive=elec_drive, elec_ind=elec_ind, \
                                      maxfreq=maxfreq, noiselim=noiselim)
@@ -893,13 +1052,13 @@ class AggregateData:
         file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) for name in tqdm(self.fnames))
         self.file_data_objs = file_data_objs
 
-        self.grav_loaded = False
-
         self.alpha_dict = ''
         self.agg_dict = ''
         self.avg_dict = ''
 
         self.ginds = ''
+
+        self.gfuncs_class = GravFuncs('', load=False)
 
 
     def save(self, savepath, verbose=True):
@@ -916,9 +1075,9 @@ class AggregateData:
                     print('Changing file extension on save: %s -> .agg' % parts[1])
                 savepath = parts[0] + '.agg'
             sys.stdout.flush()
-            self.clear_grav_funcs()
+            self.gfuncs_class.clear_grav_funcs()
             pickle.dump(self, open(savepath, 'wb'))
-            self.reload_grav_funcs()
+            self.gfuncs_class.reload_grav_funcs()
             if verbose:
                 print('Done!')
                 print('Saved to: ', savepath)
@@ -992,112 +1151,8 @@ class AggregateData:
 
             
     def load_grav_funcs(self, theory_data_dir, verbose=True):
-        self.theory_data_dir = theory_data_dir
-        if verbose:
-            print("Loading Gravity Data...", end=' ')
-            sys.stdout.flush()
-        grav_dict = build_mod_grav_funcs(theory_data_dir)
-        self.gfuncs = grav_dict['gfuncs']
-        self.yukfuncs = grav_dict['yukfuncs']
-        self.lambdas = grav_dict['lambdas']
-        self.lims = grav_dict['lims']
-        self.grav_loaded = True
-        if verbose:
-            print("Done!")
+        self.gfuncs_class = GravFuncs(theory_data_dir, verbose=verbose)
 
-
-    def reload_grav_funcs(self):
-        try:
-            self.load_grav_funcs(self.theory_data_dir,verbose=False)
-        except Exception:
-            print('No theory_data_dir saved')
-
-
-    def clear_grav_funcs(self):
-        self.gfuncs = ''
-        self.yukfuncs = ''
-        self.lambdas = ''
-        self.lims = ''
-        self.grav_loaded = False
-
-
-
-    def make_templates(self, posvec, drivevec, ax0pos, ax1pos, ginds, \
-                       single_lambda=False, single_lambind=0):
-
-        if self.new_trap:
-            attractor_travel = 500.0
-        else:
-            attractor_travel = 80.0
-
-        xpos = self.p0_bead[0] + (attractor_travel - ax0pos)
-        height = ax1pos - self.p0_bead[2]
-        posvec = posvec - self.p0_bead[1]
-        drivevec = drivevec - self.p0_bead[1]
-
-        ones = np.ones_like(posvec)
-        pts = np.stack((xpos*ones, posvec, height*ones), axis=-1)
-
-        #print 
-        #print ax1pos, '->', height
-        #print
-        #print self.p0_bead
-        #print self.ax0vec
-        #print self.ax1vec
-
-        #print
-        #print np.min(drivevec)
-        #print np.max(drivevec)
-
-        #print np.min(posvec)
-        #print np.max(posvec)
-        #print
-
-        ## Include normal gravity in fit. But why???
-        gfft = [[], [], []]
-        for resp in [0,1,2]:
-                    
-            gforce = self.gfuncs[resp](pts*1.0e-6)
-            gforce_func = interp.interp1d(posvec, gforce)
-
-            try:
-                gforcet = gforce_func(drivevec)
-                gfft[resp] = np.fft.rfft(gforcet)[ginds]
-            except Exception:
-                print("Can't make template from attractor drive...")
-                print('  xpos: ', xpos)
-                print('height: ', height)
-                plt.plot(drivevec)
-                plt.ylabel('Drivevec [um]')
-                plt.xlabel('Sample number')
-                plt.tight_layout()
-                plt.show()
-
-        gfft = np.array(gfft)
-
-        yuks = []
-        for lambind, yuklambda in enumerate(self.lambdas):
-
-            if single_lambda and (lambind != single_lambind):
-                continue
-
-            yukfft = [[], [], []]
-            for resp in [0,1,2]:
-                yukforce = self.yukfuncs[resp][lambind](pts*1.0e-6)
-                yukforce_func = interp.interp1d(posvec, yukforce)
-
-                yukforcet = yukforce_func(drivevec)
-                yukfft[resp] = np.fft.rfft(yukforcet)[ginds]
-            yukfft = np.array(yukfft)
-
-            yuks.append(yukfft)
-
-        yukamp = np.mean(np.abs(yuks[0]))
-        #yukstr = '%0.3e' % yukamp
-        #print xpos, height, yukstr,
-
-        outdict = {'gfft': gfft, 'yukffts': yuks, 'debug': (xpos, height, yukamp)}
-        return outdict
 
 
 
@@ -1583,14 +1638,15 @@ class AggregateData:
 
 
 
-    def find_alpha_xyz_from_templates(self, plot=False, plot_basis=False):
+    def find_alpha_xyz_from_templates(self, plot=False, plot_basis=False, ncore=1, \
+                                        add_fake_data=False, fake_alpha=1e13):
 
         print('Finding alpha for each coordinate via an FFT template fitting algorithm...')
         
-        if not self.grav_loaded:
+        if not self.gfuncs_class.grav_loaded:
             print("FAILED: Must load thoery data first!")
             try:
-                self.reload_grav_funcs()
+                self.gfuncs_class.reload_grav_funcs()
                 print("UN-FAILED: Loaded dat therory dat!")
             except Exception:
                 return
@@ -1624,16 +1680,36 @@ class AggregateData:
                 newline=True
 
             file_data_objs = self.agg_dict[bias][ax0][ax1]
+            nobjs = len(file_data_objs)
+
+            ncomponents = 2 * len(self.ginds)
+            nlambda = len(self.gfuncs_class.lambdas)
+
+            p0_bead = self.p0_bead
+            new_trap = self.new_trap
+
+            gfunc_list = []
+            for i in range(nobjs):
+                gfunc_new = GravFuncs('', load=False)
+                gfunc_new.__dict__.update(self.gfuncs_class.__dict__)
+                gfunc_list.append(gfunc_new)
+
+            arg_list = list(zip(file_data_objs, gfunc_list))
 
             # j = 0
             # totlen_2 = len(file_data_objs) * len(self.lambdas)
             # for objind, obj in enumerate(file_data_objs):
-            def process_file_data(obj):
+            def process_file_data(arg):  #obj):
+                # file_start = time.time()
+                obj, gfunc_class = arg
 
                 # alpha_xyz_dict[bias][ax0][ax1].append([])
-                out_list = []
+                out_arr = np.zeros((nlambda, 3, 3, ncomponents))
 
+                # start = time.time()
                 drivevec = obj.rebuild_drive()
+                # stop = time.time()
+                # print( 'Drive rebuild : {:0.4f}'.format(stop - start) )
                 posvec = obj.posvec
                 datfft = obj.datfft
                 daterr = obj.daterr
@@ -1644,32 +1720,42 @@ class AggregateData:
                 # input()
 
                 ## Loop over lambdas and do the template analysis for each value of lambda
-                for lambind, yuklambda in enumerate(self.lambdas):
+                for lambind, yuklambda in enumerate(gfunc_class.lambdas):
                     ### Progress bar shit
                     # bu.progress_bar(j, totlen_2, suffix=suff, newline=newline)
                     # j += 1
     
-                    amps = [[], [], []]
-                    errs = [[], [], []]
-
-                    sig_amps = [[], [], []]
+                    out_subarr = np.zeros((3,3,ncomponents))
+                    # amps = [[], [], []]
+                    # errs = [[], [], []]
+                    # sig_amps = [[], [], []]
                             
-                    templates = self.make_templates(posvec, drivevec, ax0, ax1, self.ginds, \
-                                                    single_lambda=True, single_lambind=lambind)
+                    # start = time.time()
+                    templates = gfunc_class.make_templates(posvec, drivevec, ax0, ax1, \
+                                                            obj.ginds, p0_bead, obj.fsamp, \
+                                                            single_lambda=True, \
+                                                            single_lambind=lambind, \
+                                                            new_trap=new_trap)
+                    # stop = time.time()
+                    # print('Template time : {:0.4f}'.format(stop - start))
 
                     if plot and i == 1:
-                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False)
+                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False,figsize=(8,6))
 
                     for resp in [0,1,2]:
 
                         ### Get the modified gravity fft template, with alpha = 1
-                        yukfft = templates['yukffts'][0][resp]
+                        yukfft = templates['yukffts'][lambind][resp]
 
                         template_vec = np.concatenate((yukfft.real, yukfft.imag))
+                        # print(template_vec)
 
-                        c_datfft = datfft[resp] #+ 1.0e12 * yukfft
+                        c_datfft = datfft[resp] #
+                        if add_fake_data:
+                            c_datfft += fake_alpha * yukfft
                         data_vec = np.concatenate((c_datfft.real, c_datfft.imag))
                         err_vec = np.concatenate((daterr[resp].real, daterr[resp].imag))
+
 
                         ### Compute an 2*Nharmonic-dimensional basis for the real and 
                         ### imaginary components of our template signal yukfft, where
@@ -1678,24 +1764,41 @@ class AggregateData:
 
                         ### The SVD decomposition above should produce an orthonormal basis
                         ### but this function is included to demonstrate that
-                        ortho_basis = gram_schmidt(bases['real_basis'], plot=plot_basis)['orthogonal']
+                        # ortho_basis = gram_schmidt(bases['real_basis'], plot=plot_basis)['orthogonal']
+                        ortho_basis = bases['real_basis']
+
+                        # if resp == 2:
+                        #     print(gfunc_class.lambdas[lambind])
+                        #     print('Template : ', template_vec)
+                        #     print('   Ortho : ', ortho_basis[0])
+                        #     print('    Data : ', data_vec)
+                        #     # input()
 
                         ### Loop over our orthogonal basis vectors and compute the inner 
                         ### product of the data and the basis vector
                         #c_amps = np.sqrt( np.einsum('ij,j->i', ortho_basis, data_vec) )
                         #c_errs = np.sqrt( np.einsum('ij,j->i', ortho_basis, err_vec) )
                         for k in range(len(ortho_basis)):
-                            amps[resp].append( np.inner( ortho_basis[k], data_vec) )
-                            errs[resp].append( np.inner( ortho_basis[k], err_vec ) )
+                            # amps[resp].append( np.inner( ortho_basis[k], data_vec) )
+                            out_subarr[0][resp][k] = np.inner( ortho_basis[k], data_vec)
+                            # errs[resp].append( np.inner( ortho_basis[k], err_vec ) )
+                            out_subarr[1][resp][k] = np.inner( ortho_basis[k], err_vec)
 
                         ### Normalize the projection amplitudes to units of alpha
                         template_norm = np.inner(template_vec, template_vec)
-                        amps[resp] = amps[resp] / template_norm
-                        errs[resp] = errs[resp] / template_norm
-                        sig_amps[resp] = np.sqrt(template_norm)
+                        # if resp == 2:
+                        #     projection = out_subarr[0][resp][0] / template_norm
+                        #     print('Projection : ', projection, np.log10(np.abs(projection)))
+                        #     input()
+
+                        # amps[resp] = amps[resp] / template_norm
+                        # errs[resp] = errs[resp] / template_norm
+                        # sig_amps[resp] = np.sqrt(template_norm)
+                        out_subarr[:,resp,:] *= (1.0 / template_norm)
                         if plot and i == 1:
-                            axarr[resp].errorbar(list(range(len(amps[resp]))), \
-                                                 amps[resp], np.abs(errs[resp]), fmt='o')
+                            axarr[resp].errorbar(list(range(len(out_subarr[0][resp]))), \
+                                                 out_subarr[0][resp], \
+                                                 np.abs(out_subarr[1][resp]), fmt='o')
                             axarr[resp].set_ylabel('Projection [$\\alpha$]')
                             if resp == 2:
                                 axarr[resp].set_xlabel('Basis Vector Index')
@@ -1704,13 +1807,20 @@ class AggregateData:
                         plt.show()
 
                     # alpha_xyz_dict[bias][ax0][ax1][objind].append([amps, errs, sig_amps])
-                    out_list.append([amps, errs, sig_amps])
+                    # out_list.append([amps, errs, sig_amps])
+                    out_arr[lambind] += out_subarr
 
-                return out_list
+                # file_stop = time.time()
+                # print('Total time : {:0.4f}'.format(file_stop - file_start) )
+                # return out_list
+                return out_arr
 
-            results = Parallel(n_jobs=ncore)(delayed(process_file_data)(obj) \
-                                                    for obj in tqdm(file_data_objs))
-            alpha_xyz_dict[bias][ax0][ax1] = results
+            # results = Parallel(n_jobs=ncore)(delayed(process_file_data)(obj) \
+            #                                         for obj in tqdm(file_data_objs))
+            results = Parallel(n_jobs=ncore)(delayed(process_file_data)(arg) \
+                                                    for arg in tqdm(arg_list))
+
+            alpha_xyz_dict[bias][ax0][ax1] = np.array(results)
 
         #derp_sep_g, derp_height_g = np.meshgrid(derp_sep, derp_height, indexing='ij')
         #
@@ -1858,12 +1968,12 @@ class AggregateData:
         ax.set_xlabel('X-separation [um]')
         ax.set_ylabel('Z-position [um]')
         ax.set_zlabel('%s RMS [N]' % ax_dict[resp])
-        ax.xaxis._axinfo['label']['space_factor'] = 2.0
-        ax.xaxis.labelpad = 30
-        ax.yaxis._axinfo['label']['space_factor'] = 2.0
-        ax.yaxis.labelpad = 30
-        ax.zaxis._axinfo['label']['space_factor'] = 2.0
-        ax.zaxis.labelpad = 30
+        # ax.xaxis._axinfo['label']['space_factor'] = 2.0
+        # ax.xaxis.labelpad = 30
+        # ax.yaxis._axinfo['label']['space_factor'] = 2.0
+        # ax.yaxis.labelpad = 30
+        # ax.zaxis._axinfo['label']['space_factor'] = 2.0
+        # ax.zaxis.labelpad = 30
         fig.tight_layout()
 
         if show:
@@ -2013,7 +2123,6 @@ class AggregateData:
 
 
         scale_pow = int(np.log10(keyscale))
-
         scale = keyscale * 4
         
         if plot and not dim3:
@@ -2078,6 +2187,61 @@ class AggregateData:
 
 
 
+    def fit_alpha_xyz_onepos_simple(self, resp=0):
+
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
+        if not self.gfuncs_class.grav_loaded:
+            try:
+                self.gfuncs_class.reload_grav_funcs()
+            except Exception:
+                print('No grav funcs... Tried to reload but no filename')
+
+        self.alpha_best_fit = []
+        self.alpha_95cl = []
+
+        ### Assume separations are encoded in ax0 and heights in ax1
+        ax0 = self.ax0vec[0]
+        ax1 = self.ax1vec[0]
+        sep = attractor_travel + self.p0_bead[0] - ax0
+        height = self.p0_bead[2] - ax1
+
+
+        print('Computing limit for: sep = {:0.1f} um, height = {:0.1f}'\
+                .format(sep, height) )
+
+        for bias in self.biasvec:
+            ### Doesn't actually handle different biases correctly, although the
+            ### data is structured such that if different biases are present
+            ### they will be in distinct datasets
+
+            alpha_arr = self.alpha_xyz_dict[bias][ax0][ax1]
+
+            plt.plot(alpha_arr[:,0,0,resp,0])
+            plt.plot(alpha_arr[:,0,0,0,0])
+            plt.show()
+
+            for lambind, yuklambda in enumerate(self.gfuncs_class.lambdas):
+
+                ### Take the signal vector projection (last index 0) for the 
+                ### desired response axis at the position defined
+                # dat = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][0][resp][0]
+                dat = alpha_arr[:,lambind,0,resp,0]
+                # errs = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][1][resp][0]
+                errs = alpha_arr[:,lambind,1,resp,0]
+
+                # dat_mean = np.average(dat, weights=errs)
+                dat_mean = np.mean(dat)
+                dat_std = np.std(dat)
+
+                self.alpha_best_fit.append(np.abs(dat_mean))
+                self.alpha_95cl.append(2.0 * dat_std / np.sqrt(len(dat)))
+
+
+
 
 
 
@@ -2086,9 +2250,9 @@ class AggregateData:
     def fit_alpha_xyz_vs_alldim(self, weight_planar=True, plot=False, save_hists=False, \
                                 hist_info={'date': 0, 'prefix': ''}):
 
-        if not self.grav_loaded:
+        if not self.gfuncs_class.grav_loaded:
             try:
-                self.reload_grav_funcs()
+                self.gfuncs_class.reload_grav_funcs()
             except Exception:
                 print('No grav funcs... Tried to reload but no filename')
 
@@ -2433,9 +2597,9 @@ class AggregateData:
         else:
             attractor_travel = 80.0
 
-        if not self.grav_loaded:
+        if not self.gfuncs_class.grav_loaded:
             try:
-                self.reload_grav_funcs()
+                self.gfuncs_class.reload_grav_funcs()
             except Exception:
                 print('No grav funcs... Tried to reload but no filename')
 
@@ -2528,8 +2692,10 @@ class AggregateData:
         fig, ax = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
         
         if not plot_just_current:
-            ax.loglog(self.lambdas, self.alpha_best_fit, linewidth=2, label='Size of Apparent Background')
-            ax.loglog(self.lambdas, self.alpha_95cl, linewidth=2, label='95% CL at Noise Limit')
+            ax.loglog(self.gfuncs_class.lambdas, self.alpha_best_fit, \
+                        linewidth=2, label='Size of Apparent Background')
+            ax.loglog(self.gfuncs_class.lambdas, self.alpha_95cl, \
+                        linewidth=2, label='95% CL at Noise Limit')
 
         ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
         ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')

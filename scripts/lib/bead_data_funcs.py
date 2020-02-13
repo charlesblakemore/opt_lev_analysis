@@ -158,8 +158,8 @@ def get_hdf5_time(fname):
         # print "Warning, got no keys for: ", fname
         attribs = {}
 
-    print(attribs)
-    input()
+    # print(attribs)
+    # input()
 
     try:
         file_time = attribs["time"]

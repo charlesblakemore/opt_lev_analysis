@@ -30,6 +30,8 @@ def step_fun(x, q, x0):
 
            OUTPUTS: q * (x <= x0)'''
     xs = np.array(x)
+    delta_x = np.mean(np.diff(xs))
+    # return q*(xs<=(x0+0.75*delta_x))
     return q*(xs<=x0)
 
 
@@ -110,8 +112,21 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             pcol = config.elec_map[ecol]
 
         #drive = file_obj.electrode_data[ecol]
+        if plot:
+            colors = bu.get_color_map(len(file_obj.electrode_data), cmap='plasma')
+            for i in range(len(file_obj.electrode_data)):
+                plt.plot(file_obj.electrode_data[i], color=colors[i], 
+                            label='Elec. {:s}'.format(str(i)))
+            plt.title('Electrode data [V]')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
         efield = bu.trap_efield(file_obj.electrode_data, new_trap=new_trap)
         drive = efield[pcol]
+
+        # plt.plot(drive)
+        # plt.show()
         #drive = efield[ecol]
 
     elif using_tabor:
@@ -137,6 +152,10 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     freqs = np.fft.rfftfreq(len(drive), d=1./file_obj.fsamp)
     drive_freq = freqs[np.argmax(np.abs(drive_fft[1:])) + 1]
 
+    # plt.plot(drive)
+    # plt.show()
+    # input()
+
     # print(drive_freq)
     # for i in range(3):
     #     plt.plot(efield[i], label=str(i))
@@ -159,6 +178,14 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     t = np.linspace(0,(N+cut_samp-1)*dt, N+cut_samp)
     t = t[cut_samp:]
 
+    # print(drive_freq)
+    # if drive_freq < 10.0:
+    #     print(file_obj.fname)
+    #     plt.plot(t, drive)
+    #     plt.figure()
+    #     plt.loglog(freqs, np.abs(drive_fft))
+    #     plt.show()
+
     # Bandpass filter the response
     b, a = signal.butter(3, [2.*(drive_freq-bandwidth/2.)/file_obj.fsamp, \
                           2.*(drive_freq+bandwidth/2.)/file_obj.fsamp ], btype = 'bandpass')
@@ -166,8 +193,8 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
     if plot:
         plt.figure()
-        plt.loglog(np.abs(np.fft.rfft(drive)))
-        plt.loglog(np.abs(np.fft.rfft(responsefilt)))
+        plt.loglog(freqs, np.abs(np.fft.rfft(drive)))
+        plt.loglog(freqs, np.abs(np.fft.rfft(responsefilt)))
         plt.show()
 
     # ### CORR_FUNC TESTING ###
@@ -210,7 +237,8 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
 
 
-def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False):
+def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
+             auto_try = 0.0):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    plate_sep, face-to-face separation of electrodes
@@ -230,18 +258,20 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False):
     #bvec = yfit == yfit #[yfit<10.*np.mean(yfit)] #exclude cray outliers
     #yfit = yfit[bvec] 
 
-    plt.figure(1)
-    #plt.ion()
-    plt.plot(np.arange(len(yfit))*10.0, yfit, 'o')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Response [Arb]')
-    plt.tight_layout()
-    plt.show()
-    guess = input('Enter a guess for response / step: ')
-    guess = float(guess)
+    if not auto_try:
+        plt.figure(1)
+        #plt.ion()
+        plt.plot(np.arange(len(yfit)), yfit, 'o')
+        plt.xlabel('Integration number [Arb]')
+        plt.ylabel('Response [Arb]')
+        plt.tight_layout()
+        plt.show()
+        guess = input('Enter a guess for response / step: ')
+        guess = float(guess)
+    else:
+        guess = auto_try
+
     guess0 = guess
-    #plt.ioff()
-    #plt.close(1)
 
     step_inds = []
     step_qs = []
@@ -325,9 +355,11 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False):
                        axarr[0], ylabel="Norm. Response [e]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
                              xlabel="Integration Number")
-    for x in xfit:
-        if not (x-1) % 3:
-            axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
+    # for x in xfit:
+    #     if not (x-1) % 3:
+    #         axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
+    for i in [0,1]:
+        axarr[i].grid(alpha=0.4)
     plt.tight_layout()
     plt.show()
 
@@ -426,21 +458,28 @@ class Fit:
             self.errs = "Fit failed"
         self.fun = fun
 
-    def plt_fit(self, xdata, ydata, ax, scale = 'linear', xlabel = 'X', ylabel = 'Y', errors = []):
+    def plt_fit(self, xdata, ydata, ax, scale = 'linear', \
+                    xlabel = 'X', ylabel = 'Y', errors = []):
     
         inds = np.argsort(xdata)
         
         xdata = xdata[inds]
         ydata = ydata[inds]
 
+        delta_x = np.mean(np.diff(xdata))
+        xfundata = np.linspace(np.min(xdata) - 2*delta_x, np.max(xdata) + 2*delta_x, \
+                                int(10.0 * len(xdata)))
+
         #modifies an axis object to plot the fit.
         if len(errors):
             ax.errorbar(xdata, ydata, errors, fmt = 'o')
-            ax.plot(xdata, self.fun(xdata, *self.popt), 'r', linewidth = 3)
+            ax.plot(xfundata, self.fun(xfundata, *(self.popt)), \
+                        'r', linewidth = 3)
 
         else:    
             ax.plot(xdata, ydata, 'o')
-            ax.plot(xdata, self.fun(xdata, *self.popt), 'r', linewidth = 3)
+            ax.plot(xfundata + 0.5*delta_x, self.fun(xfundata, *(self.popt)), \
+                        'r', linewidth = 3)
 
         ax.set_yscale(scale)
         ax.set_xscale(scale)
@@ -448,7 +487,8 @@ class Fit:
         ax.set_ylabel(ylabel)
         ax.set_xlim([np.min(xdata), np.max(xdata)])
     
-    def plt_residuals(self, xdata, ydata, ax, scale = 'linear', xlabel = 'X', ylabel = 'Residual', label = '', errors = []):
+    def plt_residuals(self, xdata, ydata, ax, scale = 'linear', \
+                        xlabel = 'X', ylabel = 'Residual', label = '', errors = []):
         #modifies an axis object to plot the residuals from a fit.
 
         inds = np.argsort(xdata)
