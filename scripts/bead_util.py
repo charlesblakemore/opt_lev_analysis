@@ -335,7 +335,6 @@ class DataFile:
         dat = dat[configuration.adc_params["ignore_pts"]:, :]
         self.other_data = np.transpose(dat[:, configuration.col_labels["other"]])
 
-
     def calibrate_stage_position(self):
         '''calibrates voltage in cant_data and into microns. 
            Uses stage position file to put origin of coordinate 

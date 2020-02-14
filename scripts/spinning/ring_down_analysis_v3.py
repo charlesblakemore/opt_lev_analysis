@@ -5,24 +5,30 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import os
+import bead_util as bu
 from peakdetect import peakdetect 
 from scipy import signal
 from scipy.optimize import curve_fit
 from amp_ramp_3 import find_phasemod_freq 
 
-save = False 
+save_data = True 
 
 #path_list = ["/daq2/20190626/bead1/spinning/ringdown/50kHz_ringdown/",\
 #			"/daq2/20190626/bead1/spinning/ringdown/50kHz_ringdown2/"]
 
 path_list = ["/daq2/20190626/bead1/spinning/wobble/after_pramp_series/perp_z_axis/wobble_perp_z_axis_spindown2/"]
+path_list = ['/data/old_trap/20200130/bead1/spinning/series_3/base_press/ringdown/50kHz_2/']
 out_path = "/home/dmartin/analyzedData/20190626/ringdown/after_pramp/"
-
+out_path = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_3/base_press/ringdown/50kHz_2/'
 
 #Somehow allows me to plot a 50e3 sample signal. Need to understand it
 matplotlib.rcParams['agg.path.chunksize'] = 10000
 
-spin_freq = 100e3
+spin_freq = 50e3
+
+plot_gauss = False
+plot_inst_phase = False
+plot_inst_freq = False
 
 def gauss(x,a,b,c):
 	return a*np.exp(-(x-b)**2/(2*c))
@@ -33,7 +39,7 @@ def quadratic(x,a,b,c):
 def line(x,a,b):
 	return a*x + b
 
-def track_frequency(df=None,freqs=None,curr_spin_freq=0,amp=1,gauss_width=50,plot=False, fft=None , wind = 500.):
+def track_frequency(df=None,freqs=None,curr_spin_freq=0,amp=1,gauss_width=50,plot=False, fft=None , wind = 500., max_amp=4000):
 	'''Uses a Gaussian fit to follow the chirp feature as it progress to lower frequency.'''
 	
 	gauss_fit_params = []
@@ -51,7 +57,12 @@ def track_frequency(df=None,freqs=None,curr_spin_freq=0,amp=1,gauss_width=50,plo
 	mask = (freqs > curr_spin_freq-wind) & (freqs < curr_spin_freq+wind)
 	
 	try:	
-		popt, pcov = curve_fit(gauss,freqs[mask],np.abs(fft[mask]),p0=p_init)
+               
+                #while max_amp > np.amax(np.abs(fft[mask])):
+                #    curr_spin_freq -= 10
+                #    mask = (freqs > curr_spin_freq-wind) & (freqs < curr_spin_freq+wind)
+
+                popt, pcov = curve_fit(gauss,freqs[mask],np.abs(fft[mask]),p0=p_init)
 	
 		new_spin_freq = popt[1]
 		
@@ -68,16 +79,18 @@ def track_frequency(df=None,freqs=None,curr_spin_freq=0,amp=1,gauss_width=50,plo
 		#spin_freqs.append(new_spin_freq)
 		#time.append((df.attribs['time']-t0)*1e-9)
 	
+                max_amp = np.amax(np.abs(fft[mask]))
 	except RuntimeError as e:
 		#print(e)
 		#plt.plot(freqs[mask],gauss(freqs[mask],*popt))
 		#plt.plot(freqs[mask],np.abs(fft)[mask])
 		#plt.show()
 		new_spin_freq = curr_spin_freq
-		popt = [0,0,0] 	
+		popt = [0,0,0] 
+                #max_amp = max_amp
 		pass
 
-	return new_spin_freq, popt
+	return new_spin_freq, popt, max_amp
 
 def drive_state_ind(files):
 	'''Finds the file index at which the drive switches off'''
@@ -173,7 +186,7 @@ def find_spin_freq(files,meas_name):
 		np.savez(out_path + "{}_deriv_quantities.npz".format(meas_name),\
 				file_ind=file_ind,time=time,gauss_fit_params=gauss_fit_params, off_ind=off_ind)		
 
-def find_spin_freqs_hilbert(files,meas_name,curr_spin_freq):
+def find_spin_freqs_hilbert(files,meas_name,curr_spin_freq, plot=False, plot_phase=False, plot_freq=False, save=False):
 	''' Finds frequency of the spinning microsphere by analyzing the chirp in the spectrum and fitting a quadratic to the instantaneous phase. From this, we know the instantaneous frequency of the sphere.'''
 	freq = []
 	freq_err = []
@@ -188,7 +201,7 @@ def find_spin_freqs_hilbert(files,meas_name,curr_spin_freq):
 	freqs = np.fft.rfftfreq(Ns, 1/Fs)
 	
 	tarr = np.arange(Ns)/Fs
-	plot = False	
+		
 	
 	for i, f in enumerate(files):	
 		print(i, f)
@@ -196,17 +209,18 @@ def find_spin_freqs_hilbert(files,meas_name,curr_spin_freq):
 		
 		fft = np.fft.rfft(df.dat[:,0])
 		
-			
-		curr_spin_freq, gauss_params = track_frequency(df,freqs,curr_spin_freq,gauss_params[0],gauss_params[2],plot)
-		
-		#Divided by freq[-1] since the filter low and high freq
+
+		curr_spin_freq, gauss_params, max_amp = track_frequency(df,freqs,curr_spin_freq,gauss_params[0],gauss_params[2],plot)#, max_amp)
+	
+                #Divided by freq[-1] since the filter low and high freq
 		#should be normalized to np.pi. Check signal butter docs	
 		low_freq = (curr_spin_freq-300)/freqs[-1] 
 		high_freq = (curr_spin_freq+300)/freqs[-1]
 		
 		#Used 2nd order filter simply because it was "stronger" 
 		#in canceling out frequencies
-	
+	        
+                print(low_freq,high_freq)
 		b, a = signal.butter(2,[low_freq,high_freq],btype='bandpass')
 		
 		y = signal.filtfilt(b,a,df.dat[:,0])
@@ -225,7 +239,7 @@ def find_spin_freqs_hilbert(files,meas_name,curr_spin_freq):
 		z = signal.hilbert(irfft)
 		
 		inst_phase = np.unwrap(np.angle(z))
-		#inst_freq = np.diff(inst_phase)/(2. * np.pi) * Fs
+		inst_freq = np.gradient(inst_phase)/(2. * np.pi) * Fs
 		
 		popt, pcov = curve_fit(quadratic,tarr,inst_phase, \
 							   p0=[-1,2*np.pi*curr_spin_freq,1])
@@ -237,25 +251,32 @@ def find_spin_freqs_hilbert(files,meas_name,curr_spin_freq):
 		f_init_err = np.sqrt(np.diag(pcov))[1]
 		
 
-		print(f_init)	
-		f = f_slope * 0.8 + f_init
-		f_err = np.sqrt((0.8*f_slope_err)**2 + (f_init_err)**2)
+                t_half = tarr[-1]/2.
 
-		#print(f,f_err)	
+		#print(f_init)	
+		f = f_slope * t_half + f_init #Take the freqeuncy at the center of the integration window as an estimate of
+                                              #the current MS rotation freqeuncy
+		
+                f_err = np.sqrt((t_half*f_slope_err)**2 + (f_init_err)**2)
+
+		print(f)	
 	
 		count = 0	
-		#plt.plot(tarr,inst_phase)
-		#plt.plot(tarr,quadratic(tarr,*popt))
-		#plt.title('Inst. Phase')
-		#plt.ylabel(r'$\phi(t)$')
-		#plt.xlabel('Time [s]')	
-		#plt.show()
-		#
-		#plt.plot(tarr,line(tarr,popt[0],popt[1])/(2*np.pi))
-		#plt.title('Inst. Frequency')
-		#plt.ylabel('Frequency [Hz]')
-		#plt.xlabel('Time [s]')
-		#plt.show()
+                
+                if plot_phase:
+                    plt.plot(tarr,inst_phase)
+		    plt.plot(tarr,quadratic(tarr,*popt))
+		    plt.title('Inst. Phase')
+		    plt.ylabel(r'$\phi(t)$')
+		    plt.xlabel('Time [s]')	
+		    plt.show()
+                
+                if plot_freq:
+		    plt.plot(tarr,line(tarr,popt[0],popt[1])/(2*np.pi))
+		    plt.title('Inst. Frequency')
+		    plt.ylabel('Frequency [Hz]')
+		    plt.xlabel('Time [s]')
+		    plt.show()
 		
 		time.append((df.attribs['time']-t0) * 1e-9)
 		freq.append(f)
@@ -295,16 +316,18 @@ def plot_data(f,freq,gauss_fit_params):
 	
 	
 if __name__ == "__main__":
-    if os.path.isdir(out_path) == False:
-        print("out_path doesn't exist. Creating...")
-        os.mkdir(out_path)
-	
+    #if os.path.isdir(out_path) == False:
+    #    print("out_path doesn't exist. Creating...")
+    #    os.mkdir(out_path)
+
+    if save_data:
+        bu.make_all_pardirs(out_path)
     
     for i in range(len(path_list)):
     	files, zero= buf.find_all_fnames(path_list[i])
     	off_ind = drive_state_ind(files)
     	
     	name = path_list[i].split('/')[-2]
-    	find_spin_freqs_hilbert(files[off_ind:],name+'_{}'.format(off_ind),spin_freq)	
+    	find_spin_freqs_hilbert(files[off_ind:],name+'_{}'.format(off_ind),2*spin_freq, plot=plot_gauss, plot_freq=plot_inst_freq, plot_phase=plot_inst_phase, save=save_data)	
 
 	

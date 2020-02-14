@@ -150,25 +150,24 @@ arr.append('/daq2/20190408/bead1/weigh/lowp_neg_150Vpp')
 file_dict = {'20190408': (False, arr)}
 
 arr = []
-arr.append('/daq2/20190514/bead1/weigh/lowp_neg_4Vpp')
+arr.append('/data/old_trap/20190514/bead1/weigh/lowp_neg_4Vpp')
 
-file_dict = {'20190514': (False, arr)}
+file_dict = {'20190514': (True, arr)}
 
-arr = []
-arr.append('/data/old_trap/20190626/bead1/weigh/lowp_neg_8Vpp')
+#arr = []
+#arr.append('/data/old_trap/20190626/bead1/weigh/lowp_neg_8Vpp')
 
-file_dict = {'20190626': (True, arr)}
-
-arr = []
-arr.append('/data/old_trap/20191105/bead4/weigh/lowp_neg_3Vpp')
-
-file_dict = {'20191105': (True, arr)}
-
-arr = []
-arr.append('/data/old_trap/20191204/bead1/weigh/')
-
-file_dict = {'20191204': (True, arr)}
-
+#file_dict = {'20190626': (True, arr)}
+#
+#arr = []
+#arr.append('/data/old_trap/20191105/bead4/weigh/lowp_neg_3Vpp')
+#
+#file_dict = {'20191105': (True, arr)}
+#
+#arr = []
+#arr.append('/data/old_trap/20191204/bead1/weigh/')
+#
+#file_dict = {'20191204': (True, arr)}
 # Noise data
 #chopper = True
 noise = False
@@ -202,7 +201,6 @@ diag = False
 
 save = False 
 fullNFFT = False
-
 ###########################################################
 
 def line(x, a, b):
@@ -210,7 +208,7 @@ def line(x, a, b):
 
 
 def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
-                      file_inds=(0,10000), plot=True, print_res=False, pos=False):
+                      file_inds=(0,10000), plot=True, print_res=True, pos=False):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -224,9 +222,10 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
        OUTPUTS: none, plots stuff
     '''
 
-    date = files[0].split('/')[2]
-
-    charge_file = '/calibrations/charges/' + date
+    date = files[0].split('/')[3]
+    
+    charge_file = '/data/old_trap_processed/calibrations/charges/' + date
+    print(charge_file)
     if pos:
         charge_file += '_recharge.charge'
     else:
@@ -359,7 +358,7 @@ def weigh_bead_efield(files, colormap='jet', sort='time', chopper=False,\
 
 
         if np.sum(df.power) == 0.0:
-            current = np.abs(df.other_data[pow_ind]) / trans_gain
+            current = np.abs(df.other_data[0]) / trans_gain
         else:
             fac = 1e-6
             current = fac * df.power / trans_gain
@@ -625,7 +624,7 @@ for date in dates:
         allfiles, lengths = bu.find_all_fnames(cdir, sort_time=True, \
                                                verbose=False)
         dat = weigh_bead_efield(allfiles, pos=pos, \
-                                print_res=False, plot=True, \
+                                print_res=True, plot=True, \
                                 chopper=chopper)
         allres.append(dat)
         allres_dict[date].append(dat)

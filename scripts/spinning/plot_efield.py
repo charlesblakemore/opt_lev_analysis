@@ -1,24 +1,42 @@
-import numpy as np
+from hs_digitizer import *
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib
+import matplotlib.mlab as mlab
+import window_func as window
+import bead_util as bu
+from amp_ramp_3 import bp_filt, lp_filt, hp_filt
+from scipy import signal
 
+filename = '/data/old_trap/20191223/bead1/spinning/tests/test_amp_mod/turbombar_powfb_xyzcool_smaller_amp_0.h5'
+filename = 'turbombar_powfb_xyzcool_smaller_amp_0.h5
+#filename = '/data/old_trap/20190626/bead1/spinning/wobble/long_wobble/wobble_0000/turbombar_powfb_xyzcool_9.h5'
 
-amod = .1
-dc = 0.6
+fc = 45e3
+fc1 = 10e3
+obj = hsDat(filename)
 
-Qs = np.linspace(0, 2.*np.pi, 1000)
-Es = amod*np.cos(4.*Qs) + dc
+Ns = obj.attribs['nsamp']
+Fs = obj.attribs['fsamp']
 
-matplotlib.rcParams.update({'font.size':14})
-f, ax = plt.subplots(dpi = 200, figsize = (4, 2))
-ax.plot(Qs/np.pi, Es, linewidth = 5)
-ax.axhline(y = dc, linestyle = "--", linewidth = 4, color = 'k', alpha = 0.7, label = r"0.6 $E_{0}$")
-ax.set_ylim([0, 1])
-ax.set_xlim([0, 2])
-ax.set_xlabel(r"$\phi$ [$\pi$]")
-ax.set_ylabel(r"E [$E_{0}$]")
-ax.legend()
-plt.subplots_adjust(top = 0.96, bottom = 0.3, left = 0.2, right = 0.99)
+freqs = np.fft.rfftfreq(Ns, 1./Fs)
+
+window = np.hanning(Ns)
+
+drive_sig = obj.dat[:,1]
+#drive_sig *= window
+#drive_sig_filt = lp_filt(drive_sig, fc, Ns, Fs)
+#drive_sig_filt = hp_filt(drive_sig, fc1, Ns, Fs)
+
+drive_sig_filt = drive_sig#bp_filt(drive_sig, 25e3, Ns, Fs, 2e3)
+
+drive_fft = np.fft.rfft(drive_sig)
+drive_fft_filt = np.fft.rfft(drive_sig_filt)
+
+plt.plot(drive_sig)
+plt.plot(drive_sig_filt)
 plt.show()
 
+plt.loglog(freqs, np.abs(drive_fft))
+plt.loglog(freqs, np.abs(drive_fft_filt))
+plt.show()
 

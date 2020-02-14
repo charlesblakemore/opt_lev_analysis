@@ -21,6 +21,8 @@ maxfiles = 2000
 use_dir = False
 filename_labels = True #False
 
+dir1= '/data/old_trap/20200128/bead2/discharge/coarse/'
+
 #allfiles = ['/daq2/20190827/bead3/1_5mbar_zfb_lower_1.h5',\
 #			'/daq2/20190827/bead3/1_5mbar_xzcool.h5',\
 #			'/daq2/20190827/bead3/1_5mbar_yzcool.h5',\
@@ -87,21 +89,43 @@ filename_labels = True #False
 #allfiles = ['/daq2/20190408/bead1/spinning/test/0_1mbar_xyzcool_powfb_2.h5']
 #allfiles = ['/daq2/20190430/bead1/1_5mbar_xyzcool_elec3_0mV41Hz0mVdc.h5','/daq2/20190430/bead1/1_5mbar_zcool_elec3_0mV41Hz0mVdc.h5']
 #allfiles = ['/daq2/20190408/bead1/spinning/49kHz_200Vpp_pramp-N2_1']
-#allfiles = ['/daq2/20190430/bead1/height_finding/zcool_init.h5','/daq2/20190430/bead1/height_finding/zcool_u200k.h5','/daq2/20190430/bead1/height_finding/zcool_d500k.h5','/daq2/20190430/bead1/height_finding/zcool_d700k.h5','/daq2/20190430/bead1/height_finding/zcool_d900k.h5','/daq2/20190430/bead1/zcool_nominal.h5','/daq2/20190430/bead1/xzcool_nominal.h5']
+allfiles = ['/data/old_trap/20190430/bead1/height_finding/zcool_init.h5','/data/old_trap/20190430/bead1/height_finding/zcool_u200k.h5','/data/old_trap/20190430/bead1/height_finding/zcool_d500k.h5','/data/old_trap/20190430/bead1/height_finding/zcool_d700k.h5','/data/old_trap/20190430/bead1/height_finding/zcool_d900k.h5','/data/old_trap/20190430/bead1/zcool_nominal.h5','/data/old_trap/20190430/bead1/xzcool_nominal.h5']
 
-allfiles = ['/data/old_trap/20191204/bead1/1_5mbar_powfb_init.h5',\
-            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool.h5',\
-            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower.h5',\
-            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
-            '/data/old_trap/20191204/bead1/1_5mbar_powfb_xzcool.h5']
-allfiles = ['/data/old_trap/20191223/bead1/1_5mbar_powfb_zcool_higher.h5',\
-            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xzcool.h5',\
-            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xyzcool.h5',\
-            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xyzcool_higher.h5']
+#allfiles = ['/data/old_trap/20191204/bead1/1_5mbar_powfb_init.h5',\
+#            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool.h5',\
+#            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower.h5',\
+#            '/data/old_trap/20191204/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
+#            '/data/old_trap/20191204/bead1/1_5mbar_powfb_xzcool.h5']
+#allfiles = ['/data/old_trap/20191223/bead1/1_5mbar_powfb_zcool_higher.h5',\
+#            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xzcool.h5',\
+#            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xyzcool.h5',\
+#            '/data/old_trap/20191223/bead1/1_5mbar_powfb_xyzcool_higher.h5']
+#allfiles = ['/data/old_trap/20191223/bead1/spinning/tests/20200116/xyz/turbombar_xyzcool_3.h5']
+##allfiles = ['/data/old_trap/20191223/bead1/inject_sigs/inject_sinusoid/turbombar_powfb_xyzcool_100Hz_10mV_xy_inject_hp_synth_no_sphere_xy_dg_on_1.h5']
+#allfiles = ['/data/old_trap/20200128/bead1/1_5mbar_powfb_yzcool.h5',\
+#            '/data/old_trap/20200128/bead1/1_5mbar_powfb_yzcool_2.h5',\
+#            '/data/old_trap/20200128/bead1/1_5mbar_powfb_zcool_1.h5',\
+#            '/data/old_trap/20200128/bead1/1_5mbar_powfb_xzcool_1.h5',\
+#            '/data/old_trap/20200128/bead1/1_5mbar_powfb_xyzcool_off.h5']
+#allfiles = ['/data/old_trap/20200128/bead2/1_5mbar_powfb_init.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_zcool_init.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_zcool_lower.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_zcool_higher.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_xzcool.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_yzcool.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_xyzcool.h5',\
+#            '/data/old_trap/20200128/bead2/1_5mbar_powfb_xyzcool_1.h5']
 #allfiles = ['/data/old_trap/20191017/bead1/1_5mbar_powfb_zcool.h5',\
 #            '/data/old_trap/20191017/bead1/1_5mbar_powfb_xzcool.h5',\
-#            '/data/old_trap/20191017/bead1/1_5mbar_powfb_yzcool.h5']
+#            '/data/old_trap/20191017/bead1/1_5mbar_powfb_yzcool.h5',\
+#            '/data/old_trap/20191017/bead1/1_5mbar_powfb_xzcool_1.h5' ]
 
+allfiles = ['/data/old_trap/20200130/bead1/1_5mbar_powfb_zcool_init.h5',\
+            '/data/old_trap/20200130/bead1/1_5mbar_powfb_zcool_lower.h5',\
+            '/data/old_trap/20200130/bead1/1_5mbar_powfb_zcool_lower_1.h5',\
+            '/data/old_trap/20200130/bead1/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20200130/bead1/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20200130/bead1/1_5mbar_powfb_xyzcool.h5']
 tfdate = '20190327'
 
 #labs = ['1','2', '3']
@@ -227,8 +251,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         df.diagonalize(maxfreq=lpf, interpolate=False, date=tfdate)
 
         if fil_ind == 0:
-            print(drive_ax)
-            print(len(df.cant_data))
+            #print(drive_ax)
+            #print(len(df.cant_data))
             if len(df.cant_data):
                 drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
                 driveind = np.argmax(drivepsd[1:]) + 1
@@ -292,10 +316,14 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 eaxarr[axind].loglog(freqs, np.sqrt(psd), color=color ) 
 
         if len(other_axes):
+            #print('Length of other_axes',len(other_axes))
             for axind, ax in enumerate(other_axes):
                 ax = ax - 3
-                psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
-                                      NFFT=NFFT, window=window)
+                #psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
+                #                     NFFT=NFFT, window=window)
+                psd, freqs = mlab.psd(df.power, Fs=df.fsamp, \
+                                  NFFT=NFFT, window=window)
+
                 oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
 

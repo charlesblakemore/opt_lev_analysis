@@ -10,6 +10,7 @@ save = False
 #path_list = ['/home/dmartin/analyzedData/20190626/ringdown/0_8_sec_freq_50kHz_ringdown_18_hilbert_deriv_quantities.npz','/home/dmartin/analyzedData/20190626/ringdown/0_8_sec_freq_50kHz_ringdown2_30_hilbert_deriv_quantities.npz']#,'/home/dmartin/analyzedData/20190626/ringdown/50kHz_ringdown_18_hilbert_deriv_quantities_0.npz']
 
 path_list = ['/home/dmartin/analyzedData/20190626/ringdown/after_pramp/after_pramp_19_hilbert_deriv_quantities_1.npz']
+path_list = ['/home/dmartin/Desktop/analyzedData/20200130/spinning/series_3/base_press/ringdown/50kHz_2/50kHz_2_0.npz']
 
 out_path = '/home/dmartin/analyzedData/20190626/ringdown/after_pramp/'
 
@@ -31,7 +32,7 @@ for j in range(len(path_list)):
 	#Some of the data files were saved with gauss_fit_params when the mean of Gaussian fits to the chirp feature was used.	
 	#spin_freqs = data['gauss_fit_params'][:,1]
 	time = data['time']
-	spin_freqs = data['spin_freq']
+	spin_freqs = 0.5*data['spin_freq']
 	spin_freq_errs = data['spin_freq_err']
 
 	

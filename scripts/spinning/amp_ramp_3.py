@@ -162,6 +162,16 @@ def hp_filt(signal,frequency,Ns,Fs):
 
     return sig
 
+def lp_filt(signal, frequency, Ns, Fs):
+    freqs = np.fft.rfftfreq(Ns, 1./Fs)
+
+    freq = frequency/freqs[-1]
+    b, a = ss.butter(1, freq, btype='low')
+
+    sig = ss.filtfilt(b, a, signal)
+
+    return sig
+
 if __name__ == "__main__":
 	fc = 1e5 #2 times spinning frequency
 	bw = 1e3 #Bandwidth for freq_bool
