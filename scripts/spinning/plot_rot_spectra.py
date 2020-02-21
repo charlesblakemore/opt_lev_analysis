@@ -54,22 +54,23 @@ directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191218/test
 directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/neg_05amp_dg/'
 #directory = '/data/old_trap/20191105/bead4/phase_mod/deriv_feedback/deriv_feedback_1/'
 #directory = '/data/old_trap/20191223/bead1/spinning/transient_behavior/8amp_dg/'
-#directory = '/data/old_trap/20191223/bead1/spinning/tests/deriv_fb_50_down_samp/'
-#directory = '/data/old_trap/20191223/bead1/spinning/deriv_feedback/change_dg_0_to_0_15/change_dg_0001/'
-#directory = '/data/old_trap/20191223/bead1/spinning/tests/test_pm_sig/'
-#directory = '/data/old_trap/20191223/bead1/spinning/tests/digitize_inst_freq' 
-#directory = '/data/old_trap/20191223/bead1/spinning/tests/slowly_varying_crossp_amp/'
-#directory = '/data/old_trap/20191223/bead1/spinning/tests/test_amp_mod/'
-directory = '/data/old_trap/20191223/bead1/spinning/tests/noise_inject/'
-directory = '/data/old_trap/20200130/bead1/spinning/long_int/4Vpp_base_press/'
-#directory = '/data/old_trap/20200130/bead1/spinning/transient/change_dc_offset_1/'
-directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset/base_press/'
-
-directory = '/data/old_trap/20200130/bead1/spinning/test/square_drive/'
-#directory = '/data/old_trap/20200130/bead1/spinning/series_2/base_press/long_int_0_dg/'
-directory = '/data/old_trap/20200130/bead1/spinning/test/check_rot/'
-directory = '/data/old_trap/20190905/bead1/spinning/ringdown/50kHz_start_1/'
-directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_1/'
+directory = '/data/old_trap/20191223/bead1/spinning/tests/deriv_fb_50_down_samp/'
+##directory = '/data/old_trap/20191223/bead1/spinning/deriv_feedback/change_dg_0_to_0_15/change_dg_0001/'
+##directory = '/data/old_trap/20191223/bead1/spinning/tests/test_pm_sig/'
+##directory = '/data/old_trap/20191223/bead1/spinning/tests/digitize_inst_freq' 
+##directory = '/data/old_trap/20191223/bead1/spinning/tests/slowly_varying_crossp_amp/'
+##directory = '/data/old_trap/20191223/bead1/spinning/tests/test_amp_mod/'
+#directory = '/data/old_trap/20191223/bead1/spinning/tests/noise_inject/'
+#directory = '/data/old_trap/20200130/bead1/spinning/long_int/4Vpp_base_press/'
+##directory = '/data/old_trap/20200130/bead1/spinning/transient/change_dc_offset_1/'
+#directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset/base_press/'
+#
+#directory = '/data/old_trap/20200130/bead1/spinning/test/square_drive/'
+##directory = '/data/old_trap/20200130/bead1/spinning/series_2/base_press/long_int_0_dg/'
+#directory = '/data/old_trap/20200130/bead1/spinning/test/check_rot/'
+#directory = '/data/old_trap/20190905/bead1/spinning/ringdown/50kHz_start_1/'
+#directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_1/'
+directory = '/data/old_trap/20200130/bead1/waveform_gen_test/'
 
 labels = ['Positive','Negative','Zero']
 labels = ['']
@@ -80,11 +81,11 @@ if use_dir:
 
 
 
-files = files[:]
+files = files[-1:]
 
 drive_ind = 1
 data_ind = 0
-hilbert_ind = data_ind
+hilbert_ind = drive_ind
 
 freq_spinning = 25.e3
 wind_width = 5320.
@@ -927,7 +928,7 @@ for i in range(len(files)):
             gc.collect()
 
             print(Ns/Fs)
-            plt.semilogy(freqs,psd)
+            plt.loglog(freqs,psd)
             plt.xlabel('Frequency [Hz]')
             plt.ylabel(r'PSD of $\phi$ [$rad^{2}$/s]')
             plt.grid(b=True, which='minor', axis='x')

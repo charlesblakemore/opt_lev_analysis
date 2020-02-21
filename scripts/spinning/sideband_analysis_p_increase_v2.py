@@ -33,7 +33,7 @@ base_name = '/data/old_trap/20191223/bead1/spinning/change_press_1/'
 base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_4/zero_dg/'
 base_name = '/data/old_trap/20200130/bead1/spinning/deriv_fb/no_dg_8Vpp/'
 base_name = '/data/old_trap/20200130/bead1/spinning/series_3/base_press/long_int/0_9_dg/'
-base_name = '/data/old_trap/20200130/bead1/spinning/series_4/base_press/change_phi_offset_4/long_int/'
+base_name = '/data/old_trap/20200130/bead1/spinning/series_4/base_press/change_phi_offset_3/long_int/'
 
 fils = ['no_dg_0000','no_dg_0001','no_dg_0002','no_dg_0003','no_dg_0004',\
         'no_dg_0005','no_dg_0006','no_dg_0007','no_dg_0008','no_dg_0009']
@@ -48,7 +48,7 @@ save_base_name = '/home/dmartin/Desktop/analyzedData/20191223/spinning/zero_dg/c
 save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/deriv_fb/no_dg_8Vpp/crossp_psds/'
 save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_3/base_press/long_int/0_9_dg/crossp_psds/'
 save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_4/long_int/'
-
+save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/long_int/'
 bu.make_all_pardirs(save_base_name)
 
 out_paths = ['/home/dmartin/Desktop/analyzedData/20191204/dg_xz/']
@@ -120,46 +120,27 @@ def sine(x, A, f, c):
 def line(x,a,b):
     return a * x + b
 
-def avg_phase_fft(files):
+def avg_phase_psd_eff(files, ind_to_avg, threshold=10e3):
+    
     obj_init = hd.hsDat(files[0])
     Ns = obj_init.attribs['nsamp']
     Fs = obj_init.attribs['fsamp']
+    dg = obj_init.attribs['current_pm_dg']
 
     freqs = np.fft.rfftfreq(Ns, 1./Fs)
     tarr = np.arange(Ns)/Fs
     #psd_sum = np.zeros((Ns/2) + 1)
 
-    psds = []
-    for i in range(len(files)):
-        print(files[i])
-        obj = hd.hsDat(files[i])
-
-        spin_sig = obj.dat[:,ind]
-
-
-        if filt:
-            spin_sig = bp_filt(spin_sig,2*spinning_freq,Ns,Fs,1800)
-
-        fft = np.fft.rfft(spin_sig)
-
-        phase = np.angle(fft)
-
-
-def avg_phase_psd(files, ind_to_avg, threshold=10e3):
-    
-    obj_init = hd.hsDat(files[0])
-    Ns = obj_init.attribs['nsamp']
-    Fs = obj_init.attribs['fsamp']
-    
-    freqs = np.fft.rfftfreq(Ns, 1./Fs)
-    tarr = np.arange(Ns)/Fs
-    #psd_sum = np.zeros((Ns/2) + 1)
-
-    bad_file_indices = []
     psds = []
     z_arr = []
+    
     for i in range(len(files)):
+        bad_file = False
+
         print(files[i])    
+        meas_name = files[i].split('/')[-2]
+        raw_name = files[i].split('/')[-1].split('.')[0]
+        
         obj = hd.hsDat(files[i])
 
         spin_sig = obj.dat[:,ind_to_avg]
@@ -175,55 +156,37 @@ def avg_phase_psd(files, ind_to_avg, threshold=10e3):
         #plt.show()
 
         z = ss.hilbert(spin_sig)
-        z_arr.append(z)
         phase = ss.detrend(np.unwrap(np.angle(z)))
 
         std_phase = np.std(phase)
          
         if std_phase > threshold:
             print('bad file')
-            bad_file_indices.append(i)
+            bad_file = True
             continue
         
-        #phase = bp_filt(phase, 557, Ns, Fs, 25)
-
-        #plt.plot(tarr, phase)
-        #plt.show()
-
         psd, freqs_ = mlab.psd(phase, NFFT=len(phase), Fs=Fs, window = np.hanning(len(phase)))
         
-        psds.append(psd)
 
-        #plt.loglog(freqs,psd,label='{}'.format(files[i].split('/')[-1]))
+        mask = (freqs_ > lib_freq - (bandwidth/2)) & (freqs_ < lib_freq + (bandwidth/2))
+
+        #plt.loglog(freqs_, psd, label='{}'.format(files[i].split('/')[-1]))
         
         #plt.show()
 
-#    plt.ylabel(r'PSD $[rad^{2}/Hz]$')
-#    plt.xlabel('Frequency [Hz]')
-    #plt.legend()
-#    plt.show()
-
-    if psds:
-    
-        avg = np.mean(psds,axis=0)
-        std = np.std(psds,axis=0)
         
-        if plot:
-            plt.loglog(freqs, avg)
-
-            leg = plt.legend()
-            leg.get_frame().set_linewidth(0.0)
-
-            plt.ylabel(r'PSD $[rad^{2}/Hz]$')
-            plt.xlabel('Frequency [Hz]')
-            plt.show()
+        #plt.ylabel(r'PSD $[rad^{2}/Hz]$')
+        #plt.xlabel('Frequency [Hz]')
+        #plt.legend()
+        #plt.show()
     
-    else:
-        avg = []
-        std = []
+        if save_ind_files:
 
-    num_files = len(psds)
-    return freqs, avg, Ns, Fs, num_files, np.array(psds), std, z_arr, bad_file_indices  
+            save_name = save_base_name + '/raw_curves/' + meas_name + '/{}'.format(raw_name)
+            #print(save_name) 
+            bu.make_all_pardirs(save_name)
+
+            np.savez(save_name, psd=psd[mask], freqs=freqs_[mask], Ns=Ns, Fs=Fs, num_files=num_files, bad_file=bad_file, dg=dg)   
 
 
 def extract_libration_freq(obj, rot_filt=False):
@@ -293,88 +256,11 @@ def extract_libration_freq(obj, rot_filt=False):
 
     return libration_freq
 
-def change_dg(obj):
-    Ns = obj.attribs['nsamp']
-    Fs = obj.attribs['fsamp']
-    freqs = np.fft.rfftfreq(Ns, 1./Fs)
-
-    spin_sig = obj.dat[:,0]
-
-    fft = np.fft.rfft(spin_sig)
-
-    plt.loglog(np.abs(fft))
-    plt.show()
-
-    z = ss.hilbert(spin_sig)
-    phase = ss.detrend(np.unwrap(np.angle(z)))
-
-    fft_phase = np.fft.rfft(phase)
-
-    plt.loglog(freqs,np.abs(fft_phase))
-    plt.show()
-    
-    max_ind = np.argmax(np.abs(fft_phase))
-    
-    phase_filt = bp_filt(phase, 300, Ns, Fs,200)
-    
-
-    #for i in range(5):
-    #    psd, freqs = mlab.psd(phase, NFFT=len(phase_filt)*(2*(i+1)), Fs=Fs, window=mlab.window_none)
-
-    #    plt.loglog(freqs,psd,label= 2*(i+1))
-        
-    #plt.legend()
-    #plt.show()
-
-    
-    psd, freqs = mlab.psd(phase, NFFT=len(phase_filt), Fs=Fs, window=mlab.window_none)
-
-    mask = (freqs > 280) & (freqs < 380)
-    
-    max_ind = np.argmax(psd[mask])
-    freq_guess = freqs[mask][max_ind]
-    
-    bw = 20
-
-    mask_low = freq_guess-bw/2.
-    mask_high = freq_guess+bw/2.
-    
-    mask = (freqs > mask_low) & (freqs < mask_high)
-    plt.semilogy(freqs[mask],psd[mask])
-    plt.show()
-
-    
-    print(freq_guess)
-    
-    #p0 = [1e6,freq_guess,1e-1,mask_low,mask_high]  
-    #bounds = ([1e6,mask_low,1e-4,mask_low-bw,mask_high-bw],[1e8,mask_high,1e1,mask_low+bw,mask_high+bw])  
-    #popt, pcov = curve_fit(psd_lorentzian_cut, freqs[mask], psd[mask], p0=p0, bounds=bounds)
-
-   
-    p0 = [1e6,freq_guess,1e-1]  
-    bounds = ([1e6,mask_low,1e-4],[1e10,mask_high,1e1])  
-    popt, pcov = curve_fit(psd_lorentzian, freqs[mask], psd[mask], p0=p0, bounds=bounds)
-
-    print(popt)
-    
-    
-    x = np.linspace(freqs[mask][0],freqs[mask][-1],100000)
-   
-    
-
-    plt.loglog(freqs, psd)  
-    plt.loglog(x, psd_lorentzian(x, *popt))
-    plt.ylabel(r'Amplitude [rad^{2}/Hz]')
-    plt.xlabel('Frequency [Hz]')
-    #plt.loglog(freqs, p.abs(fft_phase))
-    plt.show()
- 
     
 folders.sort(key=lambda f: int(filter(str.isdigit,f)))
 folders = folders[:]
 
 if avg_psd:
-    #for i in range(len(files)):
     for i in range(len(folders)):
         
         print(folders[i])
@@ -382,77 +268,6 @@ if avg_psd:
 
         meas_name = folders[i].split('/')[-1] 
 
+        avg_phase_psd_eff(files, ind, thresh)
         
-        if meas_name == '':
-            print('empty name')
-            meas_name = '{}'.format(i)
-        if ind == data_ind:
-            save_name = save_base_name + meas_name
-            print(save_name)
-        
-        elif ind == drive_ind:
-            save_name = save_base_name + meas_name + '_drive_psds'
-            print('drive_psds', save_name)
-
-        if not os.path.exists(save_name + '.npz') or overwrite:
-            
-            
-            freqs, avgs, Ns, Fs, num_files, psds, std, z_arr, bad_file_indices = avg_phase_psd(files, ind, thresh)
-            
-            if save:
-                print('saving')
-                np.savez(save_name, freqs=freqs, avgs=avgs, std=std, Ns=Ns, Fs=Fs, num_files=num_files, psds=psds, z_arr=z_arr, bad_file_indices=bad_file_indices)
-        else:
-            print(save_name + '.npz')
-            print('File exits. Skipping.')
-            continue
-
-if press_increase:
-    pressures = np.zeros((len(files), 3))
-    libration_freqs = np.zeros(len(files))
-
-    for i in range(len(files[:])):
-        obj = hd.hsDat(files[i])
-        
-        pressures[i,:] = obj.attribs["pressures"]
-        libration_freqs[i] = extract_libration_freq(obj, True)  
-       
-        
-    func, press = build_full_pressure(pressures, plot=True)
-        
-    press_mbar = 1.33322 * press
-
-    press_Pa = 100 * press
-    data = np.array([press_Pa,libration_freqs])
-    
-    try:
-        popt, pcov = curve_fit(sqrt, press_Pa, libration_freqs)
-        print(popt)
-    except:
-        popt = [1,1]
-        print('cannot fit')
-
-    x = np.linspace(press_Pa[0],press_Pa[-1],len(press_Pa)*10)
-
-    plt.scatter(press_Pa, libration_freqs)
-    plt.plot(press_Pa, sqrt(press_Pa, *popt))
-    plt.ylabel(r'$f_{\phi}$ [Hz]')
-    plt.xlabel('Pressure [Pa]')
-    plt.show()
-    
-    save_base_name = save_base_name + '_{}'.format(base_name.split('/')[-1])
-    if save:
-        np.savez(save_base_name, press_mbar=press_mbar, libration_freqs=libration_freqs)
-
-    print(data)
-    if raw_input('save?') == '1':
-        np.save('/home/dmartin/Desktop/analyzedData/20191105/phase_mod/change_press/change_press_2/change_press_2.npy', data)
-
-if dg_increase:
-    for i in range(len(files)):
-        obj = hd.hsDat(files[i])
-        
-        #extract_libration_freq(obj)
-        libration_freqs[i] = change_dg(obj)#extract_libration_freq(obj)
-
 
