@@ -32,8 +32,24 @@ folders = ['/data/old_trap/20200130/bead1/spinning/series_3/base_press/change_ph
 
 base_folder = '/data/old_trap/20200130/bead1/spinning/series_4/base_press/change_phi_offset_3/change_phi_offset/'
 
+base_folder = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/'
+
+base_folder = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/'
+
+base_folder = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/'
+
+base_folder = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_3_to_6_dg/'
+
+base_folder = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_6_to_9_dg/'
+
+base_folder = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/'
+
+
+
 files, zeros, folders = bu.find_all_fnames(base_folder, ext='.h5', sort_time=True, \
                     add_folders=True)
+
+folders.pop(0) #first folder is always the base_folder name, so it is discarded
 
 save = True 
 save_transients = True
@@ -44,7 +60,7 @@ save_histograms = True
 num_save_hist = 10
 num_y_data_points = 500000
 num_bins = 10
-max_length_from_end = 150000
+max_length_from_end = 350000
 num_curves = 10
 hist_end_time = 3
 save_base_name_hist = '/home/dmartin/Desktop/analyzedData/20200130/images/hist/'
@@ -62,8 +78,15 @@ fit_curves = False
 plot = False
 plot_multiple = False
 plot_drive_and_inst_phase = False
+
 save_base_name_fit_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset/'
-save_base_name_save_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/change_phi_offset/raw_curves/' 
+#save_base_name_save_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/raw_curves/'
+
+save_base_name_save_trans = '/home/dmartin/Desktop/analyzedData' + base_folder.split('old_trap')[1]
+print(save_base_name_save_trans)
+
+save_inst_phase_env = False
+save_inst_phase_env_and_osc = True
 
 if save:
     bu.make_all_pardirs(save_base_name_fit_trans)
@@ -73,8 +96,9 @@ if save:
 crossp_ind = 0
 drive_ind = 1
 
-wind_bandwidth = 100
-libration_freq = 370
+#wind_bandwidth = 100
+wind_bandwidth = 250
+libration_freq = 357
 
 threshold = 0.6
 
@@ -122,6 +146,7 @@ def extract_y_err(filenames, lf, bw, thr, dte, max_lfe):
         max_val = np.amax(crossp_phase_amp)
         max_ind = np.argmax(crossp_phase_amp)
         print(max_val)
+
 
         start_ind = max_ind
         
@@ -195,6 +220,11 @@ def extract_y_err_save(filenames, lf, bw, thr, dte, max_lfe, fs):
 
         crossp_phase = bp_filt(crossp_phase, lf, Ns, Fs, bw)
 
+        fft = np.fft.rfft(crossp_phase)
+       
+        #plt.loglog(freqs, np.abs(fft))
+        #plt.show()
+
         crossp_phase_z = signal.hilbert(crossp_phase)
         crossp_phase_amp = np.abs(crossp_phase_z)
 
@@ -207,17 +237,21 @@ def extract_y_err_save(filenames, lf, bw, thr, dte, max_lfe, fs):
         length_of_arrays = len(tarr) - max_lfe #length of all arrays after cutting out data points greater than this value
 
         mask = (tarr > tarr[start_ind])
-
+        
         
         if len(crossp_phase_amp[mask]) < length_of_arrays: #Check if array is too short for proper binning
-            print('array is too short')
+            print('array is too short', len(crossp_phase_amp[mask]))
+            plt.plot(crossp_phase_amp)
+            plt.show()
 
         else:
             crossp_phase_amp = crossp_phase_amp[mask][:length_of_arrays]
             tarr = tarr[mask][:length_of_arrays]
             print('cut')
 
-        save_base_name= save_base_name_save_trans + '{}/'.format(fs) 
+        #plt.semilogy(tarr,crossp_phase_amp)
+        #plt.show()
+        save_base_name= save_base_name_save_trans + 'raw_curves/' + '{}/'.format(fs) 
         save_transients_name = save_base_name + '{}'.format(raw_file_name.split('.')[0])
         print(save_transients_name)
     
@@ -225,6 +259,86 @@ def extract_y_err_save(filenames, lf, bw, thr, dte, max_lfe, fs):
 
         if save_transients:
             np.savez(save_transients_name, tarr=tarr, crossp_phase_amp=crossp_phase_amp, dg=dg, Ns=Ns, Fs=Fs)
+
+
+def extract_y_err_env_and_osc_save(filenames, lf, bw, thr, dte, max_lfe, fs):
+
+    print('extract_y_err_env_and_osc_save')
+    y_curves = []
+    tarrs = []
+    start_inds = []
+    dg_arr = []
+    save_arr = []
+    for i, f in enumerate(filenames):
+        print(f, i)
+        
+        raw_file_name = f.split('/')[-1]
+        meas_name = f.split('/')[-2]
+        
+        obj = hsDat(f)
+        
+        dg = obj.attribs['current_pm_dg']
+        
+        Ns = obj.attribs['nsamp']
+        Fs = obj.attribs['fsamp']
+        freqs = np.fft.rfftfreq(Ns, 1./Fs)
+    
+        tarr = np.arange(Ns)/Fs
+        
+
+        crossp = obj.dat[:,crossp_ind]
+        #drive = obj.dat[:, drive_ind]
+
+        crossp_fft = np.fft.rfft(crossp)
+
+        crossp_z = signal.hilbert(crossp)
+        #drive_z  = signal.hilbert(drive)
+
+        crossp_phase = signal.detrend(np.unwrap(np.angle(crossp_z)))
+        #drive_phase = signal.detrend(np.unwrap(np.angle(drive_z)))
+
+        crossp_phase_unfilt = np.fft.rfft(crossp_phase)
+
+        #crossp_phase = bp_filt(crossp_phase, lf, Ns, Fs, bw)
+        crossp_phase = hp_filt(crossp_phase, 70, Ns, Fs) 
+
+        fft = np.fft.rfft(crossp_phase)
+       
+        #plt.loglog(freqs, np.abs(fft))
+        #plt.show()
+
+        max_val = np.amax(crossp_phase)
+        max_ind = np.argmax(crossp_phase)
+        print(max_val)
+
+        start_ind = max_ind
+        
+        length_of_arrays = len(tarr) - max_lfe #length of all arrays after cutting out data points greater than this value
+
+        mask = (tarr > tarr[start_ind])
+        
+        
+        if len(crossp_phase[mask]) < length_of_arrays: #Check if array is too short for proper binning
+            print('array is too short', len(crossp_phase[mask]))
+            plt.plot(crossp_phase)
+            plt.show()
+
+        else:
+            crossp_phase = crossp_phase[mask][:length_of_arrays]
+            tarr = tarr[mask][:length_of_arrays]
+            print('cut')
+
+        #plt.plot(tarr,crossp_phase)
+        #plt.show()
+        save_base_name= save_base_name_save_trans + 'raw_curves_env_and_osc/' + '{}/'.format(fs) 
+        save_transients_name = save_base_name + '{}'.format(raw_file_name.split('.')[0])
+        print(save_transients_name)
+    
+        bu.make_all_pardirs(save_base_name)
+
+        if save_transients:
+            np.savez(save_transients_name, tarr=tarr, crossp_phase_amp=crossp_phase, dg=dg, Ns=Ns, Fs=Fs)
+
 
 
 def fit_transients(filenames, lf, bw, thr, dte, max_lfe, fix_a, fix_b, fix_c, fix_d, start_c, migrad_ncall):
@@ -455,33 +569,19 @@ def plot_drive_w_phase(f, lf, bw):
 
 
 if multiple_folders:
-    for i, folder in enumerate(folders[1:]):
+    for i, folder in enumerate(folders[:]):
         files, zero = bu.find_all_fnames(folder, sort_time=True)
-        files = files[1:]
         
         #gaussian_check(files[:], libration_freq, wind_bandwidth, threshold, plot, max_length_from_end, num_bins, \
         #        num_y_data_points, num_save_hist, save_histograms, num_curves, hist_end_time)
         
         print(folder)
         folder_save = folder.split('/')[-1]
-        extract_y_err_save(files, libration_freq, wind_bandwidth, threshold, dist_to_end, max_length_from_end, folder_save)
-
-        #fit_params, phi_inst_amps_x, phi_inst_amps_y, phi_inst_amps_stds, dg, chi_sq_arr = fit_transients(files[:], \
-        #        libration_freq, wind_bandwidth, threshold, dist_to_end, max_length_from_end, a_fix, b_fix, c_fix, \
-        #        d_fix, start_c, migrad_ncall)
         
-        #if save:
-        #    meas_name = files[-1].split('/')[-2]
-        #    
-        #    if meas_name == '':
-        #        print('empty name')
-        #        meas_name = '{}'.format(i)
-        #    
-        #    save_name = save_base_name_fit_trans + meas_name +  '_{}'.format(dg)
-        #    
-        #    np.savez_compressed(save_name, fit_params=fit_params, phi_inst_amps_x=phi_inst_amps_x,\
-        #            phi_inst_amps_y=phi_inst_amps_y, phi_inst_amps_stds=phi_inst_amps_stds, dg=dg, chi_sq_arr=chi_sq_arr)
-            
+        if save_inst_phase_env: 
+            extract_y_err_save(files, libration_freq, wind_bandwidth, threshold, dist_to_end, max_length_from_end, folder_save)
+        elif save_inst_phase_env_and_osc:
+            extract_y_err_env_and_osc_save(files, libration_freq, wind_bandwidth, threshold, dist_to_end, max_length_from_end, folder_save) 
 else:
     fit_params, fit_curves, phi_inst_amps = plot_transient(files[1:], libration_freq, wind_bandwidth, threshold)
 

@@ -71,6 +71,10 @@ directory = '/data/old_trap/20191223/bead1/spinning/tests/deriv_fb_50_down_samp/
 #directory = '/data/old_trap/20190905/bead1/spinning/ringdown/50kHz_start_1/'
 #directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_1/'
 directory = '/data/old_trap/20200130/bead1/waveform_gen_test/'
+directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/change_phi_offset_0000/'
+directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_300_dg/change_phi_offset/'
+
+
 
 labels = ['Positive','Negative','Zero']
 labels = ['']
@@ -85,12 +89,12 @@ files = files[-1:]
 
 drive_ind = 1
 data_ind = 0
-hilbert_ind = drive_ind
+hilbert_ind = data_ind
 
 freq_spinning = 25.e3
 wind_width = 5320.
-bandwidth = 125
-libration_freq =  390.
+bandwidth = 200 
+libration_freq =  350.
 
 time_low = 4.02
 time_high = 4.15
@@ -277,7 +281,9 @@ def plot_pm(files, libration_freq, bw, corr, mask_on=False, inst_freq=True):
             if filt:
                 phase_filt = bp_filt(phase, libration_freq, Ns, Fs, bw)
                 fft_filt = np.fft.rfft(phase_filt) 
-
+            else:
+                phase_filt=phase
+                fft_filt=np.fft.rfft(phase_filt)
 
             fft = np.fft.rfft(phase)
 
@@ -295,16 +301,16 @@ def plot_pm(files, libration_freq, bw, corr, mask_on=False, inst_freq=True):
             #ax2.set_ylabel('Norm. Instaneous Frequency [rad/s]')
             #ax2.legend()
 
-            if True:
+            if False:#True:
                 mask = (freqs > libration_freq-bw/2) & (freqs < libration_freq+bw/2)
             else: 
                 mask = freqs > 0
-            ax2.semilogy(freqs[mask], np.abs(fft[mask]), label='FFT. ' + label[j])
+            ax2.loglog(freqs[mask], np.abs(fft[mask]), label='FFT. ' + label[j])
             ax2.set_xlabel('Frequency [Hz]')
             ax2.set_ylabel('FFT of Instaneous Frequency [arb.]')
             ax2.legend()
 
-            ax3.semilogy(freqs[mask], np.abs(fft_filt[mask]), label='FFT. ' + label[j])
+            ax3.loglog(freqs[mask], np.abs(fft_filt[mask]), label='FFT. ' + label[j])
             ax3.set_xlabel('Frequency [Hz]')
             ax3.set_ylabel('FFT of Instaneous Frequency [arb.]')
             ax3.legend()
@@ -607,13 +613,12 @@ def plot_many_spectra(filenames, lib_freq, bw, pressure_ramp=False, skip=False, 
         ax2.set_ylabel(r'PSD of $\phi$ [$rad^{2}$/Hz]')
     plt.show()
 
-def plot_long_int(files):
 
 #for i, f in enumerate(files):
 #    fit_phase_decay(f, time_low, time_high, libration_freq, bw=bandwidth, filt=True, x_arr_size_fac=10)
 #plot_phi_fb_out(files)
 #plot_pm(files[:], libration_freq, bandwidth, corr=False)
-
+def plot_long_int(files):
     for i, f in enumerate(files):
         obj = hsDat(f)
 

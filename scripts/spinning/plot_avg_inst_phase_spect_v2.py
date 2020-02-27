@@ -25,9 +25,25 @@ directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/deriv_fb/no_dg
 directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_2/base_press/long_int_0_dg_2/crossp_psds/'
 directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_2/base_press/long_int_8_5_dg/crossp_psds/'
 
-base_directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/long_int/raw_curves/'
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/raw_curves/'
 
-save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/long_int/'
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_3to_0_6_dg/long_int/raw_curves/'
+
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/long_int/raw_curves/'
+
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/long_int/raw_curves/'
+
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/long_int_3_to_4_dg/raw_curves/'
+
+
+save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/fit_data/'
+
+save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_3to_0_6_dg/long_int/fit_data/'
+
+save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/long_int/fit_data/'
+
+save_base_name = base_directory.split('long_int')[0] + 'long_int/fit_data/'
+
 
 files, length, folders= bu.find_all_fnames(base_directory, add_folders=True)
 
@@ -47,8 +63,12 @@ fix_b = True
 
 save_fit_p = True
 
+
+
 ###################################
 
+fit_avg = True
+fit_no_avg = False
 
 filt = False
 
@@ -56,14 +76,9 @@ drive = True
 
 fit = False
 
-fit_bandwidth = 20
+fit_bandwidth = 80
 
-libration_freq = 370
-
-freq_window_low = libration_freq-0.5*fit_bandwidth
-freq_window_high = libration_freq+0.5*fit_bandwidth
-
-bp_bandwidth = 100
+libration_freq = 350
 
 files.sort(key=lambda f: int(filter(str.isdigit,f)))
 file_num = 15 
@@ -89,6 +104,117 @@ f0_std_arr = []
 g_std_arr = []
 b_std_arr = []
 chi_sq_ndof_std_arr = []
+
+def fit_many_in_sequence_psd_avg(filenames, dtep):
+    
+    meas_name = filenames[0].split('/')[-2]
+
+    A_arr = []
+    f0_arr = []
+    g_arr = []
+    b_arr = []
+    chi_sq_ndof = []
+
+    init_data = np.load(filenames[0], allow_pickle=True)
+
+    init_psd = init_data['psd']
+
+    dg = init_data['dg']
+
+    N = 0 
+    psd_sum = np.zeros_like(init_psd)
+
+    
+    def chi_sq(A, f0 , g, b):
+        return np.sum(((y-psd_lorentzian(x, A, f0, g, b))/y_err)**2.)
+    
+    #def chi_sq(mu, c, A):
+    #    return np.sum(((y-gaussian(x, mu, c, A))/y_err)**2.)
+
+    for i, f in enumerate(filenames):
+        data = np.load(f, allow_pickle=True)
+        
+        psd = data['psd']
+        
+        psd_sum += psd
+        N += 1
+
+    psd_means = psd_sum/N
+
+    N = 0 
+    diff_sum = np.zeros_like(init_psd)
+    for i, f in enumerate(filenames):
+        data = np.load(f)
+
+        psd = data['psd']
+
+        diff = (psd - psd_means)**2
+        diff_sum += diff
+        N += 1
+    
+    psd_stds = np.sqrt(diff_sum/N)
+    y_err_unmask = psd_stds
+    
+    psd = data['psd']
+    freqs = data['freqs']
+
+    y = psd_means
+    x = freqs 
+    
+    mask_around_peak = (freqs > libration_freq - fit_bandwidth*0.5) & (freqs < libration_freq + 0.5*fit_bandwidth) 
+    end_mask = (freqs > freqs[-1]-(len(freqs)*dtep)) 
+    
+    max_ind = np.argmax(y)
+
+    A_guess = 1e3
+    f0_guess = x[max_ind]
+    g_guess = 1
+    b_guess = np.mean(y[end_mask])
+
+    #plt.loglog(x, y)
+    #plt.loglog(x[end_mask], y[end_mask])
+    #plt.show()
+
+    y = y[mask_around_peak]
+    x = x[mask_around_peak]
+    y_err = y_err_unmask[mask_around_peak]
+
+    plt.semilogy(x,y)
+    plt.show()
+
+    m=Minuit(chi_sq, A=A_guess, fix_A=fix_A, f0=f0_guess, fix_f0=fix_f0, g=g_guess, fix_g=fix_g, b=b_guess, fix_b=fix_b, print_level=1, errordef=1)
+
+
+    m.migrad(ncall=migrad_ncall)
+    p = [m.values['A'], m.values['f0'], m.values['g'], m.values['b']]
+    
+    print(p)
+
+    A_arr.append(m.values['A'])
+    f0_arr.append(m.values['f0'])
+    g_arr.append(m.values['g'])
+    b_arr.append(m.values['b'])
+    chi_sq_ndof.append(chi_sq(*p)/len(y))
+
+    x_arr = np.linspace(x[0], x[-1], len(x)*10)
+
+
+    print('chi_sq', chi_sq(*p), len(y))
+    
+    plt.loglog(x, y)
+    plt.loglog(x_arr, psd_lorentzian(x_arr, *p))
+    #plt.loglog(x_arr, gaussian(x_arr, * p))
+    plt.show()
+
+    
+    if save_fit_p:
+        save_name = save_base_name + meas_name + '_fit_params'
+        print(save_name)
+        bu.make_all_pardirs(save_name)
+
+        np.savez(save_name, A_arr=A_arr, f0_arr=f0_arr, g_arr=g_arr, b_arr=b_arr, chi_sq_ndof=chi_sq_ndof, dg=dg)
+ 
+
 def fit_many_in_sequence_psd(filenames, dtep):
     
     meas_name = filenames[0].split('/')[-2]
@@ -137,9 +263,9 @@ def fit_many_in_sequence_psd(filenames, dtep):
         N += 1
     
     psd_stds = np.sqrt(diff_sum/N)
-    y_err = psd_stds
+    y_err_unmask = psd_stds
 
-    print(y_err)
+    
     for i, f in enumerate(filenames):
         data = np.load(f, allow_pickle=True)
 
@@ -149,18 +275,23 @@ def fit_many_in_sequence_psd(filenames, dtep):
         y = psd
         x = freqs 
 
+        mask_around_peak = (freqs > libration_freq - fit_bandwidth*0.5) & (freqs < libration_freq + 0.5*fit_bandwidth) 
         end_mask = (freqs > freqs[-1]-(len(freqs)*dtep)) 
-
+       
         max_ind = np.argmax(y)
-        #plt.loglog(x, y)
-        #plt.loglog(x[end_mask], y[end_mask])
-        #plt.show()
-
 
         A_guess = 1e3
         f0_guess = x[max_ind]
         g_guess = 1
         b_guess = np.mean(y[end_mask])
+
+        #plt.loglog(x, y)
+        #plt.loglog(x[end_mask], y[end_mask])
+        #plt.show()
+
+        y = y[mask_around_peak]
+        x = x[mask_around_peak]
+        y_err = y_err_unmask[mask_around_peak]
 
         m=Minuit(chi_sq, A=A_guess, fix_A=fix_A, f0=f0_guess, fix_f0=fix_f0, g=g_guess, fix_g=fix_g, b=b_guess, fix_b=fix_b, print_level=1, errordef=1)
 
@@ -181,10 +312,10 @@ def fit_many_in_sequence_psd(filenames, dtep):
 
         print('chi_sq', chi_sq(*p), len(y))
        
-        #plt.loglog(x, y)
-        #plt.loglog(x_arr, psd_lorentzian(x_arr, *p))
+        plt.loglog(x, y)
+        plt.loglog(x_arr, psd_lorentzian(x_arr, *p))
         #plt.loglog(x_arr, gaussian(x_arr, * p))
-        #plt.show()
+        plt.show()
 
     
     if save_fit_p:
@@ -287,16 +418,22 @@ def fit_many_in_sequence_psd(filenames, dtep):
     #plt.ylabel(r'b')
     #plt.show()
 
-for i, folder in enumerate(folders):
-    files, zero = bu.find_all_fnames(folder, ext='.npz')
+if fit_avg:
+    for i, folder in enumerate(folders):
+        files, zero = bu.find_all_fnames(folder, ext='.npz')
 
-    fit_many_in_sequence_psd(files, dist_to_end_percentage)
-
-file_arr = np.arange(len(folders))
-
-plt.scatter(file_arr, g_avg_arr)
-plt.yscale('log')
-plt.show()
+        fit_many_in_sequence_psd_avg(files, dist_to_end_percentage)
+if fit_no_avg:
+    for i, folder in enumerate(folders):
+        files, zero = bu.find_all_fnames(folder, ext='.npz')
+    
+        fit_many_in_sequence_psd(files, dist_to_end_percentage)
+    
+    file_arr = np.arange(len(folders))
+    
+    plt.scatter(file_arr, g_avg_arr)
+    plt.yscale('log')
+    plt.show()
 
 #plt.errorbar(dg, damp_avg_arr, yerr=damp_std_arr, fmt='o')
 ##plt.scatter(dg, damp_avg_arr)

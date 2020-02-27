@@ -34,6 +34,13 @@ base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_4/zero_dg/'
 base_name = '/data/old_trap/20200130/bead1/spinning/deriv_fb/no_dg_8Vpp/'
 base_name = '/data/old_trap/20200130/bead1/spinning/series_3/base_press/long_int/0_9_dg/'
 base_name = '/data/old_trap/20200130/bead1/spinning/series_4/base_press/change_phi_offset_3/long_int/'
+base_name = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/'
+base_name = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/long_int/'
+base_name = '/data/old_trap/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/'
+
+base_name = '/data/old_trap/20200130/bead1/spinning/series_5/long_int_3_to_4_dg/'
+
+
 
 fils = ['no_dg_0000','no_dg_0001','no_dg_0002','no_dg_0003','no_dg_0004',\
         'no_dg_0005','no_dg_0006','no_dg_0007','no_dg_0008','no_dg_0009']
@@ -49,9 +56,10 @@ save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/deriv_fb/
 save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_3/base_press/long_int/0_9_dg/crossp_psds/'
 save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_4/long_int/'
 save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/long_int/'
-bu.make_all_pardirs(save_base_name)
+save_base_name = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/' 
+save_base_name = '/home/dmartin/Desktop/analyzedData/' + base_name.split('old_trap')[1] 
 
-out_paths = ['/home/dmartin/Desktop/analyzedData/20191204/dg_xz/']
+bu.make_all_pardirs(save_base_name)
 
 files, zero, folders = bu.find_all_fnames(base_name, add_folders=True, sort_time=True)
 
@@ -257,8 +265,8 @@ def extract_libration_freq(obj, rot_filt=False):
     return libration_freq
 
     
-folders.sort(key=lambda f: int(filter(str.isdigit,f)))
-folders = folders[:]
+#folders.sort(key=lambda f: int(filter(str.isdigit,f)))
+#folders = folders[:]
 
 if avg_psd:
     for i in range(len(folders)):
