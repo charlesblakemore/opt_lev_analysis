@@ -21,67 +21,59 @@ mpl.rcParams['figure.dpi'] = 150
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/change_phi_offset/raw_curves/'
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves/'
-base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_6_to_9_dg/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_6_to_9_dg/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
-base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
-base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves_env_and_osc/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_50_dg/change_phi_offset/raw_curves_env_and_osc/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves/'
 
 files, zeros, folders = bu.find_all_fnames(base_folder, sort_time=True, add_folders=True)
 
 print(folders)
 
-save = False 
-save_transients = False
+save = True 
 multiple_folders = True
 
-#gaussian check params:
-save_histograms = True
-inum_save_hist = 10
-num_y_data_points = 500000
-num_bins = 10
-max_length_from_end = 50000
-num_curves = 10
-hist_end_time = 3
-save_base_name_hist = '/home/dmartin/Desktop/analyzedData/20200130/images/hist/'
+max_length_from_end = 150000
 
 #fit transients params:
-#dist_to_end = 10 # for long 33s int
-dist_to_end = 0.1
+dist_to_end = 0.2# for long 33s int
 a_fix = True
 b_fix = True
 c_fix = False
 d_fix = True
-start_c = -2
-migrad_ncall = 100
+start_c = -3
+migrad_ncall = 100 
 
-end_time = 1
+time_wind = 5
 
-just_env = False
-env_and_osc = True
+just_env = True
+env_and_osc = False
 
-fit_curves = False
-plot = False
+plot_end_mask = False
 plot_multiple = False
-plot_drive_and_inst_phase = False
-save_base_name_fit_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/fit_data/'
-save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data/'
+plot_data_and_fit = True
 
+save_base_name_fit_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/fit_data/'
+
+if just_env:
+    save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data/'
+if env_and_osc:
+    save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data_env_and_osc/'
 
 if save:
     bu.make_all_pardirs(save_base_name_fit_trans)
-    bu.make_all_pardirs(save_base_name_hist)
 
 def exp(x, a, b , c, d):
     return a*np.exp((x-b)*c) + d
 def exp_sine(x, a, b, c, d, f0, p):
-    return a*np.exp((x-b)*c)*np.sin(2*np.pi*f0*x + p) + d
+    return (a*np.exp((x-b)*c)+d)*np.sin(2*np.pi*f0*x+p) 
 
-def fit_transients(filenames, dte, max_lfe, start_c, migrad_ncall):
+def fit_transients(filenames, max_lfe, start_c, migrad_ncall):
 
     init_data = np.load(filenames[0])
     y = init_data['crossp_phase_amp']
     dg = init_data['dg']
-
     fit_params = []
     chi_sq_arr = []
     y_sum = np.zeros_like(y)
@@ -145,28 +137,37 @@ def fit_transients(filenames, dte, max_lfe, start_c, migrad_ncall):
 
         y = data['crossp_phase_amp']
         x = data['tarr']
+       
+        if env_and_osc:
+            errs = data['errs']
         
-        mask_exp = (x < end_time)
+        mask_exp = (x < x[0]+time_wind)
+        #end_mask = (x > x[-1]-dist_to_end)
 
-        end_mask = (x > x[-1]-dte)
-
-        print(x[-1]-dte)
-        plt.plot(x,y)
-        plt.plot(x[end_mask], y[end_mask])
-        plt.show()
+        #plt.plot(x,y)
+        #plt.plot(x[end_mask], y[end_mask])
+        #plt.show()
 
         if just_env:
+            end_mask = (x > x[-1]-dist_to_end)           
+            d_guess = np.mean(y[end_mask])
+
+            end_mask = (x > x[-1]-dist_to_end)
+
+            plt.plot(x,y)
+            plt.plot(x[end_mask], y[end_mask])
+            plt.show()
+
+            print(np.std(y[end_mask]))
+            #y_err = np.ones_like(y_err_unmask[mask_exp])
+            #y_err *= np.std(y[end_mask])
+            y_err = data['errs'][mask_exp]#y_err_unmask[mask_exp]
+            y=y[mask_exp]
+            x=x[mask_exp]
+
             a_guess = y[0]
             b_guess = x[0]
             c_guess = start_c
-            d_guess = np.mean(y[end_mask])
-
-            print('d_guess', d_guess)
-                    
-            y=y[mask_exp]
-            x=x[mask_exp]
-            y_err = y_err_unmask[mask_exp]
-
 
             m=Minuit(chi_sq, a=a_guess, fix_a=a_fix, error_a=0.1, b=b_guess, fix_b=b_fix, \
                     c=c_guess, fix_c=c_fix, limit_c=[-100000,0],  error_c=0.1, d=d_guess,fix_d=d_fix, print_level=1) 
@@ -176,29 +177,46 @@ def fit_transients(filenames, dte, max_lfe, start_c, migrad_ncall):
             x_arr = np.linspace(x[:][0], x[:][-1], len(x)*10)
 
             p = [m.values['a'], m.values['b'], m.values['c'], m.values['d']]
-            
-
-            plt.semilogy(x_arr , exp(x_arr, *p))
-            plt.semilogy(x, y)
-            plt.ylabel(r'log(Envelope of $\phi (t)$)')
-            plt.xlabel('Time [s]')
-            plt.show()
-            gc.collect()
+           
+            if plot_data_and_fit:
+                fig, ax = plt.subplots(3,1)
+                ax[0].semilogy(x,y)
+                ax[0].semilogy(x_arr , exp(x_arr, *p))
+                ax[1].plot(x, y_err)
+                ax[2].plot(x, y_err_unmask[mask_exp])
+                plt.xlabel('Time [s]')
+                plt.show()
+                gc.collect()
+            #plt.semilogy(x_arr , exp(x_arr, *p))
+            #plt.semilogy(x, y)
+            #plt.ylabel(r'log(Envelope of $\phi (t)$)')
+            #plt.xlabel('Time [s]')
+            #plt.show()
+            #gc.collect()
         
         if env_and_osc:
+            y=y[mask_exp]
+            x=x[mask_exp]
+            y_err = y_err_unmask[mask_exp] 
+
+            end_mask = (x > x[-1]-dist_to_end)
+            
             a_guess = y[0]
             b_guess = x[0]
             c_guess = start_c
             d_guess = np.mean(y[end_mask])
             f0_guess = 350
-            p_guess = np.pi*0.5
+            p_guess = 0
 
             print('d_guess', d_guess)
                     
-            y=y[mask_exp]
-            x=x[mask_exp]
-            y_err = y_err_unmask[mask_exp]
-
+            z = signal.hilbert(y)
+            z_amp = np.abs(z)
+           
+            if plot_end_mask:
+                plt.plot(x,y)
+                plt.plot(x[end_mask], y[end_mask])
+                plt.show()
 
             m=Minuit(chi_sq, a=a_guess, fix_a=a_fix, error_a=0.1, b=b_guess, fix_b=b_fix, \
                     c=c_guess, fix_c=c_fix, limit_c=[-100000,0],  error_c=0.1, d=d_guess,fix_d=d_fix, f0=f0_guess, fix_f0=False,\
@@ -211,11 +229,15 @@ def fit_transients(filenames, dte, max_lfe, start_c, migrad_ncall):
             p = [m.values['a'], m.values['b'], m.values['c'], m.values['d'], m.values['f0'], m.values['p']]
             
 
-            plt.plot(x,y)
-            plt.plot(x_arr , exp_sine(x_arr, *p))
-            plt.xlabel('Time [s]')
-            plt.show()
-            gc.collect()
+            if plot_data_and_fit:
+                fig, ax = plt.subplots(3,1)
+                ax[0].plot(x,y)
+                ax[0].plot(x_arr , exp_sine(x_arr, *p))
+                ax[1].plot(x, y_err)
+                ax[2].plot(x, y_err_unmask[mask_exp])
+                plt.xlabel('Time [s]')
+                plt.show()
+                gc.collect()
              
 
         print(p)
@@ -230,16 +252,19 @@ def fit_transients(filenames, dte, max_lfe, start_c, migrad_ncall):
     return fit_params, dg, chi_sq_arr, num_bad_files
 
 
-for i, folder in enumerate(folders[1:]):
-    print(folder, i)
-    files, zero = bu.find_all_fnames(folder, ext='.npz')
+if __name__ == "__main__":
+    for i, folder in enumerate(folders[1:]):
+        print(folder, i)
+        files, zero = bu.find_all_fnames(folder, ext='.npz')
+    
+        fit_params, dg, chi_sq_arr, num_bad_files = fit_transients(files[:], max_length_from_end, start_c, migrad_ncall) 
+         
+        meas_name = folder.split('/')[-1]
+    
+        if save:
+            print('saving')
+            save_name = save_base_name_fit_trans + meas_name + '_exp_fit_params' 
+            print('save name ' + save_name)
+            np.savez(save_name, fit_params=fit_params, dg=dg, chi_sq_arr=chi_sq_arr, num_bad_files=num_bad_files)
 
-    fit_params, dg, chi_sq_arr, num_bad_files = fit_transients(files, dist_to_end, max_length_from_end, start_c, migrad_ncall) 
-     
-    meas_name = folder.split('/')[-1]
 
-    if save:
-        print('saving')
-        save_name = save_base_name_fit_trans + meas_name + '_exp_fit_params' 
-        print('save name ' + save_name)
-        np.savez(save_name, fit_params=fit_params, dg=dg, chi_sq_arr=chi_sq_arr, num_bad_files=num_bad_files)
