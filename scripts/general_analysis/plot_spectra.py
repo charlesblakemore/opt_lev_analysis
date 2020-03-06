@@ -110,6 +110,8 @@ new_trap = True
 
 
 tfdate = '20200210'
+tf_interp = True
+tf_plot = False
 
 #filename_labels = True 
 filename_labels = False
@@ -249,7 +251,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
-        df.diagonalize(maxfreq=lpf, interpolate=False, date=tfdate)
+        df.diagonalize(maxfreq=lpf, interpolate=tf_interp, date=tfdate, plot=tf_plot)
 
         if fil_ind == 0 and len(cant_axes):
             drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))

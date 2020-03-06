@@ -160,17 +160,19 @@ def get_color_map( n, cmap='plasma' ):
 
            OUTPUTS: outmap, color map in rgba format'''
 
+    n = int(n)
+
     outmap = []
-    if n >= 10:
-        cNorm  = colors.Normalize(vmin=0, vmax=n-1)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap) #cmap='viridis')
-        for i in range(n):
-            outmap.append( scalarMap.to_rgba(i) )
-    else:
-        cNorm = colors.Normalize(vmin=0, vmax=2*n)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
-        for i in range(n):
-            outmap.append( scalarMap.to_rgba(2*i + 1) )
+    # if n >= 10:
+    #     cNorm  = colors.Normalize(vmin=0, vmax=n-1)
+    #     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap) #cmap='viridis')
+    #     for i in range(n):
+    #         outmap.append( scalarMap.to_rgba(i) )
+    # else:
+    cNorm = colors.Normalize(vmin=0, vmax=2*n)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
+    for i in range(n):
+        outmap.append( scalarMap.to_rgba(2*i + 1) )
     return outmap
 
 def round_sig(x, sig=2):

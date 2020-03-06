@@ -134,10 +134,10 @@ for ddir in data_dirs:
 
     for resp in [0,1,2]:
         background = []
-        vol = []
+        # vol = []
         for fileind, filedat in enumerate(alpha_arr):
             background.append(filedat[lambind][0][resp][0])
-            vol.append(volume_ndim_ellipsoid( np.abs(filedat[lambind][0][resp][:]) ))
+            # vol.append(volume_ndim_ellipsoid( np.abs(filedat[lambind][0][resp][:]) ))
         xvec = np.arange(len(background)) * 10
         axarr1[resp].plot(xvec, background, label='Signal Axis Projection')
         # axarr1[resp].plot(xvec, np.array(vol)**(1.0/float(len(harms))), alpha=0.4, \

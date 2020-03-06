@@ -108,18 +108,20 @@ import configuration as config
 # first_file = -18
 # last_file = -3
 
-step_cal_dir = ['/data/new_trap/20200210/Bead2/Discharge/']
-first_file = 15
-last_file = -1
+# step_cal_dir = ['/data/new_trap/20200210/Bead2/Discharge/']
+# first_file = 15
+# last_file = -1
 
 
-using_tabor = False
+using_tabor = True
 tabor_ind = 3
 
 
 elec_channel_select = 1
-#pcol = -1
-pcol = 2
+# pcol = -1
+# pcol = 2
+pcol = 0
+
 
 auto_try = 0.25   ### for Z direction in new trap
 # auto_try = 0.0
@@ -161,15 +163,16 @@ vpn = 7.1126e17
 #tf_cal_dir = '/data/20180927/bead1/tf_20180928/'
 
 # tf_cal_dir = '/data/old_trap/20181119/bead1/tf_20181119/'
+tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
 
-# tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
+
 
 # tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20191215/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200113/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200107/Bead3/TransFunc/TransFunc2'
 # tf_cal_dir = '/data/new_trap/20200203/Bead1/TransFunc/TransFunc2'
-tf_cal_dir = '/data/new_trap/20200210/Bead2/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200210/Bead2/TransFunc/'
 
 
 
@@ -349,12 +352,12 @@ step_cal_files.pop(17)
 
 tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir)
 
-tf_cal_files_2 = []
-for file in tf_cal_files:
-    if '_1.h5' in file:
-        continue
-    tf_cal_files_2.append(file)
-tf_cal_files = tf_cal_files_2
+# tf_cal_files_2 = []
+# for file in tf_cal_files:
+#     if '_1.h5' in file:
+#         continue
+#     tf_cal_files_2.append(file)
+# tf_cal_files = tf_cal_files_2
 
 
 

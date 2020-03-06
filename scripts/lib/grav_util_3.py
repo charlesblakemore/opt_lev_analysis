@@ -25,6 +25,8 @@ import pandas as pd
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
+from iminuit import Minuit, describe
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -684,21 +686,23 @@ class FileData:
        what is relevant for higher level analysis.'''
     
 
-    def __init__(self, fname, tfdate='', tophatf=2500, plot_tf=False, \
-                    step_cal_drive_freq=41.0, new_trap=False, empty=False):
+    def __init__(self, fname, diagonalize=True, tfdate='', tophatf=2500, \
+                    tf_interp=False, plot_tf=False, step_cal_drive_freq=41.0, \
+                    new_trap=False, empty=False):
         '''Load an hdf5 file into a bead_util.DataFile obj. Calibrate the stage position.
            Calibrate the microsphere response with th transfer function.'''
 
-        if new_trap:
-            self.new_trap = True
-        else:
-            self.new_trap = False
 
-        if empty:
-            self.empty = True
+        self.tfdate = tfdate
+        self.tf_interp = tf_interp
+        self.plot_tf = plot_tf
+        self.step_cal_drive_freq = step_cal_drive_freq
+        self.tophatf = tophatf
 
-        else:
-            self.empty = False
+        self.new_trap = new_trap
+
+        self.empty = empty
+        if not self.empty:
 
             df = bu.DataFile()
             self.fname = fname
@@ -713,9 +717,10 @@ class FileData:
                 return
 
             df.calibrate_stage_position()
-            df.diagonalize(date=tfdate, maxfreq=tophatf, \
-                            step_cal_drive_freq=step_cal_drive_freq, \
-                            plot=plot_tf)
+            if diagonalize:
+                df.diagonalize(date=tfdate, maxfreq=tophatf, \
+                                step_cal_drive_freq=step_cal_drive_freq, \
+                                plot=plot_tf, interpolate=tf_interp)
 
             self.xy_tf_res_freqs = df.xy_tf_res_freqs
 
@@ -729,8 +734,34 @@ class FileData:
             self.df = df
 
             self.data_closed = False
-        
 
+
+
+    def close_datafile(self):
+        '''Clear the old DataFile class by assigning and empty class to self.df
+           and assuming the python garbage collector will take care of it.'''
+        self.data_closed = True
+        self.df = bu.DataFile()
+
+
+
+    def reload_datafile(self, diagonalize=True):
+        '''Reload the raw HDF5 data back into the class for debugging purposes.'''
+        self.data_closed = False
+
+        df = bu.DataFile()
+        if self.new_trap:
+            df.load_new(self.fname)
+        else:
+            df.load(self.fname)
+
+        df.calibrate_stage_position()
+
+        if diagonalize:
+            df.diagonalize(date=self.tfdate, maxfreq=self.tophatf, \
+                            step_cal_drive_freq=self.step_cal_drive_freq, \
+                            plot=self.plot_tf, interpolate=self.tf_interp)
+        self.df = df
 
 
     def rebuild_drive(self):
@@ -746,10 +777,13 @@ class FileData:
         inds = self.drive_ginds
 
         freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+        bin_sp = freqs[1] - freqs[0]
+        normfac = np.sqrt(2.0 * bin_sp) * bu.fft_norm(self.nsamp, self.fsamp)
 
         full_drive_fft = np.zeros(len(freqs), dtype=np.complex128)
         for ind, freq_ind in enumerate(inds):
-            full_drive_fft[freq_ind] = self.drivefft_all[ind]
+            full_drive_fft[freq_ind] = self.drivefft_all[ind] * (1.0 / normfac)
+
         drivevec = np.fft.irfft(full_drive_fft) + self.meandrive
 
         npos = len(self.posvec)
@@ -761,7 +795,7 @@ class FileData:
 
 
     def extract_data(self, ext_cant=(False,1), nharmonics=10, harms=[], width=0, \
-                     npos=500, noiseband=5, plot_harm_extraction=False, \
+                     npos=500, noisebins=10, plot_harm_extraction=False, \
                      elec_drive=False, elec_ind=0, maxfreq=2500, noiselim=(10,100), \
                      find_xy_resonance=False):
         '''Extracts the microsphere resposne at the drive frequency of the cantilever, and
@@ -788,13 +822,13 @@ class FileData:
         self.drive_freq = drivefilt['drive_freq']
         self.drive_ind = drivefilt['drive_ind']
 
-
         ## Apply the notch filter
         fftdat = self.df.get_datffts_and_errs(self.ginds, self.drive_freq, self.drive_ginds, \
-                                              noiseband=noiseband, \
+                                              noisebins=noisebins, \
                                               plot=plot_harm_extraction, \
                                               elec_drive=elec_drive, elec_ind=elec_ind, \
                                               noiselim=noiselim)
+        self.err_ginds = fftdat['err_ginds']
         self.datfft = fftdat['datffts']
         self.daterr = fftdat['daterrs']
         self.diagdatfft = fftdat['diagdatffts']
@@ -843,18 +877,20 @@ class FileData:
         fft_norm = bu.fft_norm(self.nsamp, self.fsamp) * np.sqrt(df)
 
         if not len(harm_inds_to_use):
-            inds = list(range(len(self.datfft)))
+            inds = list(range(len(self.datfft[0])))
+            err_inds = list(range(len(self.daterr[0])))
+            n_err = int(len(err_inds) / len(inds))
         else:
             inds = harm_inds_to_use
 
-        xyz_background = np.sqrt( np.sum(self.datfft[:][inds]*self.datfft[:][inds].conj(), \
-                                         axis=-1).real ) * fft_norm
-        xyz_noise = np.sqrt( np.sum(self.daterr[:][inds]*self.daterr[:][inds].conj(), \
-                                    axis=-1).real ) * fft_norm
-        diag_xyz_background = np.sqrt( np.sum(self.diagdatfft[:][inds]*self.diagdatfft[:][inds].conj(), \
-                                              axis=-1).real ) * fft_norm
-        diag_xyz_noise = np.sqrt( np.sum(self.diagdaterr[:][inds]*self.diagdaterr[:][inds].conj(), \
-                                         axis=-1).real ) * fft_norm
+        xyz_background = np.sqrt( np.sum(self.datfft[:,inds]*self.datfft[:,inds].conj(), \
+                                         axis=-1).real )
+        xyz_noise = np.sqrt( np.sum(self.daterr[:,err_inds]*self.daterr[:,err_inds].conj(), \
+                                    axis=-1).real * (1.0 / n_err) )
+        diag_xyz_background = np.sqrt( np.sum(self.diagdatfft[:,inds]*self.diagdatfft[:,inds].conj(), \
+                                              axis=-1).real * (1.0 / n_err) )
+        diag_xyz_noise = np.sqrt( np.sum(self.diagdaterr[:,err_inds]*self.diagdaterr[:,err_inds].conj(), \
+                                         axis=-1).real )
 
         self.background_rms = {'background'      :  xyz_background, \
                                'noise'           :  xyz_noise, \
@@ -919,14 +955,6 @@ class FileData:
 
 
 
-
-    def close_datafile(self):
-        '''Clear the old DataFile class by assigning and empty class to self.df
-           and assuming the python garbage collector will take care of it.'''
-        self.data_closed = True
-        self.df = bu.DataFile()
-
-
         
     def save(self, verbose=True):
         parts = self.fname.split('.')
@@ -976,9 +1004,10 @@ class AggregateData:
     
     def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[], \
                  reload_dat=True, plot_harm_extraction=False, \
-                 elec_drive=False, elec_ind=0, maxfreq=2500, noiseband=5,\
+                 elec_drive=False, elec_ind=0, maxfreq=2500, noisebins=10,\
                  dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
-                 tfdate='', step_cal_drive_freq=41.0, new_trap=False, ncore=1):
+                 tfdate='', tf_interp=False, step_cal_drive_freq=41.0, \
+                 new_trap=False, ncore=1):
         
         if new_trap:
             self.new_trap = True
@@ -988,6 +1017,7 @@ class AggregateData:
         self.fnames = fnames
         self.p0_bead = p0_bead
         self.file_data_objs = []
+        self.times = np.zeros(len(fnames))
 
         # Nnames = len(self.fnames)
 
@@ -1017,7 +1047,7 @@ class AggregateData:
 
             # Initialize FileData obj, extract the data, then close the big file
             new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap, \
-                                step_cal_drive_freq=step_cal_drive_freq)
+                                step_cal_drive_freq=step_cal_drive_freq, tf_interp=tf_interp)
 
             if new_obj.badfile:
                 print('FOUND BADDIE: ')
@@ -1036,7 +1066,7 @@ class AggregateData:
             if not reload_dat and not new_obj.badfile:
                 new_obj.load()
             else:
-                new_obj.extract_data(harms=harms, noiseband=noiseband, \
+                new_obj.extract_data(harms=harms, noisebins=noisebins, \
                                      plot_harm_extraction=plot_harm_extraction, \
                                      elec_drive=elec_drive, elec_ind=elec_ind, \
                                      maxfreq=maxfreq, noiselim=noiselim)
@@ -1049,8 +1079,16 @@ class AggregateData:
             return new_obj
             #self.file_data_objs.append(new_obj)
 
-        file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) for name in tqdm(self.fnames))
-        self.file_data_objs = file_data_objs
+        if len(self.fnames):
+            file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) for name in tqdm(self.fnames))
+            self.file_data_objs = file_data_objs
+
+            for ind, obj in enumerate(self.file_data_objs):
+                self.times[ind] = obj.time
+
+            self.times0 = self.times - self.times[0]
+        else:
+            self.times0 = []
 
         self.alpha_dict = ''
         self.agg_dict = ''
@@ -1393,20 +1431,17 @@ class AggregateData:
         for bias in self.biasvec:
 
             for ax0 in self.ax0vec:
-                if len(bad_axkeys[0]):
-                    if ax0 in bad_axkeys[0]:
-                        continue
+                if ax0 in bad_axkeys[0]:
+                    continue
 
                 for ax1 in self.ax1vec:
-                    if len(bad_axkeys[1]):
-                        if ax1 in bad_axkeys[1]:
-                            continue
+                    if ax1 in bad_axkeys[1]:
+                        continue
 
                     if dim3:
                         for ax2 in self.ax2vec:
-                            if len(bad_axkeys[2]):
-                                if ax2 in bad_axkeys[2]:
-                                    continue
+                            if ax2 in bad_axkeys[2]:
+                                continue
 
                             numfiles = len(self.agg_dict[bias][ax0][ax1][ax2])
                             if numfiles < max_files:
@@ -1639,7 +1674,8 @@ class AggregateData:
 
 
     def find_alpha_xyz_from_templates(self, plot=False, plot_basis=False, ncore=1, \
-                                        add_fake_data=False, fake_alpha=1e13):
+                                        alpha_scale=1e8, add_fake_data=False, \
+                                        fake_alpha=1e13, plot_bad_alphas=False):
 
         print('Finding alpha for each coordinate via an FFT template fitting algorithm...')
         
@@ -1659,6 +1695,8 @@ class AggregateData:
                 for ax1key in self.ax1vec:
                     alpha_xyz_dict[bias][ax0key][ax1key] = []
 
+        alpha_xyz_dict_2 = copy.deepcopy(alpha_xyz_dict)
+
         #derp_grid = np.zeros((len(self.ax0vec), len(self.ax1vec)))
         #derp_grid_2 = np.zeros_like(derp_grid)
         #derp_sep = np.zeros(len(self.ax0vec))
@@ -1670,14 +1708,7 @@ class AggregateData:
         for bias, ax0, ax1 in itertools.product(list(self.agg_dict.keys()), self.ax0vec, self.ax1vec):
 
             #ax0ind = np.argmin(np.abs(np.array(self.ax0vec) - ax0))
-            #ax1ind = np.argmin(np.abs(np.array(self.ax1vec) - ax1))
-
-            ### Progress bar shit
-            i += 1
-            suff = '%i / %i position combinations' % (i, totlen)
-            newline=False
-            if i == totlen:
-                newline=True
+            #ax1ind = np.argmin(np.abs(np.array(self.ax1vec) - ax1)
 
             file_data_objs = self.agg_dict[bias][ax0][ax1]
             nobjs = len(file_data_objs)
@@ -1701,10 +1732,9 @@ class AggregateData:
             # for objind, obj in enumerate(file_data_objs):
             def process_file_data(arg):  #obj):
                 # file_start = time.time()
-                obj, gfunc_class = arg
+                obj, gfunc = arg
 
                 # alpha_xyz_dict[bias][ax0][ax1].append([])
-                out_arr = np.zeros((nlambda, 3, 3, ncomponents))
 
                 # start = time.time()
                 drivevec = obj.rebuild_drive()
@@ -1714,33 +1744,38 @@ class AggregateData:
                 datfft = obj.datfft
                 daterr = obj.daterr
                 binned = obj.binned
+                n_err = int(len(daterr[0]) / len(datfft[0]))
+
+                ginds = obj.ginds
+                err_ginds = obj.err_ginds
+
+                out_arr = np.zeros((nlambda, n_err + 1, 3, ncomponents))
+                out_arr_2 = np.zeros((nlambda, 2, 3))
 
                 # print(np.min(posvec), np.max(posvec))
                 # print(np.min(drivevec), np.max(drivevec))
                 # input()
 
                 ## Loop over lambdas and do the template analysis for each value of lambda
-                for lambind, yuklambda in enumerate(gfunc_class.lambdas):
+                for lambind, yuklambda in enumerate(gfunc.lambdas):
                     ### Progress bar shit
                     # bu.progress_bar(j, totlen_2, suffix=suff, newline=newline)
                     # j += 1
     
-                    out_subarr = np.zeros((3,3,ncomponents))
-                    # amps = [[], [], []]
-                    # errs = [[], [], []]
-                    # sig_amps = [[], [], []]
+                    out_subarr = np.zeros((n_err + 1, 3, ncomponents))
+                    out_subarr_2 = np.zeros((2, 3))
                             
                     # start = time.time()
-                    templates = gfunc_class.make_templates(posvec, drivevec, ax0, ax1, \
-                                                            obj.ginds, p0_bead, obj.fsamp, \
-                                                            single_lambda=True, \
-                                                            single_lambind=lambind, \
-                                                            new_trap=new_trap)
+                    templates = gfunc.make_templates(posvec, drivevec, ax0, ax1, \
+                                                        obj.ginds, p0_bead, obj.fsamp, \
+                                                        single_lambda=True, \
+                                                        single_lambind=lambind, \
+                                                        new_trap=new_trap)
                     # stop = time.time()
                     # print('Template time : {:0.4f}'.format(stop - start))
 
-                    if plot and i == 1:
-                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False,figsize=(8,6))
+                    if plot and lambind == 0:
+                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False,figsize=(10,8))
 
                     for resp in [0,1,2]:
 
@@ -1752,10 +1787,43 @@ class AggregateData:
 
                         c_datfft = datfft[resp] #
                         if add_fake_data:
-                            c_datfft += fake_alpha * yukfft
+                            c_datfft = datfft[resp] + fake_alpha * yukfft
                         data_vec = np.concatenate((c_datfft.real, c_datfft.imag))
                         err_vec = np.concatenate((daterr[resp].real, daterr[resp].imag))
+                        # err_arr = err_vec.reshape((n_err, ncomponents))
+                        # err_fit_vec = err_vec[int(n_err/2 + 1)::n_err]
+                        # err_fit_vec = np.median(err_arr, axis=0)
 
+                        # alphaguess = np.inner(data_vec, template_vec) / \
+                        #                         np.inner(template_vec, template_vec)
+                        # alphaguess /= alpha_scale
+
+                        # def alphacost(alpha, err_ind=0):
+                        #     ndof = ncomponents - 1
+                        #     num = (data_vec - alpha*alpha_scale*template_vec)**2
+                        #     denom = (err_vec[err_ind::n_err])**2
+                        #     return (1.0 / ndof) * np.sum(num / denom)
+
+                        # vals = []
+                        # for err_ind in range(n_err):
+                        #     fitcost = lambda alpha: alphacost(alpha, err_ind=err_ind)
+
+                        #     m = Minuit(fitcost,
+                        #                alpha = alphaguess, # set start parameter
+                        #                #fix_param = "True", # you can also fix it
+                        #                # limit_param = (0.0, 10000.0),
+                        #                errordef = 1,
+                        #                print_level = 0, 
+                        #                pedantic=False)
+                        #     m.migrad(ncall=500000)
+                        #     # m.draw_mnprofile('alpha')
+                        #     # plt.show()
+                        #     vals.append(m.values['alpha'])
+
+                        # out_subarr_2[0,resp] = np.mean(vals)
+                        # out_subarr_2[1,resp] = np.std(vals)
+                        # out_subarr_2[:,resp] *= alpha_scale
+                        # minos = m.minos()
 
                         ### Compute an 2*Nharmonic-dimensional basis for the real and 
                         ### imaginary components of our template signal yukfft, where
@@ -1768,21 +1836,21 @@ class AggregateData:
                         ortho_basis = bases['real_basis']
 
                         # if resp == 2:
-                        #     print(gfunc_class.lambdas[lambind])
+                        #     print(gfunc.lambdas[lambind])
                         #     print('Template : ', template_vec)
                         #     print('   Ortho : ', ortho_basis[0])
                         #     print('    Data : ', data_vec)
-                        #     # input()
+                        #     input()
 
                         ### Loop over our orthogonal basis vectors and compute the inner 
                         ### product of the data and the basis vector
-                        #c_amps = np.sqrt( np.einsum('ij,j->i', ortho_basis, data_vec) )
-                        #c_errs = np.sqrt( np.einsum('ij,j->i', ortho_basis, err_vec) )
                         for k in range(len(ortho_basis)):
                             # amps[resp].append( np.inner( ortho_basis[k], data_vec) )
                             out_subarr[0][resp][k] = np.inner( ortho_basis[k], data_vec)
                             # errs[resp].append( np.inner( ortho_basis[k], err_vec ) )
-                            out_subarr[1][resp][k] = np.inner( ortho_basis[k], err_vec)
+                            for err_ind in range(n_err):
+                                out_subarr[err_ind+1][resp][k] = \
+                                        np.inner( ortho_basis[k], err_vec[err_ind::n_err])
 
                         ### Normalize the projection amplitudes to units of alpha
                         template_norm = np.inner(template_vec, template_vec)
@@ -1791,36 +1859,47 @@ class AggregateData:
                         #     print('Projection : ', projection, np.log10(np.abs(projection)))
                         #     input()
 
-                        # amps[resp] = amps[resp] / template_norm
-                        # errs[resp] = errs[resp] / template_norm
-                        # sig_amps[resp] = np.sqrt(template_norm)
                         out_subarr[:,resp,:] *= (1.0 / template_norm)
-                        if plot and i == 1:
+                        # print(out_subarr)
+                        alphaz = out_subarr[0,2,0]
+                        if plot_bad_alphas:
+                            if resp == 2 and lambind == 0:
+                                if np.abs(alphaz) > 10.0**10:
+                                    obj.reload_datafile()
+                                    print('bad file: {:s}'.format(obj.fname))
+                                    fig, axarr = plt.subplots(3,1, sharex=True)
+                                    for i in range(3):
+                                        axarr[i].plot(obj.df.pos_data_3[i] - np.mean(obj.df.pos_data_3[i]))
+                                    plt.show()
+
+
+                        if plot and lambind == 0:
                             axarr[resp].errorbar(list(range(len(out_subarr[0][resp]))), \
                                                  out_subarr[0][resp], \
-                                                 np.abs(out_subarr[1][resp]), fmt='o')
+                                                 np.abs(np.mean(out_subarr[1:,resp,:], axis=0)), \
+                                                 fmt='o')
                             axarr[resp].set_ylabel('Projection [$\\alpha$]')
                             if resp == 2:
                                 axarr[resp].set_xlabel('Basis Vector Index')
 
-                    if plot and i == 1:
+                    if plot and lambind == 0:
                         plt.show()
 
                     # alpha_xyz_dict[bias][ax0][ax1][objind].append([amps, errs, sig_amps])
                     # out_list.append([amps, errs, sig_amps])
                     out_arr[lambind] += out_subarr
+                    out_arr_2[lambind] += out_subarr_2
 
                 # file_stop = time.time()
                 # print('Total time : {:0.4f}'.format(file_stop - file_start) )
                 # return out_list
-                return out_arr
+                return (out_arr, out_arr_2)
 
-            # results = Parallel(n_jobs=ncore)(delayed(process_file_data)(obj) \
-            #                                         for obj in tqdm(file_data_objs))
             results = Parallel(n_jobs=ncore)(delayed(process_file_data)(arg) \
                                                     for arg in tqdm(arg_list))
 
-            alpha_xyz_dict[bias][ax0][ax1] = np.array(results)
+            alpha_xyz_dict[bias][ax0][ax1] = np.array([i for i, j in results])
+            alpha_xyz_dict_2[bias][ax0][ax1] = np.array([j for i, j in results])
 
         #derp_sep_g, derp_height_g = np.meshgrid(derp_sep, derp_height, indexing='ij')
         #
@@ -1844,6 +1923,7 @@ class AggregateData:
 
         print('Done!')   
         self.alpha_xyz_dict = alpha_xyz_dict
+        self.alpha_xyz_dict_2 = alpha_xyz_dict_2
 
 
 
@@ -2187,7 +2267,10 @@ class AggregateData:
 
 
 
-    def fit_alpha_xyz_onepos_simple(self, resp=0):
+    def fit_alpha_xyz_onepos_simple(self, resp=0, confidence_level=0.95, \
+                                    verbose=False, last_file=-1, plot=False, \
+                                    show=True, plot_color='C0', plot_label='', \
+                                    plot_alpha=1.0, sigma_to_profile=3.0):
 
         if self.new_trap:
             attractor_travel = 500.0
@@ -2209,6 +2292,237 @@ class AggregateData:
         sep = attractor_travel + self.p0_bead[0] - ax0
         height = self.p0_bead[2] - ax1
 
+        if verbose:
+            print('Computing limit for: sep = {:0.1f} um, height = {:0.1f}'\
+                    .format(sep, height) )
+
+        for bias in self.biasvec:
+            ### Doesn't actually handle different biases correctly, although the
+            ### data is structured such that if different biases are present
+            ### they will be in distinct datasets
+
+            alpha_arr = self.alpha_xyz_dict[bias][ax0][ax1]
+            alpha_arr_2 = self.alpha_xyz_dict_2[bias][ax0][ax1]
+
+            n_err = alpha_arr.shape[2] - 1
+
+            for lambind, yuklambda in enumerate(self.gfuncs_class.lambdas):
+
+                ### Take the signal vector projection (last index 0) for the 
+                ### desired response axis at the position defined
+                # dat = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][0][resp][0]
+                dat = alpha_arr[:,lambind,0,resp,0]
+                dat2 = alpha_arr_2[:,lambind,0,resp]
+                # errs = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][1][resp][0]
+                errs = alpha_arr[:,lambind,1,resp,0]
+                errs2 = alpha_arr_2[:,lambind,1,resp]
+
+                errs_long = np.empty((n_err*errs.size,), dtype=errs.dtype)
+                for i in range(n_err):
+                    errs_long[i::n_err] = alpha_arr[:,lambind,i+1,resp,0]
+
+                inds = np.abs(dat) < 1e-4 * np.abs(np.max(dat))
+                err_inds = np.abs(errs_long) < 1e-4 * np.abs(np.max(errs_long))
+
+                good_dat = dat[np.abs(dat) < 10.0 * np.std(dat[inds])]
+                good_dat_2 = dat2[np.abs(dat2) < 100 * np.std(dat2)]
+                good_errs = errs_long[np.abs(errs_long) < 100 * np.std(errs_long[err_inds])]
+
+                # if lambind == 0.0:
+                # #     # print(errs2)
+                # #     # plt.hist(errs2)
+
+                # #     plt.figure()
+                # #     datcdf = bu.ECDF(good_dat)
+                # #     datcdf2 = bu.ECDF(good_dat_2)
+                # #     # errcdf = bu.ECDF(errs)
+                # #     # errcdf2 = bu.ECDF(errs2)
+                # #     xarr = np.linspace(-1.0e9, 1.0e9, 100)
+                # #     plt.plot(xarr, datcdf(xarr), color='C0')
+                # #     # plt.plot(xarr, errcdf(xarr), color='C0', ls='--')
+                # #     plt.plot(xarr, datcdf2(xarr), color='C1')
+                # #     # plt.plot(xarr, errcdf2(xarr), color='C1', ls='--')
+
+                #     plt.figure()
+                #     # plt.errorbar(range(len(dat2)), dat2, yerr=errs2)
+                #     plt.plot(range(len(good_dat)), good_dat, zorder=99)
+                #     # plt.plot(np.arange(len(good_errs))*(1.0/n_err) - 0.5, good_errs)
+
+                #     plt.show()
+
+                good_dat = good_dat[:int(last_file)]
+                good_errs = good_errs[:int(last_file*n_err)]
+
+                N = len(good_dat)
+                M = len(good_errs)
+
+                alpha_scale = np.std(good_dat)
+
+                fit_dat = good_dat * (1.0 / alpha_scale)
+                fit_errs = good_errs * (1.0 / alpha_scale)
+
+                def NLL_dat(mu_dat, sigma):
+                    dat_nll = N * np.log(np.sqrt(2 * np.pi) * sigma) + \
+                                (1.0 / (2.0 * sigma**2)) * np.sum( (fit_dat - mu_dat)**2 )
+                    return dat_nll
+
+                def NLL_err(mu_err, sigma):
+                    err_nll = M * np.log(np.sqrt(2 * np.pi) * sigma) + \
+                                (1.0 / (2.0 * sigma**2)) * np.sum( (fit_errs - mu_err)**2 )
+                    return err_nll
+
+                def NLL(mu_dat, mu_err, sigma):
+                    return NLL_dat(mu_dat, sigma) + NLL_err(mu_err, sigma)
+
+                # print(N, end = ', ')
+                sys.stdout.flush()
+                sigma_guess = np.std(fit_dat)
+                m_null = Minuit(NLL,
+                                mu_dat = 0, # set start parameter
+                                fix_mu_dat = 'True', # you can also fix it
+                                #limit_mu_dat = (0.0, 10000.0),
+                                mu_err = 0, # set start parameter
+                                # fix_mu_err = 'True', 
+                                #limit_mu_err = (0.0, 10000.0),
+                                sigma = sigma_guess, # set start parameter
+                                #fix_sigma = "True", 
+                                limit_sigma = (1e-3 * sigma_guess, 1000.0 * sigma_guess),
+                                errordef = 1,
+                                print_level = 0, 
+                                pedantic=False)
+                m_null.migrad(ncall=500000)
+
+                NLLR = lambda mu_dat, mu_err, sigma: 2.0 * (m_null.fval - NLL(mu_dat, mu_err, sigma))
+
+                m = Minuit(NLL,
+                           mu_dat = 0, # set start parameter
+                           #fix_mu_dat = "True", # you can also fix it
+                           #limit_mu_dat = (0.0, 10000.0),
+                           mu_err = 0, # set start parameter
+                           #fix_mu_err = "True", 
+                           #limit_mu_err = (0.0, 10000.0),
+                           sigma = sigma_guess, # set start parameter
+                           #fix_sigma = "True", 
+                           limit_sigma = (1e-3 * sigma_guess, 1000.0 * sigma_guess),
+                           errordef = 1,
+                           print_level = 0, 
+                           pedantic=False)
+                m.migrad(ncall=500000)
+
+                try:
+                    minos = m.minos()
+
+                    alpha_best = minos['mu_dat']['min']
+                    alpha_lower = minos['mu_dat']['lower']
+                    alpha_upper = minos['mu_dat']['upper']
+                    mu_dat_arr = np.linspace(alpha_best + sigma_to_profile*alpha_lower, \
+                                             alpha_best + sigma_to_profile*alpha_upper, 31)
+
+                    if verbose:
+                        ### Rough estimate of goodness of fit
+                        print('Chi-squared goodness of fit for...')
+                        print('       in-band null hypothesis: {:0.2f}'\
+                                      .format(2.0 * NLL_dat(0, minos['sigma']['min']) / N))
+
+                        print('   out-of-band null hypothesis: {:0.2f}'\
+                                      .format(2.0 * NLL_err(0, minos['sigma']['min']) / M))
+
+                        print('                    full model: {:0.2f}'\
+                                      .format(2.0 * NLL(alpha_best, minos['mu_err']['min'], \
+                                                        minos['sigma']['min']) / (N + M)))
+
+                        print()
+
+                    chi_sq = np.zeros_like(mu_dat_arr)
+                    chi_sq_2 = np.zeros_like(mu_dat_arr)
+                    for ind, test_mu in enumerate(mu_dat_arr):
+                        m = Minuit(NLL,
+                                   mu_dat = test_mu, # set start parameter
+                                   fix_mu_dat = 'True', # you can also fix it
+                                   #limit_mu_dat = (0.0, 10000.0),
+                                   mu_err = 0, # set start parameter
+                                   #fix_mu_err = "True", 
+                                   #limit_mu_err = (0.0, 10000.0),
+                                   sigma = sigma_guess, # set start parameter
+                                   #fix_sigma = "True", 
+                                   limit_sigma = (0.0, 1000.0 * sigma_guess),
+                                   errordef = 1,
+                                   print_level = 0, 
+                                   pedantic=False)
+                        m.migrad(ncall=500000)
+
+                        chi_sq[ind] = m.fval
+                        chi_sq_2[ind] = NLLR(test_mu, minos['mu_err']['min'], minos['sigma']['min'])
+
+                    test_alphas = mu_dat_arr * alpha_scale
+
+                    ### Subtract off the null hypothesis
+                    chi_sq -= np.min(chi_sq)
+                    chi_sq_2 -= np.min(chi_sq_2)
+
+                    if plot and lambind == 0.0:
+                        plt.plot(test_alphas, chi_sq, color=plot_color, label=plot_label,
+                                    alpha=plot_alpha)
+                        if show:
+                            plt.xlabel('Alpha [Arb.]')
+                            plt.ylabel('$\\Delta \\chi^2$ [Arb.]')
+                            plt.ylim(0, sigma_to_profile**2 - 1)
+                            plt.legend()
+                            plt.tight_layout()
+                            plt.show()
+
+                    ### Fit the NLL to a parabola and extract the minimum and interval
+                    ### corresponding to the requested confidence level
+                    popt, pcov = opti.curve_fit(parabola, mu_dat_arr, chi_sq, \
+                                                p0=[np.max(chi_sq)/np.max(mu_dat_arr)**2, 0, 0])
+                    soln = solve_parabola(chi2dist.ppf(confidence_level), popt)
+
+                    sensitivity = alpha_scale * np.abs(-1.0 * popt[1] / (2.0 * popt[0]))
+                    limit = alpha_scale * np.abs(np.max(soln))
+
+                    # dat_mean = np.average(dat, weights=errs)
+                    dat_mean = np.mean(good_dat)
+                    dat_std = np.std(good_dat)
+
+                    # self.alpha_best_fit.append(np.abs(dat_mean))
+                    self.alpha_best_fit.append(sensitivity)
+                    # self.alpha_95cl.append(2.0 * dat_std / np.sqrt(len(dat)))
+                    self.alpha_95cl.append(limit)
+
+                except Exception:
+                    try:
+                        self.alpha_best_fit.append(self.alpha_best_fit[-1])
+                        self.alpha_95cl.append(self.alpha_95cl[-1])
+                    except Exception:
+                        self.alpha_best_fit.append(alpha_scale)
+                        self.alpha_95cl.append(alpha_scale)
+
+
+
+
+
+    def fit_alpha_xyz_onepos(self, resp=0):
+
+        if self.new_trap:
+            attractor_travel = 500.0
+        else:
+            attractor_travel = 80.0
+
+        if not self.gfuncs_class.grav_loaded:
+            try:
+                self.gfuncs_class.reload_grav_funcs()
+            except Exception:
+                print('No grav funcs... Tried to reload but no filename')
+
+        # self.alpha_best_fit = []
+        # self.alpha_95cl = []
+
+        ### Assume separations are encoded in ax0 and heights in ax1
+        ax0 = self.ax0vec[0]
+        ax1 = self.ax1vec[0]
+        sep = attractor_travel + self.p0_bead[0] - ax0
+        height = self.p0_bead[2] - ax1
+
 
         print('Computing limit for: sep = {:0.1f} um, height = {:0.1f}'\
                 .format(sep, height) )
@@ -2220,25 +2534,27 @@ class AggregateData:
 
             alpha_arr = self.alpha_xyz_dict[bias][ax0][ax1]
 
-            plt.plot(alpha_arr[:,0,0,resp,0])
-            plt.plot(alpha_arr[:,0,0,0,0])
+            fig, axarr = plt.subplots(2,1, sharex=True, figsize=(10,8))
+            axarr[0].hist(alpha_arr[:,50,0,resp,0], bins=50)
+            axarr[1].hist(alpha_arr[:,0,1:,resp,0].flatten(), bins=50)
+            fig.tight_layout()
             plt.show()
 
-            for lambind, yuklambda in enumerate(self.gfuncs_class.lambdas):
+            # for lambind, yuklambda in enumerate(self.gfuncs_class.lambdas):
 
-                ### Take the signal vector projection (last index 0) for the 
-                ### desired response axis at the position defined
-                # dat = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][0][resp][0]
-                dat = alpha_arr[:,lambind,0,resp,0]
-                # errs = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][1][resp][0]
-                errs = alpha_arr[:,lambind,1,resp,0]
+            #     ### Take the signal vector projection (last index 0) for the 
+            #     ### desired response axis at the position defined
+            #     # dat = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][0][resp][0]
+            #     dat = alpha_arr[:,lambind,0,resp,0]
+            #     # errs = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][1][resp][0]
+            #     errs = alpha_arr[:,lambind,1,resp,0]
 
-                # dat_mean = np.average(dat, weights=errs)
-                dat_mean = np.mean(dat)
-                dat_std = np.std(dat)
+            #     # dat_mean = np.average(dat, weights=errs)
+            #     dat_mean = np.mean(dat)
+            #     dat_std = np.std(dat)
 
-                self.alpha_best_fit.append(np.abs(dat_mean))
-                self.alpha_95cl.append(2.0 * dat_std / np.sqrt(len(dat)))
+            #     self.alpha_best_fit.append(val1)
+            #     self.alpha_95cl.append(val2)
 
 
 
@@ -2687,7 +3003,7 @@ class AggregateData:
 
 
 
-    def plot_sensitivity(self, plot_just_current=False):
+    def plot_sensitivity(self, show=True, plot_just_current=False):
 
         fig, ax = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
         
@@ -2712,7 +3028,10 @@ class AggregateData:
         #ax.set_title(figtitle)
         plt.tight_layout()
 
-        plt.show()
+        if show:
+            plt.show()
+        else:
+            return (fig, ax)
 
 
 

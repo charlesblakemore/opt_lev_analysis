@@ -19,6 +19,9 @@ import dill as pickle
 
 
 
+def line(x, a, b):
+    return a * x + b
+
 
 def damped_osc_amp(f, A, f0, g):
     '''Fitting function for AMPLITUDE of a damped harmonic oscillator
@@ -129,16 +132,42 @@ def make_extrapolator(interpfunc, pts=(10, 10), order=(1,1), inverse=(False, Fal
     ys = interpfunc.y
 
     if inverse[0]:
-        lower_params = ipolyfit(xs[:pts[0]], ys[:pts[0]], order[0])
-        lower = ipoly1d(lower_params)
-                
+        xx = xs[:pts[0]]
+        yy = ys[:pts[0]]
+        meanx = np.mean(xx)
+        meany = np.mean(yy)
+
+        popt, _ = opti.curve_fit(line, np.log10(xx), np.log10(yy))
+
+        def fit_func(x, a):
+            return a * x**popt[0]
+
+        popt2, _ = opti.curve_fit(fit_func, xx, yy, maxfev=100000, \
+                                    p0=[np.mean(yy) / (np.mean(xx)**popt[0])])
+        lower = lambda x: fit_func(x, popt2[0])
+
+        # lower_params = ipolyfit(xs[:pts[0]], ys[:pts[0]], order[0])
+        # lower = ipoly1d(lower_params)       
     else:
         lower_params = np.polyfit(xs[:pts[0]], ys[:pts[0]], order[0])
         lower = np.poly1d(lower_params)
 
     if inverse[1]:
-        upper_params = ipolyfit(xs[-pts[1]:], ys[-pts[1]:], order[1])
-        upper = ipoly1d(upper_params) 
+        xx = xs[-pts[1]:]
+        yy = ys[-pts[1]:]
+        meanx = np.mean(xx)
+        meany = np.mean(yy)
+
+        popt, _ = opti.curve_fit(line, np.log10(xx), np.log10(yy))
+
+        def fit_func(x, a):
+            return a * x**popt[0]
+
+        popt2, _ = opti.curve_fit(fit_func, xx, yy, maxfev=100000, \
+                                    p0=[np.mean(yy) / (np.mean(xx)**popt[0])])
+        upper = lambda x: fit_func(x, popt2[0])
+        # upper_params = ipolyfit(xs[-pts[1]:], ys[-pts[1]:], order[1])
+        # upper = ipoly1d(upper_params) 
     else:
         upper_params = np.polyfit(xs[-pts[1]:], ys[-pts[1]:], order[1])
         upper = np.poly1d(upper_params) 
@@ -576,10 +605,10 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                                             #fill_value=(np.mean(unphase[b][:num]), unphase[b][-1]), \
                                             #bounds_error=False)
 
-                magfunc2 = make_extrapolator(magfunc, pts=(10,20), order=(0, 8), \
+                magfunc2 = make_extrapolator(magfunc, pts=(10,30), order=(0, 0), \
                                                 inverse=(False, True))
-                phasefunc2 = make_extrapolator(phasefunc, pts=(10,10), order=(0, 1), \
-                                                inverse=(False, True))
+                phasefunc2 = make_extrapolator(phasefunc, pts=(10,20), order=(0, 0), \
+                                                inverse=(False, False))
 
                 fits[resp][drive] = (magfunc2, phasefunc2)
                 if plot_fits or plot_without_fits:

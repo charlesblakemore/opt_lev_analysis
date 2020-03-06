@@ -19,6 +19,7 @@ import transfer_func_util as tf
 from bead_util_funcs import *
 from bead_data_funcs import *
 from bead_properties import *
+from stats_util import *
 
 #######################################################
 # This module contains the DataFile class which stores
@@ -801,7 +802,7 @@ class DataFile:
 
 
 
-    def get_datffts_and_errs(self, ginds, drive_freq, drive_ginds, noiseband=10, \
+    def get_datffts_and_errs(self, ginds, drive_freq, drive_ginds, noisebins=10, \
                              plot=False, diag=True, drive_ind=1, elec_drive=False, \
                              elec_ind=0, noiselim=(10,100)):   
         '''Applies a cantilever notch filter and returns the filtered data
@@ -816,11 +817,6 @@ class DataFile:
                     diagdaterrs, diag errors from surrounding bins
         ''' 
 
-        daterrs = [[], [], []]
-
-        if diag:
-            diagdatffts = [[], [], []]
-            diagdaterrs = [[], [], []]
 
         freqs = np.fft.rfftfreq(len(self.pos_data[0]), d=1.0/self.fsamp)
         fund_ind = np.argmin(np.abs(freqs - drive_freq))
@@ -835,6 +831,11 @@ class DataFile:
             just_one = False
 
         datffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+        daterrs = np.zeros((3, len(ginds)*noisebins), dtype=np.complex128)
+        if diag:
+            diagdatffts = np.zeros((3, len(ginds)), dtype=np.complex128)
+            diagdaterrs = np.zeros((3, len(ginds)*noisebins), dtype=np.complex128)
+
         noiseffts = np.zeros((3, len(ginds)), dtype=np.complex128)
         noise_inds = np.arange(len(freqs))[(freqs <= noiselim[1]) * (freqs >= noiselim[0])]
         #for ind in ginds:
@@ -857,8 +858,7 @@ class DataFile:
             # plt.loglog(freqs, np.abs(datfft)*fft_norm(self.nsamp, self.fsamp))
             # plt.show()
             # input()
-            datffts[resp] = datfft[ginds]
-            daterrs[resp] = np.zeros_like(datffts[resp])
+            datffts[resp] += datfft[ginds]
 
             noise_dat = datfft[noise_inds]
             
@@ -871,29 +871,28 @@ class DataFile:
 
             if diag:
                 diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
-                diagdatffts[resp] = diagdatfft[ginds]
-                diagdaterrs[resp] = np.zeros_like(datffts[resp])
+                diagdatffts[resp] += diagdatfft[ginds]
 
+            err_ginds = []
             for freqind, freq in enumerate(harm_freqs):
                 harm_ind = np.argmin(np.abs(freqs-freq))
-                err_inds = np.abs(freqs - freq) < 0.5*noiseband
-                err_inds[harm_ind] = False
-                if freqind == 0:
-                    err_inds_init = err_inds
-
-                errval = np.median(np.abs(datfft[err_inds]))
-                if just_one:
-                    daterrs[resp] = errval
-                else:
-                    daterrs[resp][freqind] = errval
-                #daterrs[resp][freqind] = np.abs(datfft[harm_ind])
-                if diag:
-                    diagerrval = np.median(np.abs(diagdatfft[err_inds]))
-                    if just_one:
-                        diagdaterrs[resp] = diagerrval
+                neg = False
+                pos_ind = harm_ind + 2
+                neg_ind = harm_ind - 2
+                for i in range(noisebins):
+                    if not neg:
+                        neg = True
+                        err_ginds.append(pos_ind)
+                        pos_ind += 1
                     else:
-                        diagdaterrs[resp][freqind] = diagerrval
-                    #diagdaterrs[resp][freqind] = np.abs(diagdatfft[harm_ind])
+                        neg = False
+                        err_ginds.append(neg_ind)
+                        neg_ind -= 1
+            err_ginds.sort()
+
+            daterrs[resp] += datfft[err_ginds]
+            if diag:
+                diagdaterrs[resp] += diagdatfft[err_ginds]
 
             if plot:
                 normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
@@ -908,25 +907,52 @@ class DataFile:
 
                 print(np.mean(np.abs(datfft[avg_inds])*normfac))
 
-                plt.figure()
-                plt.loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
-                plt.loglog(freqs[err_inds_init], np.abs(datfft[err_inds_init])*normfac)
-                plt.loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, '.', ms=10)
-                plt.ylabel('Force [N]')
-                plt.xlabel('Frequency [Hz]')
-                plt.tight_layout()
+                fig, axarr = plt.subplots(2,1,sharex=True,sharey=True,figsize=(10,8))
+                axarr[0].loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)
+                axarr[1].loglog(freqs, np.abs(diagdatfft)*normfac, alpha=0.4)
+                for gind in ginds:
+                    b = []
+                    for err_gind in err_ginds:
+                        if np.abs(err_gind - gind) < noisebins:
+                            b.append(err_gind)
+                    axarr[0].loglog(freqs[b], np.abs(datfft[b])*normfac, \
+                                color='C1')
+                    axarr[1].loglog(freqs[b], np.abs(diagdatfft[b])*normfac, \
+                                color='C1')
+                axarr[0].loglog(freqs[ginds], np.abs(datfft[ginds])*normfac, \
+                                '.', ms=10, color='C2')
+                axarr[1].loglog(freqs[ginds], np.abs(diagdatfft[ginds])*normfac, \
+                                '.', ms=10, color='C2')
+                axarr[0].set_ylabel('Force [N]')
+                axarr[1].set_ylabel('Diag Force [N]')
+                axarr[1].set_xlabel('Frequency [Hz]')
+                fig.tight_layout()
 
-                plt.figure()
-                plt.plot(freqs[ginds], datfft[ginds].real * normfac, '.', \
+                fig2, axarr2 = plt.subplots(2,1,sharex=True,sharey=True,figsize=(10,8))
+
+                axarr2[0].plot(freqs[ginds], datffts[resp].real * normfac, '.', \
                          label='real', ms=20)
-                plt.plot(freqs[ginds], datfft[ginds].imag * normfac, '.', \
+                axarr2[0].plot(freqs[ginds], datffts[resp].imag * normfac, '.', \
                          label='imag', ms=20)
-                plt.plot(freqs[ginds], np.sqrt(2)*daterrs[resp] * normfac, '.', \
-                         label='errs', ms=20)
-                plt.ylabel('Force [N]')
-                plt.xlabel('Frequency [Hz]')
-                plt.legend()
-                plt.tight_layout()
+                axarr2[0].plot(freqs[err_ginds], daterrs[resp].real * normfac, '.', \
+                         label='errs real', ms=5, alpha=0.6)
+                axarr2[0].plot(freqs[err_ginds], daterrs[resp].imag * normfac, '.', \
+                         label='errs imag', ms=5, alpha=0.6)
+
+                axarr2[1].plot(freqs[ginds], diagdatffts[resp].real * normfac, '.', \
+                         label='real', ms=20)
+                axarr2[1].plot(freqs[ginds], diagdatffts[resp].imag * normfac, '.', \
+                         label='imag', ms=20)
+                axarr2[1].plot(freqs[err_ginds], diagdaterrs[resp].real * normfac, '.', \
+                         label='errs real', ms=5, alpha=0.6)
+                axarr2[1].plot(freqs[err_ginds], diagdaterrs[resp].imag * normfac, '.', \
+                         label='errs imag', ms=5, alpha=0.6)
+
+                axarr2[0].set_ylabel('Force [N]')
+                axarr2[1].set_ylabel('Diag Force [N]')
+                axarr2[1].set_xlabel('Frequency [Hz]')
+                axarr2[0].legend(fontsize=10)
+                fig2.tight_layout()
 
                 plt.figure()
                 plt.loglog(freqs, np.abs(drivefft_full)*normfac)
@@ -938,14 +964,14 @@ class DataFile:
 
         normfac = np.sqrt(2.0 * bin_sp) * fft_norm(N, self.fsamp)
 
-        datffts = np.array(datffts) * normfac
-        driveffts = np.array(driveffts)
-        driveffts_all = np.array(driveffts_all)
-        daterrs = np.array(daterrs) * normfac
-        noiseffts = np.array(noiseffts) * normfac
+        datffts *= normfac
+        driveffts *= normfac
+        driveffts_all *= normfac
+        daterrs *= normfac
+        noiseffts *= normfac
         if diag:
-            diagdatffts = np.array(diagdatffts) * normfac
-            diagdaterrs = np.array(diagdaterrs) * normfac
+            diagdatffts *= normfac
+            diagdaterrs *= normfac
 
         if not diag:
             diagdatffts = np.zeros_like(datffts)
@@ -954,7 +980,8 @@ class DataFile:
         outdic = {'datffts': datffts, 'diagdatffts': diagdatffts, \
                   'daterrs': daterrs, 'diagdaterrs': diagdaterrs, \
                   'driveffts': driveffts, 'driveffts_all': driveffts_all, \
-                  'noiseffts': noiseffts, 'meandrive': meandrive}
+                  'noiseffts': noiseffts, 'meandrive': meandrive, \
+                  'err_ginds': err_ginds}
 
         return outdic
 
