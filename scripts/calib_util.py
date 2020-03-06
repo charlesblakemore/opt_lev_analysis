@@ -100,13 +100,17 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
 
     ecol = np.argmax(file_obj.electrode_settings['driven'])
     pcol = config.elec_map[ecol]
-
+    
     # Extract the drive, detrend it, and compute an fft
     #drive = file_obj.electrode_data[ecol]
-    drive = bu.trap_efield(file_obj.electrode_data)[pcol]
+    #drive = bu.trap_efield(file_obj.electrode_data)[pcol]
+    drive = bu.trap_efield(file_obj.other_data[3] * (-1.0*100))
 
     drive = signal.detrend(drive)
     drive_fft = np.fft.rfft(drive)
+    
+    plt.loglog(np.abs(drive_fft))
+    plt.show()
 
     # Find the drive frequency
     freqs = np.fft.rfftfreq(len(drive), d=1./file_obj.fsamp)

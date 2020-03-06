@@ -16,6 +16,7 @@ import time
 
 
 dirname = '/daq2/20190514/bead1/test_with_rga/test1'
+dirname = '/data/old_trap/20200304/gbead3/discharge/fine/'
 live = False
 
 elec_ind = 3
@@ -89,8 +90,8 @@ if live:
 
 else:
 
-    files = bu.find_all_fnames(dirname)
-    files = bu.sort_files_by_timestamp(files)
+    files = bu.find_all_fnames(dirname, sort_time=True)
+    #files = bu.sort_files_by_timestamp(files)
     nfiles = len(files)
 
     avg_asd = []

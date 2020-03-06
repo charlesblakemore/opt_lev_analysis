@@ -78,7 +78,7 @@ import configuration as config
 
 
 step_cal_dir = ['/daq2/20190408/bead1/discharge/fine']
-
+step_cal_dir = ['/data/old_trap/20200304/gbead3/discharge/fine']
 
 recharge = False
 if type(step_cal_dir) == str:
@@ -150,7 +150,6 @@ if save_charge:
 
 # Find all the relevant files
 step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True)
-
 #step_cal_files = step_cal_files[220:]
 
 #print len(step_cal_files)

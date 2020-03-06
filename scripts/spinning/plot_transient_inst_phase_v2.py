@@ -20,29 +20,33 @@ mpl.rcParams['figure.dpi'] = 150
 
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/change_phi_offset/raw_curves/'
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/raw_curves/'
-#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves/'
+base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_6_to_9_dg/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
-#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
-#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_50_dg/change_phi_offset/raw_curves_env_and_osc/'
-#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves/'
+base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_50_dg/change_phi_offset/raw_curves/'
+
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves_env_rebin/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/raw_curves_env_rebin/'
 
 files, zeros, folders = bu.find_all_fnames(base_folder, sort_time=True, add_folders=True)
 
 print(folders)
 
-save = True 
+save = True
 multiple_folders = True
 
 max_length_from_end = 150000
 
 #fit transients params:
-dist_to_end = 0.2# for long 33s int
+dist_to_end = 3# for long 33s int
 a_fix = True
 b_fix = True
 c_fix = False
 d_fix = True
-start_c = -3
+start_c = -2
 migrad_ncall = 100 
 
 time_wind = 5
@@ -50,9 +54,15 @@ time_wind = 5
 just_env = True
 env_and_osc = False
 
+###################
 plot_end_mask = False
+plot_data_and_fit = False
+set_limits = True
+xmin = 0
+xmax = 2
+##################
+
 plot_multiple = False
-plot_data_and_fit = True
 
 save_base_name_fit_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/fit_data/'
 
@@ -152,18 +162,37 @@ def fit_transients(filenames, max_lfe, start_c, migrad_ncall):
             end_mask = (x > x[-1]-dist_to_end)           
             d_guess = np.mean(y[end_mask])
 
-            end_mask = (x > x[-1]-dist_to_end)
+            if plot_end_mask:
+                fig, ax = plt.subplots(2,1, sharex=True)
+                ax[0].plot(x,y)
+                ax[0].plot(x[end_mask], y[end_mask])
+                ax[1].semilogy(x,y)
+                ax[0].set_ylabel(r'$\phi$(t) amplitude envelope')
+                ax[1].set_ylabel(r'log($\phi$(t))')
+                ax[1].set_xlabel('Time [s]')
+                ax[0].set_title('{} dg'.format(dg))
+                if set_limits:
+                    plt.xlim([xmin, xmax])
+                    #ax[1].set_xlim([xmin, xmax])
+                
+                plt.show()
 
-            plt.plot(x,y)
-            plt.plot(x[end_mask], y[end_mask])
-            plt.show()
-
+            std = np.std(y[end_mask])
             print(np.std(y[end_mask]))
             #y_err = np.ones_like(y_err_unmask[mask_exp])
             #y_err *= np.std(y[end_mask])
-            y_err = data['errs'][mask_exp]#y_err_unmask[mask_exp]
-            y=y[mask_exp]
-            x=x[mask_exp]
+            try:
+                y_err = y_err_unmask[mask_exp]
+            except:
+                continue
+
+            #y_err = data['errs'][mask_exp]
+
+            y_unmask = y
+            x_unmask = x
+
+            y=y_unmask[mask_exp]
+            x=x_unmask[mask_exp]
 
             a_guess = y[0]
             b_guess = x[0]
@@ -173,18 +202,31 @@ def fit_transients(filenames, max_lfe, start_c, migrad_ncall):
                     c=c_guess, fix_c=c_fix, limit_c=[-100000,0],  error_c=0.1, d=d_guess,fix_d=d_fix, print_level=1) 
              
             m.migrad(ncall=migrad_ncall)
-
-            x_arr = np.linspace(x[:][0], x[:][-1], len(x)*10)
+            
+            x_arr = np.linspace(x[:][0], x[:][-1], len(x)*10) 
+            x_unmask_arr = np.linspace(x_unmask[:][0], x_unmask[:][-1], len(x_unmask)*10)
 
             p = [m.values['a'], m.values['b'], m.values['c'], m.values['d']]
-           
+          
+            p = np.array(p)
+            fit_label = r'$ae^{-b(t-c)} + d$, ' + 'a={}, b={} Hz, c={}s, d={}'.format(p[0].round(2),p[2].round(2),p[1].round(2),\
+                    p[3].round(2))#Variables are switched compare to the actual fit function used, but the equation is modified to account for this. There should also be a factor of 1/2 in the exp
+
             if plot_data_and_fit:
-                fig, ax = plt.subplots(3,1)
-                ax[0].semilogy(x,y)
+                fig, ax = plt.subplots(2,1, sharex=True)
+                ax[0].semilogy(x_unmask,y_unmask)
+                ax[0].semilogy(x_unmask_arr, exp(x_unmask_arr, *p), label=fit_label)
                 ax[0].semilogy(x_arr , exp(x_arr, *p))
-                ax[1].plot(x, y_err)
-                ax[2].plot(x, y_err_unmask[mask_exp])
+                ax[0].legend()
+                ax[1].plot(x_unmask, y_err_unmask)
+                ax[0].set_ylabel(r'log($\phi$(t))')
+                ax[1].set_ylabel(r'$\sigma$')
+                ax[0].set_title('{} dg'.format(dg))
+                
+                if set_limits:
+                    plt.xlim([xmin,xmax])
                 plt.xlabel('Time [s]')
+                plt.legend()
                 plt.show()
                 gc.collect()
             #plt.semilogy(x_arr , exp(x_arr, *p))

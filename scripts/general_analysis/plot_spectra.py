@@ -126,6 +126,11 @@ allfiles = ['/data/old_trap/20200130/bead1/1_5mbar_powfb_zcool_init.h5',\
             '/data/old_trap/20200130/bead1/1_5mbar_powfb_xzcool.h5',\
             '/data/old_trap/20200130/bead1/1_5mbar_powfb_yzcool.h5',\
             '/data/old_trap/20200130/bead1/1_5mbar_powfb_xyzcool.h5']
+allfiles = ['/data/old_trap/20200304/gbead3/1_5mbar_powfb_zcool_lower_1.h5',\
+            '/data/old_trap/20200304/gbead3/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20200304/gbead3/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20200304/gbead3/1_5mbar_powfb_xyzcool.h5']
+
 tfdate = '20190327'
 
 #labs = ['1','2', '3']

@@ -72,10 +72,9 @@ directory = '/data/old_trap/20191223/bead1/spinning/tests/deriv_fb_50_down_samp/
 #directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_1/'
 directory = '/data/old_trap/20200130/bead1/waveform_gen_test/'
 directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/change_phi_offset_0000/'
-directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_300_dg/change_phi_offset/'
-
-
-
+#directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_300_dg/change_phi_offset/'
+#directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_10_to_50_dg/change_phi_offset/change_phi_offset_0001/'
+directory = '/data/old_trap/20200130/bead1/spinning/test/check_rot/'
 labels = ['Positive','Negative','Zero']
 labels = ['']
 scales = [1]
