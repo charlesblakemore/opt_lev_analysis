@@ -84,6 +84,10 @@ import configuration as config
 # step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
 # first_file = 0
 
+step_cal_dir = ['/data/old_trap/20200304/gbead3/discharge/fine']
+first_file = 0
+last_file = -1
+
 
 
 
@@ -123,11 +127,12 @@ elec_channel_select = 1
 pcol = 0
 
 
-auto_try = 0.25   ### for Z direction in new trap
-# auto_try = 0.0
+# auto_try = 0.25   ### for Z direction in new trap
+auto_try = 0.0
 
 
-new_trap = True
+# new_trap = True
+new_trap = False
 
 
 recharge = False
@@ -148,11 +153,11 @@ max_file = 145
 decimate = False
 dec_fac = 2
 
-fake_step_cal = False
+fake_step_cal = True
 ## OLD TRAP
 vpn = 7.264e16
 ## NEW TRAP
-vpn = 7.1126e17
+# vpn = 7.1126e17
 
 #tf_cal_dir = '/data/20180625/bead1/tf_20180625/'
 #tf_cal_dir = '/data/20180704/bead1/tf_20180704/'
@@ -163,7 +168,8 @@ vpn = 7.1126e17
 #tf_cal_dir = '/data/20180927/bead1/tf_20180928/'
 
 # tf_cal_dir = '/data/old_trap/20181119/bead1/tf_20181119/'
-tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
+# tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
+tf_cal_dir = '/data/old_trap/20200304/gbead3/tf_20200306/'
 
 
 

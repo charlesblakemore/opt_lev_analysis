@@ -17,13 +17,9 @@ import transfer_func_util as tf
 
 import iminuit
 
-
-year2019 = True
-
-
 plt.rcParams.update({'font.size': 14})
 
-save_mass = True
+save_mass = False
 print_res = True
 plot = True
 
@@ -223,7 +219,14 @@ arr.append('/data/old_trap/20191017/bead1/weigh/lowp_neg_4Vpp')
 file_dict['20191017'] = (arr, 1, 0)
 
 
-file_dict = {'20191017': (arr, 1, 0)}
+arr = []  ### 
+arr.append('/data/old_trap/20200304/gbead3/weigh/4Vpp_lowp')
+arr.append('/data/old_trap/20200304/gbead3/weigh/6Vpp_lowp')
+arr.append('/data/old_trap/20200304/gbead3/weigh/8Vpp_lowp')
+file_dict['20200304'] = (arr, 1, 0)
+
+
+file_dict = {'20200304': (arr, 1, 0)}
 
 
 
@@ -399,9 +402,15 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         top_elec = mon_fac * df.other_data[elec_ind]
         bot_elec = mon_fac * df.other_data[elec_ind+1]
 
-        # plt.plot(top_elec)
-        # plt.plot(bot_elec)
-        # plt.show()
+
+        fac = 1.0
+        if np.std(top_elec) < 0.5 * np.std(bot_elec) \
+                or np.std(bot_elec) < 0.5 * np.std(top_elec):
+            fac = 2.0
+
+        plt.plot(top_elec)
+        plt.plot(bot_elec)
+        plt.show()
 
         Vdiff = top_elec - bot_elec
         #eforce = -1.0 * (Vdiff / (4.0e-3)) * q_bead
@@ -412,7 +421,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         voltages = [zeros, top_elec, bot_elec, zeros, \
                     zeros, zeros, zeros, zeros]
         efield = bu.trap_efield(voltages)
-        eforce2 = sign * efield[2] * q_bead
+        eforce2 = fac * sign * efield[2] * q_bead
 
         #eforce2 = (top_elec * e_top_func(0.0) + bot_elec * e_bot_func(0.0)) * q_bead
         if noise:

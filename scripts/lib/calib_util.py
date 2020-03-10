@@ -133,9 +133,13 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         pcol = 0
         v3 = file_obj.other_data[tabor_ind]
         v4 = file_obj.other_data[tabor_ind+1]
+        fac = 1.0
+        if np.std(v4) < 0.5 * np.std(v3) or np.std(v3) < 0.5 * np.std(v4):
+            # print('Only one Tabor drive channel being digitized...')
+            fac = 2.0
         zeros = np.zeros(len(v3))
         drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros], \
-                                new_trap=new_trap)[pcol]
+                                new_trap=new_trap)[pcol] * fac
 
     try:
         power = np.mean(file_obj.other_data[0])

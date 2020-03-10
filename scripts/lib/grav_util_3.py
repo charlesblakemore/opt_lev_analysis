@@ -2477,7 +2477,11 @@ class AggregateData:
                                                 p0=[np.max(chi_sq)/np.max(mu_dat_arr)**2, 0, 0])
                     soln = solve_parabola(chi2dist.ppf(confidence_level), popt)
 
+                    ### "Best fit" is like the sensitivity (should be consistent with 0
+                    ### if we understand backgrounds)
                     sensitivity = alpha_scale * np.abs(-1.0 * popt[1] / (2.0 * popt[0]))
+
+                    ### Limit is derived from the larger of the ends of the confidence interval
                     limit = alpha_scale * np.abs(np.max(soln))
 
                     # dat_mean = np.average(dat, weights=errs)

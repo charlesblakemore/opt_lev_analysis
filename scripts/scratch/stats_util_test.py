@@ -31,6 +31,7 @@ xarr = np.linspace(-5, 5, 100)
 
 plt.plot(xarr, test(xarr))
 plt.plot(xarr, interp_func(xarr), ls='--')
+
 plt.figure()
 plt.hist(samples, density=True, bins=20)
 plt.plot(xarr, np.abs(testpdf(xarr)))
