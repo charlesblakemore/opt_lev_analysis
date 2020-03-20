@@ -155,9 +155,9 @@ arr.append('/data/old_trap/20190514/bead1/weigh/lowp_neg_4Vpp')
 file_dict = {'20190514': (False, arr)}
 
 arr = []
-arr.append('/data/old_trap/20200304/gbead3/weigh/8Vpp_lowp')
+arr.append('/data/old_trap/20200307/gbead1/weigh/4Vpp_lowp_0')
 
-file_dict = {'20200304': (True, arr)}
+file_dict = {'20200307': (True, arr)}
 #arr = []
 #arr.append('/data/old_trap/20190626/bead1/weigh/lowp_neg_8Vpp')
 

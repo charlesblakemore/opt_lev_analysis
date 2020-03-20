@@ -27,7 +27,9 @@ directory = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_2/base_
 
 base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/raw_curves/'
 
-#base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/long_int/raw_curves/'
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/long_int/raw_curves/'
+
+base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/long_int/raw_curves/'
 
 #base_directory = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/long_int/raw_curves/'
 
@@ -47,7 +49,6 @@ files, length, folders= bu.find_all_fnames(base_directory, add_folders=True)
 
 folders.pop(0)
 print(folders)
-#files = ['/home/dmartin/Desktop/analyzedData/20191204/spinning/deriv_feedback/20191216/no_dg.npy']
 
 #fit_many_in_sequency_psd arguments
 
@@ -58,15 +59,17 @@ fix_A = False
 fix_f0 = True
 fix_g = False
 fix_b = True
+fix_h = False
 
 param_arr = [fix_A, fix_f0, fix_g, fix_b]
 param_arr = np.array(param_arr)
 
-save_fit_p = True 
+save_fit_p = False 
 
 fit_avg_psd = False
 fit_psd = True #Fit each PSD one at time
-plot_fit = False 
+plot_fit = True
+new_psd = True
 ###################################
 
 
@@ -90,12 +93,20 @@ def psd_lorentzian(x, A, f0, g, b):
     #denom =( (((1./g)+c)*w)**2 + (w0**2 - w**2)**2)
     denom = (((g)*w)**2 + (w0**2 - w**2)**2)
     return (1/denom)*((A)) + b
+def new_psd_lorentzian(x, A, B, f0, g, b, h):
+    w = 2*np.pi*x
+    w0 = 2*np.pi*f0
+    #denom =( (((1./g)+c)*w)**2 + (w0**2 - w**2)**2)
+    denom = (((g+h)*w)**2 + (w0**2 - w**2)**2)
+    return (1/denom)*((A*h) + ((w0**2-w**2)**2 + (h*w)**2)*B**2) + b 
+
 
 def gaussian(x, mu, c, A):
     return np.exp(-(x-mu)**2) * A + c
 
 A_avg_arr = []
 f0_avg_arr = []
+
 g_avg_arr = []
 b_avg_arr = []
 chi_sq_ndof_avg_arr = []
@@ -222,7 +233,6 @@ def fit_many_in_sequence_psd_avg(filenames, dtep):
 
         np.savez(save_name, A_arr=A_arr, f0_arr=f0_arr, g_arr=g_arr, b_arr=b_arr, chi_sq_ndof=chi_sq_ndof, dg=dg, g_errs=g_errs)
  
-
 def fit_many_in_sequence_psd(filenames, dtep):
     
     meas_name = filenames[0].split('/')[-2]
@@ -242,10 +252,12 @@ def fit_many_in_sequence_psd(filenames, dtep):
 
     N = 0 
     psd_sum = np.zeros_like(init_psd)
-
-    
     def chi_sq(A, f0 , g, b):
         return np.sum(((y-psd_lorentzian(x, A, f0, g, b))/y_err)**2.)
+    
+    if new_psd:
+        def chi_sq(A, B, f0, g, b, h):
+            return np.sum(((y-new_psd_lorentzian(x, A, B,f0, g, b, h))/y_err)**2.)
     
     #def chi_sq(mu, c, A):
     #    return np.sum(((y-gaussian(x, mu, c, A))/y_err)**2.)
@@ -290,10 +302,11 @@ def fit_many_in_sequence_psd(filenames, dtep):
         end_mask = (freqs > freqs[-1]-(len(freqs)*dtep))
 
         A_guess = 1e3
+        #A_guess = 15
         f0_guess = x[max_ind]
         g_guess = 1
         b_guess = np.mean(y[end_mask])
-
+        
         #plt.loglog(x, y)
         #plt.loglog(x[end_mask], y[end_mask])
         #plt.show()
@@ -304,11 +317,23 @@ def fit_many_in_sequence_psd(filenames, dtep):
 
         m=Minuit(chi_sq, A=A_guess, fix_A=fix_A, f0=f0_guess, fix_f0=fix_f0, g=g_guess, fix_g=fix_g, b=b_guess, fix_b=fix_b, print_level=1, errordef=1)
 
+        if new_psd:
+            h_guess = .01
+            B_guess = 0.001
 
+            m=Minuit(chi_sq, limit_A=(9e4,4e6), A=A_guess, fix_A=fix_A, f0=f0_guess, fix_f0=fix_f0, g=g_guess, fix_g=fix_g, b=b_guess, fix_b=fix_b,h=h_guess, fix_h=fix_h, fix_B=False, B=B_guess, print_level=1, errordef=1)
+            
         m.migrad(ncall=migrad_ncall)
         p = [m.values['A'], m.values['f0'], m.values['g'], m.values['b']]
-    
+        
+        if new_psd:
+            p = [m.values['A'], m.values['B'], m.values['f0'], m.values['g'], m.values['b'], m.values['h']]
+            label = r'A = {}, f_0 = {}, g = {}, b = {}, h = {}'.format(round(p[0],2), round(p[1],2), round(p[2],2), round(p[3],2), round(p[4],2))
+
+        else:
+            label = r'A = {}, f_0 = {}, g = {}, b = {}'.format(*p)
         print(p)
+
 
         chi_sq_red = m.fval/(len(y)-len(param_arr))
 
@@ -325,9 +350,17 @@ def fit_many_in_sequence_psd(filenames, dtep):
         print('chi_sq', chi_sq_red, len(y))
        
         if plot_fit:
-            plt.loglog(x, y)
-            plt.loglog(x_arr, psd_lorentzian(x_arr, *p))
+            fig, ax = plt.subplots(2, 1, sharex=True)
+            if not new_psd:
+                ax[0].semilogy(x, y)
+                ax[0].semilogy(x_arr, psd_lorentzian(x_arr, *p), label=label)
+                ax[1].plot(x, y_err)
+            elif new_psd:
+                ax[0].semilogy(x, y)
+                ax[0].semilogy(x_arr, new_psd_lorentzian(x_arr, *p), label=label)
+                ax[1].plot(x, y_err)
             #plt.loglog(x_arr, gaussian(x_arr, * p))
+            ax[0].legend()
             plt.show()
 
     
@@ -437,7 +470,7 @@ if fit_avg_psd:
 
         fit_many_in_sequence_psd_avg(files, dist_to_end_percentage)
 if fit_psd:
-    for i, folder in enumerate(folders):
+    for i, folder in enumerate(folders[9:10]):
         files, zero = bu.find_all_fnames(folder, ext='.npz')
     
         fit_many_in_sequence_psd(files, dist_to_end_percentage)

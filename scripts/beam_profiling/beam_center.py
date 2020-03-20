@@ -31,12 +31,14 @@ data_dir2 = '/daq2/20190315/profiling/ysweep_right_adj13_atm'
 #data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_vac'
 #data_dir2 = '/daq2/20190315/profiling/xsweep_adj13_atm'
 
-data_dir1 = '/daq2/20190902/profiling/ysweep_vac_out0_5_vert'
-data_dir2 = '/daq2/20190902/profiling/ysweep_vac_in1_5_vert'
+data_dir1 = '/data/old_trap/profiling/ysweep_vac_out0_5_vert'
+data_dir2 = '/data/old_trap/20190902/profiling/ysweep_vac_in1_5_vert'
 
 #data_dir2 = '/daq2/20190902/profiling/xsweep_vac_in1_5_vert'
-data_dir1 = '/daq2/20190902/profiling/post_trans/xsweep_vac_init'
-data_dir2 = '/daq2/20190902/profiling/post_trans/ysweep_vac_init'
+#data_dir1 = '/data/old_trap/20190902/profiling/post_trans/xsweep_vac_init'
+#data_dir2 = '/data/old_trap/20190902/profiling/post_trans/ysweep_vac_init'
+
+
 #data_dir1 = '/daq2/20190902/profiling/xsweep_in1_0'
 #data_dir2 = '/daq2/20190902/profiling/ysweep_init'
 debug_plot = False

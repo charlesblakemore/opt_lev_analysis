@@ -24,7 +24,7 @@ base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_6_to_9_dg/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
-base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_50_dg/change_phi_offset/raw_curves/'
 
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves_env_rebin/'
@@ -35,7 +35,7 @@ files, zeros, folders = bu.find_all_fnames(base_folder, sort_time=True, add_fold
 
 print(folders)
 
-save = True
+save = False
 multiple_folders = True
 
 max_length_from_end = 150000

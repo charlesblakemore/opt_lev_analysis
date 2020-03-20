@@ -152,6 +152,7 @@ class DataFile:
             plt.show()
      
         self.fname = fname
+        print(fname)
         self.date = fname.split('/')[2]
         #print fname
 

@@ -88,7 +88,6 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
     return corr * (1.0 / (lentrace * drive_amp))
 
 
-
 def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
     '''Analyze a data step-calibraiton data file, find the drive frequency,
        correlate the response to the drive
@@ -104,13 +103,11 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
     # Extract the drive, detrend it, and compute an fft
     #drive = file_obj.electrode_data[ecol]
     #drive = bu.trap_efield(file_obj.electrode_data)[pcol]
-    drive = bu.trap_efield(file_obj.other_data[3] * (-1.0*100))
+    drive = bu.trap_efield(file_obj.other_data * (-1.0*100))[0]
 
     drive = signal.detrend(drive)
     drive_fft = np.fft.rfft(drive)
     
-    plt.loglog(np.abs(drive_fft))
-    plt.show()
 
     # Find the drive frequency
     freqs = np.fft.rfftfreq(len(drive), d=1./file_obj.fsamp)

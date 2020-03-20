@@ -79,6 +79,7 @@ import configuration as config
 
 step_cal_dir = ['/daq2/20190408/bead1/discharge/fine']
 step_cal_dir = ['/data/old_trap/20200304/gbead3/discharge/fine']
+step_cal_dir = ['/data/old_trap/20200307/gbead1/discharge_2/recharge']
 
 recharge = False
 if type(step_cal_dir) == str:
@@ -112,6 +113,7 @@ vpn = 7.264e16
 #tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
 
 tf_cal_dir = '/daq2/20190408/bead1/tf_20190408/'
+tf_cal_dir = '/data/old_trap/gbead1/tf_20200310/'
 
 tf_date = tf_cal_dir.split('/')[2]
 
@@ -280,6 +282,7 @@ if not fake_step_cal:
         df = bu.DataFile()
         try:
             df.load(filname)
+            df.load_other_data()
         except:
             continue
 

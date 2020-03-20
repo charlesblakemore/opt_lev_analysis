@@ -17,11 +17,13 @@ import transfer_func_util as tf
 plt.rcParams.update({'font.size': 14})
 
 
-dir = '/data/20181119/power_v_bits/init_meas'
-#dir = '/data/20181119/power_v_bits/no-turbo_down_fine'
-load_dir = False
+dir = '/data/old_trap/20181119/power_v_bits/init_meas'
+dir = '/data/20181119/power_v_bits/no-turbo_down_fine'
+dir = '/data/old_trap/20200312/test_power_v_z_set_1/'
+dir = '/data/old_trap/20200312/test_power_v_z_set_new_amp_2/'
+load_dir = False# True
 
-save_ext = '20181119_init'
+save_ext = '20200312_new_amp_2'
 
 
 meas_to_plot = [('/power_v_bits/20181023_init.txt', 'historic'), \
@@ -31,7 +33,10 @@ meas_to_plot = [('/power_v_bits/20181023_init.txt', 'historic'), \
                 ('/power_v_bits/20181119_down1.txt', 'down1'), \
                 ('/power_v_bits/20181119_down2.txt', 'down2')]
 
-
+meas_to_plot = [('/home/dmartin/Desktop/power_v_bits/20200312_old_amp.txt', 'old'),\
+                ('/home/dmartin/Desktop/power_v_bits/20200312_new_amp.txt', 'new'),\
+                ('/home/dmartin/Desktop/power_v_bits/20200312_new_amp_1.txt', 'new_1'),\
+                ('/home/dmartin/Desktop/power_v_bits/20200312_new_amp_2.txt', 'new_2')]
 trans_gain = 100e3  # V/A
 pd_gain = 0.25      # A/W
 
@@ -56,7 +61,7 @@ fullNFFT = False
 
 if load_dir:
 
-    files = bu.find_all_fnames(dir, sort_time=True)
+    files, lengths = bu.find_all_fnames(dir, sort_time=True)
     nfiles = len(files)
 
     bits = []
@@ -67,18 +72,19 @@ if load_dir:
 
         # Load data
         df = bu.DataFile()
-        try:
-            df.load(fil, load_other=True, skip_mon=True)
-        except:
-            print 'bad'
-            continue
+        #try:
+        df.load(fil, load_other=True, skip_mon=True)
+        #except:
+        #    print 'bad'
+        #    continue
 
         mean_fb = np.mean(df.pos_fb[2])
     
-        if (mean_fb > 1000) or (mean_fb < -33000):
-            continue
+        #if (mean_fb > 1000) or (mean_fb < -33000):
+        #    continue
 
-        current = np.abs(np.mean(df.other_data[4])) / trans_gain
+        #current = np.abs(np.mean(df.other_data[4])) / trans_gain
+        current = np.abs(np.mean(df.power)) / trans_gain
         power = 99.0 * current / pd_gain
         power = power / line_filter_trans
 
@@ -94,7 +100,7 @@ if load_dir:
 
 
     outarr = np.array([bits, pows])
-    np.savetxt('/power_v_bits/' + save_ext + '.txt', \
+    np.savetxt('/home/dmartin/Desktop/power_v_bits/' + save_ext + '.txt', \
                outarr, delimiter=',')
 
 
@@ -109,12 +115,12 @@ else:
         print dat.shape
         bits = dat[0]
         pows = dat[1]
-        inds = (bits < 10000) * (bits > -33000)
-        inds2 = (pows > -0.001) * (pows < 0.02)
-        plt.plot(bits[inds*inds2], pows[inds*inds2] * 1e3, \
-                 'o', label=label)
-
-    plt.title('Bit to Power Calibration Drift - Approx. 1 day')
+        #inds = (bits < 10000) * (bits > -33000)
+        #inds2 = (pows > -0.001) * (pows < 0.02)
+        #plt.plot(bits[inds*inds2], pows[inds*inds2] * 1e3, \
+        #         'o', label=label)
+        plt.plot(bits, pows, 'o', label=label)
+    plt.title('Trueto Power Calibration Drift - Approx. 1 day')
     plt.xlabel('Mean Axial Feedback [bits]')
     plt.ylabel('Measured Power [mW]')
     plt.legend()

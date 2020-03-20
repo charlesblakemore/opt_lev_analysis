@@ -15,13 +15,11 @@ plt.rcParams.update({'font.size': 16})
 
 #dir1 = '/data/20190109/bead1/'
 #dir1 = '/daq2/20190514/bead1/spinning/junk/derptest/'
-dir1 = '/daq2/20190829/bead1/'
-maxfiles = 2000
+dir1 = '/data/old_trap/20200313/gbead2/fb_adj_4/'
+maxfiles = 10
 
-use_dir = False
+use_dir = True 
 filename_labels = True #False
-
-dir1= '/data/old_trap/20200128/bead2/discharge/coarse/'
 
 #allfiles = ['/daq2/20190827/bead3/1_5mbar_zfb_lower_1.h5',\
 #			'/daq2/20190827/bead3/1_5mbar_xzcool.h5',\
@@ -131,6 +129,56 @@ allfiles = ['/data/old_trap/20200304/gbead3/1_5mbar_powfb_zcool_lower_1.h5',\
             '/data/old_trap/20200304/gbead3/1_5mbar_powfb_yzcool.h5',\
             '/data/old_trap/20200304/gbead3/1_5mbar_powfb_xyzcool.h5']
 
+allfiles = ['/data/old_trap/20200306/gbead2/1_5mbar_powfb_init.h5',\
+            '/data/old_trap/20200306/gbead2/1_5mbar_powfb_zcool_higher_1.h5',\
+            '/data/old_trap/20200306/gbead2/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20200306/gbead2/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20200306/gbead2/1_5mbar_powfb_xyzcool.h5',\
+            '/data/old_trap/20200306/gbead2/junk/1_5mbar_powfb_xyzcool_1.h5',\
+            '/data/old_trap/20200306/gbead2/junk/1_5mbar_powfb_xyzcool_2.h5',\
+            '/data/old_trap/20200306/gbead2/junk/1_5mbar_powfb_xyzcool_3.h5'
+            ]
+
+allfiles = ['/data/old_trap/20200307/gbead1/1_5mbar_powfb_init.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_low_1.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_low_2.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_low_3.h5'
+            ]
+allfiles = [#'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_0.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_1.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_2.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_3.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_4.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_5.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_6.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_7.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_8.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_9.h5',\
+            #'/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_10.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_zcool_fbadj_11.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_xyzcool.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_xyzcool_fbadj_0.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_xyzcool_fbadj_1.h5',\
+            '/data/old_trap/20200307/gbead1/1_5mbar_powfb_xyzcool_fbadj_3.h5'
+            ]
+allfiles = [
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_adj_zcool_higher.h5',\
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_xzcool_adj.h5',\
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_yzcool_adj.h5',\
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_yzcool_adj_1.h5',\
+            '/data/old_trap/20200313/gbead1/1_5mbar_powfb_xyzcool.h5'
+            ]
+allfiles = ['/data/old_trap/20200313/gbead1/power_jumping/1_5mbar_powfb_xyzcool.h5']
+
+allfiles = ['/data/old_trap/20200313/gbead2/1_5mbar_powfb_zcool_low10.h5',\
+            '/data/old_trap/20200313/gbead2/1_5mbar_powfb_zcool_low11.h5',\
+            '/data/old_trap/20200313/gbead2/1_5mbar_powfb_zcool_low12.h5'
+            ]
+
 tfdate = '20190327'
 
 #labs = ['1','2', '3']
@@ -138,7 +186,7 @@ tfdate = '20190327'
 data_axes = [0,1,2]
 fb_axes = []
 #fb_axes = [0,1,2]
-other_axes = [7]
+other_axes = [0]
 #other_axes = [5,7]
 
 drive_ax = 1
@@ -273,7 +321,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 NFFT = len(df.pos_data[ax])
             else:
                 NFFT = userNFFT
-        
             psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
             fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
@@ -321,11 +368,11 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 eaxarr[axind].loglog(freqs, np.sqrt(psd), color=color ) 
 
         if len(other_axes):
-            #print('Length of other_axes',len(other_axes))
+            print('Length of other_axes',len(other_axes))
             for axind, ax in enumerate(other_axes):
                 ax = ax - 3
                 #psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
-                #                     NFFT=NFFT, window=window)
+                                    #NFFT=NFFT, window=window)
                 psd, freqs = mlab.psd(df.power, Fs=df.fsamp, \
                                   NFFT=NFFT, window=window)
 
@@ -366,9 +413,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 if use_dir:
 	#Added variable zero to hold the second returned value because
 	#the plot_many_spectra function does not like lists
-    allfiles, zero = bu.find_all_fnames(dir1)
-
+    allfiles, zero = bu.find_all_fnames(dir1, sort_time=True)
 allfiles = allfiles[:maxfiles]
+#allfiles = allfiles[:]
 #allfiles = bu.sort
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \

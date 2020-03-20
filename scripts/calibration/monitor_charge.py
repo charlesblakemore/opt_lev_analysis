@@ -17,6 +17,7 @@ import time
 
 dirname = '/daq2/20190514/bead1/test_with_rga/test1'
 dirname = '/data/old_trap/20200304/gbead3/discharge/fine/'
+dirname = '/data/old_trap/20200307/gbead1/discharge/fine/'
 live = False
 
 elec_ind = 3

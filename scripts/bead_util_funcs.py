@@ -1170,7 +1170,7 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     else:
         quad_time, amp, phase = (None, None, None)
         xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
-
+        
     # Assemble the output as a human readable dictionary
     out = {'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
            'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
