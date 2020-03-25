@@ -997,6 +997,15 @@ class FileData:
 
 
 
+
+
+
+
+
+
+
+
+
 class AggregateData:
     '''A class to store data from many files. Stores a FileDat object for each and
        has some methods that work on each object in a loop.'''
@@ -1460,7 +1469,7 @@ class AggregateData:
 
     def handle_sparse_binning(self, dim3=False, verbose=False):
         '''Sometimes the rough stage binning above finds a bad file and entries 
-           are missing from the nested dictionaries. This adds and empty file_data
+           are missing from the nested dictionaries. This adds an empty file_data
            object at each missing entry, which can be ignored later
         '''
         ### Handle sparsity
@@ -2267,7 +2276,7 @@ class AggregateData:
 
 
 
-    def fit_alpha_xyz_onepos_simple(self, resp=0, confidence_level=0.95, \
+    def fit_alpha_xyz_onepos_simple(self, resp=[0,1,2], confidence_level=0.95, \
                                     verbose=False, last_file=-1, plot=False, \
                                     show=True, plot_color='C0', plot_label='', \
                                     plot_alpha=1.0, sigma_to_profile=3.0):
@@ -2285,6 +2294,9 @@ class AggregateData:
 
         self.alpha_best_fit = []
         self.alpha_95cl = []
+
+        self.signal_chisq_prof = []
+        self.sideband_chisq_prof = []
 
         ### Assume separations are encoded in ax0 and heights in ax1
         ax0 = self.ax0vec[0]
@@ -2304,75 +2316,90 @@ class AggregateData:
             alpha_arr = self.alpha_xyz_dict[bias][ax0][ax1]
             alpha_arr_2 = self.alpha_xyz_dict_2[bias][ax0][ax1]
 
-            n_err = alpha_arr.shape[2] - 1
+            n_sideband = alpha_arr.shape[2] - 1
 
             for lambind, yuklambda in enumerate(self.gfuncs_class.lambdas):
 
                 ### Take the signal vector projection (last index 0) for the 
                 ### desired response axis at the position defined
-                # dat = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][0][resp][0]
-                dat = alpha_arr[:,lambind,0,resp,0]
-                dat2 = alpha_arr_2[:,lambind,0,resp]
-                # errs = self.alpha_xyz_dict[bias][ax0][ax1][:][lambind][1][resp][0]
-                errs = alpha_arr[:,lambind,1,resp,0]
-                errs2 = alpha_arr_2[:,lambind,1,resp]
+                for axind, ax in enumerate(resp):
+                    new_dat = alpha_arr[:,lambind,0,ax,0]
+                    new_dat2 = alpha_arr_2[:,lambind,0,ax]
 
-                errs_long = np.empty((n_err*errs.size,), dtype=errs.dtype)
-                for i in range(n_err):
-                    errs_long[i::n_err] = alpha_arr[:,lambind,i+1,resp,0]
+                    new_sideband = alpha_arr[:,lambind,1,ax,0]
+                    new_sideband2 = alpha_arr_2[:,lambind,1,ax]
+
+                    new_sideband_long = np.empty((n_sideband*new_sideband.size,), dtype=sideband.dtype)
+                    for i in range(n_sideband):
+                        new_sideband_long[i::n_sideband] = alpha_arr[:,lambind,i+1,ax,0]
+
+                    if axind == 0:
+                        dat = new_dat
+                        dat2 = new_dat2
+                        sideband = new_sideband
+                        sideband2 = new_sideband2
+                        sideband_long = new_sideband_long
+                    else:
+                        dat = np.concatenate((dat, new_dat))
+                        dat2 = np.concatenate((dat2, new_dat2))
+                        sideband = np.concatenate((sideband, new_sideband))
+                        sideband2 = np.concatenate((sideband2, new_sideband2))
+                        sideband_long = np.concatenate((sideband_long, new_sideband_long))
+
 
                 inds = np.abs(dat) < 1e-4 * np.abs(np.max(dat))
-                err_inds = np.abs(errs_long) < 1e-4 * np.abs(np.max(errs_long))
+                sideband_inds = np.abs(sideband_long) < 1e-4 * np.abs(np.max(sideband_long))
 
                 good_dat = dat[np.abs(dat) < 10.0 * np.std(dat[inds])]
                 good_dat_2 = dat2[np.abs(dat2) < 100 * np.std(dat2)]
-                good_errs = errs_long[np.abs(errs_long) < 100 * np.std(errs_long[err_inds])]
+                good_sideband = sideband_long[np.abs(sideband_long) \
+                                        < 100 * np.std(sideband_long[sideband_inds])]
 
                 # if lambind == 0.0:
-                # #     # print(errs2)
-                # #     # plt.hist(errs2)
+                # #     # print(sideband2)
+                # #     # plt.hist(sideband2)
 
                 # #     plt.figure()
                 # #     datcdf = bu.ECDF(good_dat)
                 # #     datcdf2 = bu.ECDF(good_dat_2)
-                # #     # errcdf = bu.ECDF(errs)
-                # #     # errcdf2 = bu.ECDF(errs2)
+                # #     # sidebandcdf = bu.ECDF(sideband)
+                # #     # sidebandcdf2 = bu.ECDF(sideband2)
                 # #     xarr = np.linspace(-1.0e9, 1.0e9, 100)
                 # #     plt.plot(xarr, datcdf(xarr), color='C0')
-                # #     # plt.plot(xarr, errcdf(xarr), color='C0', ls='--')
+                # #     # plt.plot(xarr, sidebandcdf(xarr), color='C0', ls='--')
                 # #     plt.plot(xarr, datcdf2(xarr), color='C1')
-                # #     # plt.plot(xarr, errcdf2(xarr), color='C1', ls='--')
+                # #     # plt.plot(xarr, sidebandcdf2(xarr), color='C1', ls='--')
 
                 #     plt.figure()
-                #     # plt.errorbar(range(len(dat2)), dat2, yerr=errs2)
+                #     # plt.errorbar(range(len(dat2)), dat2, yerr=sideband2)
                 #     plt.plot(range(len(good_dat)), good_dat, zorder=99)
-                #     # plt.plot(np.arange(len(good_errs))*(1.0/n_err) - 0.5, good_errs)
+                #     # plt.plot(np.arange(len(good_sideband))*(1.0/n_sideband) - 0.5, good_sideband)
 
                 #     plt.show()
 
                 good_dat = good_dat[:int(last_file)]
-                good_errs = good_errs[:int(last_file*n_err)]
+                good_sideband = good_sideband[:int(last_file*n_sideband)]
 
                 N = len(good_dat)
-                M = len(good_errs)
+                M = len(good_sideband)
 
                 alpha_scale = np.std(good_dat)
 
                 fit_dat = good_dat * (1.0 / alpha_scale)
-                fit_errs = good_errs * (1.0 / alpha_scale)
+                fit_sideband = good_sideband * (1.0 / alpha_scale)
 
                 def NLL_dat(mu_dat, sigma):
                     dat_nll = N * np.log(np.sqrt(2 * np.pi) * sigma) + \
                                 (1.0 / (2.0 * sigma**2)) * np.sum( (fit_dat - mu_dat)**2 )
                     return dat_nll
 
-                def NLL_err(mu_err, sigma):
-                    err_nll = M * np.log(np.sqrt(2 * np.pi) * sigma) + \
-                                (1.0 / (2.0 * sigma**2)) * np.sum( (fit_errs - mu_err)**2 )
-                    return err_nll
+                def NLL_sideband(mu_sideband, sigma):
+                    sideband_nll = M * np.log(np.sqrt(2 * np.pi) * sigma) + \
+                                (1.0 / (2.0 * sigma**2)) * np.sum( (fit_sideband - mu_sideband)**2 )
+                    return sideband_nll
 
-                def NLL(mu_dat, mu_err, sigma):
-                    return NLL_dat(mu_dat, sigma) + NLL_err(mu_err, sigma)
+                def NLL(mu_dat, mu_sideband, sigma):
+                    return NLL_dat(mu_dat, sigma) + NLL_sideband(mu_sideband, sigma)
 
                 # print(N, end = ', ')
                 sys.stdout.flush()
@@ -2381,9 +2408,9 @@ class AggregateData:
                                 mu_dat = 0, # set start parameter
                                 fix_mu_dat = 'True', # you can also fix it
                                 #limit_mu_dat = (0.0, 10000.0),
-                                mu_err = 0, # set start parameter
-                                # fix_mu_err = 'True', 
-                                #limit_mu_err = (0.0, 10000.0),
+                                mu_sideband = 0, # set start parameter
+                                # fix_mu_sideband = 'True', 
+                                #limit_mu_sideband = (0.0, 10000.0),
                                 sigma = sigma_guess, # set start parameter
                                 #fix_sigma = "True", 
                                 limit_sigma = (1e-3 * sigma_guess, 1000.0 * sigma_guess),
@@ -2392,15 +2419,16 @@ class AggregateData:
                                 pedantic=False)
                 m_null.migrad(ncall=500000)
 
-                NLLR = lambda mu_dat, mu_err, sigma: 2.0 * (m_null.fval - NLL(mu_dat, mu_err, sigma))
+                NLLR = lambda mu_dat, mu_sideband, sigma: \
+                                2.0 * (m_null.fval - NLL(mu_dat, mu_sideband, sigma))
 
                 m = Minuit(NLL,
                            mu_dat = 0, # set start parameter
                            #fix_mu_dat = "True", # you can also fix it
                            #limit_mu_dat = (0.0, 10000.0),
-                           mu_err = 0, # set start parameter
-                           #fix_mu_err = "True", 
-                           #limit_mu_err = (0.0, 10000.0),
+                           mu_sideband = 0, # set start parameter
+                           #fix_mu_sideband = "True", 
+                           #limit_mu_sideband = (0.0, 10000.0),
                            sigma = sigma_guess, # set start parameter
                            #fix_sigma = "True", 
                            limit_sigma = (1e-3 * sigma_guess, 1000.0 * sigma_guess),
@@ -2410,6 +2438,7 @@ class AggregateData:
                 m.migrad(ncall=500000)
 
                 try:
+                    minos_null = m_null.minos()
                     minos = m.minos()
 
                     alpha_best = minos['mu_dat']['min']
@@ -2418,6 +2447,12 @@ class AggregateData:
                     mu_dat_arr = np.linspace(alpha_best + sigma_to_profile*alpha_lower, \
                                              alpha_best + sigma_to_profile*alpha_upper, 31)
 
+                    alphanull_best = minos_null['mu_sideband']['min']
+                    alphanull_lower = minos_null['mu_sideband']['lower']
+                    alphanull_upper = minos_null['mu_sideband']['upper']
+                    mu_null_arr = np.linspace(alphanull_best + sigma_to_profile*alphanull_lower, \
+                                             alphanull_best + sigma_to_profile*alphanull_upper, 31)
+
                     if verbose:
                         ### Rough estimate of goodness of fit
                         print('Chi-squared goodness of fit for...')
@@ -2425,24 +2460,23 @@ class AggregateData:
                                       .format(2.0 * NLL_dat(0, minos['sigma']['min']) / N))
 
                         print('   out-of-band null hypothesis: {:0.2f}'\
-                                      .format(2.0 * NLL_err(0, minos['sigma']['min']) / M))
+                                      .format(2.0 * NLL_sideband(0, minos['sigma']['min']) / M))
 
                         print('                    full model: {:0.2f}'\
-                                      .format(2.0 * NLL(alpha_best, minos['mu_err']['min'], \
+                                      .format(2.0 * NLL(alpha_best, minos['mu_sideband']['min'], \
                                                         minos['sigma']['min']) / (N + M)))
 
                         print()
 
                     chi_sq = np.zeros_like(mu_dat_arr)
-                    chi_sq_2 = np.zeros_like(mu_dat_arr)
                     for ind, test_mu in enumerate(mu_dat_arr):
                         m = Minuit(NLL,
                                    mu_dat = test_mu, # set start parameter
                                    fix_mu_dat = 'True', # you can also fix it
                                    #limit_mu_dat = (0.0, 10000.0),
-                                   mu_err = 0, # set start parameter
-                                   #fix_mu_err = "True", 
-                                   #limit_mu_err = (0.0, 10000.0),
+                                   mu_sideband = 0, # set start parameter
+                                   #fix_mu_sideband = "True", 
+                                   #limit_mu_sideband = (0.0, 10000.0),
                                    sigma = sigma_guess, # set start parameter
                                    #fix_sigma = "True", 
                                    limit_sigma = (0.0, 1000.0 * sigma_guess),
@@ -2452,13 +2486,33 @@ class AggregateData:
                         m.migrad(ncall=500000)
 
                         chi_sq[ind] = m.fval
-                        chi_sq_2[ind] = NLLR(test_mu, minos['mu_err']['min'], minos['sigma']['min'])
+
+
+                    chi_sq_sideband = np.zeros_like(mu_null_arr)
+                    for ind, test_mu in enumerate(mu_null_arr):
+                        m_null = Minuit(NLL,
+                                   mu_dat = 0, # set start parameter
+                                   fix_mu_dat = 'True', # you can also fix it
+                                   #limit_mu_dat = (0.0, 10000.0),
+                                   mu_sideband = test_mu, # set start parameter
+                                   fix_mu_sideband = 'True', 
+                                   #limit_mu_sideband = (0.0, 10000.0),
+                                   sigma = sigma_guess, # set start parameter
+                                   #fix_sigma = "True", 
+                                   limit_sigma = (0.0, 1000.0 * sigma_guess),
+                                   errordef = 1,
+                                   print_level = 0, 
+                                   pedantic=False)
+                        m.migrad(ncall=500000)
+
+                        chi_sq_sideband[ind] = m_null.fval
+
 
                     test_alphas = mu_dat_arr * alpha_scale
 
                     ### Subtract off the null hypothesis
                     chi_sq -= np.min(chi_sq)
-                    chi_sq_2 -= np.min(chi_sq_2)
+                    chi_sq_sideband -= np.min(chi_sq_sideband)
 
                     if plot and lambind == 0.0:
                         plt.plot(test_alphas, chi_sq, color=plot_color, label=plot_label,
@@ -2477,21 +2531,23 @@ class AggregateData:
                                                 p0=[np.max(chi_sq)/np.max(mu_dat_arr)**2, 0, 0])
                     soln = solve_parabola(chi2dist.ppf(confidence_level), popt)
 
+                    popt_null, pcov_null = opti.curve_fit(parabola, mu_null_arr, chi_sq_sideband, \
+                                                p0=[np.max(chi_sq_sideband)/np.max(mu_null_arr)**2, 0, 0])
+                    soln_null = solve_parabola(chi2dist.ppf(confidence_level), popt_null)
+
                     ### "Best fit" is like the sensitivity (should be consistent with 0
                     ### if we understand backgrounds)
                     sensitivity = alpha_scale * np.abs(-1.0 * popt[1] / (2.0 * popt[0]))
+                    sensitivity_null = alpha_scale * np.abs(-1.0 * popt_null[1] / (2.0 * popt_null[0]))
 
                     ### Limit is derived from the larger of the ends of the confidence interval
                     limit = alpha_scale * np.abs(np.max(soln))
 
-                    # dat_mean = np.average(dat, weights=errs)
-                    dat_mean = np.mean(good_dat)
-                    dat_std = np.std(good_dat)
-
-                    # self.alpha_best_fit.append(np.abs(dat_mean))
                     self.alpha_best_fit.append(sensitivity)
-                    # self.alpha_95cl.append(2.0 * dat_std / np.sqrt(len(dat)))
                     self.alpha_95cl.append(limit)
+
+                    self.alpha_best_fit_null.append(sensitivity_null)
+                    self.alpha_95cl_null.append(limit_null)
 
                 except Exception:
                     try:

@@ -131,13 +131,20 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
     elif using_tabor:
         pcol = 0
-        v3 = file_obj.other_data[tabor_ind]
-        v4 = file_obj.other_data[tabor_ind+1]
-        fac = 1.0
-        if np.std(v4) < 0.5 * np.std(v3) or np.std(v3) < 0.5 * np.std(v4):
-            # print('Only one Tabor drive channel being digitized...')
-            fac = 2.0
+        v3 = file_obj.other_data[tabor_ind] * mon_fac
+        v4 = file_obj.other_data[tabor_ind+1] * mon_fac
         zeros = np.zeros(len(v3))
+
+        fac = 1.0
+        if np.std(v4) < 0.5 * np.std(v3):
+            # print('Only one Tabor drive channel being digitized...')
+            v4 = zeros
+            fac = 2.0
+        elif np.std(v3) < 0.5 * np.std(v4):
+            # print('Only one Tabor drive channel being digitized...')
+            v3 = zeros
+            fac = 2.0
+
         drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros], \
                                 new_trap=new_trap)[pcol] * fac
 
@@ -152,7 +159,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     #drive = bu.detrend_poly(drive, order=1.0, plot=True)
     drive_fft = np.fft.rfft(drive)
 
-    # Find the drive frequency
+    ### Find the drive frequency
     freqs = np.fft.rfftfreq(len(drive), d=1./file_obj.fsamp)
     drive_freq = freqs[np.argmax(np.abs(drive_fft[1:])) + 1]
 
@@ -166,7 +173,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     # plt.legend()
     # plt.show()
 
-    # Extract the response and detrend
+    ### Extract the response and detrend
     # response = file_obj.pos_data[pcol]
     if new_trap:
         response = file_obj.pos_data_3[pcol]
@@ -175,7 +182,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     #response = bu.detrend_poly(response, order=1.0, plot=True)
 
 
-    # Configure a time array for plotting and fitting
+    ### Configure a time array for plotting and fitting
     cut_samp = config.adc_params["ignore_pts"]
     N = len(drive)
     dt = 1. / file_obj.fsamp
@@ -190,7 +197,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     #     plt.loglog(freqs, np.abs(drive_fft))
     #     plt.show()
 
-    # Bandpass filter the response
+    ### Bandpass filter the response
     b, a = signal.butter(3, [2.*(drive_freq-bandwidth/2.)/file_obj.fsamp, \
                           2.*(drive_freq+bandwidth/2.)/file_obj.fsamp ], btype = 'bandpass')
     responsefilt = signal.filtfilt(b, a, response)
@@ -202,14 +209,16 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         plt.show()
 
     # ### CORR_FUNC TESTING ###
-    # test = 3.14159 * np.sin(2 * np.pi * drive_freq * t)
-    # test_corr = correlation(3 * drive, test, file_obj.fsamp, drive_freq)
-    # print(np.sqrt(2) * np.std(test))
-    # print(np.max(test_corr))
+    # n_test = 10
+    # for i in range(n_test):
+    #     test = 3.14159 * np.sin(2 * np.pi * drive_freq * t) + 0.05 * np.random.randn(len(t))
+    #     test_corr = correlation(3 * drive, test, file_obj.fsamp, drive_freq)
+    #     print(np.sqrt(2) * np.std(test), end=', ')
+    #     print(np.max(test_corr))
     # input()
     # #########################
 
-    # Compute the full, normalized correlation and extract amplitude
+    ### Compute the full, normalized correlation and extract amplitude
     #corr_full = correlation(drive, response, file_obj.fsamp, drive_freq)
     corr_full = correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
 
@@ -219,12 +228,12 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
     # Compute the drive amplitude. Two methods included, should decide on one 
     drive_amp = np.sqrt(2) * np.std(drive) # Assume drive is sinusoidal
-    #print(drive_amp)
+    # print(drive_amp)
 
     # def drive_fun(x, A, f, phi):
     #     return A * np.sin( 2 * np.pi * f * x + phi )
         
-    # # Estimate some parameters and try fitting a sine
+    # ### Estimate some parameters and try fitting a sine
     # p0_drive = [drive_amp, drive_freq, 0]
     # popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
 

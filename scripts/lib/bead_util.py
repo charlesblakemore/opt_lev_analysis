@@ -92,7 +92,7 @@ class DataFile:
         self.date = re.search(r"\d{8,}", fname)[0]
 
         self.fsamp = attribs["Fsamp"]
-        self.time = attribs["Time"]
+        self.time = attribs["time"]
 
         try:
             self.temps = attribs["temps"]
@@ -165,7 +165,7 @@ class DataFile:
         self.date = re.search(r"\d{8,}", fname)[0]
         #print fname
 
-        self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
+        self.time = np.uint64(attribs["time"])   # unix epoch time in ns (time.time() * 10**9)
 
         if self.time == 0:
             #print 'Bad time...', self.time
@@ -221,6 +221,7 @@ class DataFile:
             self.pos_fb = fpga_dat['fb']
 
             self.power = fpga_dat['power']
+            self.power_fb = fpga_dat['power_fb']
 
             #print self.pos_data
 

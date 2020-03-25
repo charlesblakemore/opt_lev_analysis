@@ -19,115 +19,36 @@ import configuration as config
 #### PREAMBLE
 ####   include paths and saving options
 
-#step_cal_dir = '/data/20180625/bead1/discharge/fine4'
-#step_cal_dir = '/data/20180704/bead1/discharge/fine2'
-#step_cal_dir = '/data/20180808/bead4/discharge/fine3'
-#step_cal_dir = '/data/20180827/bead2/500e_data/discharge/fine1'
-#step_cal_dir = '/data/20180904/bead1/discharge/fine3'
-#step_cal_dir = '/data/20180925/bead1/discharge/fine3'
-#step_cal_dir = '/data/20180927/bead1/discharge/fine0'
-#step_cal_dir = '/data/20180927/bead1/discharge/recharge_20181018'
 
-# step_cal_dir = '/data/old_trap/20181119/bead1/discharge/fine'
-# step_cal_dir = '/data/old_trap/20181119/bead1/discharge/fine_neg_to_0_20181120'
-#step_cal_dir = '/data/20181119/bead1/discharge/fine_0_to_pos_20181120'
-# first_file = 0
-# last_file = -1
-
-#step_cal_dir = ['/data/20181129/bead1/discharge/fine', \
-#                '/data/20181129/bead1/discharge/fine2', \
-#                '/data/20181129/bead1/discharge/fine3']
-#step_cal_dir = ['/data/20181129/bead1/discharge/recharge_20181130']
-
-#step_cal_dir = '/data/20181130/bead2/discharge/fine'
-#step_cal_dir = '/data/20181130/bead2/discharge/recharge_20181201_2'
-
-#step_cal_dir = '/data/20181211/bead2/discharge/fine'
-#step_cal_dir = '/data/20181211/bead2/discharge/recharge_20181212'
-
-#step_cal_dir = ['/data/20181213/bead1/discharge/fine', \
-#                '/data/20181213/bead1/discharge/fine2', \
-#                '/data/20181213/bead1/discharge/fine3']
-#step_cal_dir = ['/data/20181213/bead1/discharge/recharge_20181213']
-
-#step_cal_dir = ['/data/20181231/bead1/discharge/fine']
-#step_cal_dir = ['/data/20181231/bead1/discharge/recharge_20181231']
-
-
-#step_cal_dir = ['/data/20190104/bead1/discharge/fine']
-#step_cal_dir = ['/data/20190104/bead1/discharge/recharge_20190104']
-
-#step_cal_dir = ['/data/20190108/bead1/discharge/fine']
-
-#step_cal_dir = ['/data/20190109/bead1/discharge/fine2']
-#step_cal_dir = ['/data/20190109/bead1/discharge/recharge_20190109']
-
-#step_cal_dir = ['/data/20190110/bead1/discharge2/fine']
-#step_cal_dir = ['/data/20190110/bead1/discharge2/recharge_20190111']
-
-#step_cal_dir = ['/data/20190114/bead1/discharge/fine']
-#step_cal_dir = ['/data/20190114/bead1/discharge/recharge_20190114']
-
-#step_cal_dir = ['/data/20190122/bead1/discharge/fine']
-#step_cal_dir = ['/data/20190122/bead1/discharge/recharge_20190122']
-
-#step_cal_dir = ['/data/20190123/bead2/discharge/fine']
-#step_cal_dir = ['/data/20190123/bead2/discharge/recharge_20190123']
-
-#step_cal_dir = ['/data/20190124/bead2/discharge/fine']
-#step_cal_dir = ['/data/20190124/bead2/discharge/recharge_20190125']
-
-#step_cal_dir = ['/data/old_trap/20190626/bead1/discharge/fine']
-
-# step_cal_dir = ['/data/old_trap/20190905/bead1/discharge/after_rga_recharge']
-
-# step_cal_dir = ['/data/old_trap/20191017/bead1/discharge/fine']
-# first_file = 0
-
-step_cal_dir = ['/data/old_trap/20200304/gbead3/discharge/fine']
+step_cal_dir = ['/data/old_trap/20200322/gbead1/discharge/fine']
 first_file = 0
 last_file = -1
-
-
-
-
-# step_cal_dir = ['/data/new_trap/20191204/Bead1/Discharge/']
-# first_file = 60
-
-# step_cal_dir = ['/data/new_trap/20191215/Bead1/Discharge/']
-# first_file = 250
-# first_file = 0
-
-# step_cal_dir = ['/data/new_trap/20200113/Bead1/Discharge/']
-# first_file = 0
-# files_to_end = 20
-
-# step_cal_dir = ['/data/new_trap/20200107/Bead3/Discharge/']
-# first_file = -20
-# last_file = -1
-
-# step_cal_dir = ['/data/new_trap/20200203/Bead1/Discharge/']
-# first_file = 0
-# last_file = -1
-# first_file = -18
-# last_file = -3
-
-# step_cal_dir = ['/data/new_trap/20200210/Bead2/Discharge/']
-# first_file = 15
-# last_file = -1
-
 
 using_tabor = True
 tabor_ind = 3
 
 
-elec_channel_select = 1
+
+# step_cal_dir = ['/data/new_trap/20200306/Bead1/Discharge/']
+# first_file = 150
+# last_file = -1
+
+# step_cal_dir = ['/data/new_trap/20200311/Bead1/Discharge/']
+# first_file = 100
+# last_file = -1
+
+# step_cal_drive_freq = 151.0
+step_cal_drive_freq = 41.0
+
+
+elec_channel_select = 3
 # pcol = -1
 # pcol = 2
 pcol = 0
 
-
-# auto_try = 0.25   ### for Z direction in new trap
+# auto_try = 0.25     ### for Z direction in new trap
+# auto_try = 1.5e-8   ### for Y direction in new trap
+# auto_try = 0.09
 auto_try = 0.0
 
 
@@ -147,42 +68,26 @@ else:
     for dir in step_cal_dir:
         if 'recharge' in dir:
             recharge = True
-recharge = False
 
 max_file = 145
 decimate = False
 dec_fac = 2
 
-fake_step_cal = True
+fake_step_cal = False
 ## OLD TRAP
 vpn = 7.264e16
 ## NEW TRAP
-# vpn = 7.1126e17
-
-#tf_cal_dir = '/data/20180625/bead1/tf_20180625/'
-#tf_cal_dir = '/data/20180704/bead1/tf_20180704/'
-#tf_cal_dir = '/data/20180808/bead4/tf_20180809/'
-#tf_cal_dir = '/data/20180827/bead2/500e_data/tf_20180829/'
-#tf_cal_dir = '/data/20180904/bead1/tf_20180907/'
-#tf_cal_dir = '/data/20180925/bead1/tf_20180926/'
-#tf_cal_dir = '/data/20180927/bead1/tf_20180928/'
-
-# tf_cal_dir = '/data/old_trap/20181119/bead1/tf_20181119/'
-# tf_cal_dir = '/data/old_trap/20190619/bead1/tf_20190619/'
-tf_cal_dir = '/data/old_trap/20200304/gbead3/tf_20200306/'
+# vpn = 7.1126e1
 
 
 
-# tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
-# tf_cal_dir = '/data/new_trap/20191215/Bead1/TransFunc/'
-# tf_cal_dir = '/data/new_trap/20200113/Bead1/TransFunc/'
-# tf_cal_dir = '/data/new_trap/20200107/Bead3/TransFunc/TransFunc2'
-# tf_cal_dir = '/data/new_trap/20200203/Bead1/TransFunc/TransFunc2'
-# tf_cal_dir = '/data/new_trap/20200210/Bead2/TransFunc/'
+tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
 
+# tf_cal_dir = '/data/new_trap/20200306/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200311/Bead1/TransFunc/'
 
-
-
+tf_substr = ''
+# tf_substr = '_0.h5'
 
 
 
@@ -190,12 +95,11 @@ tf_cal_dir = '/data/old_trap/20200304/gbead3/tf_20200306/'
 tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]
 
 tf_date = step_date
-
 plot_Hfunc = True
 plot_without_fits = False
 interpolate = True
 save = True
-save_charge = False
+save_charge = True
 
 # Doesn't use this but might later
 thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
@@ -239,7 +143,8 @@ bu.make_all_pardirs(savepath)
 # Find all the relevant files
 step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True)
 
-#step_cal_files = step_cal_files[220:]
+step_cal_files.pop(24)
+
 
 #print len(step_cal_files)
 
@@ -247,116 +152,19 @@ step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True)
 #step_cal_files.pop(53)
 #step_cal_files.pop(72)
 
-# for 20180907 calib, uncomment this
-#step_cal_files = step_cal_files[100:]
-
-# for 20180927, uncomment
-#step_cal_files.pop(28)
-
 if recharge:
     step_cal_files = step_cal_files[::-1]
 
-## for 20181119 recharge charge AND discharge
-step_cal_files.pop(17)
-step_cal_files.pop(17)
-step_cal_files.pop(17)
-step_cal_files.pop(17)
-# step_cal_files.pop(212)
+# ## for 20181119 recharge charge AND discharge
+# step_cal_files.pop(17)
+# step_cal_files.pop(17)
+# step_cal_files.pop(17)
+# step_cal_files.pop(17)
+# # step_cal_files.pop(212)
 
 
-## for 20181129 combined discharge
-#step_cal_files.pop(398)
-#step_cal_files.pop(581)
 
-
-## for 20181130 discharge
-#step_cal_files.pop(100)
-#step_cal_files.pop(670)
-## for 20181130 recharge
-#step_cal_files.pop(198)
-
-
-## for 20181212 recharge
-#step_cal_files.pop(70)
-
-
-## for 20181213 discharge
-#step_cal_files.pop(86)
-#step_cal_files.pop(131)
-#step_cal_files.pop(201)
-#step_cal_files.pop(260)
-## for 20181213 recharge
-#step_cal_files.pop(212)
-
-
-## for 20181231 discharge
-#max_file = 170
-#step_cal_files.pop(15)
-#step_cal_files.pop(69)
-# [[1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  2,  1],
-#  [17,34,37,40,55,58,61,64,69,75,78,96,135,147,150],
-#  2.2]
-# [[1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],[17,34,37,40,55,58,61,64,69,75,78,96,135,147,150],2.2]
-## for 20181231 recharge
-#step_cal_files.pop(66)
-#step_cal_files.pop(68)
-#step_cal_files.pop(69)
-#step_cal_files.pop(99)
-#step_cal_files.pop(125)
-#for i in range(10):
-#    step_cal_files.pop(142)
-#step_cal_files.pop(143)
-
-
-## for 20190104 discharge
-#step_cal_files.pop(15)
-#step_cal_files.pop(35)
-#step_cal_files.pop(51)
-## for 20190104 recharge
-#step_cal_files.pop(119)
-
-
-## for 20190108 discharge
-#step_cal_files.pop(13)
-
-
-## for 20190110 discharge
-#step_cal_files.pop(9)
-#step_cal_files.pop(73)
-#step_cal_files.pop(144)
-#step_cal_files.pop(186)
-## for 20190110 recharge
-#step_cal_files.pop(75)
-
-## for 20190114 discharge
-#step_cal_files.pop(35)
-#step_cal_files.pop(66)
-## for 20190114 recharge
-#step_cal_files.pop(28)
-
-## for 20190122 discharge
-#step_cal_files.pop(144)
-## for 20190123 discharge
-#step_cal_files.pop(40)
-
-
-## for 20190122 discharge
-#step_cal_files.pop(135)
-#step_cal_files.pop(228)
-
-
-## for 20191017 discharge
-# step_cal_files.pop(3)
-# step_cal_files.pop(4)
-# step_cal_files.pop(8)
-# step_cal_files.pop(8)
-# step_cal_files.pop(11)
-# step_cal_files.pop(180)
-# step_cal_files.pop(243)
-# step_cal_files.pop(255)
-# step_cal_files.pop(255)
-
-tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir)
+tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr)
 
 # tf_cal_files_2 = []
 # for file in tf_cal_files:
@@ -381,15 +189,15 @@ if decimate:
 
 
 #### BODY OF CALIBRATION
-
-
+if last_file == -1:
+    last_file = len(step_cal_files)
 step_cal_files = step_cal_files[first_file:last_file]
 
-# nstep_files = np.min([max_file, len(step_cal_files)])
 nstep_files = len(step_cal_files)
+
+# nstep_files = np.min([max_file, len(step_cal_files)])
 # Do the step calibration
 if not fake_step_cal:
-
     step_file_objs = []
     step_cal_vec = []
     pow_vec = []
@@ -413,7 +221,7 @@ if not fake_step_cal:
             df.load_other_data()
 
         step_resp, step_resp_nonorm, power, zpos = \
-            cal.find_step_cal_response(df, bandwidth=5.0, tabor_ind=tabor_ind,\
+            cal.find_step_cal_response(df, bandwidth=20.0, tabor_ind=tabor_ind,\
                                        using_tabor=using_tabor, pcol=pcol, \
                                        new_trap=new_trap, plot=False)
 
@@ -444,6 +252,8 @@ for fil_ind, filname in enumerate(tf_cal_files):
     df = bu.DataFile()
     if new_trap:
         df.load_new(filname)
+        if df.nsamp < 1.0e5:
+            continue
     else:
         df.load(filname)
 
@@ -462,7 +272,7 @@ keys.sort()
 close_freq = keys[ np.argmin(np.abs(keys - 151.0)) ]
 # print(vpn, pcol, Hout[close_freq][2,2])
 
-Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, drive_freq=151.0)
+Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, drive_freq=step_cal_drive_freq)
 
 # Build the Hfunc object
 if not interpolate:

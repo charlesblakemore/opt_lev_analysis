@@ -707,7 +707,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     #    drive_r += fac * np.abs(drivefft_filt[drivefilt>0][ind]) * \
     #               np.cos( 2 * np.pi * freq * t + \
     #                       np.angle(drivefft_filt[drivefilt>0][ind]) )
-    drive_r = np.fft.irfft(drivefft_filt) + meandrive
+    drive_r = np.fft.irfft(drivefft_filt) #+ meandrive
 
     #resp_r = np.zeros(len(t))
     #for ind, freq in enumerate(freqs[drivefilt>0]):
@@ -781,6 +781,9 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
        with any value of nbins, but can be slow since it's a for loop.'''
     if len(errs):
         assert len(errs) == len(yvec), 'error vec is not the right length'
+
+    if nbins > 0.25 * len(xvec):
+        nbins = int(0.25 * len(xvec))
 
     lenx = np.max(xvec) - np.min(xvec)
     dx = lenx / nbins

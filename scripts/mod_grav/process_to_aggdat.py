@@ -173,7 +173,7 @@ for ddir in data_dirs:
         agg_dat.plot_sensitivity()
 
         # filenums = [5, 50, 500, 5000]
-        filenums = list(map(int, np.geomspace(10,14000,15)))
+        filenums = list(map(int, np.geomspace(10,14000,10)))
         # plot_alphas = list(np.logspace(-3, 0, 20))
         plot_alphas = list(np.exp(np.linspace(-3, 0, len(filenums))))
         print('{:d} total...'.format(len(filenums)))

@@ -4,6 +4,7 @@ import dill as pickle
 
 import scipy.interpolate as interp
 import scipy.optimize as opti
+import scipy.constants as constants
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,19 +16,9 @@ import transfer_func_util as tf
 
 
 
-dirs = ['/data/20180625/bead1/tf_20180625/freq_comb_elec1',\
-        '/data/20180704/bead1/tf_20180704/freq_comb_elec1_10V_1-600Hz',\
-        '/data/20180808/bead4/tf_20180809/freq_comb_elec1_10V',\
-        '/data/20180827/bead2/500e_data/tf_20180829/elec_1',\
-        '/data/20180904/bead1/tf_20180907/elec1',\
-        '/data/20180925/bead1/tf_20180926/leec1', \
-        '/data/20180927/bead1/tf_20180928/elec1'
-        ]
 
-dirs = ['/data/20180927/bead1/weigh_ztf_good', \
-        '/data/20180927/bead1/weigh_z_tf_more' \
+dirs = ['/data/old_trap/20200307/gbead1/tf_20200311/elec3', \
        ]
-
 
 step10 = False
 invert_order = False
@@ -56,7 +47,7 @@ def harmonic_osc(f, d_accel, f0, gamma):
 
 
 
-def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
+def weigh_bead(files, pcol=0, colormap='plasma', sort='time', file_inds=(0,10000)):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -81,10 +72,10 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
     if invert_order:
         files = files[::-1]
 
-    date = files[0].split('/')[2]
+    date = re.search(r"\d{8,}", files[0])[0]
     charge_dat = np.load(open('/calibrations/charges/'+date+'.charge', 'rb'))
-    #q_bead = -1.0 * charge_dat[0] * 1.602e-19
-    q_bead = -25.0 * 1.602e-19
+    q_bead = -1.0 * charge_dat[0] * constants.elementary_charge
+    # q_bead = -25.0 * 1.602e-19
 
     nfiles = len(files)
     colors = bu.get_color_map(nfiles, cmap=colormap)

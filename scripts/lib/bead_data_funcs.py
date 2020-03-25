@@ -152,19 +152,23 @@ def get_hdf5_time(fname):
             attribs = copy_attribs(f.attrs)
             f.close()
         except:
+            print('HDF5 file has no attributes object...')
+
+        if attribs == {}:
             attribs = load_xml_attribs(fname)
+        
 
     except Exception:
+        traceback.print_exc()
         # print "Warning, got no keys for: ", fname
         attribs = {}
 
-    # print(attribs)
-    # input()
-
     try:
         file_time = attribs["time"]
-    except:
-        file_time = attribs["Time"]
+    except Exception:
+        print("Couldn't find a value for the time...")
+        print()
+        traceback.print_exc()
 
     return file_time
 
@@ -197,11 +201,8 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
             new_key = item['Name']
 
             # Keep the time as 64 bit unsigned integer
-            if new_key == 'Time':
+            if new_key == 'Time' or new_key == 'time':
                 new_attr_dict['time'] = np.uint64(float(item['Val']))
-
-            if new_key == 'time':
-                new_attr_dict[new_key] = np.uint64(float(item['Val']))
 
             # Conver 32-bit integers to their correct datatype
             elif (attr_type == 'I32'):
@@ -518,6 +519,8 @@ def extract_power(pow_dat, timestamp, verbose=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
+
+    interleave_num = 4
     
     if timestamp == 0.0:
         # if no timestamp given, use current time
@@ -553,15 +556,17 @@ def extract_power(pow_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # with the appropriate decimation of the primary array
-    pow_time_high = np.uint32(pow_dat[tind::3])
-    pow_time_low = np.uint32(pow_dat[tind+1::3])
+    pow_time_high = np.uint32(pow_dat[tind::interleave_num])
+    pow_time_low = np.uint32(pow_dat[tind+1::interleave_num])
     if len(pow_time_low) != len(pow_time_high):
         pow_time_high = pow_time_high[:-1]
 
     pow_time = np.left_shift(pow_time_high.astype(np.uint64), np.uint64(32)) \
                   + pow_time_low.astype(np.uint64)
 
-    power = pow_dat[tind+2::3]
+    power = pow_dat[tind+2::interleave_num]
+    power_fb = pow_dat[tind+3::interleave_num]
+    # power_fb = np.zeros_like(power)
 
     #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
     #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
@@ -576,12 +581,15 @@ def extract_power(pow_dat, timestamp, verbose=False):
     min_len = 10.0**9  # Assumes we never more than 1 billion samples
     if len(power) < min_len:
         min_len = len(power)
+    if len(power_fb) < min_len:
+        min_len = len(power_fb)
 
     # Re-size everything by the minimum length and convert to numpy array
     pow_time = np.array(pow_time[:min_len])
-    power = np.array(power)
+    power = np.array(power[:min_len])
+    power_fb = np.array(power_fb[:min_len])
 
-    return pow_time, power
+    return pow_time, power, power_fb
 
 
 
@@ -633,7 +641,7 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
         xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
         if len(dat3):
-            pow_time, power = extract_power(dat3, timestamp, verbose=verbose)
+            pow_time, power, power_fb = extract_power(dat3, timestamp, verbose=verbose)
     else:
         quad_time, amp, phase = (None, None, None)
         xyz_time, xyz, xy_2, xyz_fb, sync = (None, None, None, None, None)
@@ -645,9 +653,11 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     if len(dat3):
         out['pow_time'] = pow_time
         out['power'] = power
+        out['power_fb'] = power_fb
     else:
         out['pow_time'] = np.zeros_like(xyz_time)
         out['power'] = np.zeros_like(xyz[0])
+        out['power_fb'] = np.zeros_like(xyz[0])
 
     return out
 
@@ -722,6 +732,7 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
 
     out['pow_time'] = fpga_dat['pow_time'][off_ind:off_ind+nsamp]
     out['power'] = fpga_dat['power'][off_ind:off_ind+nsamp]
+    out['power_fb'] = fpga_dat['power_fb'][off_ind:off_ind+nsamp]
 
     # return data in the same format as it was given
     return out

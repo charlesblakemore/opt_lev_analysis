@@ -1,4 +1,4 @@
-import os, fnmatch, sys
+import os, fnmatch, sys, traceback
 
 import dill as pickle
 
@@ -19,106 +19,10 @@ import iminuit
 
 plt.rcParams.update({'font.size': 14})
 
-save_mass = False
-print_res = True
-plot = True
-
-save_example = False
-example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.png'
-
-try:
-    allres_dict = pickle.load(open('./allres.p', 'rb'))
-except:
-    allres_dict = {}
-
-try:
-    overall_mass_dict = pickle.load(open('./overall_masses.p', 'rb'))
-except:
-    overall_mass_dict = {}
-
 file_dict = {}
 
-#arr = []
-#arr.append('/data/20181119/bead1/mass_meas/neg_charge_2')
-#arr.append('/data/20181119/bead1/mass_meas/pos_charge_1')
-#file_dict['20181119'] = (False, arr)
 
 
-arr = []
-arr.append('/data/20181129/bead1/weigh/high_pressure_0.5Hz_4pp')
-arr.append('/data/20181129/bead1/weigh/low_pressure_0.5Hz_4pp')
-arr.append('/data/20181129/bead1/weigh/low_pressure_0.5Hz_4pp_pos-charge')
-file_dict['20181129'] = (arr, 1, 4)
-
-arr = []
-arr.append('/data/20181130/bead2/weigh/high_pressure_0.5Hz_4pp')
-arr.append('/data/20181130/bead2/weigh/low_pressure_0.5Hz_4pp_neg-charge')
-arr.append('/data/20181130/bead2/weigh/low_pressure_0.5Hz_4pp_pos-charge')
-file_dict['20181130'] = (arr, 1, 4)
-
-
-# With chopper
-#chopper = True
-arr = []
-arr.append(['/data/20181211/bead2/weigh/high_pressure_neg_0.3Hz_4pp',\
-            '/data/20181211/bead2/weigh/high_pressure_neg_0.5Hz_4pp'])
-arr.append('/data/20181211/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20181211/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20181211'] = (arr, 5, 7)
-
-arr = []
-arr.append('/data/20181213/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20181213/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20181213/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20181213'] = (arr, 5, 7)
-
-arr = []
-arr.append('/data/20181231/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20181231/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20181231/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20181231'] = (arr, 5, 7)
-
-arr = []
-#arr.append(['/data/20190104/bead1/weigh/high_pressure_neg_0.5Hz_4pp', \
-#            '/data/20190104/bead1/weigh/high_pressure_neg_0.5Hz_4pp_wfb', \
-#            '/data/20190104/bead1/weigh/pumpdown_neg_0.5Hz_4pp'])
-arr.append('/data/20190104/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
-#arr.append('/data/20190104/bead1/weigh/high_pressure_neg_0.5Hz_4pp_wfb')
-#arr.append('/data/20190104/bead1/weigh/pumpdown_neg_0.5Hz_4pp')
-arr.append('/data/20190104/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190104/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190104'] = (arr, 5, 7)
-
-arr = []
-arr.append(['/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb1e-5', \
-            '/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb3e-5', \
-            '/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb7e-5', \
-            '/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb1e-4', \
-            '/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb3e-4', \
-            '/data/20190108/bead1/weigh/high_pressure_neg_0.5Hz_4pp_fb7e-4'])
-arr.append(['/data/20190108/bead1/weigh/low_pressure_neg_0.5Hz_4pp_fb7e-4', \
-            '/data/20190108/bead1/weigh/low_pressure_neg_0.5Hz_4pp_fb7e-4_later'] )
-file_dict['20190108'] = (arr, 5, 7)
-
-arr = []  
-arr.append('/data/20190109/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190109/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append(['/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp', \
-            '/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp_2', \
-            '/data/20190109/bead1/weigh/low_pressure_pos_0.5Hz_4pp_later'] )
-file_dict['20190109'] = (arr, 5, 7)
-
-arr = []  
-arr.append('/data/20190110/bead1/weigh2/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190110/bead1/weigh2/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190110'] = (arr, 5, 7)
-
-
-arr = []  
-arr.append('/data/20190114/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190114/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190114/bead1/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190114'] = (arr, 5, 7)
 
 
 arr = []  ### FIRST BEAD ON ATTRACTOR
@@ -143,90 +47,24 @@ arr.append('/data/20190124/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
 arr.append('/data/20190124/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
 file_dict['20190124'] = (arr, 5, 7)
 
-#file_dict = {'20190124': (True, arr)}
 
-
-arr = []  ### 
-arr.append('/data/old_trap/20190408/bead1/weigh/lowp_neg_150Vpp')
-file_dict['20190408'] = (arr, 1, 0)
 
 
 
 arr = []  ### 
-arr.append('/data/old_trap/20190514/bead1/weigh/lowp_neg_4Vpp')
-file_dict['20190514'] = (arr, 1, 0)
+arr.append('/data/old_trap/20200307/gbead1/weigh_2/4Vpp_lowp_0')
+# arr.append('/data/old_trap/20200307/gbead1/weigh/6Vpp_lowp_0')
+file_dict['20200307'] = (arr, 1, 0)
 
 
 arr = []  ### 
-arr.append('/data/old_trap/20190619/bead1/weigh/50kHz_8Vpp')
-file_dict['20190619'] = (arr, 1, 0)
+# arr.append('/data/old_trap/20200322/gbead1/weigh/4Vpp_neg')
+# arr.append('/data/old_trap/20200322/gbead1/weigh/6Vpp_neg')
+arr.append('/data/old_trap/20200322/gbead1/weigh/8Vpp_neg')
+file_dict['20200322'] = (arr, 1, 0)
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20190626/bead1/weigh/lowp_neg_8Vpp')
-file_dict['20190626'] = (arr, 1, 0)
-
-
-# arr = []  ### -13e charge for these
-# arr.append('/data/old_trap/20190829/bead1/weigh/lowp_2Vpp_2')
-# arr.append('/data/old_trap/20190829/bead1/weigh/lowp_4Vpp_2')
-# arr.append('/data/old_trap/20190829/bead1/weigh/lowp_6Vpp_2')
-# file_dict['20190829'] = (arr, 1, 0)
-
-
-arr = []  ### 
-arr.append('/data/old_trap/20190829/bead2/weigh/lowp_neg_6Vpp')
-arr.append('/data/old_trap/20190829/bead2/weigh/lowp_neg_8Vpp')
-file_dict['20190829'] = (arr, 1, 0)
-
-
-arr = []  ### 
-#arr.append('/data/old_trap/20190905/bead1/weigh/lowp_neg_4Vpp')
-#arr.append('/data/old_trap/20190905/bead1/weigh/weigh_before_rga_recharge/lowp_neg_4Vpp')
-arr.append('/data/old_trap/20190905/bead1/weigh/weigh_after_rga_recharge/lowp_neg_4Vpp')
-arr.append('/data/old_trap/20190905/bead1/weigh/weigh_after_rga_recharge/lowp_neg_6Vpp')
-arr.append('/data/old_trap/20190905/bead1/weigh/weigh_after_rga_recharge/lowp_neg_8Vpp')
-file_dict['20190905'] = (arr, 1, 0)
-
-
-arr = []  ### 
-arr.append('/data/old_trap/20191007/bead1/weigh/lowp_4Vpp')
-arr.append('/data/old_trap/20191007/bead1/weigh/lowp_8Vpp')
-file_dict['20191007'] = (arr, 1, 0)
-
-
-arr = []  ### 
-arr.append('/data/old_trap/20191008/bead1/weigh/highp_neg_4Vpp')
-arr.append('/data/old_trap/20191008/bead1/weigh/highp_neg_6Vpp')
-file_dict['20191008'] = (arr, 1, 0)
-
-
-arr = []  ### 
-arr.append('/data/old_trap/20191009/bead1/weigh/highp_neg_4Vpp')
-#arr.append('/data/old_trap/20191009/bead1/weigh/highp_neg_6Vpp')
-file_dict['20191009'] = (arr, 1, 0)
-
-
-arr = []  ### 
-arr.append('/data/old_trap/20191010/bead1/weigh/highp_neg_6Vpp')
-arr.append('/data/old_trap/20191010/bead1/weigh/lowp_neg_4Vpp')
-file_dict['20191010'] = (arr, 1, 0)
-
-
-arr = []  ### 
-#arr.append('/data/old_trap/20191017/bead1/weigh/highp_neg_4Vpp')
-arr.append('/data/old_trap/20191017/bead1/weigh/lowp_neg_4Vpp')
-file_dict['20191017'] = (arr, 1, 0)
-
-
-arr = []  ### 
-arr.append('/data/old_trap/20200304/gbead3/weigh/4Vpp_lowp')
-arr.append('/data/old_trap/20200304/gbead3/weigh/6Vpp_lowp')
-arr.append('/data/old_trap/20200304/gbead3/weigh/8Vpp_lowp')
-file_dict['20200304'] = (arr, 1, 0)
-
-
-file_dict = {'20200304': (arr, 1, 0)}
+file_dict = {'20200322': (arr, 1, 0)}
 
 
 
@@ -270,6 +108,27 @@ save = False
 
 fullNFFT = False
 
+
+save_mass = False
+print_res = True
+plot = True
+
+save_example = False
+example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.png'
+
+upper_outlier = 95e-15  # in kg
+lower_outlier = 70e-15
+
+try:
+    allres_dict = pickle.load(open('./allres.p', 'rb'))
+except:
+    allres_dict = {}
+
+try:
+    overall_mass_dict = pickle.load(open('./overall_masses.p', 'rb'))
+except:
+    overall_mass_dict = {}
+
 ###########################################################
 
 def line(x, a, b):
@@ -301,11 +160,13 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         charge_file += '.charge'
 
     try:
-        q_bead = (np.load(charge_file)[0]) * constants.elementary_charge
+        nq = np.load(charge_file)[0]
     except:
         nq = input('No charge file. Guess q: ')
-        print(int(nq))
-        q_bead = int(nq) * constants.elementary_charge
+
+    # nq = -16
+    print(int(nq))
+    q_bead = nq * constants.elementary_charge   
 
     suffix = files[0].split('/')[-2]
     save_filename = '/data/old_trap_processed/calibrations/masses/'+date+'_'+suffix+'.mass'
@@ -347,6 +208,10 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
 
     for fil_ind, fil in enumerate(files):# 15-65
 
+        # 4
+        # if fil_ind == 16 or fil_ind == 4:
+        #     continue
+
         bu.progress_bar(fil_ind, nfiles)
 
         # Load data
@@ -354,12 +219,14 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         try:
             df.load(fil, load_other=True)
         except Exception:
+            traceback.print_exc()
             continue
 
         try:
             df.calibrate_stage_position()
             df.calibrate_phase()
-        except:
+        except Exception:
+            traceback.print_exc()
             continue
 
         if ('20181129' in fil) and ('high' in fil):
@@ -408,9 +275,9 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
                 or np.std(bot_elec) < 0.5 * np.std(top_elec):
             fac = 2.0
 
-        plt.plot(top_elec)
-        plt.plot(bot_elec)
-        plt.show()
+        # plt.plot(top_elec)
+        # plt.plot(bot_elec)
+        # plt.show()
 
         Vdiff = top_elec - bot_elec
         #eforce = -1.0 * (Vdiff / (4.0e-3)) * q_bead
@@ -422,6 +289,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
                     zeros, zeros, zeros, zeros]
         efield = bu.trap_efield(voltages)
         eforce2 = fac * sign * efield[2] * q_bead
+
+
 
         #eforce2 = (top_elec * e_top_func(0.0) + bot_elec * e_bot_func(0.0)) * q_bead
         if noise:
@@ -461,33 +330,14 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
             powpsd += np.abs(fft1)
             Npsd += 1
         
-        #plt.loglog(freqs, np.abs(fft1), label='Power')
-        #plt.loglog(freqs, np.abs(fft2), label='FB')
-        #plt.legend()
-        #plt.figure()
-        #plt.semilogx(freqs, np.angle(fft1) - np.angle(fft2))
-        #plt.show()
 
-        # plt.figure()
-        # plt.plot(Vdiff)
-        # #plt.figure()
-        # plt.plot(power * np.std(Vdiff) / np.std(power))
-        # plt.plot(df.pos_fb[2] * np.std(Vdiff) / np.std(df.pos_fb[2]))
-        # plt.show()
 
-        #inds = np.abs(eforce) < 1e-13
 
         bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.05, \
                                          dt=1.0/df.fsamp, harms=[1], \
                                          add_mean=True, verbose=False)
 
-        #bins = eforce2
-        #dat = power
-
         dat = dat / np.mean(dat)
-
-        all_eforce.append(bins)
-        all_power.append(dat)
 
         #plt.plot(bins, dat, 'o')
         #plt.show()
@@ -496,50 +346,31 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
                                     absolute_sigma=False, maxfev=10000)
         test_vals = np.linspace(np.min(eforce2*1.0e13), np.max(eforce2*1.0e13), 100)
 
-        all_param.append(popt)
-
         fit = line(test_vals, *popt)
 
         lev_force = -popt[1] / (popt[0] * 1.0e13)
-
-        #ulev_force = -(popt[1]+np.sqrt(pcov[1,1])) / ((popt[0]+np.sqrt(pcov[0,0])) * 1.0e13)
-        #llev_force = -(popt[1]-np.sqrt(pcov[1,1])) / ((popt[0]-np.sqrt(pcov[0,0])) * 1.0e13)
-
         mass = lev_force / (9.806)
 
         #umass = ulev_force / 9.806
         #lmass = llev_force / 9.806
 
+        if mass > upper_outlier or mass < lower_outlier:
+            fig, axarr = plt.subplots(3,1,sharex=True)
+            axarr[0].plot(eforce2)
+            axarr[1].plot(power)
+            axarr[2].plot(df.pos_data[2])
+            ylims = axarr[1].get_ylim()
+            axarr[1].set_ylim(ylims[0], 0)
+            plt.show()
+            continue
+
+        all_param.append(popt)
+
+        all_eforce.append(bins)
+        all_power.append(dat)
+
         mass_vec.append(mass)
 
-    fit_inds = freqs <= 0.2
-    fit_inds[0] = False
-
-    data = powpsd[fit_inds]/Npsd
-    fit_freqs = freqs[fit_inds]
-
-    def func(a, b):
-        return np.sum( (data - a * fit_freqs**b)**2 / data**2 )
-
-    #m = iminuit.Minuit(func, print_level=0)
-    #fmin, param = m.migrad()
-    #print m.values
-
-    #printpedN param[0]['value']
-    #a = param[0]['value']
-    #b = param[1]['value']
-
-    #def newfunc(f):
-    #    return a * f**b
-
-    #drive_ind = np.argmax(powpsd[1:]) + 1
-    #derp_freq = 1.0 / (2.0*60.0*60.0)
-
-    #print newfunc(derp_freq) / (powpsd[drive_ind]/Npsd)
-
-    #plt.loglog(freqs, powpsd/Npsd)
-    #plt.loglog(fit_freqs, a * fit_freqs**b)
-    #plt.show()
 
 
     if noise:

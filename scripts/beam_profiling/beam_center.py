@@ -1,34 +1,25 @@
 import numpy as np
 import bead_util as bu
+
 import matplotlib.pyplot as plt
-import os
+import os, re
 import scipy.signal as sig
 import scipy
 import glob
+
 from scipy.optimize import curve_fit
 
 
 
 
-data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_atm'
-data_dir2 = '/daq2/20190315/profiling/ysweep_right_adj13_atm'
-#data_dir2 = '/daq2/20190315/profiling/xsweep_adj6_atm'
-
-#data_dir1 = '/daq2/20190315/profiling/xsweep_adj13_vac'
-#data_dir2 = '/daq2/20190315/profiling/xsweep_adj13_atm'
-
-data_dir1 = '/daq2/20190902/profiling/xsweep_in1_0'
-data_dir2 = '/daq2/20190902/profiling/ysweep_init'
-
-data_dir1 = '/daq2/20190902/profiling/ysweep_vac_init'
-data_dir2 = '/daq2/20190902/profiling/ysweep_vac_in0_5'
-
+data_dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init_2'
+data_dir2 = '/data/old_trap/20200312/beam_profiling/xprof_init_2'
 
 
 debug_plot = False
 
-multi_dir = True
-#multi_dir = False
+# multi_dir = True
+multi_dir = False
 
 height_to_plot = 40.
 
@@ -41,30 +32,9 @@ OFFSET = 0
 msq_fit = True
 gauss_fit = True
 
-#stage x = col 17, stage y = 18, stage z = 19
-stage_column = 19
-stage_column2 = 18
+data_column = 0 #4
+data_column2 = 0  # For data circa 2016: 0
 
-data_column = 7 #4
-data_column2 = 7  # For data circa 2016: 0
-
-cant_cal = 8. #um/volt
-
-
-def spatial_bin(xvec, yvec, bin_size = .13):
-    fac = 1./bin_size
-    bins_vals = np.around(fac*xvec)
-    bins_vals/=fac
-    bins = np.unique(bins_vals)
-    y_binned = np.zeros_like(bins)
-    y_errors = np.zeros_like(bins)
-    for i, b in enumerate(bins):
-        idx = bins_vals == b
-        y_binned[i] =  np.mean(yvec[idx])
-        y_errors[i] = scipy.stats.sem(yvec[idx])
-    return bins, y_binned, y_errors
-    
-        
     
 
 
@@ -74,6 +44,9 @@ def profile(fname, data_column = 0, plot=False):
     df.load(fname)
     df.load_other_data()
     df.calibrate_stage_position()
+
+    dt = 1.0 / df.fsamp
+
     if 'ysweep' in fname:
         stage_column = 1
         if 'left' in fname:
@@ -110,14 +83,23 @@ def profile(fname, data_column = 0, plot=False):
     int_filt = sig.filtfilt(b, a, df.other_data[data_column, :])
     proft = np.gradient(int_filt)
 
+    proft = np.gradient(df.other_data[data_column])
+
     #plt.plot(df.other_data[0])
     #plt.show()
 
     stage_filt = sig.filtfilt(b, a, df.cant_data[stage_column, :])
     dir_sign = np.sign(np.gradient(stage_filt)) * sign
+
+    dir_sign = np.sign(np.gradient(df.cant_data[stage_column])) * sign
+
     xvec = df.cant_data[stage_column, :]
     yvec = (proft - proft * dir_sign) * 0.5 - (proft + proft * dir_sign) * 0.5
-    b, y, e = spatial_bin(xvec, yvec)
+
+    # sort_inds = np.argsort(xvec)
+
+    b, y, e = bu.spatial_bin(xvec, yvec, dt, nbins=300, nharmonics=300, add_mean=True)
+
     return b, y, e, h_round
 
 
@@ -167,7 +149,7 @@ def proc_dir(dir, data_column=0, plot=False):
             #if new height then create new profile object
             hs.append(h)
             f = File_prof(b, y, e, h)
-            f.date = dir[8:16]
+            f.date = re.search(r"\d{8,}", dir)[0]
             file_profs.append(f)
         else:
             #if height repeated then append data to object for that height
@@ -179,7 +161,8 @@ def proc_dir(dir, data_column=0, plot=False):
             
     #now rebin all profiles
     for fp in file_profs:
-        b, y, e = spatial_bin(fp.bins, fp.y)
+        b, y, e = bu.rebin(fp.bins, fp.y, nbins=200)
+        sort = np.argsort(fp.bins)
         fp.bins = b
         fp.y = y
         fp.errors = e
@@ -194,6 +177,8 @@ def proc_dir(dir, data_column=0, plot=False):
         hs.append(f.cant_height)
         
     return file_profs, np.array(hs), np.array(sigmasqs)
+
+
  
 def plot_profs(fp_arr):
     #plots average profile from different heights
@@ -237,6 +222,10 @@ def Szsq(z, s0, M, z0, lam = 1.064):
 
 
 file_profs, hs, sigmasqs = proc_dir(data_dir1, data_column=data_column, plot=debug_plot)
+
+
+
+
 
 if multi_dir:
     fp2, hs2, sigsq2 = proc_dir(data_dir2, data_column=data_column2, plot=debug_plot)
