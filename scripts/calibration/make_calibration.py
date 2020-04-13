@@ -16,44 +16,91 @@ import configuration as config
 # transfer_func_util libraries.
 #######################################################
 
-#### PREAMBLE
-####   include paths and saving options
 
 
-step_cal_dir = ['/data/old_trap/20200322/gbead1/discharge/fine']
+#####################################
+### Settings for discharge
+#####################################
+
+# step_cal_dir = ['/data/old_trap/20200330/gbead3/discharge/fine']
+# first_file = 0
+# last_file = -1
+using_tabor = False
+tabor_ind = 3
+
+# step_cal_dir = ['/data/new_trap/20200113/Bead1/Discharge/']
+# first_file = 64
+# last_file = -1
+
+step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
 first_file = 0
 last_file = -1
 
-using_tabor = True
-tabor_ind = 3
+step_cal_drive_freq = 151.0
+# step_cal_drive_freq = 41.0
 
-
-
-# step_cal_dir = ['/data/new_trap/20200306/Bead1/Discharge/']
-# first_file = 150
-# last_file = -1
-
-# step_cal_dir = ['/data/new_trap/20200311/Bead1/Discharge/']
-# first_file = 100
-# last_file = -1
-
-# step_cal_drive_freq = 151.0
-step_cal_drive_freq = 41.0
-
-
-elec_channel_select = 3
+elec_channel_select = 1
 # pcol = -1
 # pcol = 2
-pcol = 0
+pcol = 2
+
+inphase_correlation = True
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
 # auto_try = 0.09
 auto_try = 0.0
 
+max_file = 145
+decimate = False
+dec_fac = 2
 
-# new_trap = True
-new_trap = False
+fake_step_cal = False
+# ## OLD TRAP
+# vpn = 7.264e16
+## NEW TRAP
+vpn = 1.79e17
+
+plot_residual_histograms = True
+
+
+#####################################
+### Settings for transfer function
+#####################################
+
+# tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
+
+# tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200110/Bead2/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200113/Bead1/TransFunc/'
+tf_cal_dir = '/data/new_trap/20200320/Bead1/TransFunc/'
+
+# tf_substr = ''
+tf_substr = 'm300k_50s'
+# tf_substr = '_0.h5'
+
+
+lines_to_remove = [60.0, 420.0]
+fit_freqs = [10.0, 700.0]
+
+plot_tf = True
+plot_tf_fits = True
+plot_off_diagonal = False
+
+
+#####################################
+### Shared settings
+#####################################
+
+new_trap = True
+# new_trap = False
+
+save = False
+save_charge = False
+
+
+
+
 
 
 recharge = False
@@ -69,41 +116,9 @@ else:
         if 'recharge' in dir:
             recharge = True
 
-max_file = 145
-decimate = False
-dec_fac = 2
-
-fake_step_cal = False
-## OLD TRAP
-vpn = 7.264e16
-## NEW TRAP
-# vpn = 7.1126e1
-
-
-
-tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
-
-# tf_cal_dir = '/data/new_trap/20200306/Bead1/TransFunc/'
-# tf_cal_dir = '/data/new_trap/20200311/Bead1/TransFunc/'
-
-tf_substr = ''
-# tf_substr = '_0.h5'
-
-
-
-
 tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]
 
 tf_date = step_date
-plot_Hfunc = True
-plot_without_fits = False
-interpolate = True
-save = True
-save_charge = True
-
-# Doesn't use this but might later
-thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
-
 
 
 
@@ -116,10 +131,7 @@ thermal_path = '/data/20170903/bead1/1_5mbar_nocool.h5'
 ext = config.extensions['trans_fun']
 
 # Generate automatic paths for saving
-if interpolate:
-    savepath = '/data/old_trap_processed/calibrations/transfer_funcs/' + tf_date + '_interp' + ext
-else:
-    savepath = '/data/old_trap_processed/calibrations/transfer_funcs/' + tf_date + ext
+savepath = '/data/old_trap_processed/calibrations/transfer_funcs/' + tf_date + ext
 
 if save_charge:
     prefix = '/data/old_trap_processed/calibrations/charges/'
@@ -127,8 +139,6 @@ if save_charge:
         charge_path = prefix + step_date + '_recharge.charge'
     else:
         charge_path = prefix + step_date + '.charge'
-
-    print(charge_path)
 
     if new_trap:
         charge_path = charge_path.replace('old_trap', 'new_trap')
@@ -138,12 +148,17 @@ if new_trap:
     savepath = savepath.replace('old_trap', 'new_trap')
 bu.make_all_pardirs(savepath)
 
+use_origin_timestamp = False
+if new_trap:
+    use_origin_timestamp = True
 
 
 # Find all the relevant files
-step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True)
+step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True, \
+                                             use_origin_timestamp=use_origin_timestamp)
 
-step_cal_files.pop(24)
+for i in range(5):
+    step_cal_files.pop(559)
 
 
 #print len(step_cal_files)
@@ -183,15 +198,13 @@ if decimate:
 
 
 
-
-
-
-
-
+#####################################
 #### BODY OF CALIBRATION
+#####################################
+
 if last_file == -1:
     last_file = len(step_cal_files)
-step_cal_files = step_cal_files[first_file:last_file]
+step_cal_files = step_cal_files[:last_file]
 
 nstep_files = len(step_cal_files)
 
@@ -199,10 +212,12 @@ nstep_files = len(step_cal_files)
 # Do the step calibration
 if not fake_step_cal:
     step_file_objs = []
-    step_cal_vec = []
+    step_cal_vec_inphase = []
+    step_cal_vec_max = []
     pow_vec = []
     zpos_vec = []
     #for fileind, filname in enumerate(step_cal_files[:max_file]):
+    print('Processing discharge files...')
     for fileind, filname in enumerate(step_cal_files):
         bu.progress_bar(fileind, nstep_files)
         df = bu.DataFile()
@@ -220,20 +235,51 @@ if not fake_step_cal:
         if using_tabor and not new_trap:
             df.load_other_data()
 
-        step_resp, step_resp_nonorm, power, zpos = \
+        step_resp_inphase, step_resp_max, step_resp_nonorm, zpos = \
             cal.find_step_cal_response(df, bandwidth=20.0, tabor_ind=tabor_ind,\
                                        using_tabor=using_tabor, pcol=pcol, \
                                        new_trap=new_trap, plot=False)
 
-        step_cal_vec.append(step_resp)
+        step_cal_vec_inphase.append(step_resp_inphase)
+        step_cal_vec_max.append(step_resp_max)
         # step_cal_vec.append(step_resp_nonorm)
 
 
-        pow_vec.append(power)
+        # pow_vec.append(power)
         zpos_vec.append(zpos)
 
-    vpn, off, err, q0 = cal.step_cal(step_cal_vec, new_trap=new_trap, \
-                                     first_file=first_file, auto_try=auto_try)
+    if np.mean(step_cal_vec_inphase[:5]) > 0:
+        fac = 1.0
+    else:
+        fac = -1.0
+
+    step_cal_vec_inphase = fac*np.array(step_cal_vec_inphase)
+    step_cal_vec_max = np.array(step_cal_vec_max)
+
+    # plt.rcParams.update({'font.size': 16})
+    # tvec = np.arange(len(step_cal_vec_inphase)) * 10
+    # plt.figure(figsize=(10,4))
+    # plt.plot(tvec, -1.0*step_cal_vec_inphase, 'o', label='In-Phase Correlation', zorder=2)
+    # plt.plot(tvec, np.abs(step_cal_vec_max), 'o', label='Max Correlation', zorder=3)
+    # plt.axhline(0,ls='--',alpha=0.5,color='k', zorder=1)
+    # plt.ylabel('Response [Arb/(V/m)]')
+    # plt.xlabel('Time [s]')
+    # plt.legend(loc=0)
+    # plt.tight_layout()
+    # plt.show()
+
+    # input()
+
+    nsec = df.nsamp * (1.0 / df.fsamp)
+
+    if inphase_correlation:
+        step_cal_vec = step_cal_vec_inphase
+    else:
+        step_cal_vec = step_cal_vec_max
+
+    vpn, off, err, q0 = cal.step_cal(step_cal_vec, nsec=nsec, new_trap=new_trap, \
+                                     first_file=first_file, auto_try=auto_try, \
+                                     plot_residual_histograms=plot_residual_histograms)
     print(vpn)
 
 if save_charge:
@@ -244,23 +290,23 @@ if save_charge:
 
 
 
-
-
 tf_file_objs = []
+print('Processing transfer function files...')
 for fil_ind, filname in enumerate(tf_cal_files):
     bu.progress_bar(fil_ind, len(tf_cal_files), suffix='opening files')
     df = bu.DataFile()
     if new_trap:
         df.load_new(filname)
-        if df.nsamp < 1.0e5:
-            continue
+        # if df.nsamp < 1.0e5:
+        #     continue
     else:
         df.load(filname)
 
     tf_file_objs.append(df)
 
 # Build the uncalibrated TF: Vresp / Vdrive
-allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False, new_trap=new_trap)
+allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False, new_trap=new_trap, \
+                                lines_to_remove=lines_to_remove)
 
 Hout = allH['Hout']
 Hnoise = allH['Hout_noise']
@@ -272,18 +318,17 @@ keys.sort()
 close_freq = keys[ np.argmin(np.abs(keys - 151.0)) ]
 # print(vpn, pcol, Hout[close_freq][2,2])
 
-Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, drive_freq=step_cal_drive_freq)
+Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, \
+                            drive_freq=step_cal_drive_freq, verbose=True)
 
 # Build the Hfunc object
-if not interpolate:
-    Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
-                            weight_lowf=True, plot_fits=plot_Hfunc, \
-                            plot_without_fits=plot_without_fits, \
-                            plot_inits=False, weight_phase=True, grid=True,\
-                            deweight_peak=True, lowf_weight_fac=0.01)
-if interpolate:
-    Hfunc = tf.build_Hfuncs(Hcal, interpolate=True, plot_fits=plot_Hfunc, \
-                             max_freq=700)
+Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
+                        weight_lowf=True, plot=plot_tf, plot_fits=plot_tf_fits, \
+                        plot_off_diagonal=plot_off_diagonal, \
+                        plot_inits=False, weight_phase=True, grid=True,\
+                        deweight_peak=True, lowf_weight_fac=0.01, \
+                        real_unwrap=True, derpy_unwrap=False, \
+                        fit_freqs=fit_freqs)
 
 # Save the Hfunc object
 if save:

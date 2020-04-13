@@ -114,6 +114,12 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
                 dset5 = []
                 print('No electrode data')
 
+            try:
+                dset6 = np.copy(f['laser_power'])
+            except Exception:
+                dset6 = []
+                print('No power data')
+
             attribs = copy_attribs(f.attrs)
 
         except Exception:
@@ -140,7 +146,7 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
         f = []
         traceback.print_exc()
 
-    return dset1, dset2, dset3, dset4, dset5, attribs
+    return dset1, dset2, dset3, dset4, dset5, dset6, attribs
 
 
 
@@ -152,6 +158,7 @@ def get_hdf5_time(fname):
             attribs = copy_attribs(f.attrs)
             f.close()
         except:
+            attribs = {}
             print('HDF5 file has no attributes object...')
 
         if attribs == {}:
@@ -166,9 +173,9 @@ def get_hdf5_time(fname):
     try:
         file_time = attribs["time"]
     except Exception:
-        print("Couldn't find a value for the time...")
-        print()
-        traceback.print_exc()
+        # print("Couldn't find a value for the time: {:s}".format(fname))
+        file_time = 0.0
+        # traceback.print_exc()
 
     return file_time
 
@@ -191,7 +198,7 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
         try:
             c_list = attr_dict[attr_type]
         except Exception:
-            traceback.print_exc()
+            # traceback.print_exc()
             continue
 
         if type(c_list) != list:

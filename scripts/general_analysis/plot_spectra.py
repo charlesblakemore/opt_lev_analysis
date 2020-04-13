@@ -29,76 +29,29 @@ use_dir = False
 
 
 
-# allfiles = ['/data/old_trap/20200322/gbead1/powfb/1_5mbar_powfb_001.h5',
-#             '/data/old_trap/20200322/gbead1/powfb/1_5mbar_powfb_003.h5',
-#             '/data/old_trap/20200322/gbead1/powfb/1_5mbar_powfb_005.h5',
-#             '/data/old_trap/20200322/gbead1/powfb/1_5mbar_powfb_01.h5',
-#             '/data/old_trap/20200322/gbead1/powfb/1_5mbar_powfb_02.h5',
+# allfiles = [#'/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_init.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low1.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low2.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low3.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xzcool.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_yzcool.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool.h5',
+#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool_2.h5',
+#             '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool_3.h5',
+#             '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged.h5',
+#             '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged_2.h5',
+#             '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged_3.h5',
 #             ]
 
-# allfiles = ['/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-10.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-15.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-20.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-25.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-30.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-35.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-40.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-45.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-50.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-55.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-60.h5',
-#             ]
 
-# allfiles = ['/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-40.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-001_scale-30.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-003_scale-30.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-5.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-10.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-12.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-15.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-17.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-20.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-25.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-30.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-01_scale-35.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-02_scale-10.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-02_scale-15.h5',
-#             ]
-
-# allfiles = ['/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-ig-00001_scale-40.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-pg-02_scale-15.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-dg-1_scale-30.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-dg-15_scale-15.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-dg-2_scale-30.h5',
-#             # '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-dg-2_scale-20.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-dg-2_scale-15.h5',
-#             '/data/old_trap/20200322/gbead1/zfb/1_5mbar_powfb_zcool-dg-2_scale-10.h5',
-#             ]
-
-allfiles = [#'/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_init.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low1.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low2.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low3.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xzcool.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_yzcool.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool.h5',
-            # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool_2.h5',
-            '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool_3.h5',
-            '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged.h5',
-            '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged_2.h5',
-            '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged_3.h5',
+allfiles = ['/data/old_trap/20200327/gbead1/1_5mbar_powfb_zcool.h5',
+            '/data/old_trap/20200327/gbead1/1_5mbar_powfb_xzcool.h5',
+            '/data/old_trap/20200327/gbead1/1_5mbar_powfb_yzcool.h5',
+            '/data/old_trap/20200327/gbead1/1_5mbar_powfb_xyzcool.h5',
             ]
 
-# allfiles = ['/data/old_trap/20200307/gbead1/1_5mbar_powfb_xyzcool.h5',
-#             ]
 
-# allfiles = [#'/data/old_trap/20200322/gbead1/fb_delay/1_5mbar_powfb_zcool-ig_delay0.h5',
-#             #'/data/old_trap/20200322/gbead1/fb_delay/1_5mbar_powfb_zcool-ig_delay1.h5',
-#             '/data/old_trap/20200322/gbead1/fb_delay/1_5mbar_powfb_zcool-ig-pg_delay0.h5',
-#             '/data/old_trap/20200322/gbead1/fb_delay/1_5mbar_powfb_zcool-ig-pg_delay1.h5',
-#             '/data/old_trap/20200322/gbead1/fb_delay/1_5mbar_powfb_zcool-ig-pg_delay2.h5',
-#             ]
 
 # allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
 #             ]
@@ -150,7 +103,7 @@ lpf = 2500   # Hz
 #file_inds = (0, 3)
 file_inds = (0, 100)
 
-userNFFT = 2**13
+userNFFT = 2**12
 diag = False
 
 fullNFFT = False

@@ -279,8 +279,9 @@ def make_all_pardirs(path):
 
 
 
-def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
-                    exclude_fpga=True, verbose=True, substr=''):
+def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
+                    verbose=True, substr='', sort_time=False, \
+                    use_origin_timestamp=False):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -324,7 +325,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
         files.sort(key = find_str)
 
     if sort_time:
-        files = sort_files_by_timestamp(files)
+        files = sort_files_by_timestamp(files, use_origin_timestamp=use_origin_timestamp)
 
     if len(files) == 0:
         print("DIDN'T FIND ANY FILES :(")
@@ -338,15 +339,21 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
 
 
 
-def sort_files_by_timestamp(files):
+def sort_files_by_timestamp(files, use_origin_timestamp=False):
     '''Pretty self-explanatory function.'''
-    try:
-        files = [(get_hdf5_time(path), path) for path in files]
-    except Exception:
-        print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
+
+    if not use_origin_timestamp:
+        try:
+            files = [(get_hdf5_time(path), path) for path in files]
+        except Exception:
+            print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
+            traceback.print_exc()
+            use_origin_timestamp = True
+
+    if use_origin_timestamp:
         files = [(os.stat(path), path) for path in files]
         files = [(stat.st_ctime, path) for stat, path in files]
-        traceback.print_exc()
+
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -577,7 +584,8 @@ def detrend_poly(arr, order=1.0, plot=False):
 
 def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
                 width=0, sg_filter=False, sg_params=[3,1], verbose=True, \
-                maxfreq=2500, add_mean=False):
+                maxfreq=2500, add_mean=False, correct_phase_shift=False, \
+                grad_sign=0):
     '''Given two waveforms drive(t) and resp(t), this function generates
        resp(drive) with a fourier method. drive(t) should be a pure tone,
        such as a single frequency cantilever drive (although the 
@@ -597,54 +605,59 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
                             filter for final smoothing of resp(drive)
                 sg_params, parameters of the savgol filter 
                             (see scipy.signal.savgol_filter for explanation)
+                verbose, usual boolean switch for printing
+                maxfreq, top-hat filter cutoff
+                add_mean, boolean switch toadd back the mean of each signal
+                correct_phase_shift, boolean switch to adjust the phase of 
+                                      of the response to match the drive
+                grad_sign, -1, 0 or 1 to indicate the sign of the drive's 
+                            derivative to include in order to select either
+                            'forward-going' or 'backward-going' data
 
        OUTPUT:  drivevec, vector of drive values, monotonically increasing
                 respvec, resp as a function of drivevec'''
 
-    def fit_fun(t, A, f, phi, C):
-        return A * np.sin(2 * np.pi * f * t + phi) + C
 
-    Nsamp = len(drive)
-    if len(resp) != Nsamp:
+    nsamp = len(drive)
+    if len(resp) != nsamp:
         if verbose:
             print("Data Error: x(t) and f(t) don't have the same length")
             sys.stdout.flush()
         return
 
-    # Generate t array
+    ### Generate t array
     t = np.linspace(0, len(drive) - 1, len(drive)) * dt
 
-    # Generate FFTs for filtering
+    ### Generate FFTs for filtering
     drivefft = np.fft.rfft(drive)
     respfft = np.fft.rfft(resp)
     freqs = np.fft.rfftfreq(len(drive), d=dt)
 
-    # Find the drive frequency, ignoring the DC bin
+    ### Find the drive frequency, ignoring the DC bin
     maxind = np.argmin( np.abs(freqs - maxfreq) )
 
     fund_ind = np.argmax( np.abs(drivefft[1:maxind]) ) + 1
     drive_freq = freqs[fund_ind]
 
-    meandrive = np.mean(drive)
     mindrive = np.min(drive)
     maxdrive = np.max(drive)
 
     meanresp = np.mean(resp)
 
-    # Build the notch filter
-    drivefilt = np.zeros(len(drivefft)) #+ np.random.randn(len(drivefft))*1.0e-3
-    drivefilt[fund_ind] = 1.0
+    ### Build the notch filter
+    drivefilt = np.zeros_like(drivefft) #+ np.random.randn(len(drivefft))*1.0e-3
+    drivefilt[fund_ind] = 1.0 + 0.0j
 
     errfilt = np.zeros_like(drivefilt)
     noise_bins = (freqs > 10.0) * (freqs < 100.0)
-    errfilt[noise_bins] = 1.0
-    errfilt[fund_ind] = 0.0
+    errfilt[noise_bins] = 1.0+0.0j
+    errfilt[fund_ind] = 0.0+0.0j
 
     #plt.loglog(freqs, np.abs(respfft))
     #plt.loglog(freqs, np.abs(respfft)*errfilt)
     #plt.show()
 
-    # Error message triggered by verbose option
+    ### Error message triggered by verbose option
     if verbose:
         if ( (np.abs(drivefft[fund_ind-1]) > 0.03 * np.abs(drivefft[fund_ind])) or \
              (np.abs(drivefft[fund_ind+1]) > 0.03 * np.abs(drivefft[fund_ind])) ):
@@ -675,33 +688,41 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
             h_upper_ind = harm_ind + (upper_ind - fund_ind)
             drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
 
+    if correct_phase_shift:
+        phase_shift = np.angle(respfft[fund_ind]) - np.angle(drivefft[fund_ind])
+        drivefilt2 = drivefilt * np.exp(-1.0j * phase_shift)
+    else:
+        drivefilt2 = np.copy(drivefilt)
+
     if add_mean:
-        drivefilt[0] = 1.0
+        drivefilt[0] = 1.0+0.0j
+        drivefilt2[0] = 1.0+0.0j
 
     # Apply the filter to both drive and response
     #drivefilt = np.ones_like(drivefilt)
     #drivefilt[0] = 0
     drivefft_filt = drivefilt * drivefft
-    respfft_filt = drivefilt * respfft
+    respfft_filt = drivefilt2 * respfft
     errfft_filt = errfilt * respfft
 
-    #print fund_ind
-    #print np.abs(drivefft_filt[fund_ind])
-    #print np.abs(respfft_filt[fund_ind])
-    #print np.abs(drivefft_filt[fund_ind]) / np.abs(respfft_filt[fund_ind])
-    #raw_input()
+    # print(np.angle(drivefft[fund_ind]))
+    # print(np.angle(drivefft_filt[fund_ind]))
+    # print(np.angle(respfft[fund_ind]))
+    # print(np.angle(respfft_filt[fund_ind]))
+    # input()
 
-    #plt.loglog(freqs, np.abs(respfft))
-    #plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'x', ms=10)
-    #plt.show()
+    # print(fund_ind)
+    # print(np.abs(drivefft_filt[fund_ind]))
+    # print(np.abs(respfft_filt[fund_ind]))
+    # print(np.abs(drivefft_filt[fund_ind]) / np.abs(respfft_filt[fund_ind]))
+    # input()
 
-    # Reconstruct the filtered data
+    # plt.loglog(freqs, np.abs(respfft))
+    # plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'X', ms=10)
+    # plt.show()
+
+    ### Reconstruct the filtered data
     
-    #plt.loglog(freqs, np.abs(drivefft_filt))
-    #plt.show()
-
-    fac = np.sqrt(2) * fft_norm(len(t),1.0/(t[1]-t[0])) * np.sqrt(freqs[1] - freqs[0])
-
     #drive_r = np.zeros(len(t)) + meandrive
     #for ind, freq in enumerate(freqs[drivefilt>0]):
     #    drive_r += fac * np.abs(drivefft_filt[drivefilt>0][ind]) * \
@@ -731,8 +752,12 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     #plt.plot(drive_r, resp_r, '.')
     #plt.plot(drive_r, err_r, '.')
     #plt.show()
-
-    ginds = grad[sortinds] < 0
+    if grad_sign < 0:
+        ginds = grad[sortinds] < 0
+    elif grad_sign > 0:
+        ginds = grad[sortinds] > 0
+    elif grad_sign == 0.0:
+        ginds = np.ones(len(grad[sortinds]), dtype=np.bool)
 
     bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
     drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
@@ -741,10 +766,10 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     respvec = []
     errvec = []
     for bin_loc in drivevec:
-        inds = (drive_r >= bin_loc - 0.5*bin_spacing) * \
-               (drive_r < bin_loc + 0.5*bin_spacing)
-        val = np.mean( resp_r[inds] )
-        err_val = np.mean( err_r[inds] )
+        inds = (drive_r[ginds] >= bin_loc - 0.5*bin_spacing) * \
+               (drive_r[ginds] < bin_loc + 0.5*bin_spacing)
+        val = np.mean( resp_r[ginds][inds] )
+        err_val = np.mean( err_r[ginds][inds] )
         respvec.append(val)
         errvec.append(err_val)
 
@@ -757,19 +782,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     #plt.plot(drivevec, respvec, linewidth=5)
     #plt.show()
 
-    #sortinds = drive_r.argsort()
-    #interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], \
-    #                             bounds_error=False, fill_value='extrapolate')
-
-    #respvec = interpfunc(drivevec)
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
-
-    #plt.errorbar(drivevec, respvec, errvec)
-    #plt.show()
-    #if add_mean:
-    #    drivevec += meandrive
-    #    respvec += meanresp
 
     return drivevec, respvec, errvec
 
@@ -836,7 +850,8 @@ def rebin_mean(a, *args):
        Needs to be applied separately for xvec and yvec'''
     shape = a.shape
     lenShape = len(shape)
-    factor = np.asarray(shape)/np.asarray(args)
+    factor = (np.asarray(shape)/np.asarray(args)).astype(int)
+
     evList = ['a.reshape('] + \
              ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
              [')'] + ['.mean(%d)'%(i+1) for i in range(lenShape)]
@@ -850,7 +865,7 @@ def rebin_std(a, *args):
        seems to have trouble with more than 1D nput arrays.'''
     shape = a.shape
     lenShape = len(shape)
-    factor = np.asarray(shape)/np.asarray(args)
+    factor = (np.asarray(shape)/np.asarray(args)).astype(int)
 
     evList = ['a.reshape('] + \
               ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
@@ -865,56 +880,61 @@ def rebin_vectorized(a, nbin, model=None):
        If the underlying data should follow a model, this first fits the data
        to said model and rebins the residuals to determine the appropriate
        rebinned error array.'''
-    a_rb = rebin_mean(a, nbin)
+    nbin_int = int(nbin)
+    a_rb = rebin_mean(a, nbin_int)
     if model is not None:
-        popt, pcov = opti.curve_fit(model, np.arange(nbin), a_rb)
-        resid = a - model(np.linspace(0, nbin-1, len(a)), *popt)
-        a_err_rb = rebin_std(resid, nbin)
+        popt, pcov = opti.curve_fit(model, np.arange(nbin_int), a_rb)
+        resid = a - model(np.linspace(0, nbin_int-1, len(a)), *popt)
+        a_err_rb = rebin_std(resid, nbin_int)
     else:
-        a_err_rb = rebin_std(a, nbin)
+        a_err_rb = rebin_std(a, nbin_int)
     return a_rb, a_err_rb
 
 
 
 
-def good_corr(drive, response, fsamp, fdrive):
-    corr = np.zeros(int(fsamp/fdrive))
-    response = np.append(response, np.zeros( int(fsamp/fdrive)-1 ))
-    n_corr = len(drive)
-    for i in range(len(corr)):
-        #Correct for loss of points at end
-        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical tests
-        #correct_fac = 1.0*n_corr/(n_corr-i) # 
-        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
-    return corr
+def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
+    '''Compute the full correlation between drive and response,
+       correctly normalized for use in step-calibration.
 
+       INPUTS:   drive, drive signal as a function of time
+                 response, resposne signal as a function of time
+                 fsamp, sampling frequency
+                 fdrive, predetermined drive frequency
+                 filt, boolean switch for bandpass filtering
+                 band_width, bandwidth in [Hz] of filter
 
-def corr_func(drive, response, fsamp, fdrive, good_pts = [], filt = False, band_width = 1):
-    #gives the correlation over a cycle of drive between drive and response.
+       OUTPUTS:  corr_full, full and correctly normalized correlation'''
 
-    #First subtract of mean of signals to avoid correlating dc
+    # First subtract of mean of signals to avoid correlating dc
     drive = drive-np.mean(drive)
-    response  = response-np.mean(response)
+    response = response-np.mean(response)
 
-    #bandpass filter around drive frequency if desired.
+    # bandpass filter around drive frequency if desired.
     if filt:
-        b, a = sp.butter(3, [2.*(fdrive-band_width/2.)/fsamp, 2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
-        drive = sp.filtfilt(b, a, drive)
-        response = sp.filtfilt(b, a, response)
-
-    #Compute the number of points and drive amplitude to normalize correlation
+        b, a = signal.butter(3, [2.*(fdrive-band_width/2.)/fsamp, \
+                             2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
+        drive = signal.filtfilt(b, a, drive)
+        response = signal.filtfilt(b, a, response)
+    
+    # Compute the number of points and drive amplitude to normalize correlation
     lentrace = len(drive)
     drive_amp = np.sqrt(2)*np.std(drive)
 
-    #Throw out bad points if desired
-    if len(good_pts):
-        response[-good_pts] = 0.
-        lentrace = np.sum(good_pts)
+    # Define the correlation vector which will be populated later
+    corr = np.zeros(int(fsamp/fdrive))
 
+    # Zero-pad the response
+    response = np.append(response, np.zeros(int(fsamp / fdrive) - 1) )
 
-    #corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp**2)
-    corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp)
-    return corr_full
+    # Build the correlation
+    n_corr = len(drive)
+    for i in range(len(corr)):
+        # Correct for loss of points at end
+        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical test
+        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
+
+    return corr * (1.0 / (lentrace * drive_amp))
 
 
 
@@ -968,8 +988,6 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
     return minparam, err, minval
-
-
 
 
 

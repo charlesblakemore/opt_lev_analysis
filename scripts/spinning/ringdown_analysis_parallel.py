@@ -27,7 +27,8 @@ bandwidth = 500
 debug = False
 plot_raw_dat = False
 plot_phase = False
-progress_bar = True
+
+progress_bar = False
 
 high_pass = 10.0
 
@@ -37,22 +38,33 @@ nbin = 100
 
 
 
-date = '20191017'
-base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown/'.format(date)
-#base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown_manual/'.format(date)
+# date = '20191017'
+# base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown/'.format(date)
+# #base_path = '/data/old_trap/{:s}/bead1/spinning/ringdown_manual/'.format(date)
+
+# save_base = '/data/old_trap_processed/spinning/ringdown/{:s}/'.format(date)
+# #save_base = '/data/old_trap_processed/spinning/ringdown_manual/{:s}/'.format(date)
+
+# #save_suffix = ''
+# save_suffix = '_coarse'
+
+# paths = [#base_path + '110kHz_start_1', \
+#          base_path + '110kHz_start_2', \
+#          base_path + '110kHz_start_3', \
+#          #base_path + '110kHz_start_4', \
+#          base_path + '110kHz_start_5', \
+#          base_path + '110kHz_start_6', \
+#          ]
+
+date = '20200322'
+base_path = '/data/old_trap/{:s}/gbead1/spinning/ringdown/'.format(date)
 
 save_base = '/data/old_trap_processed/spinning/ringdown/{:s}/'.format(date)
-#save_base = '/data/old_trap_processed/spinning/ringdown_manual/{:s}/'.format(date)
 
-#save_suffix = ''
-save_suffix = '_coarse'
+save_suffix = ''
 
-paths = [#base_path + '110kHz_start_1', \
-         base_path + '110kHz_start_2', \
-         base_path + '110kHz_start_3', \
-         #base_path + '110kHz_start_4', \
-         base_path + '110kHz_start_5', \
-         base_path + '110kHz_start_6', \
+paths = [base_path + '110kHz_1', \
+         base_path + '110kHz_2', \
          ]
 
 
@@ -69,17 +81,6 @@ sim_data = False
 #     save_paths.append(os.path.join(base_save_path, subdir))
 
 
-
-# base_path = '/daq2/20190626/bead1/spinning/wobble/wobble_slow_after-highp_later/'
-# base_save_path = '/processed_data/spinning/wobble/20190626/after-highp_slow_later/'
-
-# paths = []
-# save_paths = []
-# for root, dirnames, filenames in os.walk(base_path):
-#     for dirname in dirnames:
-#         paths.append(base_path + dirname)
-#         save_paths.append(base_save_path + dirname + '.npy')
-# bu.make_all_pardirs(save_paths[0])
 npaths = len(paths)
 
 ncore = npaths
@@ -93,6 +94,8 @@ exp_fit_seconds = 500
 
 
 ############################
+
+### Define some analytic functions that could be use
 
 def gauss(x, A, mu, sigma, c):
     return A * np.exp(-1.0*(x-mu)**2 / (2.0*sigma**2)) + c
@@ -115,20 +118,15 @@ def exponential(x, a, b, c, d):
 
 
 
-
-# times = np.arange(100000)
-# vec = np.random.randn(100000)
-# vec_ds, vec_err_ds = rebin_vectorized(vec, 1000)
-# vec_err_ds *= np.sqrt(1000.0/100000.0)
-# times_ds, times_err_ds = rebin_vectorized(times, 1000)
-# #plt.plot(times, vec)
-# plt.errorbar(times_ds, vec_ds, yerr=vec_err_ds)
-# plt.show()
-
-# raw_input()
-
-
+### Define the main function to process a ringdown. Unfortunately, this analysis
+### has to be performed in a serial fashion, as identifying the ringdown feature 
+### in the presence of all the other lines is difficult if you don't have some
+### prior knowledge of where it is
 def proc_dir(path):
+
+    ### Simulated ringdowns just have the rotational frequency data, since
+    ### there isn't a "readout", i.e. the cross-polarized light that appears
+    ### at twice the rotation frequency
     if sim_data:
         fc = f_rot
         wc = 2.0*np.pi*fc
@@ -136,12 +134,15 @@ def proc_dir(path):
         fc = 2.0*f_rot
         wc = 2.0*np.pi*fc
 
+    ### Find the final directory in which all the hdf5 files are stored in order
+    ### to provide semi-intelligent naming
     strs = path.split('/')
     if len(strs[-1]) == 0:
         dirname = strs[-2]
     else:
         dirname = strs[-1]
 
+    ### Derpy loop
     if sim_data:
         for thing in save_paths:
             if dirname in thing:
@@ -187,10 +188,16 @@ def proc_dir(path):
     # lower1 = (2.0 / fsamp) * (fc - 0.5 * bandwidth)
     upper1 = (2.0 / fsamp) * (fc + 5 * bandwidth)
     lower1 = (2.0 / fsamp) * (fc - 5 * bandwidth)
+
+    upper2 = (2.0 / fsamp) * (f_rot + 5 * bandwidth)
+    lower2 = (2.0 / fsamp) * (f_rot - 5 * bandwidth)
     fc_init = fc
     #print fc_init
 
     b1, a1 = signal.butter(3, [lower1, upper1], \
+                           btype='bandpass')
+
+    b2, a2 = signal.butter(3, [lower2, upper2], \
                            btype='bandpass')
 
     b_hpf, a_hpf = signal.butter(3, (2.0/fsamp)*high_pass, btype='high')
@@ -242,26 +249,38 @@ def proc_dir(path):
             t = fobj.attribs["time"]
 
             vperp = fobj.dat[:,0]
+            drive = fobj.dat[:,1]
 
         if not spindown:
             vperp_filt = signal.filtfilt(b1, a1, vperp)
+            drive_filt = signal.filtfilt(b2, a2, drive)
 
             vperp_filt_fft = np.fft.rfft(vperp_filt)
             vperp_filt_asd = np.abs(vperp_filt_fft)
 
-            # if plot_raw_dat:
-            #     plt.loglog(freqs, np.abs(np.fft.rfft(vperp)))
-            #     plt.loglog(freqs, vperp_filt_asd)
-            #     plt.xlim(fc - bandwidth, fc + bandwidth)
-            #     plt.show()
+            drive_filt_fft = np.fft.rfft(drive_filt)
+            drive_filt_asd = np.abs(drive_filt_fft)
+
+            if plot_raw_dat:
+                plt.loglog(freqs, np.abs(np.fft.rfft(vperp)))
+                plt.loglog(freqs, vperp_filt_asd)
+                plt.xlim(fc - bandwidth, fc + bandwidth)
+                plt.show()
 
             p0 = [np.max(vperp_filt_asd), fc, 1, 0]
             popt, pcov = opti.curve_fit(lorentzian, freqs, vperp_filt_asd, p0=p0)
+
+            p0_drive = [np.max(drive_filt_asd), f_rot, 1, 0]
+            popt_drive, pcov_drive = opti.curve_fit(lorentzian, freqs, drive_filt_asd, p0=p0_drive)
+
             if amp == 0:
                 amp = popt[0]
+                amp_drive = popt_drive[0]
+                continue
 
-            if (np.abs(fc - popt[1]) > 5.0) or (popt[0] < 0.5 * amp):
-                #print 'CHIRP STARTED' 
+            # if (np.abs(fc - popt[1]) > 5.0) or (popt[0] < 0.5 * amp):
+            if amp_drive > 10.0 * popt_drive[0]:
+                print('CHIRP STARTED')
                 spindown = True
                 first = True
                 #fc_old = fc

@@ -17,20 +17,26 @@ ncore = 20
 
 np.random.seed(12345)
 
-plot_raw_dat = True
+plot_raw_dat = False
 plot_phase = False
 plot_sideband_fit = False
 
-cleanup_outarr = True
+cleanup_outarr = False
 
-fc = 100000.0
+# fc = 220000.0
+# fc = 110000.0
+# fc = 100000.0
+fc = 50000
 wfc = 2.0*np.pi*fc
-bandwidth = 2000.0
+bandwidth = 1500.0
 high_pass = 50.0
 
-notch_init = 80.0
+notch_init = 50.0
 notch_range = 30.0
 notch_2harm = True
+
+correct_noise_color = False
+noise_color_power = 0.9
 
 # Should probably measure these monitor factors
 tabor_mon_fac = 100
@@ -42,61 +48,63 @@ tabor_mon_fac = 100
 # base_path = '/data/old_trap/20190905/bead1/spinning/wobble/before_pramp/'
 # base_save_path = '/data/old_trap_processed/spinning/wobble/20190905/before_pramp/'
 
-#date = '20190626'
-#date = '20190905'
-date = '20191017'
-#gases = ['He', 'N2', 'Ar', 'Kr', 'Xe', 'SF6']
-#gases = ['He', 'N2']
-gases = ['He']
-inds = [1, 2, 3]
-#inds = [1]#,2]
+# #date = '20190626'
+# #date = '20190905'
+# date = '20191017'
+# #gases = ['He', 'N2', 'Ar', 'Kr', 'Xe', 'SF6']
+# #gases = ['He', 'N2']
+# gases = ['He']
+# inds = [1, 2, 3]
+# #inds = [1]#,2]
+
+# path_dict = {}
+# for gas in gases:
+#     if gas not in list(path_dict.keys()):
+#         path_dict[gas] = {}
+#     for ind in inds:
+#         #if ind not in path_dict[gas].keys():
+#         #    path_dict[gas][ind] = []
+
+#         base_path = '/data/old_trap/{:s}/bead1/spinning/pramp/{:s}/wobble_{:d}/'\
+#                             .format(date, gas, ind)
+#         base_save_path = '/data/old_trap_processed/spinning/wobble/{:s}/{:s}_pramp_{:d}/'\
+#                             .format(date, gas, ind)
+
+#         paths = []
+#         save_paths = []
+#         for root, dirnames, filenames in os.walk(base_path):
+#             for dirname in dirnames:
+#                 #if '0001' not in dirname:
+#                 #    continue
+#                 paths.append(base_path + dirname)
+#                 save_paths.append(base_save_path + dirname + '.npy')
+#         bu.make_all_pardirs(save_paths[0])
+#         npaths = len(paths)
+#         paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
+
+#         path_dict[gas][ind] = (paths, save_paths)
+
+
+date = '20200322'
+
+base_path = '/data/old_trap/20200322/gbead1/spinning/wobble/50kHz_yz_1/'
+base_save_path = '/data/old_trap_processed/spinning/wobble/20200322/50kHz_yz_1/'
 
 path_dict = {}
-for gas in gases:
-    if gas not in list(path_dict.keys()):
-        path_dict[gas] = {}
-    for ind in inds:
-        #if ind not in path_dict[gas].keys():
-        #    path_dict[gas][ind] = []
+paths = []
+save_paths = []
+for root, dirnames, filenames in os.walk(base_path):
+    for dirname in dirnames:
+        paths.append(base_path + dirname)
+        save_paths.append(base_save_path + dirname + '.npy')
+bu.make_all_pardirs(save_paths[0])
+npaths = len(paths)
+paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
 
-        base_path = '/data/old_trap/{:s}/bead1/spinning/pramp/{:s}/wobble_{:d}/'\
-                            .format(date, gas, ind)
-        base_save_path = '/data/old_trap_processed/spinning/wobble/{:s}/{:s}_pramp_{:d}/'\
-                            .format(date, gas, ind)
-
-        paths = []
-        save_paths = []
-        for root, dirnames, filenames in os.walk(base_path):
-            for dirname in dirnames:
-                #if '0001' not in dirname:
-                #    continue
-                paths.append(base_path + dirname)
-                save_paths.append(base_save_path + dirname + '.npy')
-        bu.make_all_pardirs(save_paths[0])
-        npaths = len(paths)
-        paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
-
-        path_dict[gas][ind] = (paths, save_paths)
-
-
-
-# base_path = '/data/old_trap/20191010/bead1/spinning/wobble/init/'
-# base_save_path = '/data/old_trap_processed/spinning/wobble/20191010/init/'
-
-# paths = []
-# save_paths = []
-# for root, dirnames, filenames in os.walk(base_path):
-#     for dirname in dirnames:
-#         paths.append(base_path + dirname)
-#         save_paths.append(base_save_path + dirname + '.npy')
-# bu.make_all_pardirs(save_paths[0])
-# npaths = len(paths)
-# paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
-
-# path_dict['XX'] = {}
-# path_dict['XX'][1] = (paths, save_paths)
-# gases = ['XX']
-# inds = [1]
+path_dict['XX'] = {}
+path_dict['XX'][1] = (paths, save_paths)
+gases = ['XX']
+inds = [1]
 
 save = True
 load = False
@@ -107,7 +115,8 @@ if plot_raw_dat or plot_phase or plot_sideband_fit:
     ncore = 1
 
 
-Ibead = bu.get_Ibead(date=date)
+# Ibead = bu.get_Ibead(date=date)
+Ibead = bu.get_Ibead(date=date, rhobead={'val': 1850.0, 'sterr': 0.0, 'syserr': 0.0})
 
 def sqrt(x, A, x0, b):
     return A * np.sqrt(x-x0) #+ b
@@ -134,7 +143,7 @@ for meas in itertools.product(gases, inds):
     for pathind, path in enumerate(paths):
         if load:
             continue
-        files, lengths = bu.find_all_fnames(path, sort_time=True)
+        files, lengths = bu.find_all_fnames(path, sort_time=True, use_origin_timestamp=True)
 
         fobj = hsDat(files[0])
         nsamp = fobj.attribs["nsamp"]
@@ -184,6 +193,8 @@ for meas in itertools.product(gases, inds):
                 plt.loglog(freqs, fac * np.abs(np.fft.rfft(elec3_filt)))
                 plt.show() 
 
+                input()
+
             #start_hilbert = time.time()
             hilbert = signal.hilbert(vperp_filt)
             phase = np.unwrap(np.angle(hilbert)) - 2.0*np.pi*true_fc*time_vec
@@ -230,6 +241,11 @@ for meas in itertools.product(gases, inds):
                 phase_mod_filt_2 = signal.lfilter(bn2, an2, phase_mod_filt_2   )
             phase_asd_filt_2 = np.abs(np.fft.rfft(phase_mod_filt_2))
 
+            if correct_noise_color:
+                phase_asd = phase_asd * freqs**noise_color_power
+                phase_asd_filt = phase_asd_filt * freqs**noise_color_power
+                phase_asd_filt_2 = phase_asd_filt_2 * freqs**noise_color_power
+
             if plot_phase:
                 plt.plot(freqs, phase_asd)
                 plt.figure()
@@ -237,6 +253,8 @@ for meas in itertools.product(gases, inds):
                 plt.loglog(freqs, phase_asd_filt)
                 plt.loglog(freqs, phase_asd_filt_2)
                 plt.show()
+
+                input()
 
             max_ind = np.argmax(phase_asd_filt_2)
             max_freq = freqs[max_ind]
@@ -263,16 +281,18 @@ for meas in itertools.product(gases, inds):
                 print(fit_max, fit_std)
                 plt.show()
 
-            if fit_max < 10:
-                return 
+                input()
 
-            if len(wobble_freq):
-                if (np.abs(fit_max - wobble_freq[-1]) / wobble_freq[-1]) > 0.1:
-                    # plt.loglog(freqs, phase_asd)
-                    # plt.loglog(freqs, phase_asd_filt)
-                    # plt.loglog(freqs, phase_asd_filt_2)
-                    # plt.show()
-                    return
+            # if fit_max < 10:
+            #     return 
+
+            # if len(wobble_freq):
+            #     if (np.abs(fit_max - wobble_freq[-1]) / wobble_freq[-1]) > 0.1:
+            #         # plt.loglog(freqs, phase_asd)
+            #         # plt.loglog(freqs, phase_asd_filt)
+            #         # plt.loglog(freqs, phase_asd_filt_2)
+            #         # plt.show()
+            #         return
 
 
             elec3_filt_fft = np.fft.rfft(elec3_filt)
@@ -406,10 +426,12 @@ for arrind, arr in enumerate(all_data):
     plt.errorbar(field_strength, 2*np.pi*wobble_freq, alpha=0.6, \
                  yerr=wobble_err, color=colors[arrind])
 
+    p0 = [10, 0, 0]
     try:
         popt, pcov = opti.curve_fit(sqrt, field_strength, 2*np.pi*wobble_freq, \
-                                    p0=[10,0,0], sigma=2*np.pi*wobble_err)
+                                    p0=p0, sigma=2*np.pi*wobble_err)
     except:
+        popt = p0
         continue
 
     popt_arr.append(popt)
@@ -429,7 +451,10 @@ popt = np.mean(np.array(popt_arr), axis=0)
 popt_err = np.std(np.array(popt_arr), axis=0)
 
 # 1e-3 to account for 
-d = (popt[0])**2 * Ibead['val']
-d_err = (popt_err[0])**2 * Ibead['val']
+try:
+    d = (popt[0])**2 * Ibead['val']
+    d_err = (popt_err[0])**2 * Ibead['val']
+except: 
+    2+2
 
 plt.show()

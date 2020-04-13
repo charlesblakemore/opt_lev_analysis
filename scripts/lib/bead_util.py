@@ -369,7 +369,7 @@ class DataFile:
 
         fname = os.path.abspath(fname)
 
-        dat1, dat2, dat3, dat4, dat5, attribs = getdata_new(fname)
+        dat1, dat2, dat3, dat4, dat5, dat6, attribs = getdata_new(fname)
 
         # if plot_raw_dat:
         #     for n in range(20):
@@ -388,11 +388,19 @@ class DataFile:
         self.quad_time, self.amp, self.phase = extract_quad_new(dat2)
         self.other_data = dat3
         self.cant_data = dat4
+        self.power = dat6
 
         self.nsamp = len(self.pos_data[0])
 
         self.time = self.pos_time[0]
 
+        ### Since the actual electrode data isn't saved (only 1-s portions because
+        ### that totally makes sense, but hey I'm not in charge in the new setup)
+        ### the following reconstructs the signal depending on whether the data
+        ### is labeld as "Discharge" or "Transfunc" since the actual electrode 
+        ### amplitudes aren't stored properly for the transfer function data.
+        ### Still mind-boggling that this information isn't stored in the file and
+        ### and has to be hardcoded. Like wtf.
         discharge = False
         trans_func = False
         if 'Discharge' in self.fname:
@@ -406,6 +414,7 @@ class DataFile:
 
         # print(amp)
 
+        ### Reconstruct the elctrode_settings array as it's saved in the old trap
         self.electrode_settings = {}
         self.electrode_settings['driven'] = np.zeros(8)
         self.electrode_settings['amplitudes'] = np.zeros(8)
@@ -438,7 +447,7 @@ class DataFile:
                     max_freq = dumb_freqs[np.argmax(np.abs(fft[1:])) + 1]
                     self.electrode_settings['frequencies'][elec_ind] = max_freq
                     reconstructed = sign * amp * np.sin(2.0 * np.pi * max_freq * tarr)
-                    reconstructed += (1.0e-7) * amp * np.random.randn(self.nsamp)
+                    reconstructed += (1.0e-9) * amp * np.random.randn(self.nsamp)
                     elec_data[elec_ind] = reconstructed
 
                 elif trans_func:

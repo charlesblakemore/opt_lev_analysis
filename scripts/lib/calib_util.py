@@ -2,6 +2,7 @@ import sys, time, traceback
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, NullFormatter
 
 import bead_util as bu
 import configuration as config
@@ -48,49 +49,6 @@ def multi_step_fun(x, qs, x0s):
     return rfun
 
 
-
-def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
-    '''Compute the full correlation between drive and response,
-       correctly normalized for use in step-calibration.
-
-       INPUTS:   drive, drive signal as a function of time
-                 response, resposne signal as a function of time
-                 fsamp, sampling frequency
-                 fdrive, predetermined drive frequency
-                 filt, boolean switch for bandpass filtering
-                 band_width, bandwidth in [Hz] of filter
-
-       OUTPUTS:  corr_full, full and correctly normalized correlation'''
-
-    # First subtract of mean of signals to avoid correlating dc
-    drive = drive-np.mean(drive)
-    response = response-np.mean(response)
-
-    # bandpass filter around drive frequency if desired.
-    if filt:
-        b, a = signal.butter(3, [2.*(fdrive-band_width/2.)/fsamp, \
-                             2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
-        drive = signal.filtfilt(b, a, drive)
-        response = signal.filtfilt(b, a, response)
-    
-    # Compute the number of points and drive amplitude to normalize correlation
-    lentrace = len(drive)
-    drive_amp = np.sqrt(2)*np.std(drive)
-
-    # Define the correlation vector which will be populated later
-    corr = np.zeros(int(fsamp/fdrive))
-
-    # Zero-pad the response
-    response = np.append(response, np.zeros(int(fsamp / fdrive) - 1) )
-
-    # Build the correlation
-    n_corr = len(drive)
-    for i in range(len(corr)):
-        # Correct for loss of points at end
-        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical test
-        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
-
-    return corr * (1.0 / (lentrace * drive_amp))
 
 
 
@@ -148,11 +106,11 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros], \
                                 new_trap=new_trap)[pcol] * fac
 
-    try:
-        power = np.mean(file_obj.other_data[0])
-    except Exception:
-        power = 0.0
-        traceback.print_exc()
+    # try:
+    #     power = np.mean(file_obj.power)
+    # except Exception:
+    #     power = 0.0
+    #     traceback.print_exc()
 
     zpos = np.mean(file_obj.pos_data[2])
 
@@ -212,17 +170,18 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     # n_test = 10
     # for i in range(n_test):
     #     test = 3.14159 * np.sin(2 * np.pi * drive_freq * t) + 0.05 * np.random.randn(len(t))
-    #     test_corr = correlation(3 * drive, test, file_obj.fsamp, drive_freq)
+    #     test_corr = bu.correlation(3 * drive, test, file_obj.fsamp, drive_freq)
     #     print(np.sqrt(2) * np.std(test), end=', ')
     #     print(np.max(test_corr))
     # input()
     # #########################
 
     ### Compute the full, normalized correlation and extract amplitude
-    #corr_full = correlation(drive, response, file_obj.fsamp, drive_freq)
-    corr_full = correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
+    #corr_full = bu.correlation(drive, response, file_obj.fsamp, drive_freq)
+    corr_full = bu.correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
 
-    response_amp = np.max(corr_full)
+    response_amp = corr_full[0]
+    response_amp_2 = np.max(corr_full)
     #response_amp2 = corr_full[0]
     #response_amp3 = np.sqrt(2) * np.std(responsefilt)
 
@@ -244,14 +203,14 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     # Include the possibility of a different sign of response
     sign = np.sign(np.mean(drive*responsefilt))
 
-    return response_amp / drive_amp, response_amp, power, zpos
+    return response_amp/drive_amp, response_amp_2/drive_amp, response_amp, zpos # power, zpos
 
 
 
 
 
-def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
-             auto_try = 0.0):
+def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = False, \
+             auto_try = 0.0, max_step_size=10, plot_residual_histograms=False):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    plate_sep, face-to-face separation of electrodes
@@ -265,7 +224,8 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
     step_cal_vec = np.array(step_cal_vec)
 
 
-    yfit = np.abs(step_cal_vec)
+    # yfit = np.abs(step_cal_vec)
+    yfit = np.copy(step_cal_vec)
     yfit = yfit[first_file:]
 
     #bvec = yfit == yfit #[yfit<10.*np.mean(yfit)] #exclude cray outliers
@@ -317,23 +277,17 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
             
             current_charge = [yfit[i]]
 
-            if diff_abs > 4.5 * guess:
-                step_sizes.append(diff_abs * 0.2)
-                step_qs.append(np.sign(diff) * 5)
-            elif diff_abs > 3.5 * guess:
-                step_sizes.append(diff_abs * 0.25)
-                step_qs.append(np.sign(diff) * 4)
-            elif diff_abs > 2.5 * guess:
-                step_sizes.append(diff_abs * 0.33333333)
-                step_qs.append(np.sign(diff) * 3)
-            elif diff_abs > 1.5 * guess:
-                step_sizes.append(diff_abs * 0.5)
-                step_qs.append(np.sign(diff) * 2)
-            else:
-                step_sizes.append(diff_abs)
-                step_qs.append(np.sign(diff) * 1)
+            done = False
+            for step_size in (np.arange(max_step_size) + 1)[::-1]:
+                if (step_size == 1) or (diff_abs > (step_size - 0.5) * guess):
+                    done = True
 
-            step_inds.append(i-1)
+                if done:
+                    step_sizes.append(diff_abs * (1.0 / step_size))
+                    step_qs.append(np.sign(diff) * step_size)
+                    break
+
+            step_inds.append((i-1)*nsec)
             last_step = step_inds[-1]
 
             guess = np.mean(step_sizes + [guess0])
@@ -348,7 +302,7 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
         offarr = np.zeros(len(x)) + offset
         return multi_step_fun(x, qqs, step_inds) + offarr
     
-    xfit = np.arange(len(yfit))
+    xfit = np.arange(len(yfit)) * nsec
 
     p0 = [vpq_guess, 0]#Initial guess for the fit
 
@@ -364,15 +318,20 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
     f, axarr = plt.subplots(2, sharex = True, \
                             gridspec_kw = {'height_ratios':[2,1]}, \
                             figsize=(10,4),dpi=150)#Plot fit
-    normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
-                       axarr[0], ylabel="Norm. Response [e]", xlabel="")
+    normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
+                       ms=3, ylabel="Norm. Response [e]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
-                             xlabel="Integration Number")
+                             ms=3, xlabel="Time [s]")
+    axarr[0].yaxis.set_major_locator(MultipleLocator(5))
+    axarr[1].yaxis.set_major_locator(MultipleLocator(2))
+    for i in [0,1]:
+        axarr[i].yaxis.set_minor_locator(MultipleLocator(1))
+        axarr[i].yaxis.set_minor_formatter(NullFormatter())
+        axarr[i].grid(True, which='minor', alpha=0.3)
+        axarr[i].grid(True, which='major', alpha=0.8)
     # for x in xfit:
     #     if not (x-1) % 3:
     #         axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
-    for i in [0,1]:
-        axarr[i].grid(alpha=0.4)
     plt.tight_layout()
     plt.show()
 
@@ -401,7 +360,7 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
         nstep = eval(input(": "))
 
         step_qs = nstep[0]
-        step_inds = nstep[1]
+        step_inds = np.array(nstep[1]) * nsec
 
         p0 = [nstep[2],0.0]#Initial guess for the fit
         popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-10)
@@ -413,13 +372,54 @@ def step_cal(step_cal_vec, amp_gain = 1., first_file=0, new_trap = False, \
 
         normfitobj = Fit(newpopt / popt[0], pcov / popt[0], ffun)
 
+        resids = ((yfit - popt[1]) / popt[0]) - ffun(xfit, *(newpopt/popt[0]))
+        npts = len(resids)
+
         plt.close(1)
+
         f, axarr = plt.subplots(2, sharex = True, \
-                                gridspec_kw = {'height_ratios':[2,1]})#Plot fit
-        normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], \
-                           axarr[0], ylabel="Normalized Response [e]", xlabel="")
+                                gridspec_kw = {'height_ratios':[2,1]}, \
+                                figsize=(10,4), dpi=150)#Plot fit
+
+        normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
+                           ms=3, ylabel="Norm. Response [$e^{-}$]", xlabel="")
         normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
-                                 xlabel="Integration Number")
+                                 ms=3, ylabel='Resid.', xlabel="Time [s]")
+        axarr[1].set_ylim(-2.2, 2.2)
+        axarr[0].yaxis.set_major_locator(MultipleLocator(5))
+        axarr[1].yaxis.set_major_locator(MultipleLocator(2))
+        for i in [0,1]:
+            axarr[i].yaxis.set_minor_locator(MultipleLocator(1))
+            axarr[i].yaxis.set_minor_formatter(NullFormatter())
+            axarr[i].grid(True, which='minor', alpha=0.3)
+            axarr[i].grid(True, which='major', alpha=0.8)
+
+        if plot_residual_histograms:
+            f2, axarr2 = plt.subplots(1, 3, sharex=True, sharey=True, \
+                                      figsize=(10,2.5), dpi=150)
+
+            ind1 = int( npts / 3.0 )
+            ind2 = int( 2.0 * npts / 3.0 )
+            nbins = int( np.min([np.max([10, int(ind1 / 10)]), 20.0]) )
+
+            vals1, bins1, _ = axarr2[0].hist(resids[:ind1], bins=nbins, range=(-2,2))
+            vals2, bins2, _ = axarr2[1].hist(resids[ind1:ind2], bins=nbins, range=(-2,2))
+            vals3, bins3, _ = axarr2[2].hist(resids[ind2:], bins=nbins, range=(-2,2))
+            maxval = np.max( np.concatenate((vals1, vals2, vals3)) )
+
+            labels = ['First 3rd', 'Middle 3rd', 'Last 3rd']
+            for i in [0,1,2]:
+                axarr2[i].tick_params(axis='y', which='both', right=False, \
+                                     left=False, labelleft=False)
+                axarr2[i].set_xticks([-2,-1,0,1,2])
+                axarr2[i].set_ylim(0, 1.25*maxval)
+                axarr2[i].text(0, 1.125*maxval, labels[i], fontsize=14, \
+                               verticalalignment='center', horizontalalignment='center')
+
+            axarr2[1].set_xlabel('Residuals [$e^{-}$]')
+
+        f.tight_layout()
+        f2.tight_layout()
         plt.show()
 
         happy = input("does the fit look good? (y/n): ")
@@ -471,7 +471,7 @@ class Fit:
             self.errs = "Fit failed"
         self.fun = fun
 
-    def plt_fit(self, xdata, ydata, ax, scale = 'linear', \
+    def plt_fit(self, xdata, ydata, ax, scale = 'linear', ms = 6, \
                     xlabel = 'X', ylabel = 'Y', errors = []):
     
         inds = np.argsort(xdata)
@@ -485,12 +485,12 @@ class Fit:
 
         #modifies an axis object to plot the fit.
         if len(errors):
-            ax.errorbar(xdata, ydata, errors, fmt = 'o')
+            ax.errorbar(xdata, ydata, errors, fmt = 'o', ms = ms)
             ax.plot(xfundata, self.fun(xfundata, *(self.popt)), \
                         'r', linewidth = 3)
 
         else:    
-            ax.plot(xdata, ydata, 'o')
+            ax.plot(xdata, ydata, 'o', ms = ms)
             ax.plot(xfundata + 0.5*delta_x, self.fun(xfundata, *(self.popt)), \
                         'r', linewidth = 3)
 
@@ -500,7 +500,7 @@ class Fit:
         ax.set_ylabel(ylabel)
         ax.set_xlim([np.min(xdata), np.max(xdata)])
     
-    def plt_residuals(self, xdata, ydata, ax, scale = 'linear', \
+    def plt_residuals(self, xdata, ydata, ax, scale = 'linear', ms = 6, \
                         xlabel = 'X', ylabel = 'Residual', label = '', errors = []):
         #modifies an axis object to plot the residuals from a fit.
 
@@ -512,9 +512,9 @@ class Fit:
         #print np.std( self.fun(xdata, *self.popt) - ydata )
 
         if len(errors):
-            ax.errorbar(xdata, self.fun(xdata, *self.popt) - ydata, errors, fmt = 'o')
+            ax.errorbar(xdata, self.fun(xdata, *self.popt) - ydata, errors, fmt = 'o', ms = ms)
         else:
-            ax.plot(xdata, (self.fun(xdata, *self.popt) - ydata), 'o')
+            ax.plot(xdata, (self.fun(xdata, *self.popt) - ydata), 'o', ms = ms)
         
         #ax.set_xscale(scale)
         ax.set_yscale(scale)

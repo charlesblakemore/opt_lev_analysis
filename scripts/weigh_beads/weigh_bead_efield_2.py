@@ -1,4 +1,4 @@
-import os, fnmatch, sys, traceback
+import os, fnmatch, sys, traceback, re
 
 import dill as pickle
 
@@ -58,13 +58,35 @@ file_dict['20200307'] = (arr, 1, 0)
 
 
 arr = []  ### 
-# arr.append('/data/old_trap/20200322/gbead1/weigh/4Vpp_neg')
-# arr.append('/data/old_trap/20200322/gbead1/weigh/6Vpp_neg')
+arr.append('/data/old_trap/20200322/gbead1/weigh/4Vpp_neg')
+arr.append('/data/old_trap/20200322/gbead1/weigh/6Vpp_neg')
 arr.append('/data/old_trap/20200322/gbead1/weigh/8Vpp_neg')
 file_dict['20200322'] = (arr, 1, 0)
 
 
-file_dict = {'20200322': (arr, 1, 0)}
+arr = []  ### 
+# arr.append('/data/old_trap/20200327/gbead1/weigh/4Vpp_neg_lowp')
+# arr.append('/data/old_trap/20200327/gbead1/weigh/6Vpp_neg_lowp')
+arr.append('/data/old_trap/20200327/gbead1/weigh/8Vpp_neg_lowp')
+file_dict['20200327'] = (arr, 1, 0)
+
+
+arr = []  ### 
+arr.append('/data/old_trap/20200330/gbead3/weigh/6Vpp_neg_lowp')
+arr.append('/data/old_trap/20200330/gbead3/weigh/8Vpp_neg_lowp')
+file_dict['20200330'] = (arr, 1, 0)
+
+
+file_dict = {'20200330': (arr, 1, 0)}
+
+
+
+arr = []  ### 
+arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
+file_dict['20200320'] = (arr, 1, 0)
+
+
+file_dict = {'20200320': (arr, 1, 0)}
 
 
 
@@ -83,13 +105,14 @@ noise_dirs = ['/data/20181211/bead2/weigh/noise/no_charge_0.5Hz_4pp', \
               '/data/20181213/bead1/weigh/noise/no-bead_zfb-inject_pd-blocked']
 
 
+new_trap = True
 
 #r_divider = 50000.0 / (3000.0 + 50000.0)
 r_divider = 1.0
 mon_fac = r_divider**(-1) * 100.0 # Tabor amplifier monitor is 100:1
 
-#sign = -1.0
-sign = 1.0
+sign = -1.0
+# sign = 1.0
 trans_gain = 100e3  # V/A
 pd_gain = 0.25      # A/W
 
@@ -108,16 +131,20 @@ save = False
 
 fullNFFT = False
 
+correct_phase_shift = True
 
-save_mass = False
+save_mass = True
 print_res = True
 plot = True
 
 save_example = False
 example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.png'
 
-upper_outlier = 95e-15  # in kg
-lower_outlier = 70e-15
+# upper_outlier = 95e-15  # in kg
+upper_outlier = 95e-13
+
+lower_outlier = 75e-15
+# lower_outlier = 1e-15
 
 try:
     allres_dict = pickle.load(open('./allres.p', 'rb'))
@@ -135,9 +162,9 @@ def line(x, a, b):
     return a * x + b
 
 
-def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
+def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                       file_inds=(0,10000), plot=True, print_res=False, pos=False, \
-                      save_mass=False):
+                      save_mass=False, new_trap=False, correct_phase_shift=False):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -150,10 +177,19 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
 
        OUTPUTS: none, plots stuff
     '''
+    date = re.search(r"\d{8,}", files[0])[0]
+    suffix = files[0].split('/')[-2]
 
-    date = files[0].split('/')[3]
+    if new_trap:
+        trap_str = 'new_trap'
+    else:
+        trap_str = 'old_trap'
 
-    charge_file = '/data/old_trap_processed/calibrations/charges/' + date
+    charge_file = '/data/{:s}_processed/calibrations/charges/'.format(trap_str) + date
+    save_filename = '/data/{:s}_processed/calibrations/masses/'.format(trap_str) \
+                            + date + '_' + suffix + '.mass'
+    bu.make_all_pardirs(save_filename)
+
     if pos:
         charge_file += '_recharge.charge'
     else:
@@ -162,14 +198,15 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
     try:
         nq = np.load(charge_file)[0]
     except:
-        nq = input('No charge file. Guess q: ')
+        user_nq = input('No charge file. Guess q: ')
+        nq = int(user_nq)
+
+    if correct_phase_shift:
+        print('Correcting anomalous phase-shift during analysis.')
 
     # nq = -16
-    print(int(nq))
+    print('qbead: {:d} e'.format(int(nq)))
     q_bead = nq * constants.elementary_charge   
-
-    suffix = files[0].split('/')[-2]
-    save_filename = '/data/old_trap_processed/calibrations/masses/'+date+'_'+suffix+'.mass'
 
     run_index = 0
 
@@ -217,13 +254,16 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         # Load data
         df = bu.DataFile()
         try:
-            df.load(fil, load_other=True)
+            if new_trap:
+                df.load_new(fil)
+            else:
+                df.load(fil, load_other=True)
         except Exception:
             traceback.print_exc()
             continue
 
         try:
-            df.calibrate_stage_position()
+            # df.calibrate_stage_position()
             df.calibrate_phase()
         except Exception:
             traceback.print_exc()
@@ -232,10 +272,41 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         if ('20181129' in fil) and ('high' in fil):
             pressure_vec.append(1.5)
         else:
-            pressure_vec.append(df.pressures['pirani'])
+            try:
+                pressure_vec.append(df.pressures['pirani'])
+            except Exception:
+                pressure_vec.append(0.0)
+
+        ### Extract electrode data
+        if new_trap:
+            top_elec = df.electrode_data[1]
+            bot_elec = df.electrode_data[2]
+        else:
+            top_elec = mon_fac * df.other_data[elec_ind]
+            bot_elec = mon_fac * df.other_data[elec_ind+1]
+
+        fac = 1.0
+        if np.std(top_elec) < 0.5 * np.std(bot_elec) \
+                or np.std(bot_elec) < 0.5 * np.std(top_elec):
+            print('Adjusting electric field since only one electrode was digitized.')
+            fac = 2.0
+
+        # plt.plot(top_elec)
+        # plt.plot(bot_elec)
+        # plt.show()
+
+        nsamp = len(top_elec)
+        zeros = np.zeros(nsamp)
+
+        voltages = [zeros, top_elec, bot_elec, zeros, \
+                    zeros, zeros, zeros, zeros]
+        efield = bu.trap_efield(voltages, new_trap=new_trap)
+        eforce2 = fac * sign * efield[2] * q_bead
+
 
         freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
-        drive_ind = np.argmin(np.abs(freqs-0.5))
+        drive_ind = np.argmax(np.abs(np.fft.rfft(eforce2)))
+        drive_freq = freqs[drive_ind]
 
         zamp = np.abs( np.fft.rfft(df.zcal) * bu.fft_norm(df.nsamp, df.fsamp) * \
                        np.sqrt(freqs[1] - freqs[0]) )
@@ -253,42 +324,6 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
                       np.sqrt(freqs[1] - freqs[0]) )
         zfb_avg += zfb[drive_ind]
         zfb_N += 1
-
-        #plt.loglog(freqs, zfb)
-        #print zfb[drive_ind]
-        #print (np.sum(zfb) - zfb[drive_ind]) / (len(zfb))
-        #plt.show()
-
-        #badfile = (zfb[drive_ind]) < 500 * ((np.sum(zfb) - zfb[drive_ind]) / (len(zfb)))
-
-        #if badfile:
-        #    Nbad += 1
-        #    continue
-
-
-        top_elec = mon_fac * df.other_data[elec_ind]
-        bot_elec = mon_fac * df.other_data[elec_ind+1]
-
-
-        fac = 1.0
-        if np.std(top_elec) < 0.5 * np.std(bot_elec) \
-                or np.std(bot_elec) < 0.5 * np.std(top_elec):
-            fac = 2.0
-
-        # plt.plot(top_elec)
-        # plt.plot(bot_elec)
-        # plt.show()
-
-        Vdiff = top_elec - bot_elec
-        #eforce = -1.0 * (Vdiff / (4.0e-3)) * q_bead
-
-        nsamp = len(top_elec)
-        zeros = np.zeros(nsamp)
-
-        voltages = [zeros, top_elec, bot_elec, zeros, \
-                    zeros, zeros, zeros, zeros]
-        efield = bu.trap_efield(voltages)
-        eforce2 = fac * sign * efield[2] * q_bead
 
 
 
@@ -329,13 +364,18 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         else:
             powpsd += np.abs(fft1)
             Npsd += 1
-        
 
+        # freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
+        # plt.loglog(freqs, np.abs(np.fft.rfft(eforce2)))
+        # plt.loglog(freqs, np.abs(np.fft.rfft(power)))
+        # plt.show()
+        # input()
 
-
-        bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.05, \
+        bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.0, #width=0.05, \
                                          dt=1.0/df.fsamp, harms=[1], \
-                                         add_mean=True, verbose=False)
+                                         add_mean=True, verbose=False, \
+                                         correct_phase_shift=correct_phase_shift, \
+                                         grad_sign=0)
 
         dat = dat / np.mean(dat)
 
@@ -355,6 +395,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         #lmass = llev_force / 9.806
 
         if mass > upper_outlier or mass < lower_outlier:
+            print('Crazy mass: {:0.2f} pg'.format(mass*1e15))
             fig, axarr = plt.subplots(3,1,sharex=True)
             axarr[0].plot(eforce2)
             axarr[1].plot(power)
@@ -370,8 +411,6 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
         all_power.append(dat)
 
         mass_vec.append(mass)
-
-
 
     if noise:
         print('DC power: ', np.mean(p_dc), np.std(p_dc))
@@ -402,7 +441,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='jet', sort='time',\
                  '--', color='k', lw=2, \
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
-        ax.set_xlim((left, 110))
+        ax.set_xlim((left, 600))
 
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))
@@ -544,7 +583,8 @@ for date in dates:
                                                verbose=False)
         dat = weigh_bead_efield(allfiles, elec_ind, pow_ind, pos=pos, \
                                 print_res=print_res, plot=plot, \
-                                save_mass=save_mass)
+                                save_mass=save_mass, new_trap=new_trap, \
+                                correct_phase_shift=correct_phase_shift)
         allres.append(dat)
         allres_dict[date].append(dat)
         masses.append(dat[0])

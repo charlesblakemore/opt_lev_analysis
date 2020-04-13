@@ -3,6 +3,7 @@ import glob, os, sys, copy, time, math
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.ticker import LogLocator, NullFormatter
 
 import scipy
 import scipy.optimize as opti
@@ -15,6 +16,8 @@ import image_util as imu
 import configuration as config
 
 import dill as pickle
+
+from iminuit import Minuit, describe
 
 
 
@@ -33,7 +36,8 @@ def damped_osc_amp(f, A, f0, g):
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * g**2)
+    gamma = 2. * np.pi * g
+    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * gamma**2)
     return A / denom
 
 def damped_osc_phase(f, A, f0, g, phase0 = 0.):
@@ -47,7 +51,9 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+    gamma = 2. * np.pi * g
+    # return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+    return 1.0 * np.arctan2(-w * gamma, w0**2 - w**2) + phase0
 
 
 
@@ -209,7 +215,8 @@ def make_extrapolator(interpfunc, pts=(10, 10), order=(1,1), arb_power_law=(Fals
 
 
 def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 1., \
-                         plot_qpd_response=False, drop_bad_bins=True, new_trap=False):
+                         plot_qpd_response=False, drop_bad_bins=True, new_trap=False, \
+                         lines_to_remove=[60.0]):
     '''Generates a transfer function from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    average_first, boolean specifying whether to average responses
@@ -341,16 +348,26 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         b = finds > np.argmin(np.abs(fft_freqs - mfreq))
 
         tf_inds = finds[b]
-        line_freq_ind = np.argmin(np.abs(fft_freqs - 60.0))
-        tf_inds = tf_inds[tf_inds != line_freq_ind]
+        for linefreq in lines_to_remove:
+            print('Ignoring response at line frequency: {:0.1f}'.format(linefreq))
+            line_freq_ind = np.argmin(np.abs(fft_freqs - linefreq))
+            tf_inds = tf_inds[tf_inds != line_freq_ind]
 
         freqs = fft_freqs[tf_inds]
 
-        # Compute FFT of each response divided by FFT of each drive.
-        # This is way more information than we need for a single drive freq
-        # and electrode pair, but it allows a nice vectorization
-        Hmat = np.einsum('ij, kj -> ikj', \
-                             avg_data_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
+        # plt.plot(freqs, np.angle(avg_drive_fft[eind][eind,tf_inds]) / np.pi)
+        # plt.title('Raw Phase From Drive FFT')
+        # plt.ylabel('Apparent Phase [$\\pi \\, rad$]')
+        # plt.xlabel('Drive Frequency [Hz]')
+        # plt.tight_layout()
+
+        # plt.figure()
+        # plt.plot(freqs, np.unwrap(np.angle(avg_drive_fft[eind][eind,tf_inds])) / np.pi)
+        # plt.title('Unwrapped Phase From Drive FFT')
+        # plt.ylabel('Apparent Phase [$\\pi \\, rad$]')
+        # plt.xlabel('Drive Frequency [Hz]')
+        # plt.tight_layout()
+        # plt.show()
 
         # outind = config.elec_map[eind]
         outind = eind
@@ -412,6 +429,14 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
                 for drive in [0,1,2]:
                     axarr[0,drive].set_title(poslabs[drive] + ' Drive')
 
+
+
+        ### Compute FFT of each response divided by FFT of each drive.
+        ### This is way more information than we need for a single drive freq
+        ### and electrode pair, but it allows a nice vectorization
+        Hmat = np.einsum('ij, kj -> ikj', \
+                             avg_data_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
+
         Hmat_fb = np.einsum('ij, kj -> ikj', \
                             avg_fb_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
         Hmat_amp = np.einsum('ij, kj -> ikj', \
@@ -464,21 +489,28 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         plt.show()
 
     # first_mats = []
-    # freqs = list(Hout.keys())
-    # freqs.sort()
+    freqs = list(Hout.keys())
+    freqs.sort()
+    # print(freqs)
+    # input()
     # for freq in freqs[:3]:
     #     first_mats.append(Hout[freq])
     # first_mats = np.array(first_mats)
     # init_phases = np.mean(np.angle(first_mats), axis=0)
 
-    init_phases = np.angle(Hout[freqs[0]])
-    for drive in [0,1,2]:
-        if np.abs(init_phases[drive,drive]) > 2.0:
-            print("Correcting phase shift for drive channel", drive)
-            sys.stdout.flush()
-            for freq in freqs:
-                Hout[freq][drive,:] = Hout[freq][drive,:] * (-1)
-                # Hout[freq][:,drive] = Hout[freq][:,drive] * (-1)
+    # init_phases = np.angle(Hout[freqs[0]])
+    # for drive in [0,1,2]:
+    #     if np.abs(init_phases[drive,drive]) > 1.5:
+    #         ### Check the second frequency to make sure the first isn't crazy
+    #         if np.abs(np.angle(Hout[freqs[1]][drive,drive])) > 1.5:
+    #             print("Correcting phase shift for drive channel", drive)
+    #             sys.stdout.flush()
+    #             for freq in freqs:
+    #                 Hout[freq][drive,:] = Hout[freq][drive,:] * (-1)
+    #                 # Hout[freq][:,drive] = Hout[freq][:,drive] * (-1)
+    #         else:
+    #             Hout[freqs[0]][drive,:] = Hout[freqs[0]][drive,:] * (-1)
+
 
     out_dict = {'Hout': Hout, 'Hout_amp': Hout_amp, 'Hout_phase': Hout_phase, \
                 'Hout_noise': Hout_noise}
@@ -498,7 +530,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
 
 def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
-                verbose=False):
+                verbose=False, neg_charge=True):
     '''Calibrates a transfer function with a given charge step calibration.
        This inherently assumes all the gains are matched between the step response
        and transfer function measurement
@@ -535,12 +567,15 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
     mean_resp = np.abs(Hout[freqs[ind]][j,j])
     # mean_resp = Hout[freqs[ind]][j,j].real
 
-    q = mean_resp / vpn
+    q_tf = mean_resp / vpn
     e_charge = constants.elementary_charge
+
+    if neg_charge:
+        q_tf *= -1.0
 
     if verbose:
         outstr = "Charge-step calibration implies "+\
-                 "{:0.2f} charge during H measurement".format(q / e_charge)
+                 "{:0.2f} charge during H measurement".format(q_tf / e_charge)
         print(outstr)
 
     Hout_cal = {}
@@ -549,9 +584,9 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
         # and convert to force with capacitor plate separation
         # F = q*E = q*(V/d) so we take
         # (Vresp / Vdrive) * d / q = Vresp / Fdrive
-        Hout_cal[freq] = np.copy(Hout[freq]) * (vpn / mean_resp)
+        Hout_cal[freq] = np.copy(Hout[freq]) * (1.0 / q_tf)
 
-    return Hout_cal, q / e_charge
+    return Hout_cal, q_tf / e_charge
 
 
 
@@ -562,10 +597,10 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
 
         
 
-def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
+def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                  weight_peak=False, weight_lowf=False, lowf_weight_fac=0.1, \
-                 lowf_thresh=120., plot_without_fits=False,\
-                 weight_phase=False, plot_fits=False, plot_inits=False, \
+                 lowf_thresh=120., plot=False, plot_fits=False,\
+                 weight_phase=False, plot_inits=False, plot_off_diagonal=False,\
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
                  interpolate = False, max_freq=600, num_to_avg=5, \
                  real_unwrap=False, derpy_unwrap=True):
@@ -585,18 +620,39 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
     mats = np.array(mats)
     fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]   
 
-    if plot_fits or plot_without_fits:
-        f1, axarr1 = plt.subplots(3,3, sharex=True, sharey='row', figsize=(10,8))
-        f2, axarr2 = plt.subplots(3,3, sharex=True, sharey=True, figsize=(10,8))
+    if plot:
+        figsize = (8,6)
+        # figsize = (10,8)
+        # f1, axarr1 = plt.subplots(3,3, sharex=True, sharey='row', figsize=figsize)
+        f1, axarr1 = plt.subplots(3,3, sharex=True, sharey=True, figsize=figsize)
+        f2, axarr2 = plt.subplots(3,3, sharex=True, sharey=True, figsize=figsize)
 
-        if fit_osc_sum:
-            f3, axarr3 = plt.subplots(3,3, sharex=True, sharey=True)
-            f4, axarr4 = plt.subplots(3,3, sharex=True, sharey=True)
-            f3.suptitle("Magnitude of Transfer Function", fontsize=18)
-            f4.suptitle("Phase of Transfer Function", fontsize=18)
+        # colors = bu.get_color_map(5, cmap='inferno')
+        data_color, fit_color = ['k', 'C1']
 
     for drive in [0,1,2]:
         for resp in [0,1,2]:
+            if drive == resp and drive != 2:
+                interpolate = False
+            else:
+                interpolate = True
+
+            ### Define some axis dependent variables to avoid overwriting
+            ### the arguments provided in the function call
+            if drive == resp:
+                r_unwrap = real_unwrap
+                d_unwrap = derpy_unwrap
+            else:
+                r_unwrap = False
+                d_unwrap = False
+
+            ### A shitty shit factor that I have to add because folks operating
+            ### the new trap don't know how to scale things
+            if resp == 2:
+                plot_fac = 3e-7
+            else:
+                plot_fac = 1.0
+
             # Build the array of TF magnitudes and remove NaNs
             mag = np.abs(mats[:,resp,drive])
             nans = np.isnan(mag)
@@ -612,16 +668,19 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                     phase[nanind] = phase[nanind-1]
 
             # Unwrap the phase
-            if real_unwrap:
+            if r_unwrap:
                 unphase = np.unwrap(phase, discont=1.4*np.pi)
-            elif derpy_unwrap:
+            elif d_unwrap:
                 pos_inds = phase > np.pi / 4.0
                 unphase = phase - 2.0 * np.pi * pos_inds
             else:
                 unphase = phase
 
+            b1 = keys >= fit_freqs[0]
+            b2 = keys <= fit_freqs[1]
+            b = b1 * b2
+
             if interpolate:
-                b = keys < max_freq
                 num = num_to_avg
                 magfunc = interp.interp1d(keys[b], mag[b], kind='quadratic') #, \
                                           #fill_value=(np.mean(mag[b][:num]), mag[b][-1]), \
@@ -651,57 +710,45 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                                                 arb_power_law=arb_power_law_phase, semilogx=True)
 
                 fits[resp][drive] = (magfunc2, phasefunc2)
-                if plot_fits or plot_without_fits:
+                if plot:
                     pts = np.linspace(np.min(keys) / 2., np.max(keys) * 2., len(keys) * 100)
-                    
+            
+                    axarr1[resp,drive].loglog(keys, mag * plot_fac, 'o', ms=6, color=data_color)
+                    axarr2[resp,drive].semilogx(keys, unphase, 'o', ms=6, color=data_color)
 
-                    if grid:
-                        axarr1[resp,drive].grid()
-                        axarr2[resp,drive].grid()
+                    if plot_fits and ((resp == drive) or plot_off_diagonal):
+                        axarr1[resp,drive].loglog(pts, magfunc2(pts) * plot_fac, color=fit_color, \
+                                                    linestyle='--', linewidth=2, alpha=1.0)
+                        axarr2[resp,drive].semilogx(pts, phasefunc2(pts), color=fit_color, \
+                                                    linestyle='--', linewidth=2, alpha=1.0)
 
-                    axarr1[resp,drive].loglog(keys, mag, 'o', ms=6)
-                    if not plot_without_fits:
-                        axarr1[resp,drive].loglog(pts, magfunc2(pts), color='r', \
-                                                    linestyle='--', linewidth=2, alpha=0.7)
-
-                    axarr2[resp,drive].semilogx(keys, unphase / np.pi, 'o', ms=6)
-                    if not plot_without_fits:
-                        axarr2[resp,drive].semilogx(pts, phasefunc2(pts) / np.pi, color='r', \
-                                                    linestyle='--', linewidth=2, alpha=0.7)
-                # continue
 
             if not interpolate:
-                # Make initial guess based on high-pressure thermal spectra fits
-                #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
-                if (drive == 2) or (resp == 2):
-                    # Z-direction is considerably different than X or Y
-                    Amp = 1e27
-                    f0 = 200
-                    g = f0 * 5.0
-                    fit_freqs = [1.,600.]
-                    fpeak = fpeaks[2]
-                else:
-                    Amp = 1e27
-                    f0 = 400
-                    g = f0 * 0.3
-                    fit_freqs = [1.,600.]
-                    fpeak = fpeaks[resp]
 
                 fpeak = keys[np.argmax(mag)]
                 if fpeak < 100.0:
                     fpeak = fpeaks[resp]
 
-                # Construct initial paramter arrays
-                p0_mag = [Amp, f0, g]
-                p0_phase = [1., f0, g]  # includes arbitrary smearing amplitude
+                # Make initial guess based on high-pressure thermal spectra fits
+                #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
+                if (drive == 2) or (resp == 2):
+                    # Z-direction is considerably different than X or Y
+                    g = fpeak * 2.0
+                    # fit_freqs = [1.,600.]
+                else:
+                    g = fpeak * 0.15
+                    # fit_freqs = [1.,600.]
 
-                b1 = keys > fit_freqs[0]
-                b2 = keys < fit_freqs[1]
-                b = b1 * b2
+                amp0 = np.mean( mag[b][:np.argmin(np.abs(keys[b] - 100.0))] ) \
+                                * ((2.0 * np.pi * fpeak)**2)
+
+                # Construct initial paramter arrays
+                p0_mag = [amp0, fpeak, g]
+                p0_phase = [1., fpeak, g]  # includes arbitrary smearing amplitude
 
                 # Construct weights if desired
                 npkeys = np.array(keys)
-                weights = np.zeros(len(npkeys)) + 1.
+                mag_weights = np.zeros_like(npkeys) + 1.
                 if (weight_peak or deweight_peak):
                     if weight_peak:
                         fac = -0.7
@@ -710,211 +757,153 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600], fpeaks=[400.,400.,200.], \
                             fac = 1.0
                         else:
                             fac = 1.0
-                    weights = weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 50) )
+                    mag_weights = mag_weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 50) )
                 if weight_lowf:
                     ind = np.argmin(np.abs(npkeys - lowf_thresh))
                     # if drive != resp:
-                    weights[:ind] *= lowf_weight_fac #0.01
+                    mag_weights[:ind] *= lowf_weight_fac #0.01
+                mag_weights *= amp0 / ((2.0 * np.pi * fpeak)**2)
 
                 phase_weights = np.zeros(len(npkeys)) + 1.
-                if weight_phase and (drive != 2 and resp != 2):
-                    low_ind = np.argmin(np.abs(npkeys - 10.0))
-                    high_ind = np.argmin(np.abs(npkeys - 10.0))
-                    phase_weights[low_ind:ind] *= 0.05
-
-                # Fit the TF magnitude
-                try:
-                    popt_mag, pcov_mag = opti.curve_fit(damped_osc_amp, keys[b], mag[b], \
-                                                   sigma=weights[b], p0=p0_mag, maxfev=1000000)
-                except:
-                    popt_mag = p0_mag
-
-                # Fit the TF phase with varying phi(DC): -pi, 0 and pi and
-                # select the sign based on sum of residuals
-                phase_fits = {}
-                phase_resids = [0.,0.,0.]
-                bounds = ([0.1, -np.inf, -np.inf], [10, np.inf, np.inf])
-                for pmult in np.arange(-1,2,1):
-                    # Wrap fitting in a try/except block since trying all 3
-                    # phi(DC) will inevitably lead to some bad fits
-                    try:
-                        fitfun = lambda x,a,b,c: damped_osc_phase(x,a,b,c,phase0=np.pi*pmult)
-                        popt, pcov = opti.curve_fit(fitfun, keys[b], unphase[b], \
-                                               p0=p0_phase, bounds=bounds,
-                                               sigma=phase_weights[b])
-                    except:
-                        #print "bad fit...", drive, resp, np.pi*pmult
-                        popt = p0_phase
-
-                    # Save the fits and the residuals
-                    phase_fits[pmult] = np.copy(popt)
-                    phase_resids[pmult] = np.sum( np.abs( \
-                                            damped_osc_phase(keys[b], *popt, phase0=np.pi*pmult) \
-                                                         - unphase[b]) )
+                # if weight_phase and (drive != 2 and resp != 2):
+                #     low_ind = np.argmin(np.abs(npkeys - 10.0))
+                #     high_ind = np.argmin(np.abs(npkeys - 10.0))
+                #     phase_weights[low_ind:ind] *= 0.05
+                phase_weights *= np.pi
 
                 lowkey = np.argmin(np.abs(keys[b]-10.0))
                 highkey = np.argmin(np.abs(keys[b]-100.0))
                 avg = np.mean(unphase[b][lowkey:highkey])
 
                 mult = np.argmin(np.abs(avg - np.array([0, np.pi, -1.0*np.pi])))
-
-                #print drive, resp, phase_resids
-                #mult = np.argmin(phase_resids)
                 if mult == 2:
                     mult = -1
-
-                popt_phase = phase_fits[mult]
                 phase0 = np.pi * mult
+
+                # plt.figure()
+                # plt.loglog(keys[b], mag[b])
+                # plt.loglog(keys[b], damped_osc_amp(keys[b], amp0, fpeak, g))
+                # plt.show()
+
+                def NLL(amp, f0, g):
+                    mag_term = ( damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
+                    phase_term = ( damped_osc_phase(keys[b], 1.0, f0, g, phase0=phase0) - unphase[b] )**2 \
+                                        / phase_weights[b]**2
+                    return np.sum(mag_term + phase_term)
+
+                def NLL2(amp, f0, g):
+                    mag_term = ( damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
+                    return np.sum(mag_term)
+
+                m = Minuit(NLL2,
+                           amp = amp0, # set start parameter
+                           # fix_amp = 'True', # you can also fix it
+                           # limit_amp = (0.0, 10000.0),
+                           f0 = fpeak, # set start parameter
+                           # fix_f0 = 'True', 
+                           # limit_f0 = (0.0, 10000.0),
+                           g = g, # set start parameter
+                           # fix_sigma = "True", 
+                           # limit_sigma = (1e-3 * sigma_guess, 1000.0 * sigma_guess),
+                           errordef = 1,
+                           print_level = 0, 
+                           pedantic=False)
+                m.migrad(ncall=500000)
+
+                popt_mag = [m.values['amp'], m.values['f0'], m.values['g']]
+                popt_phase = [1.0, m.values['f0'], m.values['g']]
 
                 fits[resp][drive] = (popt_mag, popt_phase, phase0)
 
-                if plot_fits or plot_without_fits:
+                # if drive == resp:
+                #     print()
+                #     print(drive)
+                #     print(popt_mag)
+                #     print(pcov_mag)
+                #     print(popt_phase)
+                #     print(pcov_phase)
+                #     print()
 
-                    fitmag = damped_osc_amp(keys[b], popt_mag[0], \
-                                        popt_mag[1], popt_mag[2])
-                    fitphase = damped_osc_phase(keys[b], popt_phase[0], \
-                                            popt_phase[1], popt_phase[2], phase0=phase0)
+                if plot:
+                    pts = np.linspace(np.min(keys) / 2., np.max(keys) * 2., len(keys) * 100)
+
+                    axarr1[resp,drive].loglog(keys, mag, 'o', ms=6, color=data_color)
+                    axarr2[resp,drive].semilogx(keys, unphase, 'o', ms=6, color=data_color)
+
+                    if plot_fits:
+                        fitmag = damped_osc_amp(pts, *popt_mag)
+                        axarr1[resp,drive].loglog(pts, fitmag, ls='-', \
+                                                  color=fit_color, linewidth=2)
+
+                        fitphase = damped_osc_phase(pts, *popt_phase, phase0=phase0)
+                        axarr2[resp,drive].semilogx(pts, fitphase, ls='-', \
+                                                    color=fit_color, linewidth=2)
 
                     if plot_inits:
-                        maginit = damped_osc_amp(keys[b], p0_mag[0], p0_mag[1], p0_mag[2])
-                        phaseinit = damped_osc_phase(keys[b], p0_phase[0], p0_phase[1], \
-                                             p0_phase[2], phase0=phase0)
+                        maginit = damped_osc_amp(pts, *p0_mag)
+                        axarr1[resp,drive].loglog(pts, maginit, ls='-', color='k', linewidth=2)
 
-                    if grid:
-                        axarr1[resp,drive].grid()
-                        axarr2[resp,drive].grid()
-
-                    axarr1[resp,drive].loglog(keys, mag)
-                    if not plot_without_fits:
-                        axarr1[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
-                    if plot_inits:
-                        axarr1[resp,drive].loglog(keys[b], maginit, color='k', linewidth=2)
-
-                    axarr2[resp,drive].semilogx(keys, unphase / np.pi)
-                    if not plot_without_fits:
-                        axarr2[resp,drive].semilogx(keys[b], fitphase / np.pi, \
-                                                    color='r', linewidth=3)
-                    if plot_inits:
-                        axarr2[resp,drive].semilogx(keys[b], phaseinit / np.pi, \
-                                                    color='k', linewidth=2)
+                        phaseinit = damped_osc_phase(pts, *p0_phase, phase0=phase0)
+                        axarr2[resp,drive].semilogx(pts, phaseinit, \
+                                                    ls='-', color='k', linewidth=2)
 
 
+    if plot:
 
-    if fit_osc_sum:
-
-        sum_fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        fitx = fits[0][0]
-        fity = fits[1][1]
-        fitz = fits[2][2]
-        fx = fitx[0][1]
-        fy = fity[0][1]
-        fz = fitz[0][1]
-        for drive in [0,1,2]:
-            for resp in [0,1,2]:
-                # Build the array of TF magnitudes and remove NaNs
-                mag = np.abs(mats[:,resp,drive])
-                nans = np.isnan(mag)
-                for nanind, boolv in enumerate(nans):
-                    if boolv:
-                        mag[nanind] = mag[nanind-1]
-
-                # Build the array of TF phases and remove NaNs
-                phase = np.angle(mats[:,resp,drive])
-                nans2 = np.isnan(phase)
-                for nanind, boolv in enumerate(nans2):
-                    if boolv:
-                        phase[nanind] = phase[nanind-1]
-
-                # Unwrap the phase
-                unphase = np.unwrap(phase, discont=1.4*np.pi)
-
-                phase0 = fits[resp][drive][2]
-                fit_phase_func = lambda f,a1,a2,a3:\
-                                 sum_3osc_phase(f, a1, fx, fitx[0][2], \
-                                                a2, fy, fity[0][2], \
-                                                a3, fz, fitz[0][2], \
-                                                phase0=phase0)
-
-                fit_amp_func = lambda f,a1,g1,a2,g2,a3,g3:\
-                                 sum_3osc_amp(f, a1, fx, g1, a2, fy, g2, a3, fz, g3)
-
-                b1 = keys > 1.
-                b2 = keys < 501.
-                b = b1 * b2
-
-                p0_mag = np.array([fitx[0][0], fitx[0][2], \
-                                   fity[0][0], fity[0][2], \
-                                   fitz[0][0], fitz[0][2], ])
-
-                p0_phase = np.array([1.,  1., 1.])
-
-                mask = np.array([0.1, 1., 0.1, 1., 0.1, 1.])
-                if resp == drive:
-                    mask[resp*2] = 1.
-                else:
-                    mask[resp*2] = 0.5
-
-                p0_mag = mask * p0_mag
-                #p0_phase = mask * p0_phase
-
-                popt_mag, pcov_mag = opti.curve_fit(fit_amp_func, keys[b], mag[b], \
-                                                   p0=p0_mag, maxfev=1000000)
-
-                popt_phase, pcov_phase = opti.curve_fit(fit_phase_func, keys[b], unphase[b], \
-                                                       p0=p0_phase, maxfev=1000000)
-
-                sum_fits[resp][drive] = (popt_mag, popt_phase, phase0)
-                #except:
-                #    raw_input("Sum fit for Drive: %i, and Response: %i, FAILED" % (drive, resp))
-
-                if plot_fits:
-
-                    fitmag = fit_amp_func(keys[b], *popt_mag)
-                    fitphase = fit_phase_func(keys[b], *popt_phase)
-
-                    if grid:
-                        axarr3[resp,drive].grid()
-                        axarr4[resp,drive].grid()
-
-                    axarr3[resp,drive].loglog(keys, mag)
-                    axarr3[resp,drive].loglog(keys[b], fitmag, color='r', linewidth=3)
-
-                    axarr4[resp,drive].semilogx(keys, unphase / np.pi)
-                    axarr4[resp,drive].semilogx(keys[b], fitphase / np.pi, color='r', linewidth=3)
-
-    if plot_fits:
+        mag_major_locator = LogLocator(base=100.0, numticks=20)
+        mag_minor_locator = LogLocator(base=10.0, numticks=20)
 
         ax_to_pos = {0: 'X', 1: 'Y', 2: 'Z'}
         for drive in [0,1,2]:
-            axarr1[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
+            # axarr1[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
+            axarr1[0, drive].set_title("Drive $\\widetilde{{F}}_{:s}$".format(ax_to_pos[drive]))
             axarr1[2, drive].set_xlabel("Frequency [Hz]")
-            axarr1[2, drive].set_xticks([1, 10, 100])
+            # axarr1[2, drive].set_xticks([1, 10, 100])
+            axarr1[2, drive].set_xticks([1, 10, 100, 1000])
+            axarr1[2, drive].set_xlim(2.5, 1800)
 
-            axarr2[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
+            # axarr2[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
+            axarr2[0, drive].set_title("Drive $\\widetilde{{F}}_{:s}$".format(ax_to_pos[drive]))
             axarr2[2, drive].set_xlabel("Frequency [Hz]")
-            axarr2[2, drive].set_xticks([1, 10, 100])
+            # axarr2[2, drive].set_xticks([1, 10, 100])
+            axarr2[2, drive].set_xticks([1, 10, 100, 1000])
+            axarr2[2, drive].set_xlim(2.5, 1800)
 
-
-            if fit_osc_sum:
-
-                axarr3[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
-                axarr3[2, drive].set_xlabel("Frequency [Hz]")
-
-                axarr4[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
-                axarr4[2, drive].set_xlabel("Frequency [Hz]")
 
         for response in [0,1,2]:
-            axarr1[response, 0].set_ylabel("Resp {:s} [Arb/N]".format(ax_to_pos[response]))
-            axarr2[response, 0].set_ylabel("Resp {:s} [$\\pi\\cdot$rad]".format(ax_to_pos[response]))
-            axarr2[response, 0].set_yticks([-1, 0, 1])
+            # axarr1[response, 0].set_ylabel("Resp {:s} [Arb/N]".format(ax_to_pos[response]))
+            axarr1[response, 0].set_ylabel("$| \\widetilde{{R}}_{:s} / \\widetilde{{F}}_i |$ [Arb/N]"\
+                                                .format(ax_to_pos[response]))
+            # axarr1[response, 0].set_yticks([1e9, 1e11, 1e13])
+            axarr1[response, 0].yaxis.set_major_locator(mag_major_locator)
+            # axarr1[response, 0].set_yticks([1e8, 1e10, 1e12, 1e14], minor=True)
+            axarr1[response, 0].yaxis.set_minor_locator(mag_minor_locator)
+            axarr1[response, 0].yaxis.set_minor_formatter(NullFormatter())
+            axarr1[response, 0].set_ylim(1e9, 1e13)
 
-            if fit_osc_sum:
+            # axarr2[response, 0].set_ylabel("Resp {:s} [$\\pi\\cdot$rad]".format(ax_to_pos[response]))
+            axarr2[response, 0].set_ylabel("$ \\angle \\, \\widetilde{{R}}_{:s} / \\widetilde{{F}}_i $ [rad]"\
+                                                .format(ax_to_pos[response]))
+            axarr2[response, 0].set_yticks([-2*np.pi, -1*np.pi, 0, 1*np.pi, 2*np.pi])
+            axarr2[response, 0].set_yticklabels(['-2$\\pi$', '-$\\pi$', '0', '$\\pi$', '2$\\pi$'])
+            axarr2[response, 0].set_ylim(-1.3*np.pi, 1.3*np.pi)
 
-                axarr3[response, 0].set_ylabel("Resp {:s} [Arb/N]".format(ax_to_pos[response]))
-                axarr4[response, 0].set_ylabel("Resp {:s} [rad]".format(ax_to_pos[response]))
 
         f1.suptitle("Magnitude of Transfer Function", fontsize=18)
         f2.suptitle("Phase of Transfer Function", fontsize=18)
+
+        f1.tight_layout()
+        f2.tight_layout()
+
+        f1.subplots_adjust(wspace=0.065, hspace=0.1, top=0.88)
+        f2.subplots_adjust(wspace=0.065, hspace=0.1, top=0.88)
+
+
+        if grid:
+            for d in [0,1,2]:
+                for r in [0,1,2]:
+                    axarr1[r,d].grid(True, which='both')
+                    axarr2[r,d].grid(True)
 
         plt.show()
 

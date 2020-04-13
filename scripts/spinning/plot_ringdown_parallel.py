@@ -23,14 +23,14 @@ n_core = 20
 
 plt.rcParams.update({'font.size': 14})
 
-date = '20191017'
+date = '20200322'
 
 # fig_base = '/home/cblakemore/plots/20190626/'
 savefig = True
-fig_base = '/home/cblakemore/plots/{:s}/'.format(date)
+fig_base = '/home/cblakemore/plots/{:s}/spinning/'.format(date)
 #fig_base = '/home/cblakemore/plots/spinsim/'
-#suffix = ''
-suffix = '_less-yrange'
+suffix = ''
+# suffix = '_less-yrange'
 #suffix = '_3_5e-6mbar_110kHz_real-noise'
 
 #dirname = '/data/old_trap_processed/spinning/ringdown/20190626/'
@@ -55,37 +55,41 @@ fix_fterm = False
 fit_end_time = 3000.0
 exp_fit_end_time = 3000.0
 two_point_end_time = 3000.0
-#tau_ylim = (1700, 2100)
-tau_ylim = (1850,2050)
+tau_ylim = (1000, 2500)
+# tau_ylim = (1850,2050)
 both_two_point = False
 
 err_adjust = 5.0
 
-newpaths = [#dirname + '100kHz_start_4_all.p', \
-            #dirname + '100kHz_start_5_all.p', \
-            #dirname + '100kHz_start_6_all.p', \
-            #dirname + '100kHz_start_7_all.p', \
-            #dirname + '100kHz_start_8_all.p', \
-            #dirname + '100kHz_start_9_all.p', \
-            #dirname + '100kHz_start_10_all.p', \
-            #dirname + '100kHz_start_11_all.p', \
-            #dirname + '100kHz_start_12_all.p', \
-            #dirname + '100kHz_start_13_all.p', \
-            #dirname + '100kHz_start_14_all.p', \
-            #dirname + '50kHz_start_1_all.p', \
-            #dirname + '50kHz_start_2_all.p', \
-            #dirname + '50kHz_start_3_all.p', \
-            #dirname + '110kHz_start_1_all.p', \
-            #dirname + '110kHz_start_2_all.p', \
-            #dirname + '110kHz_start_3_all.p', \
-            #dirname + '110kHz_start_4_all.p', \
-            #dirname + '110kHz_start_5_all.p', \
-            #dirname + '110kHz_start_6_all.p', \
-            dirname + '110kHz_start_2_coarse_all.p', \
-            dirname + '110kHz_start_3_coarse_all.p', \
-            dirname + '110kHz_start_5_coarse_all.p', \
-            dirname + '110kHz_start_6_coarse_all.p', \
-            ]
+# newpaths = [#dirname + '100kHz_start_4_all.p', \
+#             #dirname + '100kHz_start_5_all.p', \
+#             #dirname + '100kHz_start_6_all.p', \
+#             #dirname + '100kHz_start_7_all.p', \
+#             #dirname + '100kHz_start_8_all.p', \
+#             #dirname + '100kHz_start_9_all.p', \
+#             #dirname + '100kHz_start_10_all.p', \
+#             #dirname + '100kHz_start_11_all.p', \
+#             #dirname + '100kHz_start_12_all.p', \
+#             #dirname + '100kHz_start_13_all.p', \
+#             #dirname + '100kHz_start_14_all.p', \
+#             #dirname + '50kHz_start_1_all.p', \
+#             #dirname + '50kHz_start_2_all.p', \
+#             #dirname + '50kHz_start_3_all.p', \
+#             #dirname + '110kHz_start_1_all.p', \
+#             #dirname + '110kHz_start_2_all.p', \
+#             #dirname + '110kHz_start_3_all.p', \
+#             #dirname + '110kHz_start_4_all.p', \
+#             #dirname + '110kHz_start_5_all.p', \
+#             #dirname + '110kHz_start_6_all.p', \
+#             dirname + '110kHz_start_2_coarse_all.p', \
+#             dirname + '110kHz_start_3_coarse_all.p', \
+#             dirname + '110kHz_start_5_coarse_all.p', \
+#             dirname + '110kHz_start_6_coarse_all.p', \
+#             ]
+
+newpaths = [os.path.join(dirname, '110kHz_1_all.p'), \
+            os.path.join(dirname, '110kHz_2_all.p'), \
+           ]
 
 
 sim_data = False
@@ -110,21 +114,26 @@ for pathind, path in enumerate(newpaths):
 def gauss(x, A, mu, sigma, c):
     return A * np.exp( -1.0 * (x - mu)**2 / (2.8 * sigma**2)) + c
 
+
+def ngauss(x, A, mu, sigma, c, n=2):
+    return A * np.exp(-1.0*np.abs(x-mu)**n / (2.0*sigma**n)) + c
+
 def fit_fun(x, A, mu, sigma):
-    return gauss(x, A, mu, sigma, 0)
+    return ngauss(x, A, mu, sigma, 0, n=5)
 
 
 
 
 #if manual_priors:
-fterm_dirname = '/data/old_trap_processed/spinning/ringdown/20191017/'
+# fterm_dirname = '/data/old_trap_processed/spinning/ringdown/20191017/'
+fterm_dirname = '/data/old_trap_processed/spinning/ringdown/20200322/'
 fterm_paths = [fterm_dirname + 'term_velocity_check_1.npy', \
                fterm_dirname + 'term_velocity_check_2.npy', \
                #fterm_dirname + 'term_velocity_check_3.npy', \
-               fterm_dirname + 'term_velocity_check_4.npy', \
-               fterm_dirname + 'term_velocity_check_5.npy', \
-               fterm_dirname + 'term_velocity_check_6.npy', \
-               fterm_dirname + 'term_velocity_check_7.npy', \
+               # fterm_dirname + 'term_velocity_check_4.npy', \
+               # fterm_dirname + 'term_velocity_check_5.npy', \
+               # fterm_dirname + 'term_velocity_check_6.npy', \
+               # fterm_dirname + 'term_velocity_check_7.npy', \
               ]
 
 all_fterm = []
@@ -135,27 +144,31 @@ for pathind, path in enumerate(fterm_paths):
     all_fterm += list(data[1])
 all_fterm = np.array(all_fterm)
 
-print(np.std(all_fterm))
 
 fig_term, ax_term = plt.subplots(1,1,dpi=200)
 
 vals, bin_edge, _ = ax_term.hist(all_fterm, density=True)
 bins = bin_edge[:-1] + 0.5*(bin_edge[1] - bin_edge[0])
 
-prior_popt, prior_pcov = opti.curve_fit(fit_fun, bins, vals, p0=[1, 8000, 1000])
+prior_popt, prior_pcov = opti.curve_fit(fit_fun, bins, vals, maxfev=10000,\
+                                        p0=[1, np.mean(all_fterm), np.std(all_fterm)])
 
 plot_x = np.linspace(np.mean(all_fterm)-np.std(all_fterm), \
                      np.mean(all_fterm)+np.std(all_fterm), 100)
+plot_x_2 = np.linspace(np.mean(all_fterm) - 3.0*np.std(all_fterm), \
+                       np.mean(all_fterm) + 3.0*np.std(all_fterm), 100)
 ax_term.plot(plot_x, 0.5*np.max(vals)*np.ones_like(plot_x), color='r', ls='--')
+ax_term.plot(plot_x_2, fit_fun(plot_x_2, *prior_popt), color='r', lw=2)
 ax_term.axvline(np.mean(all_fterm), color='r', ls='--')
 ax_term.set_xlabel('Terminal Rotation Freq. [Hz]')
 ax_term.set_ylabel('Counts [arb.]')
-#plt.plot(plot_x, fit_fun(plot_x, *prior_popt), lw=2, color='r', ls='--')
+# plt.plot(plot_x, fit_fun(plot_x, *prior_popt), lw=2, color='r', ls='--')
 fig_term.tight_layout()
 fig_term.savefig(fig_base + 'terminal_velocity.svg')
-#plt.show()
+# plt.show()
 
 prior_popt = np.abs(prior_popt)
+
 
 
 
@@ -663,27 +676,27 @@ ax3.legend(fontsize=10, ncol=2)
 #ax3.set_ylim(1700,2100)
 ax3.set_ylim(tau_ylim[0], tau_ylim[1])
 
-buf3 = io.BytesIO()
-pickle.dump(fig3, buf3)
-buf3.seek(0)
-fig3z = pickle.load(buf3)
-fig3z.canvas.draw()
-tlt.get_renderer(fig3z)
-ax3z = fig3z.axes[0]
+# buf3 = io.BytesIO()
+# pickle.dump(fig3, buf3)
+# buf3.seek(0)
+# fig3z = pickle.load(buf3)
+# fig3z.canvas.draw()
+# tlt.get_renderer(fig3z)
+# ax3z = fig3z.axes[0]
 
 ax3.set_xlim(0,two_point_end_time)
 fig3.tight_layout()
 
-ax3z.set_xlim(0,500)
-fig3z.tight_layout()
+# ax3z.set_xlim(0,500)
+# fig3z.tight_layout()
 
 if savefig:
     if both_two_point:
         fig3.savefig(fig_base + 'spindown-time_two-point{:s}_both.svg'.format(suffix))
-        fig3z.savefig(fig_base + 'spindown-time_two-point{:s}_zoom_both.svg'.format(suffix))
+        # fig3z.savefig(fig_base + 'spindown-time_two-point{:s}_zoom_both.svg'.format(suffix))
     else:
         fig3.savefig(fig_base + 'spindown-time_two-point{:s}.svg'.format(suffix))
-        fig3z.savefig(fig_base + 'spindown-time_two-point{:s}_zoom.svg'.format(suffix))
+        # fig3z.savefig(fig_base + 'spindown-time_two-point{:s}_zoom.svg'.format(suffix))
 
 # plt.show()
 
@@ -729,19 +742,19 @@ if not sim_data:
 # axarr2[0].set_ylabel('$\\tau$ [s]')
 # axarr2[0].legend(fontsize=10)
 
-buf2 = io.BytesIO()
-pickle.dump(fig2, buf2)
-buf2.seek(0)
-fig2z = pickle.load(buf2)
-fig2z.canvas.draw()
-tlt.get_renderer(fig2z)
-ax2z = fig2z.axes[0]
+# buf2 = io.BytesIO()
+# pickle.dump(fig2, buf2)
+# buf2.seek(0)
+# fig2z = pickle.load(buf2)
+# fig2z.canvas.draw()
+# tlt.get_renderer(fig2z)
+# ax2z = fig2z.axes[0]
 
 ax2.set_xlim(0,3000)
 fig2.tight_layout()
 
-ax2z.set_xlim(0,500)
-fig2z.tight_layout()
+# ax2z.set_xlim(0,500)
+# fig2z.tight_layout()
 
 if savefig:
     # fig.savefig('/home/charles/plots/20190626/spindowns.png')
@@ -751,7 +764,9 @@ if savefig:
     # fig2.savefig('/home/charles/plots/20190626/spindown_time.png')
     # fig2.savefig('/home/charles/plots/20190626/spindown_time.svg')
     fig2.savefig(fig_base + 'spindown_time{:s}.svg'.format(suffix))
-    fig2z.savefig(fig_base + 'spindown_time{:s}_zoom.svg'.format(suffix))
+    # fig2z.savefig(fig_base + 'spindown_time{:s}_zoom.svg'.format(suffix))
+
+
 
 
 if sim_data:

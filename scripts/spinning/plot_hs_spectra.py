@@ -16,34 +16,38 @@ import configuration as config
 
 plt.rcParams.update({'font.size': 16})
 
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringup/100kHz_1'
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringup/test3'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/nominal_config'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/monitors_unplugged'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/monitors_unplugged_term'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/tabor_off'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/tabor_off_proper_conn'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/tabor_unplugged'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/rot_diode_unplugged'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/different_srs_output'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/drive_at_9k'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/drive_at_9k_better_term'
-dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/drive_at_9k_much_later'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringup/100kHz_1'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringup/test3'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/nominal_config'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/monitors_unplugged'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/monitors_unplugged_term'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/tabor_off'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/tabor_off_proper_conn'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/tabor_unplugged'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/rot_diode_unplugged'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/different_srs_output'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/drive_at_9k'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/drive_at_9k_better_term'
+# dirname = '/data/old_trap/20190905/bead1/spinning/residual_field_tests/drive_at_9k_much_later'
 
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/50kHz_start_4'
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/100kHz_start_2'
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/terminal_velocity_test'
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/terminal_velocity_test_later'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/50kHz_start_4'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/100kHz_start_2'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/terminal_velocity_test'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringdown_manual/terminal_velocity_test_later'
 
-#dirname = '/data/old_trap/20190905/bead1/spinning/high_speed_tests/210kHz'
+# dirname = '/data/old_trap/20190905/bead1/spinning/high_speed_tests/210kHz'
 
-#dirname = '/data/old_trap/20190905/bead1/spinning/ringdown/210kHz_start_1'
+# dirname = '/data/old_trap/20190905/bead1/spinning/ringdown/210kHz_start_1'
 
 
-dirname = '/data/old_trap/20191017/bead1/spinning/ringdown/term_velocity_check_7'
+# dirname = '/data/old_trap/20191017/bead1/spinning/ringdown/term_velocity_check_7'
 
-#dirname = '/data/old_trap/20191017/bead1/spinning/junk/shit_test_99'
-#dirname = '/data/old_trap/20191017/bead1/spinning/ringdown/110kHz_start_test'
+# dirname = '/data/old_trap/20191017/bead1/spinning/junk/shit_test_99'
+# dirname = '/data/old_trap/20191017/bead1/spinning/ringdown/110kHz_start_test'
+
+# dirname = '/data/old_trap/20200322/gbead1/spinning/ringdown/110kHz_1'
+# dirname = '/data/old_trap/20200322/gbead1/spinning/wobble/wobble_init/wobble_0000'
+dirname = '/data/old_trap/20200322/gbead1/spinning/ringdown/terminal_velocity_check_2'
 
 
 use_dir = True
@@ -60,27 +64,22 @@ use_labels = False
 #           'Rot. diode -> Terminator', \
 #           'Tabor on, but chamber elec. terminated', \
 #          ]
-# allfiles = []
-# for base in bases:
-#     allfiles.append(base + '/turbombar_powfb_xyzcool_0.h5')
 
-# allfiles = ['/data/old_trap/20190905/bead1/spinning/test/turbombar_powfb_xyzcool_20_0.h5', \
-#            ]
 
 savefig = False
 fig_savename = ''
 #fig_savename = '/home/cblakemore/plots/20190905/residual_field_tests.svg'
 
 
-#data_axes = [0,1]
-data_axes = [0]
-axes_labels = ['Cross-polarized light']
-#axes_labels = ['Cross-polarized light', 'Tabor Monitor']
+data_axes = [0,1]
+# data_axes = [0]
+# axes_labels = ['Cross-polarized light']
+axes_labels = ['Cross-polarized light', 'Tabor Monitor']
 
 step10 = False
 invert_order = False
 #file_inds = (-10,-1)
-file_inds = (0,2000)
+file_inds = (0, 1000)
 
 userNFFT = 2**14
 fullNFFT = False
@@ -96,10 +95,11 @@ ylim = ()
 track_feature = True
 tracking_band = 500.0
 tracking_axis = 0
-tracking_savefile = ''
-tracking_savefile = '/data/old_trap_processed/spinning/ringdown/20191017/term_velocity_check_7.npy'
+# tracking_savefile = ''
+tracking_savefile = '/data/old_trap_processed/spinning/ringdown/20200322/term_velocity_check_2.npy'
 
-#approx_feature_loc = 10000.0
+# approx_feature_loc = 10000.0
+# approx_feature_loc = 4216.0
 approx_feature_loc = 0.0
 
 ###########################################################
@@ -158,7 +158,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
 
 
-    dfig, daxarr = plt.subplots(len(data_axes),sharex=True,sharey=True, \
+    dfig, daxarr = plt.subplots(len(data_axes),sharex=True,sharey=False, \
                                 figsize=(8,8))
     if len(data_axes) == 1:
         daxarr = [daxarr]
