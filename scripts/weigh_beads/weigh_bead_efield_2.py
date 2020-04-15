@@ -72,7 +72,7 @@ file_dict['20200327'] = (arr, 1, 0)
 
 
 arr = []  ### 
-arr.append('/data/old_trap/20200330/gbead3/weigh/6Vpp_neg_lowp')
+# arr.append('/data/old_trap/20200330/gbead3/weigh/6Vpp_neg_lowp')
 arr.append('/data/old_trap/20200330/gbead3/weigh/8Vpp_neg_lowp')
 file_dict['20200330'] = (arr, 1, 0)
 
@@ -106,6 +106,7 @@ noise_dirs = ['/data/20181211/bead2/weigh/noise/no_charge_0.5Hz_4pp', \
 
 
 new_trap = True
+# new_trap = False
 
 #r_divider = 50000.0 / (3000.0 + 50000.0)
 r_divider = 1.0
@@ -116,8 +117,10 @@ sign = -1.0
 trans_gain = 100e3  # V/A
 pd_gain = 0.25      # A/W
 
-line_filter_trans = 0.45
-bs_fac = 0.01
+# line_filter_trans = 0.45
+line_filter_trans = 1
+# bs_fac = 0.01
+bs_fac = 0.09
 
 maxfiles = 1000 # Many more than necessary
 lpf = 2500   # Hz
@@ -291,10 +294,6 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
             print('Adjusting electric field since only one electrode was digitized.')
             fac = 2.0
 
-        # plt.plot(top_elec)
-        # plt.plot(bot_elec)
-        # plt.show()
-
         nsamp = len(top_elec)
         zeros = np.zeros(nsamp)
 
@@ -302,6 +301,25 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                     zeros, zeros, zeros, zeros]
         efield = bu.trap_efield(voltages, new_trap=new_trap)
         eforce2 = fac * sign * efield[2] * q_bead
+
+
+        tarr = np.arange(0, df.nsamp/df.fsamp, 1.0/df.fsamp)
+
+        # fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
+
+        # axarr[0].plot(tarr, top_elec, label='Top elec.')
+        # axarr[0].plot(tarr, bot_elec, label='Bottom elec.')
+        # axarr[0].set_ylabel('Apparent Voltages [V]')
+        # axarr[0].legend(fontsize=12, loc='upper right')
+
+        # axarr[1].plot(tarr, efield[2])
+        # axarr[1].set_xlabel('Time [s]')
+        # axarr[1].set_ylabel('Apparent Electric Field [V/m]')
+
+        # fig.tight_layout()
+
+        # plt.show()
+        # input()
 
 
         freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
@@ -371,6 +389,25 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         # plt.show()
         # input()
 
+
+        fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
+
+        axarr[0].plot(tarr, power)
+        axarr[0].set_ylabel('Measured Power [Arb.]')
+
+        axarr[1].plot(tarr, power)
+        axarr[1].set_xlabel('Time [s]')
+        axarr[1].set_ylabel('Measured Power [Arb.]')
+
+        bot, top = axarr[1].get_ylim()
+        axarr[1].set_ylim(1.05*bot, 0)
+
+        fig.tight_layout()
+
+        plt.show()
+        input()
+
+
         bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.0, #width=0.05, \
                                          dt=1.0/df.fsamp, harms=[1], \
                                          add_mean=True, verbose=False, \
@@ -430,7 +467,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     if plot:
         fig = plt.figure(dpi=200, figsize=(6,4))
         ax = fig.add_subplot(111)
-        plt.plot(np.array(all_eforce).flatten()[::5]*1e12*(1.0/9.806)*1e3, \
+        ### Plot force (in pN / g = pg) vs power
+        plt.plot(np.array(all_eforce).flatten()[::5]*1e15*(1.0/9.806), \
                  np.array(all_power).flatten()[::5], \
                  'o', alpha = 0.5)
         #for params in all_param:
@@ -441,7 +479,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                  '--', color='k', lw=2, \
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
-        ax.set_xlim((left, 600))
+        ax.set_xlim((left, 500))
 
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))
@@ -472,7 +510,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
 
         plt.figure(dpi=200, figsize=(3,2))
-        plt.plot(x_plotvec*1e12, yresid*100, 'o')
+        plt.plot(x_plotvec*1e15, yresid*100, 'o')
         plt.legend()
         plt.xlabel('E-Force [pN]')
         plt.ylabel('Resid. Pow. [%]')

@@ -6,6 +6,7 @@
 /gravity_sim/**/test_masses/**/*
 /gravity_sim/**/data/**/*
 /scripts/kp_analysis
+/scripts/scratch
 
 processed.pkl
 !/.gitignore

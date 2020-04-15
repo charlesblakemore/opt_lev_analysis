@@ -281,7 +281,7 @@ def make_all_pardirs(path):
 
 def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
                     verbose=True, substr='', sort_time=False, \
-                    use_origin_timestamp=False):
+                    use_origin_timestamp=False, skip_subdirectories=False):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -307,12 +307,15 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
 
     for dirname in dirlist:
         for root, dirnames, filenames in os.walk(dirname):
+            slashes_in_rootdir = len(root.split('/'))
             for filename in fnmatch.filter(filenames, '*' + ext):
+                slashes_in_filename = len(os.path.join(root, filename).split('/'))
                 if ('_fpga.h5' in filename) and exclude_fpga:
                     continue
-                if substr:
-                    if substr not in filename:
-                        continue
+                if substr and (substr not in filename):
+                    continue
+                if skip_subdirectories and (slashes_in_filename != slashes_in_rootdir):
+                    continue
                 files.append(os.path.join(root, filename))
         if was_list:
             if len(lengths) == 0:

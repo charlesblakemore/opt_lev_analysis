@@ -36,8 +36,11 @@ step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20
 first_file = 0
 last_file = -1
 
-step_cal_drive_freq = 151.0
-# step_cal_drive_freq = 41.0
+step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/From_plus_to_minus_and_discharge/']
+first_file = 0
+last_file = -1
+
+skip_subdirectories = False
 
 elec_channel_select = 1
 # pcol = -1
@@ -45,13 +48,13 @@ elec_channel_select = 1
 pcol = 2
 
 inphase_correlation = True
+plot_inphase_vs_max = False
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
 # auto_try = 0.09
 auto_try = 0.0
 
-max_file = 145
 decimate = False
 dec_fac = 2
 
@@ -106,15 +109,15 @@ save_charge = False
 recharge = False
 if type(step_cal_dir) == str:
     step_date = re.search(r"\d{8,}", step_cal_dir)[0]
-    if 'recharge' in step_cal_dir:
-        recharge = True
-    else:
-        recharge = False
+    # if 'recharge' in step_cal_dir:
+    #     recharge = True
+    # else:
+    #     recharge = False
 else:
     step_date = re.search(r"\d{8,}", step_cal_dir[0])[0]
-    for dir in step_cal_dir:
-        if 'recharge' in dir:
-            recharge = True
+    # for dir in step_cal_dir:
+    #     if 'recharge' in dir:
+    #         recharge = True
 
 tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]
 
@@ -155,10 +158,11 @@ if new_trap:
 
 # Find all the relevant files
 step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True, \
-                                             use_origin_timestamp=use_origin_timestamp)
+                                             use_origin_timestamp=use_origin_timestamp, \
+                                             skip_subdirectories=skip_subdirectories)
 
-for i in range(5):
-    step_cal_files.pop(559)
+# for i in range(5):
+#     step_cal_files.pop(559)
 
 
 #print len(step_cal_files)
@@ -216,6 +220,7 @@ if not fake_step_cal:
     step_cal_vec_max = []
     pow_vec = []
     zpos_vec = []
+    time_vec = []
     #for fileind, filname in enumerate(step_cal_files[:max_file]):
     print('Processing discharge files...')
     for fileind, filname in enumerate(step_cal_files):
@@ -235,7 +240,9 @@ if not fake_step_cal:
         if using_tabor and not new_trap:
             df.load_other_data()
 
-        step_resp_inphase, step_resp_max, step_resp_nonorm, zpos = \
+        time_vec.append(df.time * 1e-9) ### ns to seconds
+
+        step_resp_inphase, step_resp_max, step_resp_nonorm, zpos, drive_freq = \
             cal.find_step_cal_response(df, bandwidth=20.0, tabor_ind=tabor_ind,\
                                        using_tabor=using_tabor, pcol=pcol, \
                                        new_trap=new_trap, plot=False)
@@ -253,22 +260,24 @@ if not fake_step_cal:
     else:
         fac = -1.0
 
+    time_vec = np.array(time_vec) - time_vec[0]
     step_cal_vec_inphase = fac*np.array(step_cal_vec_inphase)
     step_cal_vec_max = np.array(step_cal_vec_max)
 
-    # plt.rcParams.update({'font.size': 16})
-    # tvec = np.arange(len(step_cal_vec_inphase)) * 10
-    # plt.figure(figsize=(10,4))
-    # plt.plot(tvec, -1.0*step_cal_vec_inphase, 'o', label='In-Phase Correlation', zorder=2)
-    # plt.plot(tvec, np.abs(step_cal_vec_max), 'o', label='Max Correlation', zorder=3)
-    # plt.axhline(0,ls='--',alpha=0.5,color='k', zorder=1)
-    # plt.ylabel('Response [Arb/(V/m)]')
-    # plt.xlabel('Time [s]')
-    # plt.legend(loc=0)
-    # plt.tight_layout()
-    # plt.show()
+    if plot_inphase_vs_max:
+        plt.rcParams.update({'font.size': 16})
+        # tvec = np.arange(len(step_cal_vec_inphase)) * 10
+        plt.figure(figsize=(10,4))
+        plt.plot(time_vec, -1.0*step_cal_vec_inphase, 'o', label='In-Phase Correlation', zorder=2)
+        plt.plot(tvec, np.abs(step_cal_vec_max), 'o', label='Max Correlation', zorder=3)
+        plt.axhline(0,ls='--',alpha=0.5,color='k', zorder=1)
+        plt.ylabel('Response [Arb/(V/m)]')
+        plt.xlabel('Time [s]')
+        plt.legend(loc=0)
+        plt.tight_layout()
+        plt.show()
 
-    # input()
+        input()
 
     nsec = df.nsamp * (1.0 / df.fsamp)
 
@@ -315,11 +324,11 @@ Hnoise = allH['Hout_noise']
 # for a particular charge step calibration
 keys = np.array(list(Hout.keys()))
 keys.sort()
-close_freq = keys[ np.argmin(np.abs(keys - 151.0)) ]
+close_freq = keys[ np.argmin(np.abs(keys - drive_freq)) ]
 # print(vpn, pcol, Hout[close_freq][2,2])
 
 Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, \
-                            drive_freq=step_cal_drive_freq, verbose=True)
+                            drive_freq=drive_freq, verbose=True)
 
 # Build the Hfunc object
 Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \

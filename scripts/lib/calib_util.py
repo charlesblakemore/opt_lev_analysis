@@ -155,10 +155,18 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     #     plt.loglog(freqs, np.abs(drive_fft))
     #     plt.show()
 
+    if drive_freq < 0.5*bandwidth:
+        apply_filter = False
+    else:
+        apply_filter = True
+
     ### Bandpass filter the response
-    b, a = signal.butter(3, [2.*(drive_freq-bandwidth/2.)/file_obj.fsamp, \
-                          2.*(drive_freq+bandwidth/2.)/file_obj.fsamp ], btype = 'bandpass')
-    responsefilt = signal.filtfilt(b, a, response)
+    if apply_filter:
+        b, a = signal.butter(3, [2.*(drive_freq-bandwidth/2.)/file_obj.fsamp, \
+                              2.*(drive_freq+bandwidth/2.)/file_obj.fsamp ], btype = 'bandpass')
+        responsefilt = signal.filtfilt(b, a, response)
+    else:
+        responsefilt = np.copy(response)
 
     if plot:
         plt.figure()
@@ -166,18 +174,9 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         plt.loglog(freqs, np.abs(np.fft.rfft(responsefilt)))
         plt.show()
 
-    # ### CORR_FUNC TESTING ###
-    # n_test = 10
-    # for i in range(n_test):
-    #     test = 3.14159 * np.sin(2 * np.pi * drive_freq * t) + 0.05 * np.random.randn(len(t))
-    #     test_corr = bu.correlation(3 * drive, test, file_obj.fsamp, drive_freq)
-    #     print(np.sqrt(2) * np.std(test), end=', ')
-    #     print(np.max(test_corr))
-    # input()
-    # #########################
+        input()
 
     ### Compute the full, normalized correlation and extract amplitude
-    #corr_full = bu.correlation(drive, response, file_obj.fsamp, drive_freq)
     corr_full = bu.correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
 
     response_amp = corr_full[0]
@@ -185,25 +184,14 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     #response_amp2 = corr_full[0]
     #response_amp3 = np.sqrt(2) * np.std(responsefilt)
 
-    # Compute the drive amplitude. Two methods included, should decide on one 
+    ### Compute the drive amplitude, assuming it's a sine wave 
     drive_amp = np.sqrt(2) * np.std(drive) # Assume drive is sinusoidal
     # print(drive_amp)
 
-    # def drive_fun(x, A, f, phi):
-    #     return A * np.sin( 2 * np.pi * f * x + phi )
-        
-    # ### Estimate some parameters and try fitting a sine
-    # p0_drive = [drive_amp, drive_freq, 0]
-    # popt, pcov = optimize.curve_fit(drive_fun, t, drive, p0=p0_drive)
-
-    # drive_amp2 = popt[0]
-
-    # print drive_amp, drive_amp2
-
-    # Include the possibility of a different sign of response
+    ### Include the possibility of a different sign of response
     sign = np.sign(np.mean(drive*responsefilt))
 
-    return response_amp/drive_amp, response_amp_2/drive_amp, response_amp, zpos # power, zpos
+    return response_amp/drive_amp, response_amp_2/drive_amp, response_amp, zpos, drive_freq
 
 
 
