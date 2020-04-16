@@ -1,0 +1,12 @@
+numpy
+scipy
+matplotlib
+obspy
+xmltodict
+fnmatch
+joblib
+iminuit
+tqdm
+dill
+h5py
+(maybe others, need to check better)

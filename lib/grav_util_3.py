@@ -3,7 +3,6 @@ import os, sys, time, itertools, copy, re
 import dill as pickle
 
 import numpy as np
-import pandas as pd
 import scipy
 
 from scipy.optimize import curve_fit
