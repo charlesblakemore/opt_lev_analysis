@@ -1,6 +1,6 @@
 
-Analysis and Simulation for the Optical Levitation Project at Stanford
-======================================================================
+Analysis and Simulation for the Optical Levitation Project
+==========================================================
 
 This is a collection of analysis and simulation scripts developed to
 facilitate the Optical Levitation Project at Stanford University, 
@@ -38,11 +38,12 @@ information).
 Related packages
 ----------------
 
-`opt_lev_controls <https://github.com/stanfordbeads/opt_lev_controls>`_ A companion 
+`opt_lev_controls <https://github.com/stanfordbeads/opt_lev_controls>`_ - A companion 
 library used on the data acquision computers associated to the project.
 
 Authors
 -------
 
-Charles Blakemore (chas.blakemore@gmail.com)
-Alexander Rider
+Charles Blakemore (chas.blakemore@gmail.com),
+Alexander Rider,
+David Moore
