@@ -24,6 +24,8 @@ those changes, install in developer mode::
 
    python setup.py develop
 
+where python is a Python3 executable (tested on Python 3.6.9).
+
 License
 -------
 
