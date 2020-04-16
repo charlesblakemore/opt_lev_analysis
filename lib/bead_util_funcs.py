@@ -909,33 +909,32 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
        OUTPUTS:  corr_full, full and correctly normalized correlation'''
 
-    # First subtract of mean of signals to avoid correlating dc
+    ### First subtract of mean of signals to avoid correlating dc
     drive = drive-np.mean(drive)
     response = response-np.mean(response)
 
-    # bandpass filter around drive frequency if desired.
+    ### bandpass filter around drive frequency if desired.
     if filt:
         b, a = signal.butter(3, [2.*(fdrive-band_width/2.)/fsamp, \
                              2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
         drive = signal.filtfilt(b, a, drive)
         response = signal.filtfilt(b, a, response)
     
-    # Compute the number of points and drive amplitude to normalize correlation
+    ### Compute the number of points and drive amplitude to normalize correlation
     lentrace = len(drive)
     drive_amp = np.sqrt(2)*np.std(drive)
 
-    # Define the correlation vector which will be populated later
+    ### Define the correlation vector which will be populated later
     corr = np.zeros(int(fsamp/fdrive))
 
-    # Zero-pad the response
+    ### Zero-pad the response
     response = np.append(response, np.zeros(int(fsamp / fdrive) - 1) )
 
-    # Build the correlation
-    n_corr = len(drive)
+    ### Build the correlation
     for i in range(len(corr)):
-        # Correct for loss of points at end
-        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical test
-        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
+        ### Correct for loss of points at end
+        correct_fac = 2.0*lentrace/(lentrace-i) ### x2 from empirical test
+        corr[i] = np.sum(drive*response[i:i+lentrace])*correct_fac
 
     return corr * (1.0 / (lentrace * drive_amp))
 

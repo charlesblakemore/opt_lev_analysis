@@ -1,4 +1,4 @@
-import os, fnmatch, traceback, re
+import os, fnmatch, traceback, re, time
 
 import dill as pickle
 
@@ -33,12 +33,12 @@ tabor_ind = 3
 # last_file = -1
 
 step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
-first_file = 0
+first_file = 430
 last_file = -1
 
-step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/From_plus_to_minus_and_discharge/']
-first_file = 0
-last_file = -1
+# step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/From_plus_to_minus_and_discharge/']
+# first_file = 0
+# last_file = -1
 
 skip_subdirectories = False
 
@@ -47,13 +47,14 @@ elec_channel_select = 1
 # pcol = 2
 pcol = 2
 
-inphase_correlation = True
-plot_inphase_vs_max = False
+correlation_phase = 0.0
+plot_correlations = False
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
 # auto_try = 0.09
-auto_try = 0.0
+auto_try = 0.028
+# auto_try = 0.0
 
 decimate = False
 dec_fac = 2
@@ -161,8 +162,8 @@ step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True, \
                                              use_origin_timestamp=use_origin_timestamp, \
                                              skip_subdirectories=skip_subdirectories)
 
-# for i in range(5):
-#     step_cal_files.pop(559)
+for i in range(5):
+    step_cal_files.pop(559)
 
 
 #print len(step_cal_files)
@@ -218,6 +219,7 @@ if not fake_step_cal:
     step_file_objs = []
     step_cal_vec_inphase = []
     step_cal_vec_max = []
+    step_cal_vec_userphase = []
     pow_vec = []
     zpos_vec = []
     time_vec = []
@@ -242,18 +244,15 @@ if not fake_step_cal:
 
         time_vec.append(df.time * 1e-9) ### ns to seconds
 
-        step_resp_inphase, step_resp_max, step_resp_nonorm, zpos, drive_freq = \
+        step_resp_dict = \
             cal.find_step_cal_response(df, bandwidth=20.0, tabor_ind=tabor_ind,\
                                        using_tabor=using_tabor, pcol=pcol, \
-                                       new_trap=new_trap, plot=False)
+                                       new_trap=new_trap, plot=False, \
+                                       userphase=correlation_phase)
 
-        step_cal_vec_inphase.append(step_resp_inphase)
-        step_cal_vec_max.append(step_resp_max)
-        # step_cal_vec.append(step_resp_nonorm)
-
-
-        # pow_vec.append(power)
-        zpos_vec.append(zpos)
+        step_cal_vec_inphase.append(step_resp_dict['inphase'])
+        step_cal_vec_max.append(step_resp_dict['max'])
+        step_cal_vec_userphase.append(step_resp_dict['userphase'])
 
     if np.mean(step_cal_vec_inphase[:5]) > 0:
         fac = 1.0
@@ -261,15 +260,20 @@ if not fake_step_cal:
         fac = -1.0
 
     time_vec = np.array(time_vec) - time_vec[0]
-    step_cal_vec_inphase = fac*np.array(step_cal_vec_inphase)
+    step_cal_vec_inphase = np.array(step_cal_vec_inphase)
     step_cal_vec_max = np.array(step_cal_vec_max)
+    step_cal_vec_userphase = np.array(step_cal_vec_userphase)
 
-    if plot_inphase_vs_max:
+    if plot_correlations:
         plt.rcParams.update({'font.size': 16})
         # tvec = np.arange(len(step_cal_vec_inphase)) * 10
         plt.figure(figsize=(10,4))
-        plt.plot(time_vec, -1.0*step_cal_vec_inphase, 'o', label='In-Phase Correlation', zorder=2)
-        plt.plot(tvec, np.abs(step_cal_vec_max), 'o', label='Max Correlation', zorder=3)
+        plt.plot(time_vec, -1.0*step_cal_vec_inphase, 'o', \
+                        label='In-Phase Correlation', zorder=2)
+        plt.plot(time_vec, np.abs(step_cal_vec_max), 'o', \
+                        label='Max Correlation', zorder=3)
+        plt.plot(time_vec, -1.0*step_cal_vec_userphase, 'o', \
+                        label='User-phase Correlation', zorder=4)
         plt.axhline(0,ls='--',alpha=0.5,color='k', zorder=1)
         plt.ylabel('Response [Arb/(V/m)]')
         plt.xlabel('Time [s]')
@@ -277,16 +281,11 @@ if not fake_step_cal:
         plt.tight_layout()
         plt.show()
 
-        input()
+        time.sleep(5)
 
     nsec = df.nsamp * (1.0 / df.fsamp)
 
-    if inphase_correlation:
-        step_cal_vec = step_cal_vec_inphase
-    else:
-        step_cal_vec = step_cal_vec_max
-
-    vpn, off, err, q0 = cal.step_cal(step_cal_vec, nsec=nsec, new_trap=new_trap, \
+    vpn, off, err, q0 = cal.step_cal(step_cal_vec_userphase, nsec=nsec, new_trap=new_trap, \
                                      first_file=first_file, auto_try=auto_try, \
                                      plot_residual_histograms=plot_residual_histograms)
     print(vpn)

@@ -1,6 +1,9 @@
 import sys, time, traceback
 
 import numpy as np
+
+import matplotlib
+matplotlib.use('gtk3agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, NullFormatter
 
@@ -54,7 +57,8 @@ def multi_step_fun(x, qs, x0s):
 
 def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
                            using_tabor=False, tabor_ind=3, mon_fac=100, \
-                           ecol=-1, pcol=-1, new_trap=False, plot=False):
+                           ecol=-1, pcol=-1, new_trap=False, plot=False, \
+                           userphase=0.0, nearest=True):
     '''Analyze a data step-calibraiton data file, find the drive frequency,
        correlate the response to the drive
 
@@ -178,20 +182,31 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
     ### Compute the full, normalized correlation and extract amplitude
     corr_full = bu.correlation(drive, responsefilt, file_obj.fsamp, drive_freq)
+    ncorr = len(corr_full)
 
-    response_amp = corr_full[0]
-    response_amp_2 = np.max(corr_full)
-    #response_amp2 = corr_full[0]
-    #response_amp3 = np.sqrt(2) * np.std(responsefilt)
+    phase_ratio = userphase / (2.0 * np.pi)
+    phase_inds = np.array([np.floor(phase_ratio*ncorr), np.ceil(phase_ratio*ncorr)], dtype='int')
+
+    response_inphase = corr_full[0]
+    response_max = np.max(corr_full)
+    # try:
+    response_userphase = np.interp([phase_ratio*ncorr], phase_inds, corr_full[phase_inds])[0]
+    # except:
+    #     response_userphase = corr_full[phase_inds[0]]
 
     ### Compute the drive amplitude, assuming it's a sine wave 
     drive_amp = np.sqrt(2) * np.std(drive) # Assume drive is sinusoidal
     # print(drive_amp)
 
-    ### Include the possibility of a different sign of response
-    sign = np.sign(np.mean(drive*responsefilt))
+    outdict = {}
+    outdict['inphase']          = response_inphase   / drive_amp
+    outdict['max']              = response_max       / drive_amp
+    outdict['userphase']        = response_userphase / drive_amp
+    outdict['userphase_nonorm'] = response_userphase
+    outdict['drive']            = drive_amp
+    outdict['drive_freq']       = drive_freq
 
-    return response_amp/drive_amp, response_amp_2/drive_amp, response_amp, zpos, drive_freq
+    return outdict
 
 
 
@@ -220,15 +235,19 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
     #yfit = yfit[bvec] 
 
     if not auto_try:
+        # plt.ion()
         plt.figure(1)
-        #plt.ion()
         plt.plot(np.arange(len(yfit)), yfit, 'o')
         plt.xlabel('Integration number [Arb]')
         plt.ylabel('Response [Arb]')
         plt.tight_layout()
         plt.show()
+        # plt.show(block=False)
+        # plt.draw()
         guess = input('Enter a guess for response / step: ')
         guess = float(guess)
+        plt.close(1)
+        # plt.ioff()
     else:
         guess = auto_try
 
@@ -257,11 +276,6 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
             cond2 = True
 
         if cond1 and cond2:
-            #big = diff_abs > 4 * guess
-            #zero = (diff_abs - np.mean(current_charge)) < (2 * std)
-
-            #if big and zero:
-            #    continue
             
             current_charge = [yfit[i]]
 
@@ -307,26 +321,30 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
                             gridspec_kw = {'height_ratios':[2,1]}, \
                             figsize=(10,4),dpi=150)#Plot fit
     normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
-                       ms=3, ylabel="Norm. Response [e]", xlabel="")
+                       ms=3, ylabel="Norm. Response [$e$]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
                              ms=3, xlabel="Time [s]")
-    axarr[0].yaxis.set_major_locator(MultipleLocator(5))
-    axarr[1].yaxis.set_major_locator(MultipleLocator(2))
-    for i in [0,1]:
-        axarr[i].yaxis.set_minor_locator(MultipleLocator(1))
-        axarr[i].yaxis.set_minor_formatter(NullFormatter())
-        axarr[i].grid(True, which='minor', alpha=0.3)
-        axarr[i].grid(True, which='major', alpha=0.8)
+    resid_ylim = axarr[1].get_ylim()
+    too_small = False
+    for val in resid_ylim:
+        if np.abs(val) < 1.0:
+            too_small = True
+    if too_small:
+        axarr[1].set_ylim(-1.1, 1.1)
+        resid_majorspace = 1.0
+    else:
+        resid_majorspace = 2.0
+    normfitobj.setup_discharge_ticks(axarr, resid_majorspace=resid_majorspace)
     # for x in xfit:
     #     if not (x-1) % 3:
     #         axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
     plt.tight_layout()
     plt.show()
 
-    happy = input("does the fit look good? (y/n): ")
-    if happy == 'y':
+    happy = input("does the fit look good? (Y/n): ")
+    if happy == 'y' or happy == 'Y':
         happy_with_fit = True
-    elif happy == 'n':
+    elif happy == 'n' or happy == 'N':
         happy_with_fit = False
         f.clf()
     else:
@@ -370,17 +388,13 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
                                 figsize=(10,4), dpi=150)#Plot fit
 
         normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
-                           ms=3, ylabel="Norm. Response [$e^{-}$]", xlabel="")
+                           ms=3, ylabel="Norm. Response [$e$]", xlabel="")
         normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
                                  ms=3, ylabel='Resid.', xlabel="Time [s]")
         axarr[1].set_ylim(-2.2, 2.2)
-        axarr[0].yaxis.set_major_locator(MultipleLocator(5))
-        axarr[1].yaxis.set_major_locator(MultipleLocator(2))
-        for i in [0,1]:
-            axarr[i].yaxis.set_minor_locator(MultipleLocator(1))
-            axarr[i].yaxis.set_minor_formatter(NullFormatter())
-            axarr[i].grid(True, which='minor', alpha=0.3)
-            axarr[i].grid(True, which='major', alpha=0.8)
+        normfitobj.setup_discharge_ticks(axarr)
+
+        f.tight_layout()
 
         if plot_residual_histograms:
             f2, axarr2 = plt.subplots(1, 3, sharex=True, sharey=True, \
@@ -405,15 +419,15 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
                                verticalalignment='center', horizontalalignment='center')
 
             axarr2[1].set_xlabel('Residuals [$e^{-}$]')
+            f2.tight_layout()
 
-        f.tight_layout()
-        f2.tight_layout()
         plt.show()
+        # plt.draw()
 
-        happy = input("does the fit look good? (y/n): ")
-        if happy == 'y':
+        happy = input("does the fit look good? (Y/n): ")
+        if happy == 'y' or happy == 'Y':
             happy_with_fit = True
-        elif happy == 'n':
+        elif happy == 'n' or happy == 'N':
             f.clf()
             continue
         else:
@@ -423,7 +437,7 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
             time.sleep(5)
             continue
 
-    #plt.ioff()
+    plt.close('all')
 
     print(fitobj.popt[0])
 
@@ -460,7 +474,7 @@ class Fit:
         self.fun = fun
 
     def plt_fit(self, xdata, ydata, ax, scale = 'linear', ms = 6, \
-                    xlabel = 'X', ylabel = 'Y', errors = []):
+                    xlabel = 'X', ylabel = 'Y', errors = [], zorder=2):
     
         inds = np.argsort(xdata)
         
@@ -473,14 +487,14 @@ class Fit:
 
         #modifies an axis object to plot the fit.
         if len(errors):
-            ax.errorbar(xdata, ydata, errors, fmt = 'o', ms = ms)
+            ax.errorbar(xdata, ydata, errors, fmt = 'o', ms = ms, zorder=zorder)
             ax.plot(xfundata, self.fun(xfundata, *(self.popt)), \
-                        'r', linewidth = 3)
+                        'r', linewidth = 3, zorder=zorder+1)
 
         else:    
-            ax.plot(xdata, ydata, 'o', ms = ms)
+            ax.plot(xdata, ydata, 'o', ms = ms, zorder=zorder)
             ax.plot(xfundata + 0.5*delta_x, self.fun(xfundata, *(self.popt)), \
-                        'r', linewidth = 3)
+                        'r', linewidth = 3, zorder=zorder+1)
 
         ax.set_yscale(scale)
         ax.set_xscale(scale)
@@ -489,7 +503,8 @@ class Fit:
         ax.set_xlim([np.min(xdata), np.max(xdata)])
     
     def plt_residuals(self, xdata, ydata, ax, scale = 'linear', ms = 6, \
-                        xlabel = 'X', ylabel = 'Residual', label = '', errors = []):
+                        xlabel = 'X', ylabel = 'Residual', label = '', errors = [], \
+                        zorder=2):
         #modifies an axis object to plot the residuals from a fit.
 
         inds = np.argsort(xdata)
@@ -500,15 +515,59 @@ class Fit:
         #print np.std( self.fun(xdata, *self.popt) - ydata )
 
         if len(errors):
-            ax.errorbar(xdata, self.fun(xdata, *self.popt) - ydata, errors, fmt = 'o', ms = ms)
+            ax.errorbar(xdata, self.fun(xdata, *self.popt) - ydata, errors, \
+                        fmt = 'o', ms = ms, zorder=zorder)
         else:
-            ax.plot(xdata, (self.fun(xdata, *self.popt) - ydata), 'o', ms = ms)
+            ax.plot(xdata, (self.fun(xdata, *self.popt) - ydata), 'o', \
+                    ms = ms, zorder=zorder)
         
         #ax.set_xscale(scale)
         ax.set_yscale(scale)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_xlim([np.min(xdata), np.max(xdata)])
+
+
+    def setup_discharge_ticks(self, axarr, fit_majorspace=5, resid_majorspace=2, \
+                              major_alpha=0.8, minor_alpha=0.3, xgrid=False):
+        '''Sets up the tick marks and labels for the yaxis of the discharge
+           plots. This code was being called multiple times identically so 
+           now it's a class method. It's not a stanalone function because it 
+           implicitly assumes axarr is length-2 array containing the axes for
+           the fit data and the residuals. '''
+
+        axarr[0].yaxis.set_major_locator(MultipleLocator(fit_majorspace))
+        axarr[1].yaxis.set_major_locator(MultipleLocator(resid_majorspace))
+        for i in [0,1]:
+            axarr[i].yaxis.set_minor_locator(MultipleLocator(1))
+            axarr[i].yaxis.set_minor_formatter(NullFormatter())
+            if xgrid:
+                axarr[i].grid(True, which='minor', axis='x', alpha=minor_alpha)
+                axarr[i].grid(True, which='major', axis='x', alpha=major_alpha)
+
+            ylim = axarr[i].get_ylim()
+            if i == 0:
+                init_sign = np.sign(ylim[np.argmax(np.abs(ylim))])
+                if init_sign < 0:
+                    tick_locs = np.arange(int(2.0 * ylim[0]), 10, 1)
+                else:
+                    tick_locs = np.arange(-10, int(2.0 * ylim[1]), 1)
+            else:
+                tick_locs = np.arange(-5, 6, 1)
+
+            axarr[i].grid(False, which='both', axis='y')
+            for tick in tick_locs:
+                if tick == 0.0:
+                    continue
+                elif not tick % fit_majorspace:
+                    axarr[i].axhline(tick, color='grey', alpha=major_alpha, lw=0.5)
+                else:
+                    axarr[i].axhline(tick, color='grey', alpha=minor_alpha, lw=0.5)
+            axarr[i].axhline(0, ls='--', color='k', zorder=1)
+            axarr[i].set_ylim(*ylim)
+
+
+
 
     def css(self, xdata, ydata, yerrs, p):
         #returns the chi square score at a point in fit parameters.
