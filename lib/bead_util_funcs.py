@@ -54,7 +54,7 @@ my_path = os.path.abspath( os.path.dirname(__file__) )
 
 
 #calib_path = '/data/old_trap_processed/calibrations/'
-calib_path = os.path.abspath( os.path.join(my_path, '../../data/') )
+calib_path = os.path.abspath( os.path.join(my_path, '../data/') )
 
 e_top_dat   = np.loadtxt(os.path.join(calib_path, 'e-top_1V_optical-axis.txt'), comments='%')
 e_bot_dat   = np.loadtxt(os.path.join(calib_path, 'e-bot_1V_optical-axis.txt'), comments='%')
