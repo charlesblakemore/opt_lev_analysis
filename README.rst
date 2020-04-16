@@ -12,11 +12,6 @@ content and structure inherent to those data files.
 Install
 -------
 
-From PyPI
-`````````
-
-Not on the Python Package Index (PyPI), but maybe soon!
-
 From sources
 ````````````
 
