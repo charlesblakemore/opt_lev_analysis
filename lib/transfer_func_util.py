@@ -106,8 +106,11 @@ def ipoly1d_func(x, *params):
     return out
 
 
+
+
 def ipoly1d(ipolyparams):
     return lambda x: ipoly1d_func(x, *ipolyparams)
+
 
 
 
@@ -117,6 +120,7 @@ def ipolyfit(xs, ys, deg):
     params = np.array([mean * meanx**p for p in range(deg + 1)])
     popt, _ = opti.curve_fit(ipoly1d_func, xs, ys, p0=params, maxfev=10000)
     return popt
+
 
 
 
@@ -550,7 +554,7 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
 
     j = step_cal_drive_channel
 
-    # Compute Vresponse / Vdrive on q = q0:
+    ### Compute Vresponse / Vdrive on q = q0:
     npfreqs = np.array(freqs)
     freqs_to_avg = npfreqs[:ind]
 
@@ -564,6 +568,8 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
 
     mean_resp = np.mean(resps)
 
+    ### Probably still need to sort out consistency in using the in-phase
+    ### correlation and the real part of this transfer function
     mean_resp = np.abs(Hout[freqs[ind]][j,j])
     # mean_resp = Hout[freqs[ind]][j,j].real
 
@@ -580,10 +586,10 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
 
     Hout_cal = {}
     for freq in freqs:
-        # Normalize transfer functions by charge number
-        # and convert to force with capacitor plate separation
-        # F = q*E = q*(V/d) so we take
-        # (Vresp / Vdrive) * d / q = Vresp / Fdrive
+        ### Normalize transfer functions by charge number
+        ### and convert to force with capacitor plate separation
+        ### F = q*E = q*(V/d) so we take
+        ### (Vresp / Vdrive) * d / q = Vresp / Fdrive
         Hout_cal[freq] = np.copy(Hout[freq]) * (1.0 / q_tf)
 
     return Hout_cal, q_tf / e_charge
@@ -618,7 +624,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
         mats.append(mat)
 
     mats = np.array(mats)
-    fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]   
+    fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    interps = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
     if plot:
         figsize = (8,6)
@@ -634,8 +641,10 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
         for resp in [0,1,2]:
             if drive == resp and drive != 2:
                 interpolate = False
+                interps[resp][drive] = False
             else:
                 interpolate = True
+                interps[resp][drive] = True
 
             ### Define some axis dependent variables to avoid overwriting
             ### the arguments provided in the function call
@@ -653,21 +662,21 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             else:
                 plot_fac = 1.0
 
-            # Build the array of TF magnitudes and remove NaNs
+            ### Build the array of TF magnitudes and remove NaNs
             mag = np.abs(mats[:,resp,drive])
             nans = np.isnan(mag)
             for nanind, boolv in enumerate(nans):
                 if boolv:
                     mag[nanind] = mag[nanind-1]
 
-            # Build the array of TF phases and remove NaNs
+            ### Build the array of TF phases and remove NaNs
             phase = np.angle(mats[:,resp,drive])
             nans2 = np.isnan(phase)
             for nanind, boolv in enumerate(nans2):
                 if boolv:
                     phase[nanind] = phase[nanind-1]
 
-            # Unwrap the phase
+            ### Unwrap the phase
             if r_unwrap:
                 unphase = np.unwrap(phase, discont=1.4*np.pi)
             elif d_unwrap:
@@ -682,12 +691,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
             if interpolate:
                 num = num_to_avg
-                magfunc = interp.interp1d(keys[b], mag[b], kind='quadratic') #, \
-                                          #fill_value=(np.mean(mag[b][:num]), mag[b][-1]), \
-                                          #bounds_error=False)
-                phasefunc = interp.interp1d(keys[b], unphase[b], kind='quadratic') #, \
-                                            #fill_value=(np.mean(unphase[b][:num]), unphase[b][-1]), \
-                                            #bounds_error=False)
+                magfunc = interp.interp1d(keys[b], mag[b], kind='quadratic')
+                phasefunc = interp.interp1d(keys[b], unphase[b], kind='quadratic')
 
                 if resp == 2:
                     arb_power_law_mag = (True, True)
@@ -709,7 +714,10 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                 phasefunc2 = make_extrapolator(phasefunc, pts=pts_phase, order=(0, 0), \
                                                 arb_power_law=arb_power_law_phase, semilogx=True)
 
-                fits[resp][drive] = (magfunc2, phasefunc2)
+                mag_params = (magfunc.x, magfunc.y, pts_mag, arb_power_law_mag)
+                phase_params = (phasefunc.x, phasefunc.y, pts_phase, arb_power_law_phase)
+                fits[resp][drive] = (mag_params, phase_params)
+
                 if plot:
                     pts = np.linspace(np.min(keys) / 2., np.max(keys) * 2., len(keys) * 100)
             
@@ -729,24 +737,21 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                 if fpeak < 100.0:
                     fpeak = fpeaks[resp]
 
-                # Make initial guess based on high-pressure thermal spectra fits
-                #therm_fits = dir_obj.thermal_cal_fobj.thermal_cal
+                ### Make initial guess based on high-pressure thermal spectra fits
                 if (drive == 2) or (resp == 2):
-                    # Z-direction is considerably different than X or Y
+                    ### Z-direction is considerably different than X or Y
                     g = fpeak * 2.0
-                    # fit_freqs = [1.,600.]
                 else:
                     g = fpeak * 0.15
-                    # fit_freqs = [1.,600.]
 
                 amp0 = np.mean( mag[b][:np.argmin(np.abs(keys[b] - 100.0))] ) \
                                 * ((2.0 * np.pi * fpeak)**2)
 
-                # Construct initial paramter arrays
+                ### Construct initial paramter arrays
                 p0_mag = [amp0, fpeak, g]
-                p0_phase = [1., fpeak, g]  # includes arbitrary smearing amplitude
+                p0_phase = [1., fpeak, g]  ### includes arbitrary smearing amplitude
 
-                # Construct weights if desired
+                ### Construct weights if desired
                 npkeys = np.array(keys)
                 mag_weights = np.zeros_like(npkeys) + 1.
                 if (weight_peak or deweight_peak):
@@ -907,19 +912,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
         plt.show()
 
-    if interpolate:
-        def outfunc(resp, drive, x):
-            amp = fits[resp][drive][0](x)
-            phase = fits[resp][drive][1](x)
-            return amp * np.exp(1.0j * phase)
-
-    else:
-        def outfunc(resp, drive, x):
-            amp = damped_osc_amp(x, *fits[resp][drive][0])
-            phase = damped_osc_phase(x, *fits[resp][drive][1], phase0=fits[resp][drive][2])
-            return amp * np.exp(1.0j * phase)
-
-    return outfunc
+    return fits, interps
 
 #################
 
@@ -927,12 +920,14 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
 
 
-def make_tf_array(freqs, Hfunc):
+def make_tf_array(freqs, Hfunc, suppress_off_diag=False):
     '''Makes a 3x3xNfreq complex-valued array for use in diagonalization
            INPUTS: freqs, array of frequencies
                    Hfunc, output from build_Hfuncs()
 
            OUTPUTS: Harr, array output'''
+
+    fits, interps = Hfunc
 
     Nfreq = len(freqs)
     Harr = np.zeros((Nfreq,3,3),dtype=np.complex128)
@@ -940,8 +935,28 @@ def make_tf_array(freqs, Hfunc):
     ### Sample the Hfunc at the desired frequencies
     for drive in [0,1,2]:
         for resp in [0,1,2]:
-            func_vals = Hfunc(resp, drive, freqs)
-            Harr[:,drive,resp] = func_vals
+            if suppress_off_diag and (drive != resp):
+                continue
+            interpolate = interps[resp][drive]
+            fit = fits[resp][drive]
+            if interpolate:
+                mag_extrap = \
+                    make_extrapolator( interp.interp1d(fit[0][0], \
+                                       fit[0][1], kind='quadratic'),\
+                                       pts=fit[0][2], arb_power_law=fit[0][3] )
+
+                phase_extrap = \
+                    make_extrapolator( interp.interp1d(fit[1][0], fit[1][1], \
+                                       kind='quadratic'),pts=fit[1][2], \
+                                       arb_power_law=fit[1][3], semilogx=True )
+                mag = mag_extrap(freqs)
+                phase = phase_extrap(freqs)
+
+            else:
+                mag = damped_osc_amp(freqs, *fit[0])
+                phase = damped_osc_phase(freqs, *fit[1], phase0=fit[2])
+
+            Harr[:,drive,resp] = mag * np.exp(1.0j * phase)
 
     ### Make the TF at the DC bin equal to the TF at the first 
     ### actual frequency bin. If using analytic functions for damped

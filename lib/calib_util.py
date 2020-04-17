@@ -34,7 +34,7 @@ def step_fun(x, q, x0):
 
            OUTPUTS: q * (x <= x0)'''
     xs = np.array(x)
-    delta_x = np.mean(np.diff(xs))
+    # delta_x = np.mean(np.diff(xs))
     # return q*(xs<=(x0+0.75*delta_x))
     return q*(xs<=x0)
 
@@ -212,7 +212,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
 
 
-def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = False, \
+def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
              auto_try = 0.0, max_step_size=10, plot_residual_histograms=False):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
@@ -229,7 +229,7 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
 
     # yfit = np.abs(step_cal_vec)
     yfit = np.copy(step_cal_vec)
-    yfit = yfit[first_file:]
+    # yfit = yfit[first_file:]
 
     #bvec = yfit == yfit #[yfit<10.*np.mean(yfit)] #exclude cray outliers
     #yfit = yfit[bvec] 
@@ -324,6 +324,18 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
                        ms=3, ylabel="Norm. Response [$e$]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
                              ms=3, xlabel="Time [s]")
+
+    fit_ylim = axarr[0].get_ylim()
+    for val in fit_ylim:
+        if np.abs(val) > 15.0:
+            fit_majorspace = 5.0
+            break
+        elif np.abs(val) > 4.0:
+            fit_majorspace = 2.0
+            break
+        else:
+            fit_majorspace = 1.0
+
     resid_ylim = axarr[1].get_ylim()
     too_small = False
     for val in resid_ylim:
@@ -334,7 +346,9 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
         resid_majorspace = 1.0
     else:
         resid_majorspace = 2.0
-    normfitobj.setup_discharge_ticks(axarr, resid_majorspace=resid_majorspace)
+
+    normfitobj.setup_discharge_ticks(axarr, fit_majorspace=fit_majorspace, \
+                                     resid_majorspace=resid_majorspace)
     # for x in xfit:
     #     if not (x-1) % 3:
     #         axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
@@ -365,6 +379,8 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
         print("Enter guess at number of steps and charge at steps [[q1, q2, q3, ...], [x1, x2, x3, ...], vpq]")
         nstep = eval(input(": "))
 
+        plt.close(1)
+
         step_qs = nstep[0]
         step_inds = np.array(nstep[1]) * nsec
 
@@ -380,8 +396,6 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
 
         resids = ((yfit - popt[1]) / popt[0]) - ffun(xfit, *(newpopt/popt[0]))
         npts = len(resids)
-
-        plt.close(1)
 
         f, axarr = plt.subplots(2, sharex = True, \
                                 gridspec_kw = {'height_ratios':[2,1]}, \
@@ -422,7 +436,6 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
             f2.tight_layout()
 
         plt.show()
-        # plt.draw()
 
         happy = input("does the fit look good? (Y/n): ")
         if happy == 'y' or happy == 'Y':
@@ -439,16 +452,13 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., first_file=0, new_trap = Fals
 
     plt.close('all')
 
-    print(fitobj.popt[0])
-
     q0_sc = ffun([0], *fitobj.popt)[0]
     q0 = int(round(q0_sc / fitobj.popt[0]))
     print('q0: ', q0)
 
-    #Determine force calibration.
+    ### Scale response by the fundamental charge so that it's in units of
+    ### (response amplitude of 1e) / (force on 1e)
     e_charge = constants.elementary_charge
-    #fitobj.popt = fitobj.popt * 1./(amp_gain*e_charge/plate_sep)
-    #fitobj.errs = fitobj.errs * 1./(amp_gain*e_charge/plate_sep)
 
     fitobj.popt = fitobj.popt * (1.0 / e_charge)
     fitobj.errs = fitobj.errs * (1.0 / e_charge)

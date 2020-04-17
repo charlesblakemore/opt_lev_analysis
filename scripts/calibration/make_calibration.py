@@ -5,6 +5,8 @@ import dill as pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
+import scipy.interpolate as interp
+
 import bead_util as bu
 import calib_util as cal
 import transfer_func_util as tf
@@ -33,7 +35,7 @@ tabor_ind = 3
 # last_file = -1
 
 step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
-first_file = 430
+first_file = 0
 last_file = -1
 
 # step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/From_plus_to_minus_and_discharge/']
@@ -90,6 +92,9 @@ fit_freqs = [10.0, 700.0]
 plot_tf = True
 plot_tf_fits = True
 plot_off_diagonal = False
+
+plot_inverse_tf = False
+suppress_off_diag = True
 
 
 #####################################
@@ -209,7 +214,7 @@ if decimate:
 
 if last_file == -1:
     last_file = len(step_cal_files)
-step_cal_files = step_cal_files[:last_file]
+step_cal_files = step_cal_files[first_file:last_file]
 
 nstep_files = len(step_cal_files)
 
@@ -254,6 +259,8 @@ if not fake_step_cal:
         step_cal_vec_max.append(step_resp_dict['max'])
         step_cal_vec_userphase.append(step_resp_dict['userphase'])
 
+        drive_freq = step_resp_dict['drive_freq']
+
     if np.mean(step_cal_vec_inphase[:5]) > 0:
         fac = 1.0
     else:
@@ -285,8 +292,8 @@ if not fake_step_cal:
 
     nsec = df.nsamp * (1.0 / df.fsamp)
 
-    vpn, off, err, q0 = cal.step_cal(step_cal_vec_userphase, nsec=nsec, new_trap=new_trap, \
-                                     first_file=first_file, auto_try=auto_try, \
+    vpn, off, err, q0 = cal.step_cal(step_cal_vec_userphase, nsec=nsec, \
+                                     new_trap=new_trap, auto_try=auto_try, \
                                      plot_residual_histograms=plot_residual_histograms)
     print(vpn)
 
@@ -329,7 +336,8 @@ close_freq = keys[ np.argmin(np.abs(keys - drive_freq)) ]
 Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, \
                             drive_freq=drive_freq, verbose=True)
 
-# Build the Hfunc object
+### Build the Hfunc object
+### Hfunc
 Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
                         weight_lowf=True, plot=plot_tf, plot_fits=plot_tf_fits, \
                         plot_off_diagonal=plot_off_diagonal, \
@@ -338,7 +346,13 @@ Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
                         real_unwrap=True, derpy_unwrap=False, \
                         fit_freqs=fit_freqs)
 
-# Save the Hfunc object
+if plot_inverse_tf:
+    freqs = np.linspace(1, 1000, 2500)
+    Harr = tf.make_tf_array(freqs, Hfunc, suppress_off_diag=suppress_off_diag)
+
+    tf.plot_tf_array(freqs, Harr)
+
+### Save the Hfunc object
 if save:
-    pickle.dump(Hfunc, open(savepath, 'wb'))
+    pickle.dump( Hfunc, open(savepath, 'wb') )
 

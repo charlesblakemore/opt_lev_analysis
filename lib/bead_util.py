@@ -1065,7 +1065,7 @@ class DataFile:
             self.pos_data[resp] = signal.filtfilt(b, a, self.pos_data[resp])
 
 
-    def diagonalize(self, date='', interpolate=False, maxfreq=1000, \
+    def diagonalize(self, date='', maxfreq=1000, suppress_off_diag=False,\
                     step_cal_drive_freq=41.0, plot=False):
         '''Diagonalizes data, adding a new attribute to the DataFile object.
 
@@ -1084,16 +1084,9 @@ class DataFile:
 
         ext = configuration.extensions['trans_fun']
         if not len(date):
-            tf_path +=  self.date
+            tf_path +=  self.date + ext
         else:
-            tf_path += date
-
-        if interpolate:
-            tf_path += '_interp' + ext
-        else:
-            tf_path += ext
-
-        #print tf_path
+            tf_path += date + ext
 
         # Load the transfer function. Note that this Hfunc maps
         # drive -> response, so we will need to invert
@@ -1104,17 +1097,20 @@ class DataFile:
             traceback.print_exc()
             return
 
-        # Generate FFT frequencies for given data
+        ### Generate FFT frequencies for given data
         N = len(self.pos_data[0])
         freqs = np.fft.rfftfreq(N, d=1.0/self.fsamp)
 
-        # Compute TF at frequencies of interest. Appropriately inverts
-        # so we can map response -> drive
-        Harr = tf.make_tf_array(freqs, Hfunc)
+        ### Compute TF at frequencies of interest. Appropriately inverts
+        ### so we can map response -> drive
+        Harr = tf.make_tf_array(freqs, Hfunc, suppress_off_diag=suppress_off_diag)
 
-        x_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(0,0,freqs)))]
-        y_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(1,1,freqs)))]
-        self.xy_tf_res_freqs = [x_tf_res_freq, y_tf_res_freq]
+        ### Estimate the xy resonant frequencies from the fit. After changing
+        ### how the fits are represented, this code remains commented as the
+        ### Hfunc object is no longer actually a function (deceptive)
+        # x_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(0,0,freqs)))]
+        # y_tf_res_freq = freqs[np.argmax(np.abs(Hfunc(1,1,freqs)))]
+        # self.xy_tf_res_freqs = [x_tf_res_freq, y_tf_res_freq]
 
         if plot:
             tf.plot_tf_array(freqs, Harr)
@@ -1129,7 +1125,7 @@ class DataFile:
             conv_facs[i] = np.abs(mat[i,i])
         self.conv_facs = conv_facs
 
-        # Compute the FFT, apply the TF and inverse FFT
+        ### Compute the FFT, apply the TF and inverse FFT
         if self.new_trap:
             data = self.pos_data_3
         else:
