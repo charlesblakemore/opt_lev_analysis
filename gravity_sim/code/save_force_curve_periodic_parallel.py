@@ -79,7 +79,8 @@ full_period = density.width_goldfinger + density.width_siliconfinger
 
 ### Define indices for the central gold finger and half of each of 
 ### the neighboring silicon fingers to take advantage of periodicity
-xinds2 = xx >= density.finger_length
+xinds2 = np.abs(xx) <= density.finger_length + \
+                        density.include_bridge*density.silicon_bridge
 yinds2 = np.abs(yy) <= 0.5 * full_period
 zinds2 = np.abs(zz) <= 0.5 * density.height
 
@@ -175,16 +176,16 @@ def simulation(params):
         ### These are used to compute projections and thus need to maintain sign.
         ### Use the xx2, yy2, and zz2 arrays which are a subselections of the full
         ### attractor covering only a single period of the fingers
-        xsep, ysep, zsep = np.meshgrid(xx2 - beadpos[0], \
-                                       yy2 - beadpos[1], \
-                                       zz2 - beadpos[2], indexing='ij')
+        xsep, ysep, zsep = np.meshgrid(beadpos[0] - xx2, \
+                                       beadpos[1] - yy2, \
+                                       beadpos[2] - zz2, indexing='ij')
 
         ### Compute the separation between each point mass and the center 
         ### of the microsphere
         full_sep = np.sqrt(xsep**2 + ysep**2 + zsep**2)
 
         ### Refer to a soon-to-exist document expanding on Alex R's
-        prefac = ((2. * G * m2 * rhobead * np.pi) / (3. * full_sep**2))
+        prefac = -1.0 * ((2. * G * m2 * rhobead * np.pi) / (3. * full_sep**2))
 
         ### Append the computed values for the force from a single finger
         Gforcecurves[0].append( np.sum(prefac * Gterm * xsep / full_sep) )
@@ -219,7 +220,7 @@ def simulation(params):
                                            zz2 - beadpos[2], indexing='ij')
             full_sep = np.sqrt(xsep**2 + ysep**2 + zsep**2)
 
-            prefac = ((2. * G * m3 * rhobead * np.pi) / (3. * full_sep**2))
+            prefac = -1.0 * ((2. * G * m3 * rhobead * np.pi) / (3. * full_sep**2))
 
             newGs[0][ind] += np.sum(prefac * Gterm * xsep / full_sep) 
             newGs[1][ind] += np.sum(prefac * Gterm * ysep / full_sep) 
@@ -272,7 +273,7 @@ def simulation(params):
 
             ### Refer to the non-existent LaTeX document in ../documents/ to explain this.
             ### Two position dependent terms
-            prefac = ((2. * G * m2 * rhobead * np.pi) / (3. * (s + rbead)**2))
+            prefac = -1.0 * ((2. * G * m2 * rhobead * np.pi) / (3. * (s + rbead)**2))
             yukterm = 3 * yuklambda**2 * (s + rbead + yuklambda) * func * np.exp( - s / yuklambda )
 
             ### Build up the force curve at this point in the bead's position
@@ -312,7 +313,7 @@ def simulation(params):
 
                 ### Refer to the non-existent LaTeX document in ../documents/ to explain this.
                 ### Two position dependent terms
-                prefac = ((2. * G * m3 * rhobead * np.pi) / (3. * (rbead + s)**2))
+                prefac = -1.0 * ((2. * G * m3 * rhobead * np.pi) / (3. * (rbead + s)**2))
                 yukterm = 3 * yuklambda**2 * (rbead + s + yuklambda) * func * np.exp( - s / yuklambda )
 
                 newyuks[0][ind] += np.sum(prefac * yukterm * xsep / (s + rbead))

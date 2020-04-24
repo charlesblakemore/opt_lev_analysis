@@ -2,6 +2,7 @@
 *.pyc
 *.npy
 *.p
+*.log
 *~
 gravity_sim/**/*results*/**/*
 scripts/kp_analysis
