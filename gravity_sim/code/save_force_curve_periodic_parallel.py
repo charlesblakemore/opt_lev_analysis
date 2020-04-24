@@ -215,9 +215,9 @@ def simulation(params):
             beadpos = [sep+rbead, ypos, height]
 
             ### These are used to compute projections and thus need to maintain sign
-            xsep, ysep, zsep = np.meshgrid(xx2 - beadpos[0], \
-                                           yy3 - beadpos[1], \
-                                           zz2 - beadpos[2], indexing='ij')
+            xsep, ysep, zsep = np.meshgrid(beadpos[0] - xx2, \
+                                           beadpos[1] - yy3, \
+                                           beadpos[2] - zz2, indexing='ij')
             full_sep = np.sqrt(xsep**2 + ysep**2 + zsep**2)
 
             prefac = -1.0 * ((2. * G * m3 * rhobead * np.pi) / (3. * full_sep**2))
@@ -263,9 +263,9 @@ def simulation(params):
             beadpos = [sep+rbead, ypos, height]
 
             #### These are used to compute projections and thus need to maintain sign
-            xsep, ysep, zsep = np.meshgrid(xx2 - beadpos[0], \
-                                           yy2 - beadpos[1], \
-                                           zz2 - beadpos[2], indexing='ij')
+            xsep, ysep, zsep = np.meshgrid(beadpos[0] - xx2, \
+                                           beadpos[1] - yy2, \
+                                           beadpos[2] - zz2, indexing='ij')
 
             ### This isn't the full sep this time, because the Yukawa term depends on 
             ### the distance between the point mass and the surface of the MS
@@ -303,9 +303,9 @@ def simulation(params):
                 beadpos = [sep+rbead, ypos, height]
 
                 #### These are used to compute projections and thus need to maintain sign
-                xsep, ysep, zsep = np.meshgrid(xx2 - beadpos[0], \
-                                               yy3 - beadpos[1], \
-                                               zz2 - beadpos[2], indexing='ij')
+                xsep, ysep, zsep = np.meshgrid(beadpos[0] - xx2, \
+                                               beadpos[1] - yy3, \
+                                               beadpos[2] - zz2, indexing='ij')
 
                 ### This isn't the full sep this time, because the Yukawa term depends on 
                 ### the distance between the point mass and the surface of the MS

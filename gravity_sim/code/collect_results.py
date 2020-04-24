@@ -8,7 +8,7 @@ import dill as pickle
 import bead_util as bu
 
 
-raw_path = os.path.abspath('../derp_results/')
+raw_path = os.path.abspath('../raw_results/')
 out_path = os.path.abspath('../results/')
 
 out_subdir = '7_6um-gbead_1um-unit-cells'
