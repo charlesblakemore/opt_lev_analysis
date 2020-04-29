@@ -26,69 +26,6 @@ def line(x, a, b):
     return a * x + b
 
 
-def damped_osc_amp(f, A, f0, g):
-    '''Fitting function for AMPLITUDE of a damped harmonic oscillator
-           INPUTS: f [Hz], frequency 
-                   A, amplitude
-                   f0 [Hz], resonant frequency
-                   g [Hz], damping factor
-
-           OUTPUTS: Lorentzian amplitude'''
-    w = 2. * np.pi * f
-    w0 = 2. * np.pi * f0
-    gamma = 2. * np.pi * g
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * gamma**2)
-    return A / denom
-
-def damped_osc_phase(f, A, f0, g, phase0 = 0.):
-    '''Fitting function for PHASE of a damped harmonic oscillator.
-       Includes an arbitrary DC phase to fit over out of phase responses
-           INPUTS: f [Hz], frequency 
-                   A, amplitude
-                   f0 [Hz], resonant frequency
-                   g [Hz], damping factor
-
-           OUTPUTS: Lorentzian amplitude'''
-    w = 2. * np.pi * f
-    w0 = 2. * np.pi * f0
-    gamma = 2. * np.pi * g
-    # return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
-    return 1.0 * np.arctan2(-w * gamma, w0**2 - w**2) + phase0
-
-
-
-def sum_3osc_amp(f, A1, f1, g1, A2, f2, g2, A3, f3, g3):
-    '''Fitting function for AMPLITUDE of a sum of 3 damped harmonic oscillators.
-           INPUTS: f [Hz], frequency 
-                   A1,2,3, amplitude of the three oscillators
-                   f1,2,3 [Hz], resonant frequency of the three oscs
-                   g1,2,3 [Hz], damping factors
-
-           OUTPUTS: Lorentzian amplitude of complex sum'''
-
-    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
-           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
-           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
-    return np.abs(csum)
-
-
-def sum_3osc_phase(f, A1, f1, g1, A2, f2, g2, A3, f3, g3, phase0=0.):
-    '''Fitting function for PHASE of a sum of 3 damped harmonic oscillators.
-       Includes an arbitrary DC phase to fit over out of phase responses
-           INPUTS: f [Hz], frequency 
-                   A1,2,3, amplitude of the three oscillators
-                   f1,2,3 [Hz], resonant frequency of the three oscs
-                   g1,2,3 [Hz], damping factors
-
-           OUTPUTS: Lorentzian phase of complex sum'''
-
-    csum = damped_osc_amp(f, A1, f1, g1)*np.exp(1.j * damped_osc_phase(f, A1, f1, g1) ) \
-           + damped_osc_amp(f, A2, f2, g2)*np.exp(1.j * damped_osc_phase(f, A2, f2, g2) ) \
-           + damped_osc_amp(f, A3, f3, g3)*np.exp(1.j * damped_osc_phase(f, A3, f3, g3) )
-    return np.angle(csum) + phase0
-
-
-
 
 def ipoly1d_func(x, *params):
     '''inverse polynomial function to fit against
@@ -106,12 +43,8 @@ def ipoly1d_func(x, *params):
     return out
 
 
-
-
 def ipoly1d(ipolyparams):
     return lambda x: ipoly1d_func(x, *ipolyparams)
-
-
 
 
 def ipolyfit(xs, ys, deg):
@@ -120,8 +53,6 @@ def ipolyfit(xs, ys, deg):
     params = np.array([mean * meanx**p for p in range(deg + 1)])
     popt, _ = opti.curve_fit(ipoly1d_func, xs, ys, p0=params, maxfev=10000)
     return popt
-
-
 
 
 def make_extrapolator(interpfunc, pts=(10, 10), order=(1,1), arb_power_law=(False, False), \
@@ -787,17 +718,17 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
                 # plt.figure()
                 # plt.loglog(keys[b], mag[b])
-                # plt.loglog(keys[b], damped_osc_amp(keys[b], amp0, fpeak, g))
+                # plt.loglog(keys[b], bu.damped_osc_amp(keys[b], amp0, fpeak, g))
                 # plt.show()
 
                 def NLL(amp, f0, g):
-                    mag_term = ( damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
-                    phase_term = ( damped_osc_phase(keys[b], 1.0, f0, g, phase0=phase0) - unphase[b] )**2 \
+                    mag_term = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
+                    phase_term = ( bu.damped_osc_phase(keys[b], 1.0, f0, g, phase0=phase0) - unphase[b] )**2 \
                                         / phase_weights[b]**2
                     return np.sum(mag_term + phase_term)
 
                 def NLL2(amp, f0, g):
-                    mag_term = ( damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
+                    mag_term = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
                     return np.sum(mag_term)
 
                 m = Minuit(NLL2,
@@ -836,19 +767,19 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                     axarr2[resp,drive].semilogx(keys, unphase, 'o', ms=6, color=data_color)
 
                     if plot_fits:
-                        fitmag = damped_osc_amp(pts, *popt_mag)
+                        fitmag = bu.damped_osc_amp(pts, *popt_mag)
                         axarr1[resp,drive].loglog(pts, fitmag, ls='-', \
                                                   color=fit_color, linewidth=2)
 
-                        fitphase = damped_osc_phase(pts, *popt_phase, phase0=phase0)
+                        fitphase = bu.damped_osc_phase(pts, *popt_phase, phase0=phase0)
                         axarr2[resp,drive].semilogx(pts, fitphase, ls='-', \
                                                     color=fit_color, linewidth=2)
 
                     if plot_inits:
-                        maginit = damped_osc_amp(pts, *p0_mag)
+                        maginit = bu.damped_osc_amp(pts, *p0_mag)
                         axarr1[resp,drive].loglog(pts, maginit, ls='-', color='k', linewidth=2)
 
-                        phaseinit = damped_osc_phase(pts, *p0_phase, phase0=phase0)
+                        phaseinit = bu.damped_osc_phase(pts, *p0_phase, phase0=phase0)
                         axarr2[resp,drive].semilogx(pts, phaseinit, \
                                                     ls='-', color='k', linewidth=2)
 
@@ -953,8 +884,8 @@ def make_tf_array(freqs, Hfunc, suppress_off_diag=False):
                 phase = phase_extrap(freqs)
 
             else:
-                mag = damped_osc_amp(freqs, *fit[0])
-                phase = damped_osc_phase(freqs, *fit[1], phase0=fit[2])
+                mag = bu.damped_osc_amp(freqs, *fit[0])
+                phase = bu.damped_osc_phase(freqs, *fit[1], phase0=fit[2])
 
             Harr[:,drive,resp] = mag * np.exp(1.0j * phase)
 

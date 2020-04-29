@@ -3,35 +3,28 @@ import time, sys
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+### Keep all the parameters in a dictionary so they can be easily
+### saved along with the simulation output
 attractor_params = {}
 
 ### Material densities in kg/m^3
-rho_gold = 19300.0
-rho_silicon = 2532.59
 attractor_params['rho_gold'] = 19300.0
 attractor_params['rho_silicon'] = 2532.59
 
 
 ### Properties of the attractor, SI (mks) units
 ### for now this is assumed to be an odd integer,
-n_goldfinger = 9
 attractor_params['n_goldfinger'] = 9
 
-width_goldfinger = 25.0e-6
-width_siliconfinger = 25.0e-6
-width_outersilicon = 25.0e-6
 attractor_params['width_goldfinger'] = 25.0e-6
 attractor_params['width_siliconfinger'] = 25.0e-6
 attractor_params['width_outersilicon'] = 25.0e-6
 
-height = 10.0e-6
 attractor_params['height'] = 10.0e-6
 
-finger_length = 80.0e-6
 attractor_params['finger_length'] = 80.0e-6
 
-silicon_bridge = 2.0e-6
-include_bridge = True
 attractor_params['silicon_bridge'] = 2.0e-6
 attractor_params['include_bridge'] = True
 

@@ -16,6 +16,8 @@ import scipy.stats as stats
 import scipy.constants as constants
 import scipy
 
+from obspy.signal.detrend import polynomial
+
 import configuration
 import transfer_func_util as tf
 
@@ -279,6 +281,19 @@ def make_all_pardirs(path):
 
 
 
+
+
+def count_subdirectories(dirname):
+    '''Simple function to count subdirectories.'''
+    count = 0
+    for root, dirs, files in os.walk(dirname):
+        count += len(dirs)
+    return count
+
+
+
+
+
 def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
                     verbose=True, substr='', sort_time=False, \
                     use_origin_timestamp=False, skip_subdirectories=False):
@@ -338,7 +353,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
     if was_list:
         return files, lengths
     else:
-        return files, 0
+        return files, [len(files)]
 
 
 
@@ -943,6 +958,86 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
         
 
 
+def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
+          bandwidth=1000.0, filt_band=[], plot=False):
+    '''Sub-routine to perform a hilbert transformation on a given 
+       signal, filtering it if requested and plotting throughout.
+       Includes a tukey window to remove artifacts at the endpoint
+       of the demodulated phase.'''
+
+    nsamp = len(sig)
+    tvec = np.arange(nsamp) * (1.0 / fsamp)
+    freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+
+    fc = float(harmind) * fsig
+
+    if len(filt_band):
+        lower, upper = filt_band
+    else:
+        lower = fc - 0.5 * bandwidth
+        upper = fc + 0.5 * bandwidth
+
+    filt_band_digital = (2.0/fsamp) * np.array([lower, upper])
+
+    b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
+
+    if filt:
+        sig_filt = signal.filtfilt(b1, a1, sig, padtype='odd', padlen=10)
+        hilbert = signal.hilbert(sig_filt)
+    else:
+        hilbert = signal.hilbert(sig)
+
+    amp = np.abs(hilbert)
+
+    phase = np.unwrap(np.angle(hilbert)) - 2.0*np.pi*fc*tvec
+
+    phase = (phase + np.pi) % (2.0*np.pi) - np.pi
+    phase = np.unwrap(phase)
+
+    phase_mod = polynomial(phase, order=3, plot=False) \
+                     * signal.tukey(len(phase), alpha=1e-3)
+
+    if plot:
+        plt.figure()
+        plt.plot(tvec, sig, label='signal')
+        if filt:
+            plt.plot(tvec, sig_filt, label='signal_filt')
+        plt.plot(tvec, amp, label='amplitude')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Signal [sig units]')
+        plt.legend()
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(np.fft.rfft(sig)))
+        if filt:
+            plt.loglog(freqs, np.abs(np.fft.rfft(sig_filt)))
+            plt.axvline(fc, ls='--', lw=3, color='r')
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Signal ASD [Arb]')
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(tvec, phase_mod)
+        plt.xlabel('Time [s]')
+        plt.ylabel('Phase Modulation [rad]')
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(np.fft.rfft(phase_mod)))
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Phase ASD [Arb]')
+        plt.tight_layout()
+
+        plt.show()
+        input()
+
+    return amp, phase_mod
+
+
+
+
+
 def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
     # 90% confidence level for 1sigma errors
 
@@ -990,6 +1085,7 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
     return minparam, err, minval
+
 
 
 
@@ -1059,6 +1155,9 @@ def thermal_psd_spec(f, A, f0, g):
     denom = ((w0**2 - w**2)**2 + w**2*g**2)
     return 2 * (A * num / denom) # Extra factor of 2 from single-sided PSD
 
+
+
+
 def damped_osc_amp(f, A, f0, g):
     '''Fitting function for AMPLITUDE of a damped harmonic oscillator
            INPUTS: f [Hz], frequency 
@@ -1069,13 +1168,16 @@ def damped_osc_amp(f, A, f0, g):
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * g**2)
+    gamma = 2. * np.pi * g
+    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * gamma**2)
     return A / denom
 
 
+
+
 def damped_osc_phase(f, A, f0, g, phase0 = 0.):
-    '''Fitting function for PHASE of a damped harmonic oscillator. 
-       Includes an arbitrary DC phase to fit over out of phase responses 
+    '''Fitting function for PHASE of a damped harmonic oscillator.
+       Includes an arbitrary DC phase to fit over out of phase responses
            INPUTS: f [Hz], frequency 
                    A, amplitude
                    f0 [Hz], resonant frequency
@@ -1084,11 +1186,57 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+    gamma = 2. * np.pi * g
+    # return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+    return 1.0 * np.arctan2(-w * gamma, w0**2 - w**2) + phase0
 
 
 
 
+def fit_damped_osc_amp(sig, fsamp, fit_band=100, plot=False):
+    '''Routine to fit the above defined damped HO amplitude spectrum
+       to the ASD of some input signal, assumed to have a single
+       resonance etc etc
+           INPUTS: sig, signal to analyze 
+                   fsamp [Hz], sampling frequency of input signal
+                   fit_band [Hz], frequency band to fit
+                   plot, boolean flag for plotting of fit results
+
+           OUTPUTS: popt, optimal parameters from curve_fit
+                    pcov, covariance matrix from curve_fit'''
+
+    nsamp = len(sig)
+    freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+
+    asd = np.abs( np.fft.rfft(sig) ) * fft_norm(nsamp, fsamp)
+    maxind = np.argmax(asd)
+
+    freq_guess = freqs[maxind]
+    gamma_guess = 2e-3 * freq_guess
+    amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+
+    inds = np.abs(freqs - freq_guess) < 0.5*fit_band
+
+    p0 = [amp_guess, freq_guess, gamma_guess]
+    popt, pcov = optimize.curve_fit(damped_osc_amp, freqs[inds], asd[inds], \
+                                    p0=p0, maxfev=100000)
+    popt = np.abs(popt)
+
+    if plot:
+
+        plot_freqs = np.linspace(freqs[inds][0], freqs[inds][-1], 1000)
+
+        plt.loglog(freqs[inds], asd[inds])
+        plt.loglog(plot_freqs, damped_osc_amp(plot_freqs, *p0), \
+                    ls='--', color='k')
+        plt.loglog(plot_freqs, damped_osc_amp(plot_freqs, *popt), \
+                    ls='--', color='r')
+        plt.xlim(popt[1] - fit_band, popt[1] + fit_band)
+        plt.ylim(0.05 * np.min(asd[inds]), 5.0 * asd[maxind])
+        plt.show()
+        # input()
+
+    return popt, pcov
 
 
 

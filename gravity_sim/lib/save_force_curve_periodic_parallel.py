@@ -26,9 +26,9 @@ seps = np.arange(5.0e-6, 56.0e-6, 1.0e-6)
 heights = np.arange(-10.0e-6, 11.0e-6, 1.0e-6)
 
 ### Attractor properties in case they need to be adjusted
-density.include_bridge = True
-density.width_goldfinger = 25.0e-6
-density.width_siliconfinger = 25.0e-6
+density.attractor_params['include_bridge'] = True
+density.attractor_params['width_goldfinger'] = 25.0e-6
+density.attractor_params['width_siliconfinger'] = 25.0e-6
 
 ### Whether or not to include the outer silicon edge at the limits
 ### of y (I tink it amounts to a 12um wide strip of silicon) so it
@@ -77,20 +77,29 @@ beadposvec2 = np.linspace(-1.0*travel + bead_dx, \
 #######  periodicity in the attractor                    ########
 #################################################################
 
+n_goldfinger = density.attractor_params['n_goldfinger']
+width_goldfinger = density.attractor_params['width_goldfinger']
+width_siliconfinger = density.attractor_params['width_siliconfinger']
+
+include_bridge = density.attractor_params['include_bridge']
+silicon_bridge = density.attractor_params['silicon_bridge']
+
+finger_length = density.attractor_params['finger_length']
+height = density.attractor_params['height']
 
 
-full_period = density.width_goldfinger + density.width_siliconfinger
+full_period = width_goldfinger + width_siliconfinger
 
 ### Define indices for the central gold finger and half of each of 
 ### the neighboring silicon fingers to take advantage of periodicity
-xinds2 = np.abs(xx) <= density.finger_length + \
-                        density.include_bridge*density.silicon_bridge
+xinds2 = np.abs(xx) <= finger_length + \
+                        include_bridge*silicon_bridge
 yinds2 = np.abs(yy) <= 0.5 * full_period
-zinds2 = np.abs(zz) <= 0.5 * density.height
+zinds2 = np.abs(zz) <= 0.5 * height
 
 ### Define the indices outside of the repeated unit cell structure
 ### to be used if include_edge=True
-yinds3 = np.abs(yy) >= 0.5 * density.n_goldfinger * full_period
+yinds3 = np.abs(yy) >= 0.5 * n_goldfinger * full_period
 
 ### Cut the coordinate vectors and density arrays for the repeating 
 ### structure and the outer silicon edge
@@ -121,9 +130,9 @@ bu.make_all_pardirs(test_filename)
 
 ### Assuming n_goldfinger is an odd integer, this just sets up some indices
 ### of the fingers for use in the periodic sampling part
-finger_inds = np.linspace(-1.0 * int( 0.5*density.n_goldfinger ), \
-                           1.0 * int( 0.5*density.n_goldfinger ), \
-                           density.n_goldfinger)
+finger_inds = np.linspace(-1.0 * int( 0.5*n_goldfinger ), \
+                           1.0 * int( 0.5*n_goldfinger ), \
+                           n_goldfinger)
 
 
 ### Function to determine which finger you're in front of, and then

@@ -62,8 +62,6 @@ for fil_ind, fil in enumerate(raw_filenames):
     if not len(posvec):
         posvec = sim_out['posvec']
         lambdas = list(sim_out[rbead][sep][height].keys())
-        # attractor_params = sim_out['attractor_params']
-        # rhobead = sim_out['rhobead']
     else:
         assert np.sum(posvec - sim_out['posvec']) == 0.0
 
@@ -136,8 +134,6 @@ else:
     print("Saving all that good, good data")
 
 try:
-    # pickle.dump(attractor_params, open(os.path.join(out_path, 'attractor_params.p'), 'wb'))
-    # np.save(os.path.join(out_path, 'rbead_rhobead.npy'), [rbead, rhobead])
     np.save(os.path.join(out_path, 'rbead.npy'), [rbead])
     np.save(os.path.join(out_path, 'lambdas.npy'), lambdas)
     np.save(os.path.join(out_path, 'yukdata.npy'), yukoutarr)
