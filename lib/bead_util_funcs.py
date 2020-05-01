@@ -1216,6 +1216,7 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=100, plot=False):
     amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
 
     inds = np.abs(freqs - freq_guess) < 0.5*fit_band
+    plot_inds = np.abs(freqs - freq_guess) < 1.5*fit_band
 
     p0 = [amp_guess, freq_guess, gamma_guess]
     popt, pcov = optimize.curve_fit(damped_osc_amp, freqs[inds], asd[inds], \
@@ -1223,16 +1224,15 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=100, plot=False):
     popt = np.abs(popt)
 
     if plot:
+        fit_freqs = np.linspace(freqs[inds][0], freqs[inds][-1], 1000) 
+        init_mag = damped_osc_amp(fit_freqs, *p0)
+        fit_mag = damped_osc_amp(fit_freqs, *popt)
 
-        plot_freqs = np.linspace(freqs[inds][0], freqs[inds][-1], 1000)
-
-        plt.loglog(freqs[inds], asd[inds])
-        plt.loglog(plot_freqs, damped_osc_amp(plot_freqs, *p0), \
-                    ls='--', color='k')
-        plt.loglog(plot_freqs, damped_osc_amp(plot_freqs, *popt), \
-                    ls='--', color='r')
+        plt.loglog(freqs[plot_inds], asd[plot_inds])
+        plt.loglog(fit_freqs, init_mag, ls='--', color='k')
+        plt.loglog(fit_freqs, fit_mag, ls='--', color='r')
         plt.xlim(popt[1] - fit_band, popt[1] + fit_band)
-        plt.ylim(0.05 * np.min(asd[inds]), 5.0 * asd[maxind])
+        plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(fit_mag))
         plt.show()
         # input()
 

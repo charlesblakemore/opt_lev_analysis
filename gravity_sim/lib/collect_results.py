@@ -11,14 +11,15 @@ import bead_util as bu
 raw_path = os.path.abspath('../raw_results/')
 out_path = os.path.abspath('../results/')
 
-out_subdir = '4_6um-gbead_1um-unit-cells'
+# out_subdir = '4_6um-gbead_1um-unit-cells'
+out_subdir = '7_6um-gbead_1um-unit-cells'
 out_path = os.path.join(out_path, out_subdir)
 
 ### HAVE TO EDIT THIS FUNCTION TO PARSE SIMULATION OUTPUT
 ### THAT HAS MULTIPLE BEAD RADII. TRUE VALUE MEANS IT WILL
 ### BE INCLUDED
 def rbead_cond(rbead):
-    if rbead > 2.5e-6:
+    if rbead < 2.5e-6:
         return False 
     else:
         return True
@@ -62,6 +63,8 @@ for fil_ind, fil in enumerate(raw_filenames):
     if not len(posvec):
         posvec = sim_out['posvec']
         lambdas = list(sim_out[rbead][sep][height].keys())
+        # attractor_params = sim_out['attractor_params']
+        # rhobead = sim_out['rhobead']
     else:
         assert np.sum(posvec - sim_out['posvec']) == 0.0
 
@@ -134,11 +137,13 @@ else:
     print("Saving all that good, good data")
 
 try:
+    # pickle.dump(attractor_params, open(os.path.join(out_path, 'attractor_params.p'), 'wb'))
+    # np.save(os.path.join(out_path, 'rbead_rhobead.npy'), [rbead, rhobead])
     np.save(os.path.join(out_path, 'rbead.npy'), [rbead])
     np.save(os.path.join(out_path, 'lambdas.npy'), lambdas)
     np.save(os.path.join(out_path, 'yukdata.npy'), yukoutarr)
     np.save(os.path.join(out_path, 'Gravdata.npy'), Goutarr)
-    np.save(os.path.join(out_path, 'xpos.npy'), seps)
+    np.save(os.path.join(out_path, 'xpos.npy'), seps + rbead)
     np.save(os.path.join(out_path, 'ypos.npy'), posvec)
     np.save(os.path.join(out_path, 'zpos.npy'), heights)
 

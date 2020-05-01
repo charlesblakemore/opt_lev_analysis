@@ -21,13 +21,16 @@ plt.rcParams.update({'font.size': 14})
 
 base = '/data/old_trap_processed/spinsim_data/libration_tests/'
 
-dirname = os.path.join(base, 'high_pressure_sweep')
+# dirname = os.path.join(base, 'high_pressure_sweep')
+dirname = os.path.join(base, 'initial_angle')
 n_mc = bu.count_subdirectories(dirname)
 
 hdf5 = True
+ext = '.h5'
 
-fsamp = 1.0e6
-
+### Use this option with care: if you parallelize and ask it to plot,
+### you'll get ncore * (a few) plots up simultaneously
+plot_first_file = False
 
 ### Constants
 dipole_units = constants.e * (1e-6) # to convert e um -> C m
@@ -58,11 +61,10 @@ def proc_mc(i):
     pressure = params['pressure'] * 1e-2   # convert back to mbar
     drive_amp = params['drive_amp']
     fsig = params['drive_freq']
-
-    if hdf5:
-        ext = '.h5'
-    else:
-        ext = '.npy'
+    try:
+        fsamp = params['fsamp']
+    except Exception:
+        fsamp = 1.0e6
 
     datfiles, lengths = bu.find_all_fnames(cdir, ext=ext, verbose=False, \
                                             sort_time=True, use_origin_timestamp=True)
@@ -71,8 +73,16 @@ def proc_mc(i):
     all_amp = np.array([])
     all_t = np.array([])
 
+    plot = False
     for fileind, file in enumerate(datfiles):
+
+        # if fileind > 20:
+        #     break
+
         # bu.progress_bar(fileind, nfiles, suffix='{:d}/{:d}'.format(i+1, n_mc))
+
+        if plot_first_file:
+            plot = not fileind
 
         if hdf5:
             fobj = h5py.File(file, 'r')
@@ -90,13 +100,13 @@ def proc_mc(i):
 
         carrier_amp, carrier_phase \
                 = bu.demod(crossp, fsig, fsamp, harmind=2.0, filt=True, \
-                           bandwidth=4000.0, plot=False)
+                           bandwidth=4000.0, plot=plot)
 
-        params, cov = bu.fit_damped_osc_amp(carrier_phase, fsamp, plot=False)
+        params, cov = bu.fit_damped_osc_amp(carrier_phase, fsamp, plot=plot)
 
         libration_amp, libration_phase \
                 = bu.demod(carrier_phase, params[1], fsamp, harmind=1.0, \
-                           filt=True, filt_band=[300, 2000], plot=False)
+                           filt=True, filt_band=[300, 2000], plot=plot)
 
         tvec_cut = tvec[5000:nsamp-5000]
         amp_cut = libration_amp[5000:nsamp-5000]
@@ -113,21 +123,19 @@ def proc_mc(i):
 
 
 
-results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_mc)) )
+results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_mc))[::-1] )
 
 pickle.dump(results, open('./derp.p', 'wb'))
 
 for ind, result in enumerate(results[::-1]):
-
     pressure, all_t, all_amp = result
+    lab = '{:0.3g} mbar'.format(pressure)
     plt.plot(all_t, all_amp, color=colors[ind], \
-             label='{:0.3g} mbar'.format(pressure))
-
+             label=lab)
 plt.xlabel('Time [s]')
 plt.ylabel('Amplitude of Phase Modulation [rad]')
-plt.legend()
+# plt.legend()
 plt.tight_layout()
-
 plt.show()
 
 
