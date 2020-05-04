@@ -28,6 +28,10 @@ n_mc = bu.count_subdirectories(dirname)
 hdf5 = True
 ext = '.h5'
 
+### Paths for saving
+save_base = '/home/cblakemore/opt_lev_analysis/spin_beads_sim/processed_results/'
+save_filename = os.path.join(save_base, 'libration_ringdown_highp.p')
+
 ### Use this option with care: if you parallelize and ask it to plot,
 ### you'll get ncore * (a few) plots up simultaneously
 plot_first_file = False
@@ -58,7 +62,7 @@ def proc_mc(i):
     param_path = os.path.join(cdir, 'params.p')
     params = pickle.load( open(param_path, 'rb') )
 
-    pressure = params['pressure'] * 1e-2   # convert back to mbar
+    pressure = params['pressure']
     drive_amp = params['drive_amp']
     fsig = params['drive_freq']
     try:
@@ -125,11 +129,11 @@ def proc_mc(i):
 
 results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_mc))[::-1] )
 
-pickle.dump(results, open('./derp.p', 'wb'))
+pickle.dump(results, open(save_filename, 'wb'))
 
 for ind, result in enumerate(results[::-1]):
     pressure, all_t, all_amp = result
-    lab = '{:0.3g} mbar'.format(pressure)
+    # lab = '{:0.3g} mbar'.format(pressure)
     plt.plot(all_t, all_amp, color=colors[ind], \
              label=lab)
 plt.xlabel('Time [s]')

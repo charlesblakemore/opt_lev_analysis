@@ -997,6 +997,8 @@ def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
     phase_mod = polynomial(phase, order=3, plot=False) \
                      * signal.tukey(len(phase), alpha=1e-3)
 
+    phase_mod *= (1.0 / float(harmind))
+
     if plot:
         plt.figure()
         plt.plot(tvec, sig, label='signal')

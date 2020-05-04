@@ -17,7 +17,7 @@ import bead_util as bu
 from numba import jit
 from joblib import Parallel, delayed
 
-ncore = 10
+ncore = 20
 
 
 ### Constants
@@ -63,7 +63,7 @@ nsim = int(t_sim * fsim)
 N_opt = 0
 
 ### Pressures, converted to Pascals
-pressures = [1.0e-4 * 100]
+pressures = [1.0e-3 * 100]
 # pressures = [#1.0e-7 * 100.0, 3.5e-7 * 100.0, \
 #              1.0e-6 * 100.0, 3.5e-6 * 100.0, \
 #              1.0e-5 * 100.0, 3.5e-5 * 100.0, \
@@ -100,7 +100,7 @@ seed_init = 133769 # for angle sweep
 ### Save path below
 # savedir = 'libration_tests/fine_amp_sweep_short'
 # savedir = 'libration_tests/high_pressure_sweep'
-savedir = 'libration_tests/initial_angle'
+savedir = 'libration_tests/initial_angle_highp'
 # savedir = 'derp_test'
 
 base = '/data/old_trap_processed/spinsim_data/'
