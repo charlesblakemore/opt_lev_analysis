@@ -37,7 +37,7 @@ attractor_params['include_bridge'] = True
 
 
 
-attractor_params['total_width'] = 
+attractor_params['total_width'] = \
                 attractor_params['n_goldfinger'] \
                         * attractor_params['width_goldfinger'] \
               + (attractor_params['n_goldfinger'] - 1) \

@@ -22,20 +22,24 @@ plt.rcParams.update({'font.size': 14})
 base = '/data/old_trap_processed/spinsim_data/libration_tests/'
 
 # dirname = os.path.join(base, 'high_pressure_sweep')
-dirname = os.path.join(base, 'sdeint_ringdown_manyp')
+dirname = os.path.join(base, 'initial_angle_manyp_1')
 n_mc = bu.count_subdirectories(dirname)
 
 hdf5 = True
 ext = '.h5'
 
 ### Paths for saving
-save = False
 save_base = '/home/cblakemore/opt_lev_analysis/spin_beads_sim/processed_results/'
-save_filename = os.path.join(save_base, 'sdeint_ringdown_manyp.p')
+save_filename = os.path.join(save_base, 'libration_spectra_manyp_1.p')
+
+nspectra_to_avg = 10
+
+downsample = True
+downsample_fac = 100
 
 ### Use this option with care: if you parallelize and ask it to plot,
 ### you'll get ncore * (a few) plots up simultaneously
-plot_first_file = False
+plot_demod = False
 
 ### Constants
 dipole_units = constants.e * (1e-6) # to convert e um -> C m
@@ -66,7 +70,6 @@ def proc_mc(i):
     pressure = params['pressure']
     drive_amp = params['drive_amp']
     fsig = params['drive_freq']
-    p0 = params['p0']
     try:
         fsamp = params['fsamp']
     except Exception:
@@ -74,19 +77,14 @@ def proc_mc(i):
 
     datfiles, lengths = bu.find_all_fnames(cdir, ext=ext, verbose=False, \
                                             sort_time=True, use_origin_timestamp=True)
+    datfiles = datfiles[::-1]
     nfiles = lengths[0]
 
-    all_amp = np.array([])
-    all_t = np.array([])
-
-    plot = False
+    psd_array = []
     for fileind, file in enumerate(datfiles):
 
-        if fileind >= 20:
+        if fileind >= nspectra_to_avg - 1:
             break
-
-        if plot_first_file:
-            plot = not fileind
 
         if hdf5:
             fobj = h5py.File(file, 'r')
@@ -96,41 +94,66 @@ def proc_mc(i):
             dat = np.load(file)
 
         nsamp = dat.shape[1]
+        nsamp_ds = int(nsamp / downsample_fac)
 
         tvec = dat[0]
-        theta = dat[1]
-        phi = dat[2]
-        px = p0 * np.cos(phi) * np.sin(theta)
+        px = dat[1]
 
         crossp = np.abs(px)
         carrier_amp, carrier_phase \
                 = bu.demod(crossp, fsig, fsamp, harmind=2.0, filt=True, \
-                           bandwidth=4000.0, plot=plot)
+                           bandwidth=4000.0, plot=plot_demod)
 
-        params, cov = bu.fit_damped_osc_amp(carrier_phase, fsamp, plot=plot)
+        if downsample:
+            carrier_phase_ds, tvec_ds = signal.resample(carrier_phase, nsamp_ds, t=tvec, window=None)
 
-        libration_amp, libration_phase \
-                = bu.demod(carrier_phase, params[1], fsamp, harmind=1.0, \
-                           filt=True, filt_band=[300, 2000], plot=plot)
+            dt = tvec_ds[1] - tvec_ds[0]
+            fsamp_ds = 1.0 / dt
 
-        tvec_cut = tvec[5000:nsamp-5000]
-        amp_cut = libration_amp[5000:nsamp-5000]
+            freqs = np.fft.rfftfreq(nsamp_ds, d=dt)
+            carrier_phase_asd = bu.fft_norm(nsamp_ds, fsamp_ds) * np.abs(np.fft.rfft(carrier_phase_ds))
+        else:
+            freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+            carrier_phase_asd = bu.fft_norm(nsamp, fsamp) * np.abs(np.fft.rfft(carrier_phase))
 
-        step = int(len(amp_cut) / 100)
-        amp_cut_ds = amp_cut[::step]
-        tvec_cut_ds = tvec_cut[::step]
+        if not len(psd_array):
+            psd_array = np.zeros((nspectra_to_avg, len(carrier_phase_asd)), dtype=np.float64)
+        psd_array[fileind,:] += carrier_phase_asd**2
 
-        all_amp = np.concatenate( (all_amp, amp_cut_ds) )
-        all_t = np.concatenate( (all_t, tvec_cut_ds) )
+    if downsample:
+        fsamp = fsamp_ds
+    avg_psd = np.mean(psd_array, axis=0)
+    avg_asd = np.sqrt(avg_psd)
 
-    return [pressure, all_t, all_amp]
+    asd_errs = 0.5 * avg_asd * (np.std(psd_array, axis=0) * np.sqrt(1.0 / nspectra_to_avg)) / avg_psd
+
+    params, cov = bu.fit_damped_osc_amp(avg_asd, fsamp, plot=False, \
+                                        sig_asd=True, linearize=True, \
+                                        asd_errs=asd_errs, fit_band=[100.0,1000.0])
+
+    return [pressure, freqs, avg_asd, params, cov]
 
 
 
 results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_mc))[::-1] )
 
-if save:
-    pickle.dump(results, open(save_filename, 'wb'))
+colors = bu.get_color_map(len(results), cmap='plasma')
+pressures = []
+gammas = []
+for resultind, result in enumerate(results):
+    pressures.append(result[0])
+    gammas.append(result[3][2])
+    plt.loglog(result[1], result[2], color=colors[resultind], alpha=0.7)
+    plt.loglog(result[1], bu.damped_osc_amp(result[1], *result[3]), \
+               color=colors[resultind], lw=3)
+
+plt.figure()
+plt.plot(pressures, gammas)
+
+plt.show()
+
+
+pickle.dump(results, open(save_filename, 'wb'))
 
 for ind, result in enumerate(results[::-1]):
     pressure, all_t, all_amp = result

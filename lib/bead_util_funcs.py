@@ -1195,46 +1195,91 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
 
 
 
-def fit_damped_osc_amp(sig, fsamp, fit_band=100, plot=False):
+def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
+                       sig_asd=False, linearize=False, asd_errs=[]):
     '''Routine to fit the above defined damped HO amplitude spectrum
        to the ASD of some input signal, assumed to have a single
        resonance etc etc
            INPUTS: sig, signal to analyze 
                    fsamp [Hz], sampling frequency of input signal
-                   fit_band [Hz], frequency band to fit
+                   fit_band [Hz], array-like with upper/lower limits
                    plot, boolean flag for plotting of fit results
+                   sig_asd, boolean indicating if 'sig' is already an
+                                an amplitude spectral density
+                   linearize, try linearizing the fit
+                   asd_errs, uncertainties to use in fitting
 
            OUTPUTS: popt, optimal parameters from curve_fit
                     pcov, covariance matrix from curve_fit'''
 
-    nsamp = len(sig)
-    freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+    ### Generate the frequencies and ASD values from the given time
+    ### domain signal, or given ASD
+    if not sig_asd:
+        nsamp = len(sig)
+        freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+        asd = np.abs( np.fft.rfft(sig) ) * fft_norm(nsamp, fsamp)
+    else:
+        asd = np.abs(sig)
+        freqs = np.linspace(0, 0.5*fsamp, len(asd))
 
-    asd = np.abs( np.fft.rfft(sig) ) * fft_norm(nsamp, fsamp)
+    if not len(asd_errs):
+        asd_errs = np.ones_like(asd)
+    # print(asd_errs)
+
+    ### Generate some initial guesses
     maxind = np.argmax(asd)
-
     freq_guess = freqs[maxind]
     gamma_guess = 2e-3 * freq_guess
     amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
 
-    inds = np.abs(freqs - freq_guess) < 0.5*fit_band
-    plot_inds = np.abs(freqs - freq_guess) < 1.5*fit_band
+    ### Define some indicies for fitting and plotting
+    if len(fit_band):
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+        plot_inds = (freqs > 0.5 * fit_band[0]) * (freqs < 2.0 * fit_band[1])
+    else:
+        inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
+        plot_inds = (freqs > 0.05 * freq_guess) * (freqs < 20.0 * freq_guess)
 
+    ### Define the fitting function to use. Keeping this modular in case
+    ### we ever want to make more changes/linearization attempts
+    fit_x = freqs[inds]
+    if linearize:
+        fit_func = lambda f,A,f0,g: np.log(damped_osc_amp(f,A,f0,g))
+        fit_y = np.log(asd[inds])
+        errs = asd_errs[inds] / asd[inds]
+    else:
+        fit_func = lambda f,A,f0,g: damped_osc_amp(f,A,f0,g)
+        fit_y = asd[inds]
+        errs = asd_errs[inds]
+
+    ### Fit the data
     p0 = [amp_guess, freq_guess, gamma_guess]
-    popt, pcov = optimize.curve_fit(damped_osc_amp, freqs[inds], asd[inds], \
-                                    p0=p0, maxfev=100000)
+    try:
+        popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, \
+                                        p0=p0, maxfev=100000, sigma=errs)
+    except:
+        print('BAD FIT')
+        popt = p0
+        pcov = np.zeros( (len(p0), len(p0)) )
+
+    ### We know the parameters should be positive so enforce that here since
+    ### the fit occasionally finds negative values (sign degeneracy in the 
+    ### damped HO response function)
     popt = np.abs(popt)
 
+    ### Plot!
     if plot:
-        fit_freqs = np.linspace(freqs[inds][0], freqs[inds][-1], 1000) 
+        fit_freqs = np.linspace((freqs[inds])[0], (freqs[inds])[-1], \
+                                10*len(freqs[inds])) 
         init_mag = damped_osc_amp(fit_freqs, *p0)
         fit_mag = damped_osc_amp(fit_freqs, *popt)
 
         plt.loglog(freqs[plot_inds], asd[plot_inds])
-        plt.loglog(fit_freqs, init_mag, ls='--', color='k')
-        plt.loglog(fit_freqs, fit_mag, ls='--', color='r')
-        plt.xlim(popt[1] - fit_band, popt[1] + fit_band)
+        plt.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
+        plt.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
+        plt.xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
         plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(fit_mag))
+        plt.legend()
         plt.show()
         # input()
 

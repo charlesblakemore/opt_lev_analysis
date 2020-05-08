@@ -22,8 +22,8 @@ verbose = False
 
 ### Parameter list to simulate
 rbeads = np.array([2.32e-6, 3.78e-6])
-seps = np.arange(5.0e-6, 56.0e-6, 1.0e-6)
-heights = np.arange(-10.0e-6, 11.0e-6, 1.0e-6)
+seps = np.arange(2.0e-6, 30.0e-6, 1.0e-6)
+heights = np.arange(-20.0e-6, 20.5e-6, 1.0e-6)
 
 ### Attractor properties in case they need to be adjusted
 density.attractor_params['include_bridge'] = True

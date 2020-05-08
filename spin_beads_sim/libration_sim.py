@@ -17,7 +17,7 @@ import bead_util as bu
 from numba import jit
 from joblib import Parallel, delayed
 
-ncore = 20
+ncore = 10
 
 
 ### Constants
@@ -63,7 +63,7 @@ nsim = int(t_sim * fsim)
 N_opt = 0
 
 ### Pressures, converted to Pascals
-pressures = [1.0e-3 * 100]
+# pressures = [1.0e-3 * 100]
 # pressures = [#1.0e-7 * 100.0, 3.5e-7 * 100.0, \
 #              1.0e-6 * 100.0, 3.5e-6 * 100.0, \
 #              1.0e-5 * 100.0, 3.5e-5 * 100.0, \
@@ -71,6 +71,10 @@ pressures = [1.0e-3 * 100]
 #              1.0e-3 * 100.0, 3.5e-3 * 100.0, \
 #              1.0e-2 * 100.0, 3.5e-2 * 100.0, \
 #             ]
+pressures = [1.0e-4, 2.0e-4, 5.0e-4, \
+             1.0e-3, 2.0e-3, 5.0e-3, \
+             1.0e-2]
+pressures = 100.0 * np.array(pressures)   
 
 drive_freqs = [25000.0]
 # drive_freqs = [10000.0, 25000.0, 50000.0, 75000.0, 100000.0]
@@ -85,8 +89,8 @@ drive_voltage_noises = [0.0]
 drive_phase_noises = [0.0]
 # drive_phase_noises = [0.0, 0.01 * np.pi, 0.1 * np.pi]
 
-# init_angles = [0.0]
-init_angles = np.linspace(0, np.pi/2, 20)
+init_angles = [np.pi/2]
+# init_angles = np.linspace(0, np.pi/2, 10)
 
 repeats = 1
 # repeats = 10
@@ -100,8 +104,8 @@ seed_init = 133769 # for angle sweep
 ### Save path below
 # savedir = 'libration_tests/fine_amp_sweep_short'
 # savedir = 'libration_tests/high_pressure_sweep'
-savedir = 'libration_tests/initial_angle_highp'
-# savedir = 'derp_test'
+savedir = 'libration_tests/initial_angle_manyp_1'
+# savedir = 'derp_test'  
 
 base = '/data/old_trap_processed/spinsim_data/'
 base = os.path.join(base, savedir)
