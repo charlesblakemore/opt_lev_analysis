@@ -900,6 +900,16 @@ def make_tf_array(freqs, Hfunc, suppress_off_diag=False):
     ### numPy's matrix inverse can handle an array of matrices
     Hout = np.linalg.inv(Harr)
 
+    ### If the diagonal components are suppressed, sometimes the 
+    ### inversion does some weird stuff so explicitly set the 
+    ### off-diagonal compoenents to 0 again
+    if suppress_off_diag:
+        for drive in [0,1,2]:
+            for resp in [0,1,2]:
+                if drive == resp:
+                    continue
+                Hout[:,drive,resp] = 0.0 + 0.0j
+
     return Hout
 
 

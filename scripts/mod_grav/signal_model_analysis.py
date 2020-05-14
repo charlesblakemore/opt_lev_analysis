@@ -21,7 +21,8 @@ ncore = 30
 
 
 
-theory_data_dir = '/data/old_trap/grav_sim_data/2um_spacing_data/'
+# theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
+theory_data_dir = '/home/cblakemore/opt_lev_analysis/gravity_sim/results/7_6um-gbead_1um-unit-cells'
 
 yuklambda = 100.0e-6
 

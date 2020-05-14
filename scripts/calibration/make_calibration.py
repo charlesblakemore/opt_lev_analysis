@@ -35,7 +35,7 @@ tabor_ind = 3
 # last_file = -1
 
 step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
-first_file = 0
+first_file = 300
 last_file = -1
 
 # step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/From_plus_to_minus_and_discharge/']
@@ -104,7 +104,7 @@ suppress_off_diag = True
 new_trap = True
 # new_trap = False
 
-save = False
+save = True
 save_charge = False
 
 

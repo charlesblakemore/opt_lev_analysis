@@ -3,6 +3,7 @@ import sys, re, os
 import dill as pickle
 
 import numpy as np
+import pandas as pd
 
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -16,43 +17,45 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-# ncore = 30
-ncore = 1
+ncore = 30
+# ncore = 10
 
 
 
-theory_data_dir = '/data/old_trap/grav_sim_data/2um_spacing_data/'
+# theory_data_dir = '/data/old_trap/grav_sim_data/2um_spacing_data/'
+theory_data_dir = '/home/cblakemore/opt_lev_analysis/gravity_sim/results/7_6um-gbead_1um-unit-cells/'
 
-data_dirs = ['/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
-             '/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term', \
-             #\
-             '/data/old_trap/20180704/bead1/grav_data/shield', \
-             '/data/old_trap/20180704/bead1/grav_data/shield_1s_1h', \
-             #'/data/old_trap/20180704/bead1/grav_data/shield2', \
-             #'/data/old_trap/20180704/bead1/grav_data/shield3', \
-             #'/data/old_trap/20180704/bead1/grav_data/shield4', \
-             #'/data/old_trap/20180704/no_bead/grav_data/shield', \
-             #\
-             #'/data/old_trap/20180808/bead4/grav_data/shield1'
-             ]
+
+# data_dirs = ['/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
+#              '/data/old_trap/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term', \
+#              #\
+#              '/data/old_trap/20180704/bead1/grav_data/shield', \
+#              '/data/old_trap/20180704/bead1/grav_data/shield_1s_1h', \
+#              #'/data/old_trap/20180704/bead1/grav_data/shield2', \
+#              #'/data/old_trap/20180704/bead1/grav_data/shield3', \
+#              #'/data/old_trap/20180704/bead1/grav_data/shield4', \
+#              #'/data/old_trap/20180704/no_bead/grav_data/shield', \
+#              #\
+#              #'/data/old_trap/20180808/bead4/grav_data/shield1'
+#              ]
+
 
 
 # data_dirs = ['/data/new_trap/20191204/Bead1/Shaking/Shaking370/']
 # data_dirs = ['/data/new_trap/20200107/Bead3/Shaking/Shaking380/']
 # data_dirs = ['/data/new_trap/20200113/Bead1/Shaking/Shaking377/']
-data_dirs = [#'/data/new_trap/20200210/Bead2/Shaking/Shaking382/', \
-             '/data/new_trap/20200210/Bead2/Shaking/Shaking384/']
+# data_dirs = [#'/data/new_trap/20200210/Bead2/Shaking/Shaking382/', \
+#              '/data/new_trap/20200210/Bead2/Shaking/Shaking384/']
+
+data_dirs = ['/data/new_trap/20200320/Bead1/Shaking/Shaking378/']
 new_trap = True
-
-
-tf_interp = True
 
 #substr = ''
 # substr = 'Shaking0' # for 20200210/.../...382/
-substr = 'Shaking3'  # for 20200210/.../...384/
+substr = 'Shaking3'  # for 20200210/.../...384/ and 20200320/.../...378
 
-Nfiles = 16000
-# Nfiles = 5
+# Nfiles = 16000
+Nfiles = 10000
 
 # reprocess = True
 # save = True
@@ -70,23 +73,8 @@ plot_bad_alphas = True
 
 save_hists = False
 
-# Position of bead relative to attractor AT FULLEST EXTENT OF ATTRACTOR
-# Thus for new trap data where the bead is usually within the range of 
-# x-axis, this number can be negative
-p0_bead_dict = {'20180625': [19.0,40.0,20.0], \
-                '20180704': [18.7,40.0,20.0], \
-                '20180808': [18.0,40.0,20.0] \
-                }
-
-p0_bead_dict = {# '20191204': [385.0, 200.0, 29.0], \
-                '20191204': [-115.0, 200.0, 29.0], \
-                # '20200107': [-111, 190.0, 17.0], \
-                '20200107': [-111, 190.0, 25.9], \
-                # '20200113': [-114.6, 184.5, 16.0], \
-                '20200113': [-114.6, 184.5, 10.0], \
-                # '20200210': [382.0 - 500.0, 184.5, 52.0], \
-                '20200210': [392.0 - 500.0, 184.5, 57.67], \
-                }
+### Position of bead relative to the attractor coordinate system
+p0_bead_dict = {'20200320': [392.0, 199.7, 45.0]}
 
 # harms = [6]
 harms = [3,4,5,6]
@@ -96,7 +84,7 @@ harms = [3,4,5,6]
 opt_ext = '_harms-'
 for harm in harms:
     opt_ext += str(int(harm))
-opt_ext += '_deltaz-6um_first-{:d}'.format(Nfiles)
+opt_ext += '_first-{:d}'.format(Nfiles)
 if len(substr):
     opt_ext += '_{:s}'.format(substr)
 
@@ -106,6 +94,15 @@ for ddir in data_dirs:
     #if ddir == data_dirs[0]:
     #    continue
     print()
+
+    aux_path_base = ddir.replace('/data/new_trap/', '/data/new_trap_processed/processed_files/')
+    aux_path = os.path.join(aux_path_base, '{:s}_aux.pkl'.format(substr))
+    try:
+        aux_data = pickle.load( open(aux_path, 'rb') )
+    except:
+        print("Couldn't load auxiliary data file")
+        aux_data = []
+
 
     paths = gu.build_paths(ddir, opt_ext, new_trap=new_trap)
     agg_path = paths['agg_path']
@@ -123,7 +120,7 @@ for ddir in data_dirs:
         agg_dat = gu.AggregateData(datafiles, p0_bead=p0_bead, harms=harms, reload_dat=True, \
                                    plot_harm_extraction=plot_harms, new_trap=new_trap, \
                                    step_cal_drive_freq=151.0, ncore=ncore, noisebins=10, \
-                                   tf_interp=tf_interp)
+                                   aux_data=aux_data)
 
         agg_dat.load_grav_funcs(theory_data_dir)
 
@@ -145,7 +142,7 @@ for ddir in data_dirs:
 
 
         # agg_dat.fit_alpha_xyz_vs_alldim()
-        agg_dat.fit_alpha_xyz_onepos_simple(resp=2)
+        agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], verbose=False)
 
         if save:
             agg_dat.save(agg_path)
@@ -168,12 +165,12 @@ for ddir in data_dirs:
                                                     # add_fake_data=True, fake_alpha=1e9, \
                                                     )
 
-        agg_dat.fit_alpha_xyz_onepos_simple(resp=2, plot=True, show=True)
+        # agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], plot=True, show=True)
         # agg_dat.fit_alpha_xyz_onepos(resp=2)
         agg_dat.plot_sensitivity()
 
         # filenums = [5, 50, 500, 5000]
-        filenums = list(map(int, np.geomspace(10,14000,10)))
+        filenums = list(map(int, np.geomspace(10,10000,10)))
         # plot_alphas = list(np.logspace(-3, 0, 20))
         plot_alphas = list(np.exp(np.linspace(-3, 0, len(filenums))))
         print('{:d} total...'.format(len(filenums)))
@@ -185,7 +182,7 @@ for ddir in data_dirs:
             # print(ind)
             if j == filenums[-1]:
                 show = True
-            agg_dat.fit_alpha_xyz_onepos_simple(resp=2, last_file=j, plot=True, \
+            agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], last_file=j, plot=True, \
                                                 show=show, plot_color=colors[i], \
                                                 plot_label='{:d} files'.format(j)) #, \
                                                 # plot_alpha=plot_alphas[i])

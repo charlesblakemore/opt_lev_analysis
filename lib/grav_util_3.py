@@ -56,9 +56,14 @@ ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 
 
 
-def build_paths(dir, opt_ext='', new_trap=False):
-    date = re.search(r"\d{8,}", dir)[0]
-    parts = dir.split('/')
+def build_paths(dirname, opt_ext='', new_trap=False):
+    date = re.search(r"\d{8,}", dirname)[0]
+    parts = dirname.split('/')
+
+    if new_trap:
+        bead_label = re.search(r"Bead\d", dirname)[0]
+    else:
+        bead_label = re.search(r"bead\d", dirname)[0]
 
     nobead = ('no_bead' in parts) or ('nobead' in parts) or ('no-bead' in parts)
     if nobead:
@@ -89,7 +94,8 @@ def build_paths(dir, opt_ext='', new_trap=False):
             'alpha_dict_path': alpha_dict_path, \
             'alpha_arr_path': alpha_arr_path, \
             'date': date, \
-            'name': name}
+            'name': name, \
+            'plot_dir': plot_dir}
 
 
 
@@ -564,7 +570,7 @@ class GravFuncs:
 
 
 
-    def make_templates(self, posvec, drivevec, ax0pos, ax1pos, ginds, \
+    def make_templates(self, cant_posvec, drivevec, ax0pos, ax1pos, ginds, \
                        p0_bead, fsamp, single_lambda=False, single_lambind=0, \
                        new_trap=False):
 
@@ -573,10 +579,11 @@ class GravFuncs:
         else:
             attractor_travel = 80.0
 
-        xpos = p0_bead[0] + (attractor_travel - ax0pos)
-        height = ax1pos - p0_bead[2]
-        posvec = posvec - p0_bead[1]
-        drivevec = drivevec - p0_bead[1]
+        xpos = p0_bead[0] - ax0pos
+        height = p0_bead[2] - ax1pos
+        posvec = p0_bead[1] - cant_posvec
+
+        drivevec = p0_bead[1] - drivevec
 
         # print(np.min(drivevec), np.max(drivevec), np.min(posvec), np.max(posvec))
 
@@ -686,14 +693,13 @@ class FileData:
     
 
     def __init__(self, fname, diagonalize=True, tfdate='', tophatf=2500, \
-                    tf_interp=False, plot_tf=False, step_cal_drive_freq=41.0, \
+                    plot_tf=False, step_cal_drive_freq=41.0, \
                     new_trap=False, empty=False):
         '''Load an hdf5 file into a bead_util.DataFile obj. Calibrate the stage position.
            Calibrate the microsphere response with th transfer function.'''
 
 
         self.tfdate = tfdate
-        self.tf_interp = tf_interp
         self.plot_tf = plot_tf
         self.step_cal_drive_freq = step_cal_drive_freq
         self.tophatf = tophatf
@@ -719,12 +725,9 @@ class FileData:
             if diagonalize:
                 df.diagonalize(date=tfdate, maxfreq=tophatf, \
                                 step_cal_drive_freq=step_cal_drive_freq, \
-                                plot=plot_tf, interpolate=tf_interp)
+                                plot=plot_tf)
 
-            self.xy_tf_res_freqs = df.xy_tf_res_freqs
-
-            #plt.plot(df.electrode_data[0])
-            #plt.show()
+            # self.xy_tf_res_freqs = df.xy_tf_res_freqs
     
             self.time = df.time
             self.fsamp = df.fsamp
@@ -1010,12 +1013,12 @@ class AggregateData:
        has some methods that work on each object in a loop.'''
 
     
-    def __init__(self, fnames, p0_bead=[16,0,20], tophatf=2500, harms=[], \
+    def __init__(self, fnames, p0_bead=[0.0,0.0,0.0], tophatf=2500, harms=[], \
                  reload_dat=True, plot_harm_extraction=False, \
                  elec_drive=False, elec_ind=0, maxfreq=2500, noisebins=10,\
-                 dim3=False, extract_resonant_freq=False,noiselim=(10,100), \
+                 dim3=False, extract_resonant_freq=False, noiselim=(10.0,100.0), \
                  tfdate='', tf_interp=False, step_cal_drive_freq=41.0, \
-                 new_trap=False, ncore=1):
+                 new_trap=False, ncore=1, aux_data=[]):
         
         if new_trap:
             self.new_trap = True
@@ -1026,6 +1029,7 @@ class AggregateData:
         self.p0_bead = p0_bead
         self.file_data_objs = []
         self.times = np.zeros(len(fnames))
+        self.aux_data = aux_data
 
         # Nnames = len(self.fnames)
 
@@ -1055,7 +1059,7 @@ class AggregateData:
 
             # Initialize FileData obj, extract the data, then close the big file
             new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap, \
-                                step_cal_drive_freq=step_cal_drive_freq, tf_interp=tf_interp)
+                                step_cal_drive_freq=step_cal_drive_freq)
 
             if new_obj.badfile:
                 print('FOUND BADDIE: ')
@@ -1088,11 +1092,23 @@ class AggregateData:
             #self.file_data_objs.append(new_obj)
 
         if len(self.fnames):
-            file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) for name in tqdm(self.fnames))
+            file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) \
+                                                      for name in tqdm(self.fnames))
             self.file_data_objs = file_data_objs
 
             for ind, obj in enumerate(self.file_data_objs):
                 self.times[ind] = obj.time
+
+                obj.p0_bead = self.p0_bead
+
+                try:
+                    file_aux_data = \
+                        self.aux_data.iloc[(self.aux_data["Time_Epoch"] - \
+                                            obj.time).abs().idxmin()]
+                    obj.aux_data = file_aux_data.to_dict()
+                    obj.p0_bead[2] = obj.aux_data['height_cal']
+                except Exception:
+                    file_aux_data = []
 
             self.times0 = self.times - self.times[0]
         else:
@@ -1559,13 +1575,12 @@ class AggregateData:
 
         if dim3:
             ### Assume separations are encoded in ax0 and heights in ax1
-            seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
+            seps = np.abs( self.p0_bead[0] - np.array(self.ax0vec) )
             ypos = self.p0_bead[1] - np.array(self.ax1vec)
             heights = self.p0_bead[2] - np.array(self.ax2vec) 
         else:
-            seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
+            seps = np.abs( self.p0_bead[0] - np.array(self.ax0vec) )
             heights = self.p0_bead[2] - np.array(self.ax1vec) 
-            
         
         ### Sort the heights and separations and build a grid
         sort1 = np.argsort(seps)
@@ -1725,6 +1740,7 @@ class AggregateData:
             nlambda = len(self.gfuncs_class.lambdas)
 
             p0_bead = self.p0_bead
+
             new_trap = self.new_trap
 
             gfunc_list = []
@@ -1741,6 +1757,8 @@ class AggregateData:
             def process_file_data(arg):  #obj):
                 # file_start = time.time()
                 obj, gfunc = arg
+
+                p0_bead_new = obj.p0_bead
 
                 # alpha_xyz_dict[bias][ax0][ax1].append([])
 
@@ -1760,22 +1778,15 @@ class AggregateData:
                 out_arr = np.zeros((nlambda, n_err + 1, 3, ncomponents))
                 out_arr_2 = np.zeros((nlambda, 2, 3))
 
-                # print(np.min(posvec), np.max(posvec))
-                # print(np.min(drivevec), np.max(drivevec))
-                # input()
-
                 ## Loop over lambdas and do the template analysis for each value of lambda
                 for lambind, yuklambda in enumerate(gfunc.lambdas):
-                    ### Progress bar shit
-                    # bu.progress_bar(j, totlen_2, suffix=suff, newline=newline)
-                    # j += 1
     
                     out_subarr = np.zeros((n_err + 1, 3, ncomponents))
                     out_subarr_2 = np.zeros((2, 3))
                             
                     # start = time.time()
                     templates = gfunc.make_templates(posvec, drivevec, ax0, ax1, \
-                                                        obj.ginds, p0_bead, obj.fsamp, \
+                                                        obj.ginds, p0_bead_new, obj.fsamp, \
                                                         single_lambda=True, \
                                                         single_lambind=lambind, \
                                                         new_trap=new_trap)
@@ -1798,40 +1809,37 @@ class AggregateData:
                             c_datfft = datfft[resp] + fake_alpha * yukfft
                         data_vec = np.concatenate((c_datfft.real, c_datfft.imag))
                         err_vec = np.concatenate((daterr[resp].real, daterr[resp].imag))
-                        # err_arr = err_vec.reshape((n_err, ncomponents))
-                        # err_fit_vec = err_vec[int(n_err/2 + 1)::n_err]
-                        # err_fit_vec = np.median(err_arr, axis=0)
 
-                        # alphaguess = np.inner(data_vec, template_vec) / \
-                        #                         np.inner(template_vec, template_vec)
-                        # alphaguess /= alpha_scale
+                        alphaguess = np.inner(data_vec, template_vec) / \
+                                                np.inner(template_vec, template_vec)
+                        alphaguess /= alpha_scale
 
-                        # def alphacost(alpha, err_ind=0):
-                        #     ndof = ncomponents - 1
-                        #     num = (data_vec - alpha*alpha_scale*template_vec)**2
-                        #     denom = (err_vec[err_ind::n_err])**2
-                        #     return (1.0 / ndof) * np.sum(num / denom)
+                        def alphacost(alpha, err_ind=0):
+                            ndof = ncomponents - 1
+                            num = (data_vec - alpha*alpha_scale*template_vec)**2
+                            denom = (err_vec[err_ind::n_err])**2
+                            return (1.0 / ndof) * np.sum(num / denom)
 
-                        # vals = []
-                        # for err_ind in range(n_err):
-                        #     fitcost = lambda alpha: alphacost(alpha, err_ind=err_ind)
+                        vals = []
+                        for err_ind in range(n_err):
+                            fitcost = lambda alpha: alphacost(alpha, err_ind=err_ind)
 
-                        #     m = Minuit(fitcost,
-                        #                alpha = alphaguess, # set start parameter
-                        #                #fix_param = "True", # you can also fix it
-                        #                # limit_param = (0.0, 10000.0),
-                        #                errordef = 1,
-                        #                print_level = 0, 
-                        #                pedantic=False)
-                        #     m.migrad(ncall=500000)
-                        #     # m.draw_mnprofile('alpha')
-                        #     # plt.show()
-                        #     vals.append(m.values['alpha'])
+                            m = Minuit(fitcost,
+                                       alpha = alphaguess, # set start parameter
+                                       #fix_param = "True", # you can also fix it
+                                       # limit_param = (0.0, 10000.0),
+                                       errordef = 1,
+                                       print_level = 0, 
+                                       pedantic=False)
+                            m.migrad(ncall=500000)
+                            # m.draw_mnprofile('alpha')
+                            # plt.show()
+                            vals.append(m.values['alpha'])
 
-                        # out_subarr_2[0,resp] = np.mean(vals)
-                        # out_subarr_2[1,resp] = np.std(vals)
-                        # out_subarr_2[:,resp] *= alpha_scale
-                        # minos = m.minos()
+                        out_subarr_2[0,resp] = np.mean(vals)
+                        out_subarr_2[1,resp] = np.std(vals)
+                        out_subarr_2[:,resp] *= alpha_scale
+                        minos = m.minos()
 
                         ### Compute an 2*Nharmonic-dimensional basis for the real and 
                         ### imaginary components of our template signal yukfft, where
@@ -1853,9 +1861,7 @@ class AggregateData:
                         ### Loop over our orthogonal basis vectors and compute the inner 
                         ### product of the data and the basis vector
                         for k in range(len(ortho_basis)):
-                            # amps[resp].append( np.inner( ortho_basis[k], data_vec) )
                             out_subarr[0][resp][k] = np.inner( ortho_basis[k], data_vec)
-                            # errs[resp].append( np.inner( ortho_basis[k], err_vec ) )
                             for err_ind in range(n_err):
                                 out_subarr[err_ind+1][resp][k] = \
                                         np.inner( ortho_basis[k], err_vec[err_ind::n_err])
@@ -1868,7 +1874,6 @@ class AggregateData:
                         #     input()
 
                         out_subarr[:,resp,:] *= (1.0 / template_norm)
-                        # print(out_subarr)
                         alphaz = out_subarr[0,2,0]
                         if plot_bad_alphas:
                             if resp == 2 and lambind == 0:
@@ -1893,14 +1898,9 @@ class AggregateData:
                     if plot and lambind == 0:
                         plt.show()
 
-                    # alpha_xyz_dict[bias][ax0][ax1][objind].append([amps, errs, sig_amps])
-                    # out_list.append([amps, errs, sig_amps])
                     out_arr[lambind] += out_subarr
                     out_arr_2[lambind] += out_subarr_2
 
-                # file_stop = time.time()
-                # print('Total time : {:0.4f}'.format(file_stop - file_start) )
-                # return out_list
                 return (out_arr, out_arr_2)
 
             results = Parallel(n_jobs=ncore)(delayed(process_file_data)(arg) \
@@ -1909,25 +1909,6 @@ class AggregateData:
             alpha_xyz_dict[bias][ax0][ax1] = np.array([i for i, j in results])
             alpha_xyz_dict_2[bias][ax0][ax1] = np.array([j for i, j in results])
 
-        #derp_sep_g, derp_height_g = np.meshgrid(derp_sep, derp_height, indexing='ij')
-        #
-        #fig1 = plt.figure(1)
-        #ax0 = fig1.gca(projection='3d')
-        #ax0.scatter(derp_sep_g, derp_height_g, derp_grid, color='C0')
-        #ax0.legend()
-        #ax0.set_xlabel('X-separation [um]')
-        #ax0.set_ylabel('Z-position [um]')
-        #ax0.set_zlabel('Alpha %s [arb]' % ax_dict[0])
-        #
-        #fig2 = plt.figure(2)
-        #ax1 = fig2.gca(projection='3d')
-        #ax1.scatter(derp_sep_g, derp_height_g, derp_grid_2, color='C0')
-        #ax1.legend()
-        #ax1.set_xlabel('X-separation [um]')
-        #ax1.set_ylabel('Z-position [um]')
-        #ax1.set_zlabel('Alpha %s [arb]' % ax_dict[0])
-        #
-        #plt.show()
 
         print('Done!')   
         self.alpha_xyz_dict = alpha_xyz_dict
@@ -2002,14 +1983,9 @@ class AggregateData:
 
         self.get_max_files()
         ngrids = int( np.min([self.max_files, nobjs]) )
-    
-        if self.new_trap:
-            attractor_travel = 500.0
-        else:
-            attractor_travel = 80.0
 
         ### Assume separations are encoded in ax0 and heights in ax1
-        seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
+        seps = self.p0_bead[0] - np.array(self.ax0vec)
         heights = self.p0_bead[2] - np.array(self.ax1vec) 
         
         ### Sort the heights and separations and build a grid
@@ -2280,11 +2256,6 @@ class AggregateData:
                                     show=True, plot_color='C0', plot_label='', \
                                     plot_alpha=1.0, sigma_to_profile=3.0):
 
-        if self.new_trap:
-            attractor_travel = 500.0
-        else:
-            attractor_travel = 80.0
-
         if not self.gfuncs_class.grav_loaded:
             try:
                 self.gfuncs_class.reload_grav_funcs()
@@ -2294,19 +2265,23 @@ class AggregateData:
         self.alpha_best_fit = []
         self.alpha_95cl = []
 
+        self.alpha_best_fit_null = []
+        self.alpha_95cl_null = []
+
         self.signal_chisq_prof = []
         self.sideband_chisq_prof = []
 
         ### Assume separations are encoded in ax0 and heights in ax1
         ax0 = self.ax0vec[0]
         ax1 = self.ax1vec[0]
-        sep = attractor_travel + self.p0_bead[0] - ax0
+        sep = self.p0_bead[0] - ax0
         height = self.p0_bead[2] - ax1
 
         if verbose:
             print('Computing limit for: sep = {:0.1f} um, height = {:0.1f}'\
                     .format(sep, height) )
 
+        derpderp = 0
         for bias in self.biasvec:
             ### Doesn't actually handle different biases correctly, although the
             ### data is structured such that if different biases are present
@@ -2328,7 +2303,8 @@ class AggregateData:
                     new_sideband = alpha_arr[:,lambind,1,ax,0]
                     new_sideband2 = alpha_arr_2[:,lambind,1,ax]
 
-                    new_sideband_long = np.empty((n_sideband*new_sideband.size,), dtype=sideband.dtype)
+                    new_sideband_long = np.empty((n_sideband*new_sideband.size,), \
+                                                 dtype=new_sideband.dtype)
                     for i in range(n_sideband):
                         new_sideband_long[i::n_sideband] = alpha_arr[:,lambind,i+1,ax,0]
 
@@ -2346,28 +2322,36 @@ class AggregateData:
                         sideband_long = np.concatenate((sideband_long, new_sideband_long))
 
 
-                inds = np.abs(dat) < 1e-4 * np.abs(np.max(dat))
-                sideband_inds = np.abs(sideband_long) < 1e-4 * np.abs(np.max(sideband_long))
+                # ### Subselect to avoid crazy data
+                # inds = np.abs(dat) < 1e-4 * np.abs(np.max(dat))
+                # sideband_inds = np.abs(sideband_long) < 1e-4 * np.abs(np.max(sideband_long))
 
-                good_dat = dat[np.abs(dat) < 10.0 * np.std(dat[inds])]
-                good_dat_2 = dat2[np.abs(dat2) < 100 * np.std(dat2)]
-                good_sideband = sideband_long[np.abs(sideband_long) \
-                                        < 100 * np.std(sideband_long[sideband_inds])]
+                # good_dat = dat[np.abs(dat) < 10.0 * np.std(dat[inds])]
+                # good_dat_2 = dat2[np.abs(dat2) < 100 * np.std(dat2)]
+                # good_sideband = sideband_long[np.abs(sideband_long) \
+                #                         < 100 * np.std(sideband_long[sideband_inds])]
+
+                inds = dat == dat
+                sideband_inds = sideband_long == sideband_long
+
+                good_dat = np.copy(dat)
+                good_dat_2 = np.copy(dat2)
+                good_sideband = np.copy(sideband_long)
 
                 # if lambind == 0.0:
-                # #     # print(sideband2)
-                # #     # plt.hist(sideband2)
+                #     # print(sideband2)
+                #     # plt.hist(sideband2)
 
-                # #     plt.figure()
-                # #     datcdf = bu.ECDF(good_dat)
-                # #     datcdf2 = bu.ECDF(good_dat_2)
-                # #     # sidebandcdf = bu.ECDF(sideband)
-                # #     # sidebandcdf2 = bu.ECDF(sideband2)
-                # #     xarr = np.linspace(-1.0e9, 1.0e9, 100)
-                # #     plt.plot(xarr, datcdf(xarr), color='C0')
-                # #     # plt.plot(xarr, sidebandcdf(xarr), color='C0', ls='--')
-                # #     plt.plot(xarr, datcdf2(xarr), color='C1')
-                # #     # plt.plot(xarr, sidebandcdf2(xarr), color='C1', ls='--')
+                #     plt.figure()
+                #     datcdf = bu.ECDF(good_dat)
+                #     datcdf2 = bu.ECDF(good_dat_2)
+                #     # sidebandcdf = bu.ECDF(sideband)
+                #     # sidebandcdf2 = bu.ECDF(sideband2)
+                #     xarr = np.linspace(-1.0e9, 1.0e9, 100)
+                #     plt.plot(xarr, datcdf(xarr), color='C0')
+                #     # plt.plot(xarr, sidebandcdf(xarr), color='C0', ls='--')
+                #     plt.plot(xarr, datcdf2(xarr), color='C1')
+                #     # plt.plot(xarr, sidebandcdf2(xarr), color='C1', ls='--')
 
                 #     plt.figure()
                 #     # plt.errorbar(range(len(dat2)), dat2, yerr=sideband2)
@@ -2376,8 +2360,9 @@ class AggregateData:
 
                 #     plt.show()
 
-                good_dat = good_dat[:int(last_file)]
-                good_sideband = good_sideband[:int(last_file*n_sideband)]
+                if last_file != -1:
+                    good_dat = good_dat[:int(last_file)]
+                    good_sideband = good_sideband[:int(last_file*n_sideband)]
 
                 N = len(good_dat)
                 M = len(good_sideband)
@@ -2541,6 +2526,7 @@ class AggregateData:
 
                     ### Limit is derived from the larger of the ends of the confidence interval
                     limit = alpha_scale * np.abs(np.max(soln))
+                    limit_null = alpha_scale * np.abs(np.max(soln_null))
 
                     self.alpha_best_fit.append(sensitivity)
                     self.alpha_95cl.append(limit)
@@ -2579,7 +2565,7 @@ class AggregateData:
         ### Assume separations are encoded in ax0 and heights in ax1
         ax0 = self.ax0vec[0]
         ax1 = self.ax1vec[0]
-        sep = attractor_travel + self.p0_bead[0] - ax0
+        sep = self.p0_bead[0] - ax0
         height = self.p0_bead[2] - ax1
 
 
@@ -2967,11 +2953,6 @@ class AggregateData:
 
     def fit_mean_alpha_vs_alldim(self, weight_planar=True):
 
-        if self.new_trap:
-            attractor_travel = 500.0
-        else:
-            attractor_travel = 80.0
-
         if not self.gfuncs_class.grav_loaded:
             try:
                 self.gfuncs_class.reload_grav_funcs()
@@ -2982,7 +2963,7 @@ class AggregateData:
         self.alpha_95cl = []
 
         ### Assume separations are encoded in ax0 and heights in ax1
-        seps = attractor_travel + self.p0_bead[0] - np.array(self.ax0vec)
+        seps = self.p0_bead[0] - np.array(self.ax0vec)
         heights = self.p0_bead[2] - np.array(self.ax1vec) 
         
         ### Sort the heights and separations and build a grid
@@ -3064,8 +3045,14 @@ class AggregateData:
 
     def plot_sensitivity(self, show=True, plot_just_current=False):
 
+        if not self.gfuncs_class.grav_loaded:
+            try:
+                self.gfuncs_class.reload_grav_funcs()
+            except Exception:
+                print('No grav funcs... Tried to reload but no filename')
+
         fig, ax = plt.subplots(1,1,sharex='all',sharey='all',figsize=(5,5),dpi=150)
-        
+
         if not plot_just_current:
             ax.loglog(self.gfuncs_class.lambdas, self.alpha_best_fit, \
                         linewidth=2, label='Size of Apparent Background')

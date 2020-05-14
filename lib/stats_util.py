@@ -29,8 +29,18 @@ class ECDF:
         self.samples = np.array(samples).flatten()
         self.nsamp = len(self.samples)
 
+        ### Find the min/max of the sample
+        self.minval = np.min(self.samples)
+        self.maxval = np.max(self.samples)
+
 
     def __call__(self, x):
+        '''Compute the true discrete ECDF over the input array x,
+           which is assumed to contain test values of the same random
+           variable from which the samples are defined.
+        '''
+        if not hasattr(x, "__len__"):
+            x = np.array([x])
 
         out = np.zeros(len(x))
         for ind, val in enumerate(x):
@@ -38,16 +48,40 @@ class ECDF:
         return out / self.nsamp
 
 
+    def get_midpoint(self, npts=10000, lower=True):
+        '''Find the value of the midpoint, which will either be the sample 
+           above or below tthe 50% value, depending on the boolean argument
+           which provides the lower point by default.'''
+
+        if self.nsamp < npts:
+            test_vals = self.samples
+        else:
+            test_vals = np.linspace(self.minval, self.maxval, npts)
+
+        ### Find the midpoint
+        for valind, val in enumerate(test_vals):
+            ecdf_val = self(val)
+            if ecdf_val >= 0.5:
+                if lower:
+                    midpoint = test_vals[valind-1]
+                else:
+                    midpoint = val
+                break
+        return midpoint
+
+
+
     def build_interpolator(self, npts=100, limfacs=(2.0,2.0), smoothing=0.0):
-        ### Find the min/max of the sample
-        minval = np.min(self.samples)
-        maxval = np.max(self.samples)
+        '''Build an interpolating function for the ECDF, in case continuous
+           sampling is desired. This is also a useful method to build the
+           PDF associated to this ECDF, since UnivariateSplines have built-in
+           methods to take derivatives.'''
 
         ### Extend the limits of the interpolator beyond the limits of the sample
         ### to avoid edge effects (assumes stuff about the moments of the 
         ### underlying distribution, but I'm not a statistician)
-        lower = limfacs[0]**(-1.0*np.sign(minval)) * minval
-        upper = limfacs[1]**(1.0*np.sign(maxval)) * maxval
+        lower = limfacs[0]**(-1.0*np.sign(self.minval)) * minval
+        upper = limfacs[1]**(1.0*np.sign(self.maxval)) * maxval
 
         ### Contruct the explicit ECDF
         x_arr = np.linspace(lower, upper, int(np.max(limfacs)*npts))

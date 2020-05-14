@@ -15,7 +15,8 @@ warnings.filterwarnings("ignore")
 
 
 
-theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
+# theory_data_dir = '/data/grav_sim_data/2um_spacing_data/'
+theory_data_dir = '/home/cblakemore/opt_lev_analysis/gravity_sim/results/7_6um-gbead_1um-unit-cells/'
 
 data_dirs = [#'/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
              #'/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz_elec-term', \
@@ -33,12 +34,13 @@ data_dirs = [#'/data/20180625/bead1/grav_data/shield/X50-75um_Z15-25um_17Hz', \
 
 
 # data_dirs = ['/data/new_trap/20191204/Bead1/Shaking/Shaking370/']
-data_dirs = ['/data/new_trap/20200107/Bead3/Shaking/Shaking380/']
+# data_dirs = ['/data/new_trap/20200107/Bead3/Shaking/Shaking380/']
 # data_dirs = ['/data/new_trap/20200113/Bead1/Shaking/Shaking377/']
+data_dirs = ['/data/new_trap/20200320/Bead1/Shaking/Shaking378/']
 new_trap = True
 
 #substr = ''
-substr = 'Shaking13'
+substr = 'Shaking3'
 
 load_agg = True
 load_alpha_arr = True
@@ -46,7 +48,7 @@ load_alpha_arr = True
 Nfiles = 100000
 
 redo_alphafit = False
-save = True
+save = False
 plot_end_result = True
 
 plot = False
@@ -61,22 +63,17 @@ p0_bead_dict = {'20180625': [19.0,40.0,20.0], \
                 '20180808': [18.0,40.0,20.0] \
                 }
 
-p0_bead_dict = {#'20191204': [385.0, 200.0, 29.0], \
-                '20191204': [-115.0, 200.0, 29.0], \
-                # '20200107': [-111, 190.0, 17.0], \
-                '20200107': [-111, 190.0, 26.0], \
-                # '20200113': [-114.6, 184.5, 16.0], \
-                '20200113': [-114.6, 184.5, 10.0], \
-                }
+### Position of bead relative to the attractor coordinate system
+p0_bead_dict = {'20200320': [392.0, 199.7, 45.0]}
 
-# harms = [3,4,5,6]
-harms = [6]
+harms = [3,4,5,6]
+# harms = [6]
 
-lambind = 70
+yuklambda = 100.0e-6
 
 #opt_ext = 'TEST'
 # opt_ext = '_harms-3456_deltaz-6um'
-opt_ext = '_harms-6_deltaz-6um_first-350'
+opt_ext = '_harms-3456_first-10000'
 if len(substr):
     opt_ext += '_{:s}'.format(substr)
 
@@ -132,6 +129,7 @@ for ddir in data_dirs:
     fig1, axarr1 = plt.subplots(3,1,sharex=True,sharey=True,figsize=(8,8))
     #fig2, axarr2 = plt.subplots(3,1,sharex=True)
 
+    lambind = np.argmin( np.abs(agg_dat.gfuncs_class.lambdas - yuklambda) )
     for resp in [0,1,2]:
         background = []
         # vol = []

@@ -603,7 +603,7 @@ def detrend_poly(arr, order=1.0, plot=False):
 def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
                 width=0, sg_filter=False, sg_params=[3,1], verbose=True, \
                 maxfreq=2500, add_mean=False, correct_phase_shift=False, \
-                grad_sign=0):
+                grad_sign=0, plot=False):
     '''Given two waveforms drive(t) and resp(t), this function generates
        resp(drive) with a fourier method. drive(t) should be a pure tone,
        such as a single frequency cantilever drive (although the 
@@ -686,21 +686,22 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
             plt.show()
     
 
-    # Expand the filter to more than a single bin. This can introduce artifacts
-    # that appear like lissajous figures in the resp vs. drive final result
+    ### Expand the filter to more than a single bin. This can introduce artifacts
+    ### that appear like lissajous figures in the resp vs. drive final result
     if width:
         lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
         upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
         drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
 
-    # Generate an array of harmonics
+    ### Generate an array of harmonics
     if not len(harms):
         harms = np.array([x+2 for x in range(nharmonics)])
 
-    # Loop over harmonics and add them to the filter
+    ### Loop over harmonics and add them to the filter
     for n in harms:
         harm_ind = np.argmin( np.abs(n * drive_freq - freqs) )
-        drivefilt[harm_ind] = 1.0 
+        drivefilt[harm_ind] = 1.0+0.0j
+        errfilt[harm_ind] = 0.0+0.0j
         if width:
             h_lower_ind = harm_ind - (fund_ind - lower_ind)
             h_upper_ind = harm_ind + (upper_ind - fund_ind)
@@ -716,48 +717,17 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
         drivefilt[0] = 1.0+0.0j
         drivefilt2[0] = 1.0+0.0j
 
-    # Apply the filter to both drive and response
-    #drivefilt = np.ones_like(drivefilt)
-    #drivefilt[0] = 0
+    ### Apply the filter to both drive and response
     drivefft_filt = drivefilt * drivefft
     respfft_filt = drivefilt2 * respfft
     errfft_filt = errfilt * respfft
 
-    # print(np.angle(drivefft[fund_ind]))
-    # print(np.angle(drivefft_filt[fund_ind]))
-    # print(np.angle(respfft[fund_ind]))
-    # print(np.angle(respfft_filt[fund_ind]))
-    # input()
-
-    # print(fund_ind)
-    # print(np.abs(drivefft_filt[fund_ind]))
-    # print(np.abs(respfft_filt[fund_ind]))
-    # print(np.abs(drivefft_filt[fund_ind]) / np.abs(respfft_filt[fund_ind]))
-    # input()
-
-    # plt.loglog(freqs, np.abs(respfft))
-    # plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'X', ms=10)
-    # plt.show()
-
     ### Reconstruct the filtered data
-    
-    #drive_r = np.zeros(len(t)) + meandrive
-    #for ind, freq in enumerate(freqs[drivefilt>0]):
-    #    drive_r += fac * np.abs(drivefft_filt[drivefilt>0][ind]) * \
-    #               np.cos( 2 * np.pi * freq * t + \
-    #                       np.angle(drivefft_filt[drivefilt>0][ind]) )
-    drive_r = np.fft.irfft(drivefft_filt) #+ meandrive
-
-    #resp_r = np.zeros(len(t))
-    #for ind, freq in enumerate(freqs[drivefilt>0]):
-    #    resp_r += fac * np.abs(respfft_filt[drivefilt>0][ind]) * \
-    #              np.cos( 2 * np.pi * freq * t + \
-    #                      np.angle(respfft_filt[drivefilt>0][ind]) )
-    resp_r = np.fft.irfft(respfft_filt) #+ meanresp
-
+    drive_r = np.fft.irfft(drivefft_filt) 
+    resp_r = np.fft.irfft(respfft_filt)
     err_r = np.fft.irfft(errfft_filt)
 
-    # Sort reconstructed data, interpolate and resample
+    ### Sort reconstructed data, interpolate and resample
     mindrive = np.min(drive_r)
     maxdrive = np.max(drive_r)
     grad = np.gradient(drive_r)
@@ -767,9 +737,6 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     resp_r = resp_r[sortinds]
     err_r = err_r[sortinds]
 
-    #plt.plot(drive_r, resp_r, '.')
-    #plt.plot(drive_r, err_r, '.')
-    #plt.show()
     if grad_sign < 0:
         ginds = grad[sortinds] < 0
     elif grad_sign > 0:
@@ -780,7 +747,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
     drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
     
-    # This part is slow, don't really know the best way to fix that....
+    ### This part is slow, don't really know the best way to fix that....
     respvec = []
     errvec = []
     for bin_loc in drivevec:
@@ -802,6 +769,28 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
+
+
+    if plot:
+        plt.figure()
+        drive_asd = np.abs(drivefft)
+        resp_asd = np.abs(respfft)
+        plt.loglog(freqs, drive_asd / np.max(drive_asd), label='Drive')
+        plt.loglog(freqs, resp_asd / np.max(resp_asd), label='Response')
+        plt.loglog(freqs[np.abs(drivefilt)>0], \
+                   resp_asd[np.abs(drivefilt)>0] / np.max(resp_asd), 
+                   'X', label='Filter', ms=10)
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('ASD [arb.]')
+        plt.legend()
+
+        plt.figure()
+        plt.errorbar(drivevec, respvec,  yerr=errvec, ls='', marker='o', ms=6)
+        plt.xlabel('Drive units')
+        plt.ylabel('Response units')
+
+        plt.show()
+
 
     return drivevec, respvec, errvec
 
@@ -959,11 +948,14 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 
 def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
-          bandwidth=1000.0, filt_band=[], plot=False):
+          bandwidth=1000.0, filt_band=[], plot=False, \
+          ncycle_pad=0, tukey=False, tukey_alpha=1e-3):
     '''Sub-routine to perform a hilbert transformation on a given 
        signal, filtering it if requested and plotting throughout.
        Includes a tukey window to remove artifacts at the endpoint
        of the demodulated phase.'''
+
+    npad = int(ncycle_pad * fsamp / fsig)
 
     nsamp = len(sig)
     tvec = np.arange(nsamp) * (1.0 / fsamp)
@@ -981,11 +973,25 @@ def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
 
-    if filt:
-        sig_filt = signal.filtfilt(b1, a1, sig, padtype='odd', padlen=10)
-        hilbert = signal.hilbert(sig_filt)
+    if npad:
+        sig_refl = sig[::-1]
+        sig_padded = np.concatenate((sig_refl[-npad:], \
+                                     sig, sig_refl[:npad]))
     else:
-        hilbert = signal.hilbert(sig)
+        sig_padded = np.copy(sig)
+
+    if filt:
+        sig_filt = signal.filtfilt(b1, a1, sig)
+        sig_filt_padded = signal.filtfilt(b1, a1, sig_padded, \
+                                          padtype='even', padlen=10000)
+        hilbert_padded = signal.hilbert(sig_filt_padded)
+    else:
+        hilbert_padded = signal.hilbert(sig_padded)
+
+    if npad:
+        hilbert = hilbert_padded[npad:-npad]
+    else:
+        hilbert = np.copy(hilbert_padded)
 
     amp = np.abs(hilbert)
 
@@ -994,8 +1000,11 @@ def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
     phase = (phase + np.pi) % (2.0*np.pi) - np.pi
     phase = np.unwrap(phase)
 
-    phase_mod = polynomial(phase, order=3, plot=False) \
-                     * signal.tukey(len(phase), alpha=1e-3)
+    phase_mod = polynomial(phase, order=3, plot=False) 
+    if tukey:
+        window = signal.tukey(len(phase), alpha=tukey_alpha)
+        phase_mod *= window
+        amp *= window
 
     phase_mod *= (1.0 / float(harmind))
 
@@ -1014,7 +1023,7 @@ def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
         plt.loglog(freqs, np.abs(np.fft.rfft(sig)))
         if filt:
             plt.loglog(freqs, np.abs(np.fft.rfft(sig_filt)))
-            plt.axvline(fc, ls='--', lw=3, color='r')
+            # plt.axvline(fc, ls='--', lw=3, color='r')
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Signal ASD [Arb]')
         plt.tight_layout()

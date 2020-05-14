@@ -15,11 +15,18 @@ import bead_util as bu
 import sdeint
 
 ncore = 10
+# ncore = 1
+
+### Time to thermalize
+# t_therm = 0.0
+t_therm = 300.0
 
 ### Time to simulate
-t_sim = 100.0
+# t_sim = 1.5
+t_sim = 300.0
 
 out_file_length = 2.0
+nthermfiles = int(t_therm / out_file_length)
 nfiles = int(t_sim / out_file_length)
 
 
@@ -27,8 +34,9 @@ nfiles = int(t_sim / out_file_length)
 ### experiment. Simulate with a timestep 100 times smaller than the final
 ### sampling frequency of interest to avoid numerical artifacts
 fsamp = 500000.0
+# fsamp = 2000000.0
 
-upsamp = 1.0
+upsamp = 4.0
 fsim = upsamp * fsamp
 
 ### Build the array of times at which we'd like our solution
@@ -54,36 +62,38 @@ p0 = 100.0 * constants.e * (1e-6)
 
 
 ### Parameter lists
-pressures = [1.0e-4]
-# pressures = [1.0e-5, 2.0e-5, 5.0e-5, \
-#              1.0e-4, 2.0e-4, 5.0e-4, \
-#              1.0e-3, 2.0e-3, 5.0e-3, \
-#              1.0e-2]
+# pressures = [1.0e-4]
+pressures = [1.0e-4, 2.0e-4, 5.0e-4, \
+             1.0e-3, 2.0e-3, 5.0e-3, \
+             1.0e-2]
 pressures = 100.0 * np.array(pressures) 
 
 drive_freqs = [22500.0]
 
-# drive_voltages = [400.0]
-drive_voltages = np.linspace(50.0, 400.0, 10)
+drive_voltages = [400.0]
+# drive_voltages = np.linspace(50.0, 400.0, 10)
 
 drive_voltage_noises = [0.0]
 
 drive_phase_noises = [0.0]
 
-# initial_angles = [np.pi/2.0]
-initial_angles = [0.0]
+initial_angles = [np.pi/2.0]
+# initial_angles = [0.0]
 
 
 
 
-seed_init = 123456
+# seed_init = 123456
+seed_init = 654321
 
 
 ### Save path below
-# savedir = 'libration_tests/sdeint_ringdown_manyp'
-savedir = 'libration_tests/sdeint_amp-sweep'
+savedir = 'libration_tests/sdeint_ringdown_manyp_3_hf'
+# savedir = 'libration_tests/sdeint_fieldoff_manyp'
+# savedir = 'libration_tests/sdeint_amp-sweep'
+# savedir = 'libration_tests/sdeint_concat_test'
 
-base = '/data/old_trap_processed/spinsim_data/'
+base = '/data/spin_sim_data/'
 base = os.path.join(base, savedir)
 
 
@@ -116,9 +126,9 @@ def run_mc(params):
                                        0, 0, 0], nsamp=1)[0])
     drive_amp_noise = drive_voltage_noise * (drive_amp / drive_voltage)
 
-    xi_0 = np.array([np.pi/2.0, init_angle, 0.0, 2.0*np.pi*drive_freq])
-
     seed = seed_init * (ind + 1)
+
+    xi_0 = np.array([np.pi/2.0, 0.0, 0.0, 2.0*np.pi*drive_freq])
 
     np.random.seed(seed)
 
@@ -127,6 +137,7 @@ def run_mc(params):
     values_to_save['Ibead'] = Ibead
     values_to_save['p0'] = p0
     values_to_save['fsamp'] = fsamp
+    values_to_save['fsim'] = fsim
     values_to_save['seed'] = seed
     values_to_save['xi_0'] = xi_0
     values_to_save['pressure'] = pressure
@@ -161,28 +172,66 @@ def run_mc(params):
 
         return np.array([x[2], x[3], torque_theta / Ibead, torque_phi / Ibead])
 
+
     @jit()
     def G(x, t):
         return B
 
+    ### Thermalize
+    xi_init = np.copy(xi_0)
+    for i in range(nthermfiles):
+        t0 = i*out_file_length
+        tf = (i+1)*out_file_length
 
+        nsim = int(out_file_length * fsim)
+        tvec = np.linspace(t0, tf, nsim+1)
+
+        result = sdeint.itoint(f, G, xi_init, tvec).T
+        xi_init = np.copy(result[:,-1])
+
+
+    ### Redefine the system taking into account the thermalization time
+    ### and the desired phase offset
+    @jit()
+    def f(x, t):
+        torque_theta = drive_amp * p0 * np.sin(0.5 * np.pi - x[0]) \
+                            - 1.0 * beta_rot * x[2]
+
+        E_phi = 2.0 * np.pi * drive_freq * (t + t_therm) + init_angle
+        torque_phi = drive_amp * p0 * np.sin(E_phi - x[1]) * np.sin(x[0]) \
+                            - 1.0 * beta_rot * x[3]
+
+        return np.array([x[2], x[3], torque_theta / Ibead, torque_phi / Ibead])
+
+    # @jit()
+    # def f(x, t):
+    #     torque_theta = - 1.0 * beta_rot * x[2]
+    #     torque_phi = - 1.0 * beta_rot * x[3]
+
+    #     return np.array([x[2], x[3], torque_theta / Ibead, torque_phi / Ibead])
+
+
+    ### Run the simulation with the thermalized solution
     for i in range(nfiles):
         # start = time.time()
         t0 = i*out_file_length
         tf = (i+1)*out_file_length
 
-        nsamp = int(out_file_length * fsim)
-        tvec = np.linspace(t0, tf, nsamp+1)
+        nsim = int(out_file_length * fsim)
+        tvec = np.linspace(t0, tf, nsim+1)
 
         ### Solve!
-        result = sdeint.itoint(f, G, xi_0, tvec).T
-
-        xi_0 = result[:,-1]
+        result = sdeint.itoint(f, G, xi_init, tvec).T
+        xi_init = np.copy(result[:,-1])
 
         tvec = tvec[:-1]
         soln = result[:,:-1]
 
-        out_arr = np.concatenate( (tvec.reshape((1, len(tvec))), soln) )
+        nsamp = int(out_file_length * fsamp)
+        soln_ds, tvec_ds = signal.resample(soln, t=tvec, \
+                                           num=nsamp, axis=-1)
+
+        out_arr = np.concatenate( (tvec_ds.reshape((1, len(tvec_ds))), soln_ds) )
 
         filename = os.path.join(base_filename, 'outdat_{:d}.h5'.format(i)) 
 
@@ -193,7 +242,7 @@ def run_mc(params):
         # stop = time.time()
         # print('Time for one file: {:0.1f}'.format(stop-start))
 
-    return seeds
+    return seed
 
 start = time.time()
 print('Starting to process data...')

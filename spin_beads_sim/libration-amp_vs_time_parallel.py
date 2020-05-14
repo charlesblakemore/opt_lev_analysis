@@ -14,24 +14,28 @@ import bead_util as bu
 import dill as pickle
 
 from joblib import Parallel, delayed
+
 ncore = 10
+# ncore = 1
 
 plt.rcParams.update({'font.size': 14})
 
 
-base = '/data/old_trap_processed/spinsim_data/libration_tests/'
+base = '/data/spin_sim_data/libration_tests/'
 
 # dirname = os.path.join(base, 'high_pressure_sweep')
-dirname = os.path.join(base, 'sdeint_ringdown_manyp')
+dirname = os.path.join(base, 'sdeint_ringdown_manyp_3')
 n_mc = bu.count_subdirectories(dirname)
+
+maxfile = 1000
 
 hdf5 = True
 ext = '.h5'
 
 ### Paths for saving
-save = False
+save = True
 save_base = '/home/cblakemore/opt_lev_analysis/spin_beads_sim/processed_results/'
-save_filename = os.path.join(save_base, 'sdeint_ringdown_manyp.p')
+save_filename = os.path.join(save_base, 'sdeint_ringdown_manyp_3.p')
 
 ### Use this option with care: if you parallelize and ask it to plot,
 ### you'll get ncore * (a few) plots up simultaneously
@@ -82,18 +86,24 @@ def proc_mc(i):
     plot = False
     for fileind, file in enumerate(datfiles):
 
-        if fileind >= 20:
+        if fileind >= maxfile:
             break
 
         if plot_first_file:
             plot = not fileind
 
-        if hdf5:
-            fobj = h5py.File(file, 'r')
-            dat = np.copy(fobj['sim_data'])
-            fobj.close()
-        else:
-            dat = np.load(file)
+        try:
+            if hdf5:
+                fobj = h5py.File(file, 'r')
+                dat = np.copy(fobj['sim_data'])
+                fobj.close()
+            else:
+                dat = np.load(file)
+
+        except Exception:
+            print('Bad File!')
+            print(file)
+            continue
 
         nsamp = dat.shape[1]
 
@@ -105,23 +115,22 @@ def proc_mc(i):
         crossp = np.abs(px)
         carrier_amp, carrier_phase \
                 = bu.demod(crossp, fsig, fsamp, harmind=2.0, filt=True, \
-                           bandwidth=4000.0, plot=plot)
+                           bandwidth=4000.0, plot=plot, tukey=True, \
+                           tukey_alpha=1e-3)
 
         params, cov = bu.fit_damped_osc_amp(carrier_phase, fsamp, plot=plot)
 
         libration_amp, libration_phase \
                 = bu.demod(carrier_phase, params[1], fsamp, harmind=1.0, \
-                           filt=True, filt_band=[300, 2000], plot=plot)
+                           filt=True, filt_band=[100, 2000], plot=False, \
+                           tukey=True, tukey_alpha=1e-3)
 
-        tvec_cut = tvec[5000:nsamp-5000]
-        amp_cut = libration_amp[5000:nsamp-5000]
+        amp_ds, tvec_ds = signal.resample(libration_amp, 500, t=tvec, window=None)
+        amp_ds_cut = amp_ds[5:-5]
+        tvec_ds_cut = tvec_ds[5:-5]
 
-        step = int(len(amp_cut) / 100)
-        amp_cut_ds = amp_cut[::step]
-        tvec_cut_ds = tvec_cut[::step]
-
-        all_amp = np.concatenate( (all_amp, amp_cut_ds) )
-        all_t = np.concatenate( (all_t, tvec_cut_ds) )
+        all_amp = np.concatenate( (all_amp, amp_ds_cut) )
+        all_t = np.concatenate( (all_t, tvec_ds_cut) )
 
     return [pressure, all_t, all_amp]
 
