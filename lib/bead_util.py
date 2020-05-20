@@ -613,68 +613,6 @@ class DataFile:
 
         return drive_ind
 
-
-    def generate_yuk_template(self, yukfuncs_at_lambda, p0, stage_travel = [80., 80., 80.],\
-                                plt_pvec = False, plt_template = False, cf = 1E-6):
-        '''generates a template for the expected force in the time domain. takes a tuple
-            of interpolating funcs for the force at a particular lambda and a vector, p0,
-            that gives the displacement '''
-
-        self.calibrate_stage_position()
-        pvec = np.zeros_like(self.cant_data)
-        pvec[0, :] = stage_travel[0] - self.cant_data[0, :] + p0[0]
-        pvec[1, :] = self.cant_data[1, :] - stage_travel[1]/2. + p0[1]
-        pvec[2, :] = self.cant_data[2, :] - p0[2]
-        pvec *= cf
-
-        pts = np.stack(pvec, axis = -1)
-        
-        fx = yukfuncs_at_lambda[0](pts)
-        fy = yukfuncs_at_lambda[1](pts)
-        fz = yukfuncs_at_lambda[2](pts)
-
-        if plt_pvec:
-            plt.plot(pts[:, 0], label = "X")
-            plt.plot(pts[:, 1], label = "Y")
-            plt.plot(pts[:, 2], label = "Z")
-            plt.legend()
-            plt.show()
-
-        if plt_template:
-            plt.plot(fx, label = "fx")
-            plt.plot(fy, label = "fy")
-            plt.plot(fz, label = "fz")
-            plt.legend()
-            plt.show()
-
-        return np.array([fx, fy, fz])
-
-
-    def inject_fake_signal(self, yukfuncs_at_lambda, p0, fake_alpha = 1E10, make_plot = False):
-        '''injects a fake signal into the data at a particular alpha and lambda. 
-            needs p0 = [min separation at 80um extent, y difference between center of cantilever 
-            and bead when cantilever is set to 40 um, bead height in nanopositiong stage coordinates].'''
-        
-        self.calibrate_stage_position()
-        try:
-            cf = self.conv_facs
-        except AttributeError:
-            self.diagonalize()
-            cf = self.conv_facs
-    
-        fs = fake_alpha*self.generate_yuk_template(yukfuncs_at_lambda, p0, \
-                plt_pvec = make_plot, plt_template =make_plot)
-
-        #add fake signal to position data using 1/cf to calibrate out of force units
-        self.pos_data = self.pos_data.astype(float) #cast to floats for math
-        self.pos_data[0] += fs[0]/cf[0]
-        self.pos_data[1] += fs[1]/cf[1]
-        self.pos_data[2] += fs[2]/cf[2]
-
-        #no calibration required for diag data    
-        self.diag_pos_data[0] += fs[0]
-        self.diag_pos_data[1] += fs[1]
-        self.diag_pos_data[2] += fs[2]
         
 
 
@@ -690,9 +628,9 @@ class DataFile:
 
            OUTPUTS: none, generates new class attribute.'''
 
-        # Find the drive frequency, ignoring the DC bin
         maxind = np.argmin( np.abs(freqs - maxfreq) )
 
+        ### Find the drive frequency, ignoring the DC bin
         fund_ind = np.argmax( np.abs(drive_fft[1:maxind]) ) + 1
         drive_freq = freqs[fund_ind]
 
@@ -702,24 +640,24 @@ class DataFile:
         if width:
             lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
             upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
-            drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
+            drivefilt[lower_ind:upper_ind+1] = 1.0
 
         if len(harms) == 0:
-            # Generate an array of harmonics
-            harms = np.array([x+2 for x in range(nharmonics)])
+            ### Generate an array of harmonics
+            harms = np.array([x+1 for x in range(nharmonics)])
         elif 1 not in harms:
             drivefilt[fund_ind] = 0.0
             if width:
-                drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
+                drivefilt[lower_ind:upper_ind+1] = 0.0
 
         # Loop over harmonics and add them to the filter
         for n in harms:
             harm_ind = np.argmin( np.abs(n * drive_freq - freqs) )
             drivefilt[harm_ind] = 1.0 
             if width:
-                h_lower_ind = harm_ind - (fund_ind - lower_ind)
-                h_upper_ind = harm_ind + (upper_ind - fund_ind)
-                drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
+                h_lower_ind = np.argmin(np.abs(n * drive_freq - 0.5 * width - freqs))
+                h_upper_ind = np.argmin(np.abs(n * drive_freq + 0.5 * width - freqs))
+                drivefilt[h_lower_ind:h_upper_ind+1] = 1.0
 
         return drivefilt, fund_ind, drive_freq
     
@@ -729,7 +667,7 @@ class DataFile:
 
     def get_boolean_cantfilt(self, ext_cant=(False,1), ext_cant_drive=False, ext_cant_ind=1, \
                              nharmonics=10, harms=[], width=0, maxfreq=2500, \
-                             drive_harms=5):
+                             drive_harms=5, include_mean=True):
         '''Builds a boolean notch filter for the cantilever drive
 
            INPUTS: ext_cant, tuple with bool specifying if an external drive
@@ -753,6 +691,9 @@ class DataFile:
 
         all_inds = np.arange(len(freqs)).astype(np.int)
         drive_ginds = []
+        if include_mean:
+            drive_ginds.append(0)
+
         for i in range(drive_harms):
             if width != 0:
                 drive_ginds += list( all_inds[np.abs(freqs - (i+1)*drive_freq) < 0.5*width] )
@@ -793,6 +734,9 @@ class DataFile:
 
         all_inds = np.arange(len(freqs)).astype(np.int)
         drive_ginds = []
+        if include_mean:
+            drive_ginds.append[0]
+
         for i in range(drive_harms):
             if width != 0:
                 drive_ginds += list( all_inds[np.abs(freqs - (i+1)*drive_freq) < 0.5*width] )

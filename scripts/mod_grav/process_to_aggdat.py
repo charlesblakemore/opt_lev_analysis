@@ -17,8 +17,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-ncore = 30
+# ncore = 30
 # ncore = 10
+ncore = 1
 
 
 
@@ -54,8 +55,12 @@ new_trap = True
 # substr = 'Shaking0' # for 20200210/.../...382/
 substr = 'Shaking3'  # for 20200210/.../...384/ and 20200320/.../...378
 
+Nfiles = 5
+# Nfiles = 1000
 # Nfiles = 16000
-Nfiles = 10000
+# Nfiles = 10000
+
+suppress_off_diag = True
 
 # reprocess = True
 # save = True
@@ -63,27 +68,32 @@ reprocess = False
 save = False
 plot_end_result = False
 
-# redo_alpha_fit = True
-redo_alpha_fit = False
+redo_alpha_fit = True
+# redo_alpha_fit = False
 
 plot_harms = False
+plot_templates = True
 plot_basis = False
 plot_alpha_xyz = False
 plot_bad_alphas = True
+plot_sensitivity = True
 
 save_hists = False
 
 ### Position of bead relative to the attractor coordinate system
-p0_bead_dict = {'20200320': [392.0, 199.7, 45.0]}
+p0_bead_dict = {'20200320': [392.0, 199.7, 50.0]}
 
 # harms = [6]
-harms = [3,4,5,6]
-# harms = [3,4,5,6,7,8,9,10]
+# harms = [3,4,5,6]
+# harms = [4,6,7,11,12]
+harms = [3,4,5,6,7,8,9,11,12,13,14,15]
+n_largest_harms = 5
+
 
 #opt_ext = 'TEST'
-opt_ext = '_harms-'
+opt_ext = '_harms'
 for harm in harms:
-    opt_ext += str(int(harm))
+    opt_ext += '-' + str(int(harm))
 opt_ext += '_first-{:d}'.format(Nfiles)
 if len(substr):
     opt_ext += '_{:s}'.format(substr)
@@ -120,7 +130,7 @@ for ddir in data_dirs:
         agg_dat = gu.AggregateData(datafiles, p0_bead=p0_bead, harms=harms, reload_dat=True, \
                                    plot_harm_extraction=plot_harms, new_trap=new_trap, \
                                    step_cal_drive_freq=151.0, ncore=ncore, noisebins=10, \
-                                   aux_data=aux_data)
+                                   aux_data=aux_data, suppress_off_diag=suppress_off_diag)
 
         agg_dat.load_grav_funcs(theory_data_dir)
 
@@ -135,7 +145,10 @@ for ddir in data_dirs:
         # agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
 
         agg_dat.find_alpha_xyz_from_templates(plot=plot_alpha_xyz, plot_basis=plot_basis, \
-                                                ncore=ncore)#, add_fake_data=True, fake_alpha=1e9)
+                                                ncore=ncore, plot_templates=plot_templates, \
+                                                n_largest_harms=n_largest_harms, \
+                                                # add_fake_data=True, fake_alpha=1e9,\
+                                                )
 
         if save:
             agg_dat.save(agg_path)
@@ -147,7 +160,8 @@ for ddir in data_dirs:
         if save:
             agg_dat.save(agg_path)
 
-        agg_dat.plot_sensitivity()
+        if plot_sensitivity:
+            agg_dat.plot_sensitivity()
 
 
 
@@ -162,31 +176,14 @@ for ddir in data_dirs:
         if redo_alpha_fit:   
             agg_dat.find_alpha_xyz_from_templates(plot=plot_alpha_xyz, plot_basis=plot_basis, \
                                                     ncore=ncore, plot_bad_alphas=plot_bad_alphas, \
+                                                    plot_templates=plot_templates, \
+                                                    n_largest_harms=n_largest_harms, \
                                                     # add_fake_data=True, fake_alpha=1e9, \
                                                     )
 
-        # agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], plot=True, show=True)
-        # agg_dat.fit_alpha_xyz_onepos(resp=2)
-        agg_dat.plot_sensitivity()
-
-        # filenums = [5, 50, 500, 5000]
-        filenums = list(map(int, np.geomspace(10,10000,10)))
-        # plot_alphas = list(np.logspace(-3, 0, 20))
-        plot_alphas = list(np.exp(np.linspace(-3, 0, len(filenums))))
-        print('{:d} total...'.format(len(filenums)))
-
-        show = False
-        colors = bu.get_color_map(len(filenums), cmap='BuPu')
-        for i, j in enumerate(filenums):
-            print(i, end=', ')
-            # print(ind)
-            if j == filenums[-1]:
-                show = True
-            agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], last_file=j, plot=True, \
-                                                show=show, plot_color=colors[i], \
-                                                plot_label='{:d} files'.format(j)) #, \
-                                                # plot_alpha=plot_alphas[i])
-        print()
+        agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], verbose=False)
+        if plot_sensitivity:
+            agg_dat.plot_sensitivity()
 
         #agg_dat.plot_force_plane(resp=0, fig_ind=1, show=False)
         #agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)

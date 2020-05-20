@@ -15,8 +15,8 @@ import dill as pickle
 
 from joblib import Parallel, delayed
 
-ncore = 10
-# ncore = 1
+# ncore = 10
+ncore = 1
 
 plt.rcParams.update({'font.size': 14})
 
@@ -24,7 +24,8 @@ plt.rcParams.update({'font.size': 14})
 base = '/data/spin_sim_data/libration_tests/'
 
 # dirname = os.path.join(base, 'high_pressure_sweep')
-dirname = os.path.join(base, 'sdeint_ringdown_manyp_3')
+# dirname = os.path.join(base, 'libration_ringdown_manyp_3_hf')
+dirname = os.path.join(base, 'thermalization_manyp')
 n_mc = bu.count_subdirectories(dirname)
 
 maxfile = 1000
@@ -35,7 +36,7 @@ ext = '.h5'
 ### Paths for saving
 save = True
 save_base = '/home/cblakemore/opt_lev_analysis/spin_beads_sim/processed_results/'
-save_filename = os.path.join(save_base, 'sdeint_ringdown_manyp_3.p')
+save_filename = os.path.join(save_base, 'thermalization_manyp.p')
 
 ### Use this option with care: if you parallelize and ask it to plot,
 ### you'll get ncore * (a few) plots up simultaneously
@@ -69,12 +70,19 @@ def proc_mc(i):
 
     pressure = params['pressure']
     drive_amp = params['drive_amp']
+    drive_freq = params['drive_freq']
     fsig = params['drive_freq']
     p0 = params['p0']
     try:
         fsamp = params['fsamp']
     except Exception:
         fsamp = 1.0e6
+
+    def Ephi(t):
+        return 2.0 * np.pi * drive_freq * t
+
+    def energy(xi, t):
+        kinetic_term = 
 
     datfiles, lengths = bu.find_all_fnames(cdir, ext=ext, verbose=False, \
                                             sort_time=True, use_origin_timestamp=True)
@@ -110,19 +118,22 @@ def proc_mc(i):
         tvec = dat[0]
         theta = dat[1]
         phi = dat[2]
-        px = p0 * np.cos(phi) * np.sin(theta)
 
-        crossp = np.abs(px)
+        # px = p0 * np.cos(phi) * np.sin(theta)
+        # crossp = np.abs(px)
+
+        crossp = np.sin(phi)**2
+
         carrier_amp, carrier_phase \
                 = bu.demod(crossp, fsig, fsamp, harmind=2.0, filt=True, \
-                           bandwidth=4000.0, plot=plot, tukey=True, \
+                           bandwidth=4000.0, plot=True, tukey=True, \
                            tukey_alpha=1e-3)
 
         params, cov = bu.fit_damped_osc_amp(carrier_phase, fsamp, plot=plot)
 
         libration_amp, libration_phase \
                 = bu.demod(carrier_phase, params[1], fsamp, harmind=1.0, \
-                           filt=True, filt_band=[100, 2000], plot=False, \
+                           filt=True, filt_band=[100, 2000], plot=plot, \
                            tukey=True, tukey_alpha=1e-3)
 
         amp_ds, tvec_ds = signal.resample(libration_amp, 500, t=tvec, window=None)

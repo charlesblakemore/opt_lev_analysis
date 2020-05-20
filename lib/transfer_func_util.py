@@ -269,7 +269,6 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
     quadlabs = {0: 'Top Right', 1: 'Bottom Right', 2: 'Top Left', \
                 3: 'Bottom Left', 4: 'Backscatter'}
 
-
     for eind in list(avg_drive_fft.keys()):
         # First find drive-frequency bins above a fixed threshold
         dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*fsamp)
@@ -382,7 +381,10 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
         # Generate an integer by which to roll the data_fft to compute the noise
         # limit of the TF measurement
-        shift = int(0.5 * (tf_inds[1] - tf_inds[0]))
+        if len(tf_inds) > 1:
+            shift = int(0.5 * (tf_inds[1] - tf_inds[0]))
+        else:
+            shift = int(0.5 * tf_inds[0])
         randadd = np.random.choice(np.arange(-int(0.1*shift), \
                                              int(0.1*shift)+1, 1))
         shift = shift + randadd

@@ -1205,7 +1205,9 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
 
 
 def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
-                       sig_asd=False, linearize=False, asd_errs=[]):
+                       sig_asd=False, linearize=False, asd_errs=[], \
+                       gamma_guess=0, weight_lowf=False, \
+                       weight_lowf_val=1.0, weight_lowf_thresh=100.0):
     '''Routine to fit the above defined damped HO amplitude spectrum
        to the ASD of some input signal, assumed to have a single
        resonance etc etc
@@ -1231,14 +1233,11 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         asd = np.abs(sig)
         freqs = np.linspace(0, 0.5*fsamp, len(asd))
 
-    if not len(asd_errs):
-        asd_errs = np.ones_like(asd)
-    # print(asd_errs)
-
     ### Generate some initial guesses
     maxind = np.argmax(asd)
     freq_guess = freqs[maxind]
-    gamma_guess = 2e-3 * freq_guess
+    if not gamma_guess:
+        gamma_guess = 2e-3 * freq_guess
     amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
 
     ### Define some indicies for fitting and plotting
@@ -1255,11 +1254,21 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
     if linearize:
         fit_func = lambda f,A,f0,g: np.log(damped_osc_amp(f,A,f0,g))
         fit_y = np.log(asd[inds])
-        errs = asd_errs[inds] / asd[inds]
+        if not len(asd_errs):
+            errs = np.ones(len(fit_x))
+        else:
+            errs = asd_errs[inds] / asd[inds]
     else:
         fit_func = lambda f,A,f0,g: damped_osc_amp(f,A,f0,g)
         fit_y = asd[inds]
-        errs = asd_errs[inds]
+        if not len(asd_errs):
+            errs = np.ones(len(fit_x))
+        else:
+            errs = asd_errs[inds]
+
+    if weight_lowf:
+        weight_inds = fit_x < weight_lowf_thresh
+        errs[weight_inds] *= weight_lowf_val
 
     ### Fit the data
     p0 = [amp_guess, freq_guess, gamma_guess]

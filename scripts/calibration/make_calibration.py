@@ -34,34 +34,35 @@ tabor_ind = 3
 # first_file = 64
 # last_file = -1
 
-step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
-first_file = 300
-last_file = -1
-
-# step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/From_plus_to_minus_and_discharge/']
-# first_file = 0
+# step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
+# first_file = 300
 # last_file = -1
 
-skip_subdirectories = False
+step_cal_dir = ['/data/new_trap/20200512/Bead1/Discharge/']
+first_file = 410
+last_file = 600
+
+skip_subdirectories = True
 
 elec_channel_select = 1
 # pcol = -1
 # pcol = 2
 pcol = 2
 
-correlation_phase = 0.0
+correlation_phase = np.pi/5
 plot_correlations = False
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
 # auto_try = 0.09
-auto_try = 0.028
-# auto_try = 0.0
+# auto_try = 0.028
+auto_try = 0.0
 
 decimate = False
 dec_fac = 2
 
-fake_step_cal = False
+fake_step_cal = True
+drive_freq = 71.0
 # ## OLD TRAP
 # vpn = 7.264e16
 ## NEW TRAP
@@ -104,7 +105,7 @@ suppress_off_diag = True
 new_trap = True
 # new_trap = False
 
-save = True
+save = False
 save_charge = False
 
 
@@ -167,8 +168,8 @@ step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True, \
                                              use_origin_timestamp=use_origin_timestamp, \
                                              skip_subdirectories=skip_subdirectories)
 
-for i in range(5):
-    step_cal_files.pop(559)
+# for i in range(5):
+#     step_cal_files.pop(559)
 
 
 #print len(step_cal_files)
@@ -190,6 +191,10 @@ if recharge:
 
 
 tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr)
+
+tf_cal_files = ['/data/new_trap/20200512/Bead1/TransFunc/TransFunc_X_9.h5', \
+                '/data/new_trap/20200512/Bead1/TransFunc/TransFunc_Y_3.h5', \
+                '/data/new_trap/20200512/Bead1/TransFunc/TransFunc_Z_3.h5']
 
 # tf_cal_files_2 = []
 # for file in tf_cal_files:
@@ -320,7 +325,7 @@ for fil_ind, filname in enumerate(tf_cal_files):
     tf_file_objs.append(df)
 
 # Build the uncalibrated TF: Vresp / Vdrive
-allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False, new_trap=new_trap, \
+allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=True, new_trap=new_trap, \
                                 lines_to_remove=lines_to_remove)
 
 Hout = allH['Hout']

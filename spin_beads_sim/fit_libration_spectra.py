@@ -51,11 +51,19 @@ dipole_units = constants.e * (1e-6) # to convert e um -> C m
 ### Bead-specific constants
 p0 = 100.0 * dipole_units  #  C * m
 
+### Some physical constants associated to our system which determine
+### the magnitude of the thermal driving force
+m0 = 18.0 * constants.atomic_mass  ### residual gas is primarily water
+kb = constants.Boltzmann
+T = 297.0
 
-# rhobead = {'val': 1850.0, 'sterr': 1.0, 'syserr': 1.0}
+### Properties of the microsphere (in SI mks units) to construct the 
+### damping coefficient and other things
 mbead_dic = {'val': 84.3e-15, 'sterr': 1.0e-15, 'syserr': 1.5e-15}
 mbead = mbead_dic['val']
 Ibead = bu.get_Ibead(mbead=mbead_dic)['val']
+kappa = bu.get_kappa(mbead=mbead_dic)['val']
+
 
 ############################################################################
 ############################################################################
@@ -84,6 +92,9 @@ def proc_mc(i):
     except Exception:
         fsamp = 1.0e6
         fsamp_ds = fsamp
+
+    beta_rot = pressure * np.sqrt(m0) / kappa
+    gamma_calc = beta_rot / Ibead
 
     ### Load the data
     datfiles, lengths = bu.find_all_fnames(cdir, ext=ext, verbose=False, \
@@ -211,9 +222,12 @@ def proc_mc(i):
     ### Fit either the averaged ASD or the ASD of the concatenated signal
     params, cov = bu.fit_damped_osc_amp(fit_asd, fsamp_ds, plot=False, \
                                         sig_asd=True, linearize=True, \
-                                        asd_errs=asd_errs, fit_band=[100.0,1000.0])
+                                        asd_errs=asd_errs, fit_band=[10.0,750.0], \
+                                        gamma_guess=gamma_calc, \
+                                        weight_lowf=True, weight_lowf_val=0.3, \
+                                        weight_lowf_thresh=200)
 
-    return [pressure, freqs, fit_asd, params, cov]
+    return [pressure, freqs, fit_asd, params, cov, gamma_calc]
 
 
 ### Analyze all the results in parallel
@@ -221,17 +235,26 @@ results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_
 
 
 ### Loop over the results and plot each one
+plt.figure(figsize=(12,6))
 colors = bu.get_color_map(len(results), cmap='plasma')
 pressures = []
 gammas = []
 for resultind, result in enumerate(results):
+    fac = 100.0**resultind
+    print(fac)
     pressures.append(result[0])
-    label = '$ p = {:0.1f}$ mbar'.format(pressures[-1]*0.01)
+    label = '$ \\gamma = {:0.2g}$ Hz, [$\\gamma (p) = {:0.2g}$ Hz]'\
+                .format(result[3][2], result[5] / (2.0 * np.pi))
     gammas.append(result[3][2])
-    plt.loglog(result[1], result[2], color=colors[resultind], alpha=0.7, label=label)
-    plt.loglog(result[1], bu.damped_osc_amp(result[1], *result[3]), \
+    plt.loglog(result[1], result[2]*fac, color=colors[resultind], alpha=0.7, label=label)
+    plt.loglog(result[1], bu.damped_osc_amp(result[1], *result[3])*fac, \
                color=colors[resultind], lw=3)
-plt.legend(fontsize=10, loc='upper left')
+plt.legend(fontsize=10, ncol=2, loc='upper left')
+plt.xlabel('Frequency [Hz]')
+plt.ylabel('Phase ASD [arb]')
+plt.xlim(1.0, 2500)
+plt.ylim(1e-7, 3e12)
+plt.tight_layout()
 
 plt.figure()
 plt.plot(pressures, gammas)
