@@ -431,6 +431,46 @@ def find_str(str):
 
 
 
+def angle_between_vectors(vec1, vec2, coord='Cartesian', radians=True):
+    '''Computes the angle between two 3d vectors, or two arrays of 3d
+       vectors, in either cartesian or spherical-polar coordinates.
+    '''
+
+    axis = np.argmax( np.array( np.array(vec1).shape ) == 3 )
+    if axis != 0:
+        vec1 = np.transpose(vec1)
+        vec2 = np.transpose(vec2)
+
+    if (coord == 'Cartesian') or (coord == 'C') or (coord == 'c'):
+
+        v1 = np.copy(vec1)
+        v2 = np.copy(vec2)
+
+    elif (coord == 'Spherical') or (coord == 'S') or (coord == 's'):
+
+        v1 = np.array( [vec1[0] * np.sin(vec1[1]) * np.cos(vec1[2]), \
+                        vec1[0] * np.sin(vec1[1]) * np.sin(vec1[2]), \
+                        vec1[0] * np.cos(vec1[1])] )
+
+        v2 = np.array( [vec2[0] * np.sin(vec2[1]) * np.cos(vec2[2]), \
+                        vec2[0] * np.sin(vec2[1]) * np.sin(vec2[2]), \
+                        vec2[0] * np.cos(vec2[1])] )
+
+    else:
+        print('Coordinate system not understood')
+        return np.zeros(vec.shape[1])
+
+    v1_mag = np.sqrt(np.sum(v1 * v1, axis=0))
+    v2_mag = np.sqrt(np.sum(v2 * v2, axis=0))
+
+    angle = np.arccos( np.sum(v1 * v2, axis=0) / (v1_mag * v2_mag))
+
+    if not radians:
+        angle *= 180 / np.pi
+
+    return angle
+
+
 def euler_rotation_matrix(rot_angles, radians=True):
     '''Returns a 3x3 euler-rotation matrix. Thus the rotation proceeds
        thetaX (about x-axis) -> thetaY -> thetaZ, with the result returned
@@ -947,7 +987,7 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
         
 
 
-def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
+def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], plot=False, \
           ncycle_pad=0, tukey=False, tukey_alpha=1e-3):
     '''Sub-routine to perform a hilbert transformation on a given 
@@ -957,7 +997,7 @@ def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     npad = int(ncycle_pad * fsamp / fsig)
 
-    nsamp = len(sig)
+    nsamp = len(input_sig)
     tvec = np.arange(nsamp) * (1.0 / fsamp)
     freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
 
@@ -973,6 +1013,7 @@ def demod(sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
 
+    sig = input_sig - np.mean(input_sig)
     if npad:
         sig_refl = sig[::-1]
         sig_padded = np.concatenate((sig_refl[-npad:], \
@@ -1206,7 +1247,7 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
 
 def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
                        sig_asd=False, linearize=False, asd_errs=[], \
-                       gamma_guess=0, weight_lowf=False, \
+                       gamma_guess=0, freq_guess=0, weight_lowf=False, \
                        weight_lowf_val=1.0, weight_lowf_thresh=100.0):
     '''Routine to fit the above defined damped HO amplitude spectrum
        to the ASD of some input signal, assumed to have a single
@@ -1235,7 +1276,8 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
 
     ### Generate some initial guesses
     maxind = np.argmax(asd)
-    freq_guess = freqs[maxind]
+    if not freq_guess:
+        freq_guess = freqs[maxind]
     if not gamma_guess:
         gamma_guess = 2e-3 * freq_guess
     amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2

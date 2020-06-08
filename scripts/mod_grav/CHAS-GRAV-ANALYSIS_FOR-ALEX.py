@@ -136,6 +136,6 @@ for ddir in data_dirs:
     if calculate_limit:
         agg_dat.fit_alpha_xyz_onepos_simple(resp=axes_to_fit, verbose=False)
 
-    ### Plot if you want
-    if plot_sensitivity:
-        agg_dat.plot_sensitivity()
+        ### Plot it if you want
+        if plot_sensitivity:
+            agg_dat.plot_sensitivity()

@@ -21,8 +21,6 @@ warnings.filterwarnings("ignore")
 ncore = 30
 # ncore = 10
 
-
-
 # theory_data_dir = '/data/old_trap/grav_sim_data/2um_spacing_data/'
 theory_data_dir = '/home/cblakemore/opt_lev_analysis/gravity_sim/results/7_6um-gbead_1um-unit-cells/'
 
@@ -33,9 +31,14 @@ new_trap = True
 substr = 'Shaking3'  # for 20200210/.../...384/ and 20200320/.../...378
 
 Nfiles = 10000
+nsec_per_file = 10.0
 
 # redo_alpha_fit = True
 redo_alpha_fit = False
+redo_profiling = False
+
+save = True
+save_path = './profiled_alpha.p'
 
 plot_basis = False
 plot_alpha_xyz = False
@@ -82,48 +85,69 @@ for ddir in data_dirs:
                                                 ncore=ncore, plot_bad_alphas=plot_bad_alphas, \
                                                 n_largest_harms=n_largest_harms)
 
-    # agg_dat.plot_sensitivity()
 
-    # filenums = [5, 50, 500, 5000]
-    filenums = list(map(int, np.linspace(10,10000,20)))
-    # plot_alphas = list(np.logspace(-3, 0, 20))
-    # plot_alphas = list(np.exp(np.linspace(-3, 0, len(filenums))))
-    print('{:d} total...'.format(len(filenums)))
+    if redo_profiling:
+        filenums = list(map(int, np.linspace(0,10000,401)[1:]))
+        # filenums = list(map(int, np.linspace(0,10000,41)[1:]))
+        print('{:d} total...'.format(len(filenums)))
 
-    show = False
-    colors = bu.get_color_map(len(filenums), cmap='BuPu')
-    lambind = np.argmin(np.abs(agg_dat.gfuncs_class.lambdas - yuklambda))
+        show = False
+        colors = bu.get_color_map(len(filenums), cmap='BuPu')
+        lambind = np.argmin(np.abs(agg_dat.gfuncs_class.lambdas - yuklambda))
 
-    best = []
-    upper = []
-    lower = []
-    for i, j in enumerate(filenums):
-        print(i, end=', ')
-        # print(ind)
-        if j == filenums[-1]:
-            show = True
+        best = np.zeros(len(filenums))
+        interval = np.zeros(len(filenums))
+        sideband_best = np.zeros(len(filenums))
+        sideband_interval = np.zeros(len(filenums))
 
-        profiles = \
-            agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], last_file=j, plot=True, \
-                                                show=show, plot_color=colors[i], \
-                                                plot_label='{:d} files'.format(j)) #, \
-                                                # plot_alpha=plot_alphas[i])
+        for i, j in enumerate(filenums):
+            print(i, end=', ')
+            # print(ind)
+            if j == filenums[-1]:
+                show = True
 
-        best_fit = agg_dat.alpha_best_fit[lambind]
-        interval = np.abs(agg_dat.alpha_95cl[lambind])
+            profiles = \
+                agg_dat.fit_alpha_xyz_onepos_simple(resp=[2], last_file=j, plot=True, \
+                                                    show=show, plot_color=colors[i], \
+                                                    plot_label='{:d} files'.format(j)) #, \
+                                                    # plot_alpha=plot_alphas[i])
 
-        best.append(best_fit)
-        upper.append(best_fit + interval)
-        lower.append(best_fit - interval)
+            best[i] = agg_dat.alpha_best_fit[lambind]
+            interval[i] = np.abs(agg_dat.alpha_95cl[lambind])
+
+            sideband_best[i] = agg_dat.alpha_best_fit_null[lambind]
+            sideband_interval[i] = np.abs(agg_dat.alpha_95cl_null[lambind])
+
+        if save:
+            out_arr = np.array([filenums, best, interval, sideband_best, sideband_interval])
+            pickle.dump(out_arr, open(save_path, 'wb'))
+
+    else:
+        filenums, best, interval, sideband_best, sideband_interval \
+                    = pickle.load(open(save_path, 'rb'))
+
+
+
+    filenums *= nsec_per_file / 3600.0
 
     fig, ax = plt.subplots(1,1)
-    ax.plot(filenums, best, color='C0', zorder=3)
-    ax.fill_between(filenums, lower, upper, color='C0', alpha=0.6, zorder=2)
+    label1 = '$\\hat{\\alpha}_{\\rm ib}$'
+    ax.plot(filenums, best, color='C0', zorder=4, label=label1)
+    ax.fill_between(filenums, best-interval, best+interval, color='C0', alpha=0.6, zorder=2)
+
+    label2 = '$\\hat{\\alpha}_{\\rm ob}$ with $\\alpha_{\\rm ib} = 0$'
+    ax.plot(filenums, sideband_best, color='C1', zorder=5, label=label2)
+    ax.fill_between(filenums, sideband_best-sideband_interval, sideband_best+sideband_interval, \
+                    color='C1', alpha=0.6, zorder=3)
+
     ax.axhline(0, ls='--', color='k', lw=2, zorder=1)
 
-    ax.set_xlabel('Number of Files Integrated')
+    ax.set_xlabel('Integrated Time [h]')
     ax.set_ylabel('Alpha')
 
+    ax.set_title('$\\alpha$ Estimates with 95% CL')
+
+    plt.legend(loc='lower right')
     plt.tight_layout()
 
     plt.show()

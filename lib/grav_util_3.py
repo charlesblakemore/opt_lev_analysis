@@ -2535,20 +2535,18 @@ class AggregateData:
 
                     ### "Best fit" is like the sensitivity (should be consistent with 0
                     ### if we understand backgrounds)
-                    sensitivity = alpha_scale * np.abs(-1.0 * popt[1] / (2.0 * popt[0]))
-                    sensitivity_null = alpha_scale * np.abs(-1.0 * popt_null[1] / (2.0 * popt_null[0]))
+                    sensitivity = (-1.0 * popt[1] / (2.0 * popt[0]))
+                    sensitivity_null = (-1.0 * popt_null[1] / (2.0 * popt_null[0]))
 
                     ### Limit is derived from the larger of the ends of the confidence interval
-                    limit = alpha_scale * np.abs(np.max(np.array(soln) \
-                                                            - sensitivity/alpha_scale))
-                    limit_null = alpha_scale * np.abs(np.max(np.array(soln_null) \
-                                                                - sensitivity_null/alpha_scale))
+                    limit = np.max(np.abs(np.array(soln) - sensitivity))
+                    limit_null = np.max(np.abs(np.array(soln_null) - sensitivity_null))
 
-                    self.alpha_best_fit.append(sensitivity)
-                    self.alpha_95cl.append(limit)
+                    self.alpha_best_fit.append(alpha_scale * sensitivity)
+                    self.alpha_95cl.append(alpha_scale * limit)
 
-                    self.alpha_best_fit_null.append(sensitivity_null)
-                    self.alpha_95cl_null.append(limit_null)
+                    self.alpha_best_fit_null.append(alpha_scale * sensitivity_null)
+                    self.alpha_95cl_null.append(alpha_scale * limit_null)
 
                 except Exception:
                     try:

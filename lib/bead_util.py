@@ -394,25 +394,6 @@ class DataFile:
 
         self.time = self.pos_time[0]
 
-        ### Since the actual electrode data isn't saved (only 1-s portions because
-        ### that totally makes sense, but hey I'm not in charge in the new setup)
-        ### the following reconstructs the signal depending on whether the data
-        ### is labeld as "Discharge" or "Transfunc" since the actual electrode 
-        ### amplitudes aren't stored properly for the transfer function data.
-        ### Still mind-boggling that this information isn't stored in the file and
-        ### and has to be hardcoded. Like wtf.
-        discharge = False
-        trans_func = False
-        if 'Discharge' in self.fname:
-            discharge = True
-            amp = np.sqrt(2) * np.std(dat5[0])
-        elif 'TransFunc' in self.fname:
-            trans_func = True
-            amp = 0.65
-        else:
-            amp = 1.0
-
-        # print(amp)
 
         ### Reconstruct the elctrode_settings array as it's saved in the old trap
         self.electrode_settings = {}
@@ -422,6 +403,25 @@ class DataFile:
         self.electrode_settings['dc_settings'] = np.zeros(8)
 
         if len(dat5):
+
+            ### Since the actual electrode data isn't saved (only 1-s portions because
+            ### that totally makes sense, but hey I'm not in charge in the new setup)
+            ### the following reconstructs the signal depending on whether the data
+            ### is labeld as "Discharge" or "Transfunc" since the actual electrode 
+            ### amplitudes aren't stored properly for the transfer function data.
+            ### Still mind-boggling that this information isn't stored in the file and
+            ### and has to be hardcoded. Like wtf.
+            discharge = False
+            trans_func = False
+            if 'Discharge' in self.fname:
+                discharge = True
+                amp = np.sqrt(2) * np.std(dat5[0])
+            elif 'TransFunc' in self.fname:
+                trans_func = True
+                amp = 0.65
+            else:
+                amp = 1.0
+
             tarr = np.arange(self.nsamp) * (1.0 / self.fsamp)
             dumb_tarr = np.arange(dat5.shape[1]) * (1.0 / self.fsamp)
 

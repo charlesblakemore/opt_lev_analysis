@@ -14,7 +14,9 @@ import bead_util as bu
 import dill as pickle
 
 from joblib import Parallel, delayed
+
 ncore = 10
+# ncore = 1
 
 plt.rcParams.update({'font.size': 14})
 
@@ -22,8 +24,9 @@ plt.rcParams.update({'font.size': 14})
 base = '/data/spin_sim_data/libration_tests/'
 
 # dirname = os.path.join(base, 'high_pressure_sweep')
-dirname = os.path.join(base, 'sdeint_ringdown_manyp_3')
-# dirname = os.path.join(base, 'sdeint_concat_test')
+# dirname = os.path.join(base, 'sdeint_ringdown_manyp_3')
+dirname = os.path.join(base, 'amp_noise_test_fterm')
+# dirname = os.path.join(base, 'rot_freq_sweep')
 n_mc = bu.count_subdirectories(dirname)
 
 hdf5 = True
@@ -31,12 +34,16 @@ ext = '.h5'
 
 ### Paths for saving
 save_base = '/home/cblakemore/opt_lev_analysis/spin_beads_sim/processed_results/'
-save_filename = os.path.join(save_base, 'libration_spectra_manyp_3.p')
-# save_filename = os.path.join(save_base, 'libration_concat_test.p')
+# save_filename = os.path.join(save_base, 'rot_freq_sweep.p')
+save_filename = os.path.join(save_base, 'amp_noise_test_fterm.p')
 
 average = False
 concatenate = True
+# nspectra_to_combine = 15
 nspectra_to_combine = 10
+plot_raw_data = False
+
+ncycle_pad = 0.0
 
 downsample = True
 downsample_fac = 100
@@ -61,8 +68,8 @@ T = 297.0
 ### damping coefficient and other things
 mbead_dic = {'val': 84.3e-15, 'sterr': 1.0e-15, 'syserr': 1.5e-15}
 mbead = mbead_dic['val']
-Ibead = bu.get_Ibead(mbead=mbead_dic)['val']
-kappa = bu.get_kappa(mbead=mbead_dic)['val']
+# Ibead = bu.get_Ibead(mbead=mbead_dic)['val']
+# kappa = bu.get_kappa(mbead=mbead_dic)['val']
 
 
 ############################################################################
@@ -86,15 +93,30 @@ def proc_mc(i):
     pressure = params['pressure']
     drive_amp = params['drive_amp']
     fsig = params['drive_freq']
+    drive_freq = params['drive_freq']
+    p0 = params['p0']
+    Ibead = params['Ibead']
+    kappa = params['kappa']
+    fsamp = params['fsamp']
+    fsamp_ds = fsamp
+
     try:
-        fsamp = params['fsamp']
-        fsamp_ds = fsamp
+        t_therm = params['t_therm']
+    except:
+        t_therm = 0.0
+
+    try:
+        init_angle = params['init_angle']
     except Exception:
-        fsamp = 1.0e6
-        fsamp_ds = fsamp
+        init_angle = np.pi / 2.0
 
     beta_rot = pressure * np.sqrt(m0) / kappa
-    gamma_calc = beta_rot / Ibead
+    phieq = -1.0 * np.arcsin(2.0 * np.pi * drive_freq * beta_rot / (drive_amp * p0))
+
+    time_constant = Ibead / beta_rot
+    gamma_calc = 1.0 / time_constant
+
+    # print(pressure, time_constant, t_therm)
 
     ### Load the data
     datfiles, lengths = bu.find_all_fnames(cdir, ext=ext, verbose=False, \
@@ -109,14 +131,15 @@ def proc_mc(i):
     if concatenate:
         long_t = []
         long_sig = []
+        long_sig_2 = []
     if average:
         psd_array = []
 
     ### Loop over the datafiles 
     for fileind, file in enumerate(datfiles):
-
+        # print(file)
         ### Break the loop if we've acquired enough data
-        if fileind >= nspectra_to_combine - 1:
+        if fileind > nspectra_to_combine - 1:
             break
 
         ### Load the data, taking into account the file type
@@ -138,9 +161,16 @@ def proc_mc(i):
         phi = dat[2]
         px = p0 * np.cos(phi) * np.sin(theta)
 
+        E_phi = 2.0 * np.pi * drive_freq * (tvec + t_therm) + init_angle
+
+        ones = np.ones(len(tvec))
+
+        dipole = np.array([ones, theta, phi])
+        efield = np.array([ones, ones*(np.pi/2), E_phi])
+        lib_angle = bu.angle_between_vectors(dipole, efield, coord='s')
+
         ### construct an estimate of the cross-polarized light
         crossp = np.sin(phi)**2
-        # crossp = np.abs(px)  
 
         ### Normalize to avoid numerical errors. Try to get the max to sit at 10
         crossp *= (10.0 / np.max(np.abs(crossp)))
@@ -150,16 +180,54 @@ def proc_mc(i):
             if not len(long_sig):
                 long_t = tvec
                 long_sig = crossp
+                long_phi = phi
+                long_lib = lib_angle
             else:
                 long_t = np.concatenate((tvec, long_t))
                 long_sig = np.concatenate((crossp, long_sig))
+                long_phi = np.concatenate((phi, long_phi))
+                long_lib = np.concatenate((lib_angle, long_lib ))
 
         ### Using a hilbert transform, demodulate the amplitude and phase of
         ### the carrier signal. Filter things if desired.
         carrier_amp, carrier_phase \
                 = bu.demod(crossp, fsig, fsamp, harmind=2.0, filt=True, \
                            bandwidth=4000.0, plot=plot_demod, ncycle_pad=100, \
-                           tukey=True, tukey_alpha=1e-3)
+                           tukey=True, tukey_alpha=5e-4)
+
+        # carrier_phase = phi - E_phi
+
+        if plot_raw_data:
+            phi_lab = '$\\phi$'
+            theta_lab = '$\\theta - \\pi / 2$'
+            lib_lab = '$\\left| \\measuredangle (\\vec{E}) (\\vec{d}) \\right|$'
+
+            # plt.plot(carrier_phase)
+            plt.plot(tvec, carrier_phase, alpha=1.0, label=phi_lab)
+            plt.plot(tvec, theta - np.pi/2, alpha=0.7, label=theta_lab)
+            plt.plot(tvec, lib_angle, alpha=0.7, label=lib_lab)
+            plt.title('In Rotating Frame', fontsize=14)
+            plt.xlabel('Time [s]')
+            plt.ylabel('Angular Coordinate [rad]')
+            plt.legend(loc='lower right', fontsize=12)
+            plt.tight_layout()
+            # plt.show()
+
+            freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+            norm = bu.fft_norm(nsamp, fsamp)
+            plt.figure()
+            plt.loglog(freqs, np.abs(np.fft.rfft(carrier_phase))*norm, label=phi_lab)
+            plt.loglog(freqs, np.abs(np.fft.rfft(theta-np.pi/2))*norm, label=theta_lab)
+            plt.loglog(freqs, np.abs(np.fft.rfft(lib_angle))*norm, label=lib_lab)
+            plt.xlabel('Frequency [Hz]')
+            plt.ylabel('ASD [rad / $\\sqrt{ \\rm Hz}$]')
+            plt.legend(loc='lower right', fontsize=12)
+            plt.xlim(330, 1730)
+            plt.ylim(5e-7, 3e-2)
+            plt.tight_layout()
+            plt.show()
+
+            input()
 
         ### Downsample the data if desired
         if downsample:
@@ -200,20 +268,28 @@ def proc_mc(i):
     if concatenate:
         ### Compute the new values of nsamp
         nsamp = len(long_sig)
-        nsamp_ds = int(nsamp / downsample_fac)
+        if downsample:
+            nsamp_ds = int(nsamp / downsample_fac)
+        else:
+            nsamp_ds = nsamp
 
         ### Hilbert transform demodulation
         carrier_amp_long, carrier_phase_long \
-                = bu.demod(long_sig, fsig, fsamp, harmind=2.0, filt=True, \
-                           bandwidth=4000.0, plot=plot_demod, ncycle_pad=100, \
+                = bu.demod(long_sig, fsig, fsamp, harmind=2.0, filt=False, \
+                           bandwidth=5000.0, plot=False, ncycle_pad=ncycle_pad, \
                            tukey=True, tukey_alpha=1e-4)
+
+        carrier_phase_long = long_phi - 2.0 * np.pi * drive_freq * (long_t + t_therm) - init_angle
 
         ### Downsampling
         carrier_phase_ds, tvec_ds = signal.resample(carrier_phase_long, nsamp_ds, \
                                                     t=long_t, window=None)
+        long_lib_ds, tvec_ds_2 = signal.resample(long_lib, nsamp_ds, \
+                                                 t=long_t, window=None)
 
         ### Compute the ASD of the downsampled signals
         fit_asd = bu.fft_norm(nsamp_ds, fsamp_ds) * np.abs(np.fft.rfft(carrier_phase_ds))
+        fit_asd_2 = bu.fft_norm(nsamp_ds, fsamp_ds) * np.abs(np.fft.rfft(long_lib_ds))
         asd_errs = []
 
         ### Compute the new frequency arrays
@@ -222,32 +298,61 @@ def proc_mc(i):
     ### Fit either the averaged ASD or the ASD of the concatenated signal
     params, cov = bu.fit_damped_osc_amp(fit_asd, fsamp_ds, plot=False, \
                                         sig_asd=True, linearize=True, \
-                                        asd_errs=asd_errs, fit_band=[10.0,750.0], \
+                                        asd_errs=asd_errs, fit_band=[500.0,600.0], \
                                         gamma_guess=gamma_calc, \
-                                        weight_lowf=True, weight_lowf_val=0.3, \
+                                        weight_lowf=True, weight_lowf_val=0.5, \
                                         weight_lowf_thresh=200)
 
-    return [pressure, freqs, fit_asd, params, cov, gamma_calc]
+
+    # plt.loglog(freqs, fit_asd_2)
+    # plt.show()
+
+    ### Fit either the averaged ASD or the ASD of the concatenated signal
+    params_2, cov_2 = bu.fit_damped_osc_amp(fit_asd_2, fsamp_ds, plot=False, \
+                                            sig_asd=True, linearize=True, \
+                                            asd_errs=[], fit_band=[1050.0,1150.0], \
+                                            gamma_guess=gamma_calc, freq_guess=2.0*params[1], \
+                                            weight_lowf=True, weight_lowf_val=0.5, \
+                                            weight_lowf_thresh=200)
+
+    outdict = {'pressure': pressure, 'freqs': freqs, \
+               'fit_asd': fit_asd, 'params': params, 'cov': cov, \
+               'fit_asd_2': fit_asd_2, 'params_2': params_2, 'cov_2': cov_2, \
+               'gamma_calc': gamma_calc, 'drive_freq': drive_freq}
+
+    return outdict
 
 
 ### Analyze all the results in parallel
-results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_mc))[::-1] )
+results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_mc))[::1] )
 
 
 ### Loop over the results and plot each one
 plt.figure(figsize=(12,6))
 colors = bu.get_color_map(len(results), cmap='plasma')
 pressures = []
-gammas = []
-for resultind, result in enumerate(results):
+gammas = [[], [], []]
+for resultind, result in enumerate(results[::-1]):
     fac = 100.0**resultind
     print(fac)
-    pressures.append(result[0])
+    pressure = result['pressure']
+    pressures.append(pressure)
+
+    gamma_calc = result['gamma_calc']
+    gamma_fit = result['params'][2]
+    gamma_fit_2 = result['params_2'][2]
+
     label = '$ \\gamma = {:0.2g}$ Hz, [$\\gamma (p) = {:0.2g}$ Hz]'\
-                .format(result[3][2], result[5] / (2.0 * np.pi))
-    gammas.append(result[3][2])
-    plt.loglog(result[1], result[2]*fac, color=colors[resultind], alpha=0.7, label=label)
-    plt.loglog(result[1], bu.damped_osc_amp(result[1], *result[3])*fac, \
+                .format(gamma_fit, gamma_calc / (2.0 * np.pi))
+    # label = '$\\omega_0 = {:0.1f}$ Hz'.format(result[6])
+    gammas[0].append(gamma_calc)
+    gammas[1].append(gamma_fit)
+    gammas[2].append(gamma_fit_2)
+
+    freqs = result['freqs']
+    fit_asd = result['fit_asd']
+    plt.loglog(freqs, fit_asd*fac, color=colors[resultind], alpha=0.7, label=label)
+    plt.loglog(freqs, bu.damped_osc_amp(freqs, *result['params'])*fac, \
                color=colors[resultind], lw=3)
 plt.legend(fontsize=10, ncol=2, loc='upper left')
 plt.xlabel('Frequency [Hz]')
@@ -256,8 +361,10 @@ plt.xlim(1.0, 2500)
 plt.ylim(1e-7, 3e12)
 plt.tight_layout()
 
+gammas = np.array(gammas)
 plt.figure()
-plt.plot(pressures, gammas)
+plt.plot(gammas[1] / gammas[0])
+plt.plot(gammas[2] / gammas[0])
 
 plt.show()
 
