@@ -1248,7 +1248,8 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
 def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
                        sig_asd=False, linearize=False, asd_errs=[], \
                        gamma_guess=0, freq_guess=0, weight_lowf=False, \
-                       weight_lowf_val=1.0, weight_lowf_thresh=100.0):
+                       weight_lowf_val=1.0, weight_lowf_thresh=100.0, \
+                       maxfev=100000):
     '''Routine to fit the above defined damped HO amplitude spectrum
        to the ASD of some input signal, assumed to have a single
        resonance etc etc
@@ -1298,15 +1299,19 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         fit_y = np.log(asd[inds])
         if not len(asd_errs):
             errs = np.ones(len(fit_x))
+            absolute_sigma = False
         else:
             errs = asd_errs[inds] / asd[inds]
+            absolute_sigma = True
     else:
         fit_func = lambda f,A,f0,g: damped_osc_amp(f,A,f0,g)
         fit_y = asd[inds]
         if not len(asd_errs):
             errs = np.ones(len(fit_x))
+            absolute_sigma = False
         else:
             errs = asd_errs[inds]
+            absolute_sigma = True
 
     if weight_lowf:
         weight_inds = fit_x < weight_lowf_thresh
@@ -1315,8 +1320,8 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
     ### Fit the data
     p0 = [amp_guess, freq_guess, gamma_guess]
     try:
-        popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, \
-                                        p0=p0, maxfev=100000, sigma=errs)
+        popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
+                                        p0=p0, absolute_sigma=absolute_sigmas, sigma=errs)
     except:
         print('BAD FIT')
         popt = p0
@@ -1338,7 +1343,7 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         plt.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
         plt.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
         plt.xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
-        plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(fit_mag))
+        plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
         plt.legend()
         plt.show()
         # input()
