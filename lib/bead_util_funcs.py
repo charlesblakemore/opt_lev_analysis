@@ -1321,7 +1321,7 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
     p0 = [amp_guess, freq_guess, gamma_guess]
     try:
         popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
-                                        p0=p0, absolute_sigma=absolute_sigmas, sigma=errs)
+                                        p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
     except:
         print('BAD FIT')
         popt = p0
