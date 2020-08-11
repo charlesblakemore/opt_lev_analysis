@@ -45,10 +45,25 @@ use_dir = False
 #             ]
 
 
-allfiles = ['/data/old_trap/20200327/gbead1/1_5mbar_powfb_zcool.h5',
-            '/data/old_trap/20200327/gbead1/1_5mbar_powfb_xzcool.h5',
-            '/data/old_trap/20200327/gbead1/1_5mbar_powfb_yzcool.h5',
-            '/data/old_trap/20200327/gbead1/1_5mbar_powfb_xyzcool.h5',
+allfiles = [
+            '/data/old_trap/20200727/bead1/1_5mbar_powfb_nocool.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-i.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pi.h5',
+            '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_2.h5',
+            '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_3.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_4.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_5.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_6.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_7.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_8.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_9.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_10.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_11.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_12.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_xzcool.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_yzcool.h5',
+            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_xyzcool.h5',
             ]
 
 
@@ -60,7 +75,6 @@ new_trap = False
 
 
 tfdate = '20200307'
-tf_interp = True
 tf_plot = False
 
 filename_labels = True 
@@ -103,7 +117,7 @@ lpf = 2500   # Hz
 #file_inds = (0, 3)
 file_inds = (0, 100)
 
-userNFFT = 2**12
+userNFFT = 2**10
 diag = False
 
 fullNFFT = False
@@ -209,7 +223,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
-        df.diagonalize(maxfreq=lpf, interpolate=tf_interp, date=tfdate, plot=tf_plot)
+        df.diagonalize(maxfreq=lpf, date=tfdate, plot=tf_plot)
 
         if fil_ind == 0 and len(cant_axes):
             drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))

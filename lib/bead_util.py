@@ -1214,3 +1214,56 @@ class DataFile:
             self.diag_binned_Data = ''
                 
 
+
+
+
+
+
+class hsDat:
+    def __init__(self, fname='', load=False, load_attribs=True):
+        self.fname = fname
+        self.dat = []
+        self.attribs = {}
+
+        if load:
+            self.load()
+        if load_attribs:
+            self.load_attribs()
+
+
+    def load(self, fname=''):
+        if len(fname):
+            self.fname = fname
+
+        try:
+            f = h5py.File(self.fname, 'r')
+            dset = f['beads/data/high_speed_data']
+            self.dat = np.transpose(dset)
+            f.close()
+        except (KeyError, IOError):
+            print("Warning, got no keys for: ", self.fname)
+            self.dat = []
+
+
+    def load_attribs(self, fname=''):
+        if len(fname):
+            self.fname = fname
+
+        try:
+            self.attribs = \
+                load_xml_attribs(self.fname, types=['I32', 'DBL', 'Array'])
+        except (KeyError, IOError):
+            print("Warning, got no attribs for: ", self.fname)
+            attribs = {}
+
+        ### Unpack a few of the important values so they can be accessed
+        ### with less typing
+        self.time = self.attribs['time']
+        self.nsamp = self.attribs['nsamp']
+        self.fsamp = self.attribs['fsamp']
+
+
+
+
+
+

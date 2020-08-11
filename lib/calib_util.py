@@ -84,6 +84,8 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             plt.tight_layout()
             plt.show()
 
+            input()
+
         efield = bu.trap_efield(file_obj.electrode_data, new_trap=new_trap)
         drive = efield[pcol]
 
@@ -97,6 +99,18 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         v4 = file_obj.other_data[tabor_ind+1] * mon_fac
         zeros = np.zeros(len(v3))
 
+        if plot:
+            colors = bu.get_color_map(2, cmap='plasma')
+            plt.figure()
+            plt.plot(v3, color=colors[0], label='Elec. {:s}'.format(str(tabor_ind)))
+            plt.plot(v4, color=colors[1], label='Elec. {:s}'.format(str(tabor_ind+1)))
+            plt.title('Electrode data [V]')
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+            input()
+
         fac = 1.0
         if np.std(v4) < 0.5 * np.std(v3):
             # print('Only one Tabor drive channel being digitized...')
@@ -107,8 +121,16 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             v3 = zeros
             fac = 2.0
 
-        drive = bu.trap_efield([zeros, zeros, zeros, v3, v4, zeros, zeros, zeros], \
-                                new_trap=new_trap)[pcol] * fac
+        voltages = []
+        for i in range(8):
+            if i == tabor_ind:
+                voltages.append(v3)
+            elif i == (tabor_ind + 1):
+                voltages.append(v4)
+            else:
+                voltages.append(zeros)
+
+        drive = bu.trap_efield(voltages, new_trap=new_trap)[pcol] * fac
 
     # try:
     #     power = np.mean(file_obj.power)
@@ -269,11 +291,12 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
 
         cond1 = (diff_abs > 0.5 * guess)
 
-        if not new_trap:
-            std = np.std(yfit[last_step+1:i-1])
-            cond2 = diff_abs > 2.0 * std
-        else:
-            cond2 = True
+        # if not new_trap:
+        #     std = np.std(yfit[last_step+1:i-1])
+        #     cond2 = diff_abs > 2.0 * std
+        # else:
+        #     cond2 = True
+        cond2 = True
 
         if cond1 and cond2:
             
@@ -319,7 +342,7 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
 
     f, axarr = plt.subplots(2, sharex = True, \
                             gridspec_kw = {'height_ratios':[2,1]}, \
-                            figsize=(10,4),dpi=150)#Plot fit
+                            figsize=(10,5),dpi=150)#Plot fit
     normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
                        ms=3, ylabel="Norm. Response [$e$]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \

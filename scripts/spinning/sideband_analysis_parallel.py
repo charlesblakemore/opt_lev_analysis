@@ -1,7 +1,6 @@
 import os, time, itertools
 import numpy as np
 import matplotlib.pyplot as plt
-from hs_digitizer import *
 
 from obspy.signal.detrend import polynomial
 
@@ -18,23 +17,32 @@ ncore = 20
 np.random.seed(12345)
 
 plot_raw_dat = False
+plot_demod = False
 plot_phase = False
 plot_sideband_fit = False
 
-cleanup_outarr = False
+cleanup_outarr = True
 
 # fc = 220000.0
 # fc = 110000.0
 # fc = 100000.0
-fc = 50000
-wfc = 2.0*np.pi*fc
-bandwidth = 1500.0
+fspin = 30000
+wspin = 2.0*np.pi*fspin
+bandwidth = 6000.0
 high_pass = 50.0
 
-notch_init = 50.0
-notch_range = 30.0
-notch_2harm = True
+allowed_freqs = (200.0, 5000.0)
 
+apply_notch = True
+notch_nharm = 15
+notch_q = 7.5
+notch_init = 10.0
+notch_range = 20.0
+
+### BAD SCIENCE ALERT!!!
+###   adjustment of the noise color to help extract the libration
+###   feature. Sometimes a ~(1 / f^k) spectrum results from low
+###   low frequency drifts. This adjusts for that.
 correct_noise_color = False
 noise_color_power = 0.9
 
@@ -85,10 +93,15 @@ tabor_mon_fac = 100
 #         path_dict[gas][ind] = (paths, save_paths)
 
 
-date = '20200322'
+# date = '20200322'
 
-base_path = '/data/old_trap/20200322/gbead1/spinning/wobble/50kHz_yz_1/'
-base_save_path = '/data/old_trap_processed/spinning/wobble/20200322/50kHz_yz_1/'
+# base_path = '/data/old_trap/20200322/gbead1/spinning/wobble/50kHz_yz_1/'
+# base_save_path = '/data/old_trap_processed/spinning/wobble/20200322/50kHz_yz_1/'
+
+date = '20200727'
+
+base_path = '/data/old_trap/20200727/bead1/spinning/wobble_fast/'
+base_save_path = '/data/old_trap_processed/spinning/wobble/20200727/wobble_fast/'
 
 path_dict = {}
 paths = []
@@ -97,8 +110,11 @@ for root, dirnames, filenames in os.walk(base_path):
     for dirname in dirnames:
         paths.append(base_path + dirname)
         save_paths.append(base_save_path + dirname + '.npy')
-bu.make_all_pardirs(save_paths[0])
 npaths = len(paths)
+
+# paths = [base_path]
+# save_paths = [base_save_path]
+
 paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
 
 path_dict['XX'] = {}
@@ -111,12 +127,13 @@ load = False
 
 #####################################################
 
-if plot_raw_dat or plot_phase or plot_sideband_fit:
+if plot_raw_dat or plot_demod or plot_phase or plot_sideband_fit:
     ncore = 1
 
+bu.make_all_pardirs(save_paths[0])
 
-# Ibead = bu.get_Ibead(date=date)
-Ibead = bu.get_Ibead(date=date, rhobead={'val': 1850.0, 'sterr': 0.0, 'syserr': 0.0})
+Ibead = bu.get_Ibead(date=date)
+# Ibead = bu.get_Ibead(date=date, rhobead={'val': 1850.0, 'sterr': 0.0, 'syserr': 0.0})
 
 def sqrt(x, A, x0, b):
     return A * np.sqrt(x-x0) #+ b
@@ -143,21 +160,20 @@ for meas in itertools.product(gases, inds):
     for pathind, path in enumerate(paths):
         if load:
             continue
-        files, lengths = bu.find_all_fnames(path, sort_time=True, use_origin_timestamp=True)
+        files, lengths = bu.find_all_fnames(path, sort_time=True)
 
-        fobj = hsDat(files[0])
-        nsamp = fobj.attribs["nsamp"]
-        fsamp = fobj.attribs["fsamp"]
+        fobj = bu.hsDat(files[0], load=True)
+        nsamp = fobj.nsamp
+        fsamp = fobj.fsamp
 
         time_vec = np.arange(nsamp) * (1.0 / fsamp)
         freqs = np.fft.rfftfreq(nsamp, 1.0/fsamp)
 
-        upper1 = (2.0 / fsamp) * (fc + 0.5 * bandwidth)
-        lower1 = (2.0 / fsamp) * (fc - 0.5 * bandwidth)
+        upper1 = (2.0 / fsamp) * (2.0*fspin + 0.5 * bandwidth)
+        lower1 = (2.0 / fsamp) * (2.0*fspin - 0.5 * bandwidth)
 
-        upper2 = (2.0 / fsamp) * (0.5*fc + 0.25 * bandwidth)
-        lower2 = (2.0 / fsamp) * (0.5*fc - 0.25 * bandwidth)
-        Q_notch = 10
+        upper2 = (2.0 / fsamp) * (fspin + 0.25 * bandwidth)
+        lower2 = (2.0 / fsamp) * (fspin - 0.25 * bandwidth)
 
         notch_fit_inds = np.abs(freqs - notch_init) < notch_range
 
@@ -170,15 +186,13 @@ for meas in itertools.product(gases, inds):
         b3, a3 = signal.butter(3, (2.0/fsamp)*high_pass, btype='high')
 
         def proc_file(file):
-            fobj = hsDat(file)
+            fobj = bu.hsDat(file, load=True)
 
             vperp = fobj.dat[:,0]
             elec3 = fobj.dat[:,1]
 
             vperp_filt = signal.filtfilt(b1, a1, vperp)
             elec3_filt = signal.filtfilt(b2, a2, elec3)
-
-            true_fc = fc
 
             if plot_raw_dat:
                 fac = bu.fft_norm(nsamp, fsamp)
@@ -195,25 +209,9 @@ for meas in itertools.product(gases, inds):
 
                 input()
 
-            #start_hilbert = time.time()
-            hilbert = signal.hilbert(vperp_filt)
-            phase = np.unwrap(np.angle(hilbert)) - 2.0*np.pi*true_fc*time_vec
-            #stop_hilbert = time.time()
-            #print "Hilbert time: ", stop_hilbert - start_hilbert
-
-            #start_polyfit = time.time()
-            phase = (phase + np.pi) % (2.0*np.pi) - np.pi
-            phase = np.unwrap(phase)
-            phase_mod = polynomial(phase, order=3, plot=False)
-            phase_mod *= signal.tukey(len(phase), alpha=1e-3)
-            #phase_mod = signal.detrend(phase) * signal.tukey(len(phase), alpha=1e-3)
-            #stop_polyfit = time.time()
-            #print 'Poly fit: ', stop_polyfit - start_polyfit
-            #phase_mod = bu.polynomial(phase, order=1, plot=True) #- np.mean(phase)
-
-            amp = np.abs(hilbert)
-
-            phase_mod = phase
+            amp, phase_mod = bu.demod(vperp_filt, fspin, fsamp, plot=plot_demod, \
+                                      tukey=True, tukey_alpha=5.0e-4, \
+                                      detrend=True, detrend_order=1, harmind=2.0)
 
             phase_mod_filt = signal.filtfilt(b3, a3, phase_mod)
             #phase_mod_filt = phase_mod
@@ -226,20 +224,16 @@ for meas in itertools.product(gases, inds):
             #                                     phase_asd_filt[notch_fit_inds], \
             #                                     p0=[10000, notch_init, 2, 0])
 
-            notch = freqs[np.argmax(phase_asd_filt * notch_fit_inds)]
 
-            #start_filter_build = time.time()
-            notch_digital = (2.0 / fsamp) * (notch)
-            bn, an = signal.iirnotch(notch_digital, Q_notch)
-            if notch_2harm:
-                bn2, an2 = signal.iirnotch(2.0*notch_digital, Q_notch)
-            #stop_filter_build = time.time()
-            #print "Filter build: ", stop_filter_build - start_filter_build
+            if apply_notch:            
+                notch = freqs[np.argmax(phase_asd_filt * notch_fit_inds)]
+                notch_digital = (2.0 / fsamp) * (notch)
 
-            phase_mod_filt_2 = signal.lfilter(bn, an, phase_mod_filt)
-            if notch_2harm:
-                phase_mod_filt_2 = signal.lfilter(bn2, an2, phase_mod_filt_2   )
-            phase_asd_filt_2 = np.abs(np.fft.rfft(phase_mod_filt_2))
+                for i in range(notch_nharm):
+                    bn, an = signal.iirnotch(notch_digital*(i+1), notch_q)
+                    phase_mod_filt = signal.lfilter(bn, an, phase_mod_filt)
+
+            phase_asd_filt_2 = np.abs(np.fft.rfft(phase_mod_filt))
 
             if correct_noise_color:
                 phase_asd = phase_asd * freqs**noise_color_power
@@ -256,7 +250,9 @@ for meas in itertools.product(gases, inds):
 
                 input()
 
-            max_ind = np.argmax(phase_asd_filt_2)
+            freq_mask = (freqs > allowed_freqs[0]) * (freqs < allowed_freqs[1])
+
+            max_ind = np.argmax(phase_asd_filt_2 * freq_mask)
             max_freq = freqs[max_ind]
 
             p0 = [10000, max_freq, 5.0, 0]
@@ -297,7 +293,7 @@ for meas in itertools.product(gases, inds):
 
             elec3_filt_fft = np.fft.rfft(elec3_filt)
 
-            fit_ind = 30000
+            fit_ind = 100000
             short_freqs = np.fft.rfftfreq(fit_ind, d=1.0/fsamp)
             zeros = np.zeros(fit_ind)
             voltage = np.array([zeros, zeros, zeros, elec3_filt[:fit_ind], \
@@ -307,8 +303,6 @@ for meas in itertools.product(gases, inds):
             #efield_mag = np.linalg.norm(efield, axis=0)
 
             efield_asd = bu.fft_norm(fit_ind, fsamp) * np.abs(np.fft.rfft(efield[0]))
-            # plt.loglog(short_freqs, efield_asd)
-            # plt.show()
 
             # max_ind = np.argmax(np.abs(elec3_filt_fft))
             short_max_ind = np.argmax(efield_asd)
@@ -328,7 +322,10 @@ for meas in itertools.product(gases, inds):
             # print popt[0], popt_l[0] * (fsamp / fit_ind)
 
             #print popt[0], np.sqrt(pcov[0,0])
-            amp_fit = efield_asd[short_max_ind] * np.sqrt(2.0 * fsamp / fit_ind)
+            # amp_fit = efield_asd[short_max_ind] * np.sqrt(2.0 * fsamp / fit_ind)
+            amp_fit = np.sqrt(2) * np.std(efield[0])
+            # plt.plot(efield[0])
+            # plt.show()
 
             err_val = np.mean(np.array([efield_asd[short_max_ind-10:short_max_ind], \
                                 efield_asd[short_max_ind+1:short_max_ind+11]]).flatten())
@@ -381,7 +378,8 @@ for meas in itertools.product(gases, inds):
                     if i == new_nfiles - 1:
                         clean = True
                         break
-                    cond1 = (np.abs(out_arr[2][i] - out_arr[2][i-1]) / out_arr[2][i]) > 0.1
+                    cond1 = (np.abs(out_arr[2][i] - out_arr[2][i-1]) / 
+                                                np.max(out_arr[2][i-1:i+1])) > 0.2
                     cond2 = out_arr[3][i] > 2.0 * out_arr[2][i]
                     if cond1 or cond2:
                         out_arr_1 = out_arr[:,:i]
@@ -423,6 +421,9 @@ for arrind, arr in enumerate(all_data):
     wobble_freq = arr[2]
     wobble_err = arr[3]
 
+    # plt.scatter(np.arange(arr.shape[1]), field_strength)
+
+    plt.figure()
     plt.errorbar(field_strength, 2*np.pi*wobble_freq, alpha=0.6, \
                  yerr=wobble_err, color=colors[arrind])
 

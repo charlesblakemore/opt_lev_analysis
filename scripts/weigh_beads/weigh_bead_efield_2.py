@@ -77,17 +77,30 @@ arr.append('/data/old_trap/20200330/gbead3/weigh/8Vpp_neg_lowp')
 file_dict['20200330'] = (arr, 1, 0)
 
 
-file_dict = {'20200330': (arr, 1, 0)}
-
+arr = []  ### 
+arr.append('/data/old_trap/20200721/bead2/weigh/4Vpp_lowp_neg_1')
+arr.append('/data/old_trap/20200721/bead2/weigh/6Vpp_lowp_neg_1')
+file_dict['20200721'] = (arr, 1, 0)
 
 
 arr = []  ### 
-arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
-file_dict['20200320'] = (arr, 1, 0)
+arr.append('/data/old_trap/20200727/bead1/weigh/4Vpp_lowp_neg')
+arr.append('/data/old_trap/20200727/bead1/weigh/6Vpp_lowp_neg')
+file_dict['20200727'] = (arr, 1, 0)
 
 
-file_dict = {'20200320': (arr, 1, 0)}
+file_dict = {'20200727': (arr, 1, 0)}
 
+
+
+
+
+# arr = []  ### 
+# arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
+# file_dict['20200320'] = (arr, 1, 0)
+
+
+# file_dict = {'20200320': (arr, 1, 0)}
 
 
 
@@ -105,8 +118,8 @@ noise_dirs = ['/data/20181211/bead2/weigh/noise/no_charge_0.5Hz_4pp', \
               '/data/20181213/bead1/weigh/noise/no-bead_zfb-inject_pd-blocked']
 
 
-new_trap = True
-# new_trap = False
+# new_trap = True
+new_trap = False
 
 #r_divider = 50000.0 / (3000.0 + 50000.0)
 r_divider = 1.0
@@ -146,7 +159,7 @@ example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.png
 # upper_outlier = 95e-15  # in kg
 upper_outlier = 95e-13
 
-lower_outlier = 75e-15
+lower_outlier = 70e-15
 # lower_outlier = 1e-15
 
 try:
@@ -390,22 +403,22 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         # input()
 
 
-        fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
+        # fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
 
-        axarr[0].plot(tarr, power)
-        axarr[0].set_ylabel('Measured Power [Arb.]')
+        # axarr[0].plot(tarr, power)
+        # axarr[0].set_ylabel('Measured Power [Arb.]')
 
-        axarr[1].plot(tarr, power)
-        axarr[1].set_xlabel('Time [s]')
-        axarr[1].set_ylabel('Measured Power [Arb.]')
+        # axarr[1].plot(tarr, power)
+        # axarr[1].set_xlabel('Time [s]')
+        # axarr[1].set_ylabel('Measured Power [Arb.]')
 
-        bot, top = axarr[1].get_ylim()
-        axarr[1].set_ylim(1.05*bot, 0)
+        # bot, top = axarr[1].get_ylim()
+        # axarr[1].set_ylim(1.05*bot, 0)
 
-        fig.tight_layout()
+        # fig.tight_layout()
 
-        plt.show()
-        input()
+        # plt.show()
+        # input()
 
 
         bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.0, #width=0.05, \
@@ -479,7 +492,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                  '--', color='k', lw=2, \
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
-        ax.set_xlim((left, 500))
+        # ax.set_xlim((left, 500))
+        ax.set_xlim((left, 110))
 
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))

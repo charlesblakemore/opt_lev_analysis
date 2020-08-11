@@ -102,9 +102,14 @@ E_zn  = interp.interp1d(e_zn_dat[2], e_zn_dat[-1])
 
 
 
+def gauss(x, A, mu, sigma, c):
+    return A * np.exp( -1.0*(x-mu)**2 / (2 * sigma**2) ) + c
+
+
+
+
 
 #### Generic Helper functions
-
 
 
 
@@ -360,13 +365,12 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
 def sort_files_by_timestamp(files, use_origin_timestamp=False):
     '''Pretty self-explanatory function.'''
 
-    if not use_origin_timestamp:
-        try:
-            files = [(get_hdf5_time(path), path) for path in files]
-        except Exception:
-            print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
-            traceback.print_exc()
-            use_origin_timestamp = True
+    try:
+        files = [(get_hdf5_time(path), path) for path in files]
+    except Exception:
+        print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
+        traceback.print_exc()
+        use_origin_timestamp = True
 
     if use_origin_timestamp:
         files = [(os.stat(path), path) for path in files]
@@ -989,7 +993,8 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], plot=False, \
-          ncycle_pad=0, tukey=False, tukey_alpha=1e-3):
+          ncycle_pad=0, detrend=False, detrend_order=1, \
+          tukey=False, tukey_alpha=1e-3):
     '''Sub-routine to perform a hilbert transformation on a given 
        signal, filtering it if requested and plotting throughout.
        Includes a tukey window to remove artifacts at the endpoint
@@ -1041,7 +1046,11 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     phase = (phase + np.pi) % (2.0*np.pi) - np.pi
     phase = np.unwrap(phase)
 
-    phase_mod = polynomial(phase, order=3, plot=False) 
+    if detrend:
+        phase_mod = polynomial(phase, order=detrend_order, plot=plot) 
+    else:
+        phase_mod = np.copy(phase)
+
     if tukey:
         window = signal.tukey(len(phase), alpha=tukey_alpha)
         phase_mod *= window
@@ -1349,6 +1358,135 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         # input()
 
     return popt, pcov
+
+
+
+
+
+
+def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
+                   lower_delta_fac=3.0, exclude_df=10):
+
+    df = freqs[1] - freqs[0]
+    asd = np.abs(fft)
+
+    baseline = []
+    all_inds = np.arange(len(freqs))
+
+    fit_fun = lambda x,a,b,c: gauss(x, a, b, c, 0)
+
+    peaks = []
+    for ind, (freq, val) in enumerate(zip(freqs, asd)):
+
+        cond1 = val > lower_delta_fac * np.mean(baseline)
+        cond2 = val > delta_fac * np.mean(baseline)
+
+        if ind < window:
+            baseline.append(val)
+        elif cond1 and not cond2:
+            continue
+        else:
+            baseline[int(ind%window)] = val
+
+        if len(peaks):
+            if np.abs(freq - peaks[-1][0]) < exclude_df*df:
+                continue
+
+        if cond2:
+            mask = (all_inds > ind - window/2) * (all_inds < ind + window/2)
+
+            p0 = [val, freq, df]
+            try:
+                popt, pcov = optimize.curve_fit(fit_fun, freqs, asd, p0=p0, maxfev=1000)
+            except:
+                popt = p0
+
+            peaks.append( [popt[1], popt[0]] )
+
+    return peaks
+
+
+
+
+
+
+def refine_pdet(peaks, xdat, ydat, half_window=5, sort=False):
+    '''Function to refine the output from any of the many peakdetection
+       algorithms in the 'peakdetect' library often used. Sometimes,
+       result is off by a bin or two for some reason.'''
+
+    pospeaks = peaks[0]
+    negpeaks = peaks[1]
+
+    new_pospeaks = []
+    new_negpeaks = []
+
+    for pospeak in pospeaks:
+        xind = np.argmin(np.abs(xdat - pospeak[0]))
+        inds = np.arange(len(xdat))
+
+        mask = (inds > xind - half_window) * (inds < xind + half_window)
+        maxind = np.argmax(ydat*mask)
+
+        new_pospeaks.append([xdat[maxind], ydat[maxind]])
+
+    for negpeak in negpeaks:
+        xind = np.argmin(np.abs(xdat - negpeak[0]))
+        inds = np.arange(len(xdat))
+
+        mask = (inds > xind - half_window) * (inds < xind + half_window)
+        minind = np.argmax((1.0/ydat)*mask)
+
+        new_negpeaks.append([xdat[minind], ydat[minind]])
+
+    if sort:
+        try:
+            new_pospeaks = sorted(new_pospeaks, key = lambda x: x[1])
+        except:
+            new_pospeaks = []
+
+        try:
+            new_negpeaks = sorted(new_negpeaks, key = lambda x: x[1])
+        except:
+            new_negpeaks = []
+
+    return [new_pospeaks, new_negpeaks]
+
+
+
+
+
+
+def plot_pdet(peaks, xdat, ydat, loglog=False):
+    '''Function to plot the output from any of the many peakdetection
+       algorithms in the 'peakdetect' library often used. Useful for 
+       figuring out exactly what algorithm parameters are most robust
+       for a particular dataset.'''
+
+    fig, ax = plt.subplots(1,1)
+    if loglog:
+        ax.loglog(xdat, ydat, label='data', zorder=1)
+    else:
+        ax.plot(xdat, ydat, label='data', zorder=1)
+
+    pospeaks = peaks[0]
+    negpeaks = peaks[1]
+
+    for peak in pospeaks:
+        ax.scatter([peak[0]], [peak[1]], zorder=2, \
+                   color='r', marker='X', s=30)
+
+    for peak in negpeaks:
+        ax.scatter([peak[0]], [peak[1]], zorder=2, \
+                   color='k', marker='X', s=30)
+
+    plt.show()
+
+
+
+
+
+
 
 
 

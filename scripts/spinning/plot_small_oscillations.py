@@ -55,6 +55,11 @@ for meas in itertools.product(gases, inds):
 #one_path = True
 one_path = False
 
+date = '20200727'
+gases = ['XX']
+path_dict = {'XX': ['/data/old_trap_processed/spinning/wobble/20200727/wobble_fast/']}
+
+
 
 Ibead = bu.get_Ibead(date=date, verbose=True)
 

@@ -24,10 +24,11 @@ import configuration as config
 ### Settings for discharge
 #####################################
 
-# step_cal_dir = ['/data/old_trap/20200330/gbead3/discharge/fine']
-# first_file = 0
-# last_file = -1
-using_tabor = False
+step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
+first_file = 0
+last_file = -1
+
+using_tabor = True
 tabor_ind = 3
 
 # step_cal_dir = ['/data/new_trap/20200113/Bead1/Discharge/']
@@ -38,9 +39,9 @@ tabor_ind = 3
 # first_file = 300
 # last_file = -1
 
-step_cal_dir = ['/data/new_trap/20200525/Bead2/Discharge/Discharge0526/']
-first_file = 0
-last_file = -1
+# step_cal_dir = ['/data/new_trap/20200525/Bead2/Discharge/Discharge0526/']
+# first_file = 0
+# last_file = -1
 
 skip_subdirectories = True
 
@@ -49,12 +50,13 @@ elec_channel_select = 1
 # pcol = 2
 pcol = 2
 
-correlation_phase = np.pi/4
-plot_correlations = False
+# correlation_phase = np.pi/4
+correlation_phase = 0
+plot_correlations = True
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
-# auto_try = 0.09
+# auto_try = 0.1
 # auto_try = 0.028
 auto_try = 0.0
 
@@ -62,7 +64,9 @@ decimate = False
 dec_fac = 2
 
 fake_step_cal = False
-drive_freq = 71.0
+# drive_freq = 71.0
+drive_freq = 41.0
+
 # ## OLD TRAP
 # vpn = 7.264e16
 ## NEW TRAP
@@ -75,12 +79,12 @@ plot_residual_histograms = True
 ### Settings for transfer function
 #####################################
 
-# tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
+tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
 
 # tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200110/Bead2/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200113/Bead1/TransFunc/'
-tf_cal_dir = '/data/new_trap/20200320/Bead1/TransFunc/'
+# tf_cal_dir = '/data/new_trap/20200320/Bead1/TransFunc/'
 
 # tf_substr = ''
 tf_substr = 'm300k_50s'
@@ -102,11 +106,14 @@ suppress_off_diag = True
 ### Shared settings
 #####################################
 
-new_trap = True
-# new_trap = False
+# new_trap = True
+new_trap = False
 
+# save = True
 save = False
-save_charge = False
+
+save_charge = True
+# save_charge = False
 
 
 
@@ -196,9 +203,9 @@ tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr)
 #                 '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Y_7.h5', \
 #                 '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Z_7.h5']
 
-tf_cal_files = ['/data/new_trap/20200525/Bead2/TransFunc/TransFunc_X_6.h5', \
-                '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Y_6.h5', \
-                '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Z_6.h5']
+# tf_cal_files = ['/data/new_trap/20200525/Bead2/TransFunc/TransFunc_X_6.h5', \
+#                 '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Y_6.h5', \
+#                 '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Z_6.h5']
 
 # tf_cal_files_2 = []
 # for file in tf_cal_files:
@@ -211,15 +218,12 @@ tf_cal_files = ['/data/new_trap/20200525/Bead2/TransFunc/TransFunc_X_6.h5', \
 
 
 
-if decimate:
-    step_cal_files = step_cal_files[::dec_fac]
-
-
-
-
 #####################################
 #### BODY OF CALIBRATION
 #####################################
+
+if decimate:
+    step_cal_files = step_cal_files[::dec_fac]
 
 if last_file == -1:
     last_file = len(step_cal_files)
@@ -295,11 +299,12 @@ if not fake_step_cal:
         plt.axhline(0,ls='--',alpha=0.5,color='k', zorder=1)
         plt.ylabel('Response [Arb/(V/m)]')
         plt.xlabel('Time [s]')
-        plt.legend(loc=0)
+        plt.legend(loc=0, fontsize=10)
         plt.tight_layout()
         plt.show()
 
-        time.sleep(5)
+        input()
+        # time.sleep(5)
 
     nsec = df.nsamp * (1.0 / df.fsamp)
 
