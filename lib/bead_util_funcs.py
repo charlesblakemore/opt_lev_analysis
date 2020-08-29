@@ -5,7 +5,7 @@ import datetime as dt
 import dill as pickle 
 
 import matplotlib.pyplot as plt
-import matplotlib.cm as cmx
+import matplotlib.cm as cm
 import matplotlib.colors as colors
 import matplotlib.mlab as mlab
 
@@ -18,8 +18,10 @@ import scipy
 
 from obspy.signal.detrend import polynomial
 
+from tqdm import tqdm
+from joblib import Parallel, delayed
+
 import configuration
-import transfer_func_util as tf
 
 import warnings
 
@@ -105,11 +107,27 @@ E_zn  = interp.interp1d(e_zn_dat[2], e_zn_dat[-1])
 def gauss(x, A, mu, sigma, c):
     return A * np.exp( -1.0*(x-mu)**2 / (2 * sigma**2) ) + c
 
+def line(x, a, b):
+    return a*x + b
+
 
 
 
 
 #### Generic Helper functions
+
+
+
+def iterable(obj):
+    '''Simple function to check if an object is iterable. Helps with
+       exception handling when checking arguments in other functions.
+    '''
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
 
 
 
@@ -157,30 +175,65 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
         print()
 
 
+def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0):
+    '''Gets a single color from a colormap. Useful when the values
+       span a continuous range with uneven spacing.
+
+        INPUTS:
+
+            val - value between vmin and vmax, which represent
+              the ends of the colormap
+
+            cmap - color map for final output
+
+            vmin - minimum value for the colormap
+
+            vmax - maximum value for the colormap
+
+        OUTPUTS: 
+
+           color - single color in rgba format
+    '''
+
+    if (val > vmax) or (val < vmin):
+        raise ValueError("Input value doesn't conform to limits")
+
+    norm = colors.Normalize(vmin=vmin, vmax=vmax)
+    my_cmap = cm.get_cmap(cmap)
+
+    return my_cmap(norm(val))
+
+
+
 
 def get_color_map( n, cmap='plasma' ):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
 
-           INPUTS: n, length of color array to make
-                   cmap, color map for final output
+        INPUTS: 
 
-           OUTPUTS: outmap, color map in rgba format'''
+            n - length of color array to make
+            
+            cmap - color map for final output
+
+        OUTPUTS: 
+
+            outmap - color map in rgba format
+    '''
 
     n = int(n)
-
     outmap = []
-    # if n >= 10:
-    #     cNorm  = colors.Normalize(vmin=0, vmax=n-1)
-    #     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap) #cmap='viridis')
-    #     for i in range(n):
-    #         outmap.append( scalarMap.to_rgba(i) )
-    # else:
+
     cNorm = colors.Normalize(vmin=0, vmax=2*n)
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
+    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
+
     for i in range(n):
         outmap.append( scalarMap.to_rgba(2*i + 1) )
     return outmap
+
+
+
+
 
 def round_sig(x, sig=2):
     '''Round a number to a certain number of sig figs
@@ -993,6 +1046,7 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], plot=False, \
+          notch_freqs=[], notch_qs=[], \
           ncycle_pad=0, detrend=False, detrend_order=1, \
           tukey=False, tukey_alpha=1e-3):
     '''Sub-routine to perform a hilbert transformation on a given 
@@ -1019,6 +1073,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
 
     sig = input_sig - np.mean(input_sig)
+
     if npad:
         sig_refl = sig[::-1]
         sig_padded = np.concatenate((sig_refl[-npad:], \
@@ -1030,7 +1085,16 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         sig_filt = signal.filtfilt(b1, a1, sig)
         sig_filt_padded = signal.filtfilt(b1, a1, sig_padded, \
                                           padtype='even', padlen=10000)
+
+        if len(notch_freqs):
+            for i, notch_freq in enumerate(notch_freqs):
+                notch_q = notch_qs[i]
+                bn, an = signal.iirnotch(notch_freq, notch_q, fs=fsamp)
+                sig_filt = signal.lfilter(bn, an, sig_filt)
+                sig_filt_padded = signal.lfilter(bn, an, sig_filt_padded)
+
         hilbert_padded = signal.hilbert(sig_filt_padded)
+
     else:
         hilbert_padded = signal.hilbert(sig_padded)
 
@@ -1039,17 +1103,34 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     else:
         hilbert = np.copy(hilbert_padded)
 
+
     amp = np.abs(hilbert)
 
-    phase = np.unwrap(np.angle(hilbert)) - 2.0*np.pi*fc*tvec
+    phase = np.unwrap(np.angle(hilbert)) 
+    phase_mod = phase - 2.0*np.pi*fc*tvec
 
-    phase = (phase + np.pi) % (2.0*np.pi) - np.pi
-    phase = np.unwrap(phase)
+    # plt.plot( np.gradient(np.unwrap(np.angle(hilbert))) )
+    # plt.show()
+
+    # plt.plot(np.unwrap(np.angle(hilbert)))
+    # plt.plot(2.0*np.pi*fc*tvec)
+
+    # plt.figure()
+    # plt.plot(phase)
+    # inst_freq = np.gradient(phase, tvec[1]-tvec[0]) / (2.0*np.pi)
+    # plt.plot(inst_freq, zorder=1)
+    # plt.axhline(np.mean(inst_freq), lw=3, color='k', ls='--', zorder=2, \
+    #             label='{:0.1f} Hz'.format(np.mean(inst_freq)))
+
+    phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
+    phase_mod = np.unwrap(phase_mod)
+
+    # plt.legend()
+    # plt.show()
+    # input()
 
     if detrend:
-        phase_mod = polynomial(phase, order=detrend_order, plot=plot) 
-    else:
-        phase_mod = np.copy(phase)
+        phase_mod = polynomial(phase_mod, order=detrend_order, plot=plot) 
 
     if tukey:
         window = signal.tukey(len(phase), alpha=tukey_alpha)
@@ -1070,12 +1151,15 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         plt.tight_layout()
 
         plt.figure()
-        plt.loglog(freqs, np.abs(np.fft.rfft(sig)))
+        plt.loglog(freqs, np.abs(np.fft.rfft(sig)), \
+                   label='signal')
         if filt:
-            plt.loglog(freqs, np.abs(np.fft.rfft(sig_filt)))
+            plt.loglog(freqs, np.abs(np.fft.rfft(sig_filt)), \
+                       label='signal_filt')
             # plt.axvline(fc, ls='--', lw=3, color='r')
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Signal ASD [Arb]')
+        plt.legend()
         plt.tight_layout()
 
         plt.figure()
@@ -1365,22 +1449,66 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
 
 
 def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
-                   lower_delta_fac=3.0, exclude_df=10):
+                   lower_delta_fac=0.0, exclude_df=10):
+    '''Function to scan the ASD associated to an input FFT, looking for 
+       values above the baseline of the ASD, and then attempting to fit
+       a gaussian to the region around the above-baseline feature. It 
+       should avoid fitting the same feature multiple times.
 
+            freqs : the array of frequencies associated to the input
+                FFT. Assumed to be in Hz
+
+            fft : the FFT in which we are trying to find peaks
+
+            window : the width (in frequency bins) of the region where
+                the fit is performed
+
+            delta_fac : the factor above the baseline required to 
+                trigger a peak fitting
+
+            lower_delta_fac : a secondary factor to help avoid fitting
+                spuriously large frequency components that aren't peaks.
+                If set to the same value as delta_fac, it basically 
+                does nothing
+
+            exclude_df : the number of frequency bins to exclude 
+                redundant peak finding around a feature that was already
+                found and fit with a gaussian
+       '''
+
+    if not lower_delta_fac:
+        lower_delta_fac = delta_fac
+
+    ### Determin the frequency spacing
     df = freqs[1] - freqs[0]
+
+    ### Compute the ASD
     asd = np.abs(fft)
 
+    ### Define some arrays for later use
     baseline = []
     all_inds = np.arange(len(freqs))
 
+    ### Define the fitting function, which in this case is a gaussian
+    ### without a constant
     fit_fun = lambda x,a,b,c: gauss(x, a, b, c, 0)
 
+    ### Loop over all (frequency, ASD) pairs, looking for peaks
     peaks = []
     for ind, (freq, val) in enumerate(zip(freqs, asd)):
 
-        cond1 = val > lower_delta_fac * np.mean(baseline)
-        cond2 = val > delta_fac * np.mean(baseline)
+        ### See if the current value is above the baseline
+        if ind != 0:
+            cond1 = val > lower_delta_fac * np.mean(baseline)
+            cond2 = val > delta_fac * np.mean(baseline)
+        else:
+            baseline.append(val)
+            continue
 
+        ### Update the baseline, appending a value if it hasn't been
+        ### fully built yet, skipping spuriously large values (based on
+        ### the lower_delta_fac threshold), or updating an old value of
+        ### baseline to properly reflect the local baseline
         if ind < window:
             baseline.append(val)
         elif cond1 and not cond2:
@@ -1388,23 +1516,112 @@ def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
         else:
             baseline[int(ind%window)] = val
 
+        ### If the current frequency is too close to the most recently found
+        ### peak, then skip it and move on
         if len(peaks):
             if np.abs(freq - peaks[-1][0]) < exclude_df*df:
                 continue
 
+        ### If the current ASD value is sufficiently above the baseline,
+        ### fit the region around the current value to a gaussian
         if cond2:
+            ### Define a mask for local fitting
             mask = (all_inds > ind - window/2) * (all_inds < ind + window/2)
 
+            ### Try the fit
             p0 = [val, freq, df]
             try:
-                popt, pcov = optimize.curve_fit(fit_fun, freqs, asd, p0=p0, maxfev=1000)
+                popt, pcov = optimize.curve_fit(fit_fun, freqs[mask], \
+                                                asd[mask], p0=p0, maxfev=5000)
             except:
                 popt = p0
 
+            ### Append either the fit result, or our best guess if the fit failed
             peaks.append( [popt[1], popt[0]] )
 
-    return peaks
+    return np.array(peaks)
 
+
+
+
+
+
+def track_spectral_feature(peaks_list, init_features=[], first_fft=(), \
+                           allowed_jumps=0.05):
+    '''Function to track a spectral feature over successive integrations,
+       making use of paralleization.
+
+            peaks_list : the list of successive FFT peaks (found by the
+                function find_fft_peaks()) in which we're trying to 
+                track a feature
+
+            init_features : list of initial feature locations used to seed
+                the tracking. if empty, it will plot the first ASD and 
+                ask for user input
+
+            allowed_jump : fraction of feature fequency which it's allowed
+                to jump between successive integrations
+       '''
+
+    if not len(init_features) and not len(first_fft):
+        raise ValueError('No input features, and no first_fft to identify features')
+
+    ### If initial features are not given, plot the first ASD and request user
+    ### input to seed the feature tracking
+    if not len(init_features):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title('Identify Frequencies of Interest')
+        ax.loglog(first_fft[0], np.abs(first_fft[1]))
+        fig.tight_layout()
+        plt.show()
+
+        init_str = input('Enter frequencies separated by comma: ')
+        init_features = list(map(float, init_str.split(',')))
+
+    if not iterable(allowed_jumps):
+        allowed_jumps = [allowed_jumps for i in range(len(init_features))]
+
+
+    ### Loop over each of the features we're interested in and track it across
+    ### the successive integrations
+    feature_lists = []
+    for i, init_feature in enumerate(init_features):
+        clist = []
+        feature = [init_feature, 0.0]
+
+        ### Loop over all the integrations
+        for j, peaks in enumerate(peaks_list):
+
+            try:
+                ### Compute the distances between the current feature location
+                ### and the frequency of all the peaks found for a particular
+                ### integration
+                distances = np.abs(peaks[:,0] - feature[0])
+
+                ### Sort the distances and find which are within the allowed jump
+                sorter = np.argsort(distances)
+                close_enough = distances[sorter] < allowed_jumps[i] * feature[0]
+
+                ### Sort the peaks and sub-select the ones that are close enough
+                peaks_sorted = peaks[sorter,:]
+                peaks_valid = peaks_sorted[close_enough,:]
+
+                ### Try to find the biggest peak within those that are close enough.
+                ### Sometimes this fails if the peak gets anomalously small or lost
+                ### in the noise, since peaks_valid might be an empty array                
+                feature_ind = np.argmax(peaks_valid[:3,1])
+                feature = peaks_valid[feature_ind]
+
+                clist.append(feature)
+
+            except:
+                clist.append([0.0, 0.0])
+
+        ### Add the result from tracking this specific feature
+        feature_lists.append(clist)
+
+    return np.array(feature_lists)
 
 
 
@@ -1457,7 +1674,7 @@ def refine_pdet(peaks, xdat, ydat, half_window=5, sort=False):
 
 
 
-def plot_pdet(peaks, xdat, ydat, loglog=False):
+def plot_pdet(peaks, xdat, ydat, loglog=False, show=True):
     '''Function to plot the output from any of the many peakdetection
        algorithms in the 'peakdetect' library often used. Useful for 
        figuring out exactly what algorithm parameters are most robust
@@ -1480,7 +1697,8 @@ def plot_pdet(peaks, xdat, ydat, loglog=False):
         ax.scatter([peak[0]], [peak[1]], zorder=2, \
                    color='k', marker='X', s=30)
 
-    plt.show()
+    if show:
+        plt.show()
 
 
 

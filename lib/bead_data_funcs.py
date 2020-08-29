@@ -17,7 +17,6 @@ import scipy.constants as constants
 import scipy
 
 import configuration
-import transfer_func_util as tf
 
 import warnings
 

@@ -51,7 +51,10 @@ plt.rcParams.update({'font.size': 16})
 # dirname = '/data/old_trap/20200727/bead1/spinning/hf_spin_up'
 # dirname = '/data/old_trap/20200727/bead1/spinning/junk/test3'
 # dirname = '/data/old_trap/20200727/bead1/spinning/amplitude_change_much-later'
-dirname = '/data/old_trap/20200727/bead1/spinning/wobble_slow/wobble_0/'
+# dirname = '/data/old_trap/20200727/bead1/spinning/wobble_slow/wobble_0/'
+
+dirname = '/data/old_trap/20200727/bead1/spinning/lowp_arb_spinup/'
+dirname = '/data/old_trap/20200727/bead1/spinning/lowp_arb_spinup_2/'
 
 
 use_dir = True
@@ -83,16 +86,17 @@ use_filename_labels = False
 labels = []
 
 decimate = False
-decimate_factor = 10
+decimate_factor = 5
 
 invert_order = False
 #file_inds = (-10,-1)
-file_inds = (0, 100)
+file_inds = (-10, 1000)
 
 userNFFT = 2**14
 fullNFFT = True
 
 plot_freqs = (55000.0, 65000.0)
+plot_freqs = (100.0, 65000.0)
 
 waterfall = False
 waterfall_fac = 0.01
