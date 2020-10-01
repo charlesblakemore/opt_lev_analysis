@@ -9,4 +9,7 @@ iminuit
 tqdm
 dill
 h5py
+opencv-python
+pycopy-fnmatch
+peakdetect
 (maybe others, need to check better)

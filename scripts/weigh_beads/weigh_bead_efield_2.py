@@ -89,7 +89,13 @@ arr.append('/data/old_trap/20200727/bead1/weigh/6Vpp_lowp_neg')
 file_dict['20200727'] = (arr, 1, 0)
 
 
-file_dict = {'20200727': (arr, 1, 0)}
+arr = []  ### 
+arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
+arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
+file_dict['20200924'] = (arr, 2, 1)
+
+
+file_dict = {'20200924': (arr, 2, 1)}
 
 
 
@@ -445,14 +451,14 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         #lmass = llev_force / 9.806
 
         if mass > upper_outlier or mass < lower_outlier:
-            print('Crazy mass: {:0.2f} pg'.format(mass*1e15))
-            fig, axarr = plt.subplots(3,1,sharex=True)
-            axarr[0].plot(eforce2)
-            axarr[1].plot(power)
-            axarr[2].plot(df.pos_data[2])
-            ylims = axarr[1].get_ylim()
-            axarr[1].set_ylim(ylims[0], 0)
-            plt.show()
+            print('Crazy mass: {:0.2f} pg.... ignoring'.format(mass*1e15))
+            # fig, axarr = plt.subplots(3,1,sharex=True)
+            # axarr[0].plot(eforce2)
+            # axarr[1].plot(power)
+            # axarr[2].plot(df.pos_data[2])
+            # ylims = axarr[1].get_ylim()
+            # axarr[1].set_ylim(ylims[0], 0)
+            # plt.show()
             continue
 
         all_param.append(popt)

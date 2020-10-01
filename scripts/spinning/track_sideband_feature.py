@@ -14,7 +14,7 @@ import scipy.signal as signal
 from tqdm import tqdm
 from joblib import Parallel, delayed
 # ncore = 1
-ncore = 25
+ncore = 20
 
 warnings.filterwarnings('ignore')
 
@@ -26,17 +26,6 @@ np.random.seed(12345)
 #############################
 ### Which data to analyze ###
 #############################
-# dir_name = '/data/old_trap/20200727/bead1/spinning/sideband_test_1Vpp'
-# dir_name = '/data/old_trap/20200727/bead1/spinning/sideband_test_5Vpp'
-# dir_name = '/data/old_trap/20200727/bead1/spinning/sideband_test_7Vpp'
-# dir_name = '/data/old_trap/20200727/bead1/spinning/amplitude_impulse_1Vpp-to-7Vpp'
-# dir_name = '/data/old_trap/20200727/bead1/spinning/wobble_slow_2'
-# dir_name = '/data/old_trap/20200727/bead1/spinning/wobble_fast'
-# file_inds = (0, 1000)
-file_step = 1
-
-# init_features = [21.3, 1178.8]
-# init_features = []
 
 try:
     trial_ind = int(sys.argv[1])
@@ -46,21 +35,31 @@ except:
 # dir_name = '/data/old_trap/20200727/bead1/spinning/phase_impulse_+90deg'
 # dir_name = '/data/old_trap/20200727/bead1/spinning/phase_impulse_-90deg'
 # dir_name = '/data/old_trap/20200727/bead1/spinning/arb_phase_impulse_+90deg'
-dir_name = '/data/old_trap/20200727/bead1/spinning/arb_phase_impulse_many_2/trial_{:04d}'.format(trial_ind)
-file_inds = (0, 50)
+
+base = '/data/old_trap/20200727/bead1/spinning/'
+
+# meas = 'arb_phase_impulse_many_2/trial_{:04d}'.format(trial_ind)
+# file_inds = (7, 46)
+meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
+file_inds = (12, 36)
+file_step = 1
+
+dir_name = os.path.join(base, meas)
 
 # init_features = [25.8, 1355.3]
-init_features = [50.0, 1385.0]
+init_features = [25.0, 1298.0]
 # init_features = []
 
 ### Filter constants
-fspin = 19000
+# fspin = 19000
+fspin = 25000
 wspin = 2.0*np.pi*fspin
 bandwidth = 10000.0
 
 ### Some crude limits to keep from loading too much into memory
 output_band = (0, 5000)
-drive_output_band = (15000, 45000)
+# drive_output_band = (15000, 45000)
+drive_output_band = (20000, 55000)
 
 ### Boolean flags for various sorts of plotting (used for debugging usually)
 plot_demod = False
@@ -97,10 +96,14 @@ feature_base = '/data/old_trap_processed/spinning/feature_tracking/'
 # drive_feature_savepath = os.path.join(feature_base, '20200727/phase_impulse_-90deg_drive.p')
 # phase_feature_savepath = os.path.join(feature_base, '20200727/arb_phase_impulse_+90deg.p')
 # drive_feature_savepath = os.path.join(feature_base, '20200727/arb_phase_impulse_+90deg_drive.p')
+# phase_feature_savepath = os.path.join(feature_base, \
+#                                 '20200727/arb_phase_impulse_many_2_{:04d}.p'.format(trial_ind))
+# drive_feature_savepath = os.path.join(feature_base, \
+#                                 '20200727/arb_phase_impulse_many_2_{:04d}_drive.p'.format(trial_ind))
 phase_feature_savepath = os.path.join(feature_base, \
-                                '20200727/arb_phase_impulse_many_2_{:04d}.p'.format(trial_ind))
+                                '20200727/dds_phase_impulse_many_{:04d}.p'.format(trial_ind))
 drive_feature_savepath = os.path.join(feature_base, \
-                                '20200727/arb_phase_impulse_many_2_{:04d}_drive.p'.format(trial_ind))
+                                '20200727/dds_phase_impulse_many_{:04d}_drive.p'.format(trial_ind))
 
 
 

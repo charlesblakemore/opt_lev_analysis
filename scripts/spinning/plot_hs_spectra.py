@@ -53,9 +53,15 @@ plt.rcParams.update({'font.size': 16})
 # dirname = '/data/old_trap/20200727/bead1/spinning/amplitude_change_much-later'
 # dirname = '/data/old_trap/20200727/bead1/spinning/wobble_slow/wobble_0/'
 
-dirname = '/data/old_trap/20200727/bead1/spinning/lowp_arb_spinup/'
-dirname = '/data/old_trap/20200727/bead1/spinning/lowp_arb_spinup_2/'
+# dirname = '/data/old_trap/20200727/bead1/spinning/lowp_arb_spinup/'
+# dirname = '/data/old_trap/20200727/bead1/spinning/lowp_arb_spinup_2/'
 
+# dirname = '/data/old_trap/20200727/bead1/spinning/junk/old_drive_test_4/'
+# dirname = '/data/old_trap/20200727/bead1/spinning/phase_fb_tests/100Hz_mod_2/'
+
+# dirname = '/data/old_trap/20200924/bead1/spinning/initial_test'
+# dirname = '/data/old_trap/20200924/bead1/spinning/dipole_meas/initial/trial_0000'
+dirname = '/data/old_trap/20200924/bead1/spinning/crosstalk_check'
 
 use_dir = True
 #use_dir = False
@@ -85,18 +91,15 @@ axes_labels = ['Cross-polarized light', 'Tabor Monitor']
 use_filename_labels = False
 labels = []
 
-decimate = False
-decimate_factor = 5
-
-invert_order = False
 #file_inds = (-10,-1)
-file_inds = (-10, 1000)
+file_inds = (0, 100)
+file_step = 41
 
-userNFFT = 2**14
-fullNFFT = True
+userNFFT = 2**20
+fullNFFT = False
 
-plot_freqs = (55000.0, 65000.0)
-plot_freqs = (100.0, 65000.0)
+# plot_freqs = (55000.0, 65000.0)
+plot_freqs = (10.0, 250000.0)
 
 waterfall = False
 waterfall_fac = 0.01
@@ -131,8 +134,7 @@ def lorentzian(x, A, mu, gamma, c):
 
 
 def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
-                      sort='time', file_inds=(0,10000), \
-                      plot_freqs=(0.0,1000000.0), labels=[]):
+                      sort='time', plot_freqs=(0.0,1000000.0), labels=[]):
     '''Loops over a list of file names, loads each file,
        then plots the amplitude spectral density of any number 
        of data channels
@@ -182,12 +184,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
         daxarr = [daxarr]
 
 
-    files = files[file_inds[0]:file_inds[1]]
-    if decimate:
-        files = files[::decimate_factor]
-    if invert_order:
-        files = files[::-1]
-
     colors = bu.get_color_map(len(files), cmap=colormap)
     #colors = ['C0', 'C1', 'C2']
 
@@ -198,6 +194,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
     old_per = 0
     print("Processing %i files..." % len(files))
     for fil_ind, fil in enumerate(files):
+        print(fil)
+
         color = colors[fil_ind]
         
         # Display percent completion
@@ -312,10 +310,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
 if use_dir:
     allfiles, lengths = bu.find_all_fnames(dirname, sort_time=True)
+    allfiles = allfiles[file_inds[0]:file_inds[1]:file_step]
 
 if use_filename_labels:
     labels = np.copy(allfiles)
 
-plot_many_spectra(allfiles, file_inds=file_inds, \
-                  data_axes=data_axes, colormap=cmap, \
+plot_many_spectra(allfiles, data_axes=data_axes, colormap=cmap, \
                   plot_freqs=plot_freqs, labels=labels)

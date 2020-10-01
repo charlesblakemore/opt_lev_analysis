@@ -24,7 +24,11 @@ import configuration as config
 ### Settings for discharge
 #####################################
 
-step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
+# step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
+# first_file = 0
+# last_file = -1
+
+step_cal_dir = ['/data/old_trap/20200924/bead1/discharge/fine/']
 first_file = 0
 last_file = -1
 
@@ -80,14 +84,17 @@ plot_residual_histograms = True
 #####################################
 
 tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
+files_to_pop = [120, 125, 126, 133, 147, 155, 161, 162, 168, \
+                174, 175, 185, 186, 194, 204, 228, 229, 230, \
+                231, 235, 279, 282]
 
 # tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200110/Bead2/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200113/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200320/Bead1/TransFunc/'
 
-# tf_substr = ''
-tf_substr = 'm300k_50s'
+tf_substr = ''
+# tf_substr = 'm300k_50s'
 # tf_substr = '_0.h5'
 
 
@@ -174,6 +181,8 @@ if new_trap:
 step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True, \
                                              use_origin_timestamp=use_origin_timestamp, \
                                              skip_subdirectories=skip_subdirectories)
+for filind in files_to_pop[::-1]:
+    step_cal_files.pop(filind)
 
 # for i in range(5):
 #     step_cal_files.pop(559)

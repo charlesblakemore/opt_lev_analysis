@@ -1254,7 +1254,7 @@ class hsDat:
                 load_xml_attribs(self.fname, types=['I32', 'DBL', 'Array'])
         except (KeyError, IOError):
             print("Warning, got no attribs for: ", self.fname)
-            attribs = {}
+            self.attribs = {}
 
         ### Unpack a few of the important values so they can be accessed
         ### with less typing

@@ -175,7 +175,7 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
         print()
 
 
-def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0):
+def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
     '''Gets a single color from a colormap. Useful when the values
        span a continuous range with uneven spacing.
 
@@ -198,7 +198,11 @@ def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0):
     if (val > vmax) or (val < vmin):
         raise ValueError("Input value doesn't conform to limits")
 
-    norm = colors.Normalize(vmin=vmin, vmax=vmax)
+    if log:
+        norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
     my_cmap = cm.get_cmap(cmap)
 
     return my_cmap(norm(val))
@@ -206,7 +210,7 @@ def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0):
 
 
 
-def get_color_map( n, cmap='plasma' ):
+def get_color_map( n, cmap='plasma', log=False):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
 
@@ -224,7 +228,11 @@ def get_color_map( n, cmap='plasma' ):
     n = int(n)
     outmap = []
 
-    cNorm = colors.Normalize(vmin=0, vmax=2*n)
+    if log:
+        cNorm = colors.LogNorm(vmin=0, vmax=2*n)
+    else:
+        cNorm = colors.Normalize(vmin=0, vmax=2*n)
+
     scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
 
     for i in range(n):
@@ -257,7 +265,7 @@ def round_sig(x, sig=2):
             return num
 
 
-def weighted_mean(vals, errs, correct_dispersion=True):
+def weighted_mean(vals, errs, correct_dispersion=False):
     '''Compute the weighted mean, and the standard error on the weighted mean
        accounting for for over- or under-dispersion
 
@@ -894,7 +902,7 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
 
 
-def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
+def rebin(xvec, yvec, errs=[], nbins=500, plot=False, correlated_errs=False):
     '''Slow and derpy function to re-bin based on averaging. Works
        with any value of nbins, but can be slow since it's a for loop.'''
     if len(errs):
@@ -919,7 +927,10 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
         if len(errs):
             errs_new[xind] = np.sqrt( np.mean(errs[inds]**2))
         else:
-            errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
+            if correlated_errs:
+                errs_new[xind] = np.std(yvec[inds])
+            else:
+                errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
 
         yvec_new[xind] = np.mean(yvec[inds])
 
@@ -1046,7 +1057,7 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], plot=False, \
-          notch_freqs=[], notch_qs=[], \
+          notch_freqs=[], notch_qs=[], force_2pi_wrap=False, \
           ncycle_pad=0, detrend=False, detrend_order=1, \
           tukey=False, tukey_alpha=1e-3):
     '''Sub-routine to perform a hilbert transformation on a given 
@@ -1070,7 +1081,8 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     filt_band_digital = (2.0/fsamp) * np.array([lower, upper])
 
-    b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
+    # b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
+    sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
 
     sig = input_sig - np.mean(input_sig)
 
@@ -1082,9 +1094,10 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         sig_padded = np.copy(sig)
 
     if filt:
-        sig_filt = signal.filtfilt(b1, a1, sig)
-        sig_filt_padded = signal.filtfilt(b1, a1, sig_padded, \
-                                          padtype='even', padlen=10000)
+        # sig_filt = signal.filtfilt(b1, a1, sig)
+        sig_filt = signal.sosfiltfilt(sos, sig)
+        # sig_filt_padded = signal.filtfilt(b1, a1, sig_padded)
+        sig_filt_padded = signal.sosfiltfilt(sos, sig_padded)
 
         if len(notch_freqs):
             for i, notch_freq in enumerate(notch_freqs):
@@ -1123,14 +1136,40 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     #             label='{:0.1f} Hz'.format(np.mean(inst_freq)))
 
     phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
-    phase_mod = np.unwrap(phase_mod)
+    phase_mod_unwrap = np.unwrap(phase_mod)
+
+    if detrend:
+        good_inds = (phase_mod - phase_mod_unwrap) == 0
+        inds = np.arange(len(phase_mod))
+        fit_func = lambda x,a,b: a*x + b
+        try:
+            popt, _ = optimize.curve_fit(fit_func, inds[good_inds], phase_mod[good_inds], \
+                                         p0=[0,0], maxfev=10000)
+        except:
+            popt = [0,0]
+
+        # phase_mod = polynomial(phase_mod[good_inds], order=detrend_order, plot=plot)
+        phase_mod_unwrap -= inds * popt[0] + popt[1]
+
+        if plot:
+            fig, axarr = plt.subplots(2,1,figsize=(8,6))
+            axarr[0].plot(inds, phase_mod, color='k')
+            axarr[0].plot(inds, fit_func(inds, *popt), color='r', lw=2)
+            # axarr[1].plot(inds, phase_mod - (inds*popt[0] + popt[1]), color='k')
+            axarr[1].plot(inds, phase_mod_unwrap, color='k')
+            axarr[1].set_xlabel('Samples')
+            fig.tight_layout()
+            plt.show()
+
+    if force_2pi_wrap:
+        phase_mod = (phase_mod_unwrap + np.pi) % (2.0*np.pi) - np.pi
+    else:
+        phase_mod = np.copy(phase_mod_unwrap)
 
     # plt.legend()
     # plt.show()
     # input()
 
-    if detrend:
-        phase_mod = polynomial(phase_mod, order=detrend_order, plot=plot) 
 
     if tukey:
         window = signal.tukey(len(phase), alpha=tukey_alpha)
@@ -1449,7 +1488,8 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
 
 
 def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
-                   lower_delta_fac=0.0, exclude_df=10):
+                   lower_delta_fac=0.0, exclude_df=10, band=[], \
+                   plot=False):
     '''Function to scan the ASD associated to an input FFT, looking for 
        values above the baseline of the ASD, and then attempting to fit
        a gaussian to the region around the above-baseline feature. It 
@@ -1474,6 +1514,8 @@ def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
             exclude_df : the number of frequency bins to exclude 
                 redundant peak finding around a feature that was already
                 found and fit with a gaussian
+
+            band : the frequenncy band (if any) in which to limit the search
        '''
 
     if not lower_delta_fac:
@@ -1538,6 +1580,9 @@ def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
 
             ### Append either the fit result, or our best guess if the fit failed
             peaks.append( [popt[1], popt[0]] )
+
+    if plot:
+        plot_pdet([peaks, []], freqs, asd, loglog=True)
 
     return np.array(peaks)
 
