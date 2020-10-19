@@ -35,14 +35,20 @@ np.random.seed(12345)
 # file_inds = (0, 1000)
 # file_step = 1
 
+
 try:
-    trial_ind = int(sys.argv[1])
+    meas_ind = int(sys.argv[1])
 except:
-    trial_ind = 1
+    meas_ind = 0
+
+try:
+    trial_ind = int(sys.argv[2])
+except:
+    trial_ind = 0
 
 
-date = '20200727'
-# date = '20200924'
+# date = '20200727'
+date = '20200924'
 
 bead = 'bead1'
 
@@ -55,12 +61,28 @@ base = '/data/old_trap/{:s}/{:s}/spinning/'.format(date, bead)
 # meas = 'arb_phase_impulse_many_2/trial_{:04d}'.format(trial_ind)
 # file_inds = (7, 46)
 
-# meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
-# meas = 'dds_phase_impulse_lower_dg_3/trial_{:04d}'.format(trial_ind)
-# meas = 'dds_phase_impulse_low_dg_3/trial_{:04d}'.format(trial_ind)
-meas = 'dds_phase_impulse_mid_dg_3/trial_{:04d}'.format(trial_ind)
-# meas = 'dds_phase_impulse_high_dg_3/trial_{:04d}'.format(trial_ind)
-# file_inds = (12, 36)
+# # meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
+# # meas = 'dds_phase_impulse_lower_dg_3/trial_{:04d}'.format(trial_ind)
+# # meas = 'dds_phase_impulse_low_dg_3/trial_{:04d}'.format(trial_ind)
+# meas = 'dds_phase_impulse_mid_dg_3/trial_{:04d}'.format(trial_ind)
+# # meas = 'dds_phase_impulse_high_dg_3/trial_{:04d}'.format(trial_ind)
+# # file_inds = (12, 36)
+# file_inds = (0, 15)
+# file_step = 1
+
+
+if meas_ind:
+    meas_ind += 1
+    # meas = 'dds_phase_impulse_1Vpp_lower_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_low_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_mid_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_high_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+else:
+    meas = 'dds_phase_impulse_1Vpp/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_lower_dg/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_low_dg/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_mid_dg/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_high_dg/trial_{:04d}'.format(trial_ind)
 file_inds = (0, 15)
 file_step = 1
 
@@ -113,7 +135,7 @@ average_spectra = False
 
 save_spectra = True
 processed_base = '/data/old_trap_processed/spinning/{:s}/'.format(date)
-spectra_save_path = os.path.join(processed_base, 'dds_feedback_spectra.p')
+spectra_save_path = os.path.join(processed_base, 'dds_feedback_spectra_1Vpp.p')
 
 waterfall = False   # Doesn't do anything if average_spectra = True
 waterfall_fac = 0.01
@@ -164,7 +186,7 @@ basepath = os.path.join(plot_base, meas)
 ### Feature tracking settings ###
 #################################
 plot_features = False
-plot_drive_features = True
+plot_drive_features = False
 arrowprops = {'width': 5, 'headwidth': 10, 'headlength': 10, 'shrink': 0.05}
 feature_base = '/data/old_trap_processed/spinning/feature_tracking/'
 # phase_feature_savepath = os.path.join(feature_base, \

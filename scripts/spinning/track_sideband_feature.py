@@ -36,18 +36,27 @@ except:
 # dir_name = '/data/old_trap/20200727/bead1/spinning/phase_impulse_-90deg'
 # dir_name = '/data/old_trap/20200727/bead1/spinning/arb_phase_impulse_+90deg'
 
-base = '/data/old_trap/20200727/bead1/spinning/'
+
+# date = '20200727'
+date = '20200924'
+
+base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
+
+meas = 'dipole_meas/initial/trial_0000'
+file_inds = (0, 100)
+file_step = 1
 
 # meas = 'arb_phase_impulse_many_2/trial_{:04d}'.format(trial_ind)
 # file_inds = (7, 46)
-meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
-file_inds = (12, 36)
-file_step = 1
+# meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
+# file_inds = (12, 36)
+# file_step = 1
 
 dir_name = os.path.join(base, meas)
 
 # init_features = [25.8, 1355.3]
-init_features = [25.0, 1298.0]
+# init_features = [25.0, 1298.0]
+init_features = [24.1, 859.3]
 # init_features = []
 
 ### Filter constants
@@ -88,22 +97,10 @@ exclude_df = 10
 track_features = True
 track_drive_features = True
 allow_new_features = True
-allowed_jumps = [1.1, 0.3]  # allowed jump between integrations given as a fraction of the feature
+allowed_jumps = [0.3, 0.3]  # allowed jump between integrations given as a fraction of the feature
 feature_base = '/data/old_trap_processed/spinning/feature_tracking/'
-# phase_feature_savepath = os.path.join(feature_base, '20200727/phase_impulse_+90deg.p')
-# drive_feature_savepath = os.path.join(feature_base, '20200727/phase_impulse_+90deg_drive.p')
-# phase_feature_savepath = os.path.join(feature_base, '20200727/phase_impulse_-90deg.p')
-# drive_feature_savepath = os.path.join(feature_base, '20200727/phase_impulse_-90deg_drive.p')
-# phase_feature_savepath = os.path.join(feature_base, '20200727/arb_phase_impulse_+90deg.p')
-# drive_feature_savepath = os.path.join(feature_base, '20200727/arb_phase_impulse_+90deg_drive.p')
-# phase_feature_savepath = os.path.join(feature_base, \
-#                                 '20200727/arb_phase_impulse_many_2_{:04d}.p'.format(trial_ind))
-# drive_feature_savepath = os.path.join(feature_base, \
-#                                 '20200727/arb_phase_impulse_many_2_{:04d}_drive.p'.format(trial_ind))
-phase_feature_savepath = os.path.join(feature_base, \
-                                '20200727/dds_phase_impulse_many_{:04d}.p'.format(trial_ind))
-drive_feature_savepath = os.path.join(feature_base, \
-                                '20200727/dds_phase_impulse_many_{:04d}_drive.p'.format(trial_ind))
+phase_feature_savepath = os.path.join(feature_base, '{:s}/{:s}.p'.format(date, meas))
+drive_feature_savepath = os.path.join(feature_base, '{:s}/{:s}_drive.p'.format(date, meas))
 
 
 

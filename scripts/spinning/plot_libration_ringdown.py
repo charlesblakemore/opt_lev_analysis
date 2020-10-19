@@ -33,12 +33,17 @@ np.random.seed(12345)
 #############################
 
 try:
-    trial_ind = int(sys.argv[1])
+    meas_ind = int(sys.argv[1])
 except:
-    trial_ind = 1
+    meas_ind = 0
 
-date = '20200727'
-# date = '20200924'
+try:
+    trial_ind = int(sys.argv[2])
+except:
+    trial_ind = 0
+
+# date = '20200727'
+date = '20200924'
 
 bead = 'bead1'
 
@@ -46,18 +51,40 @@ base = '/data/old_trap/{:s}/{:s}/spinning/'.format(date, bead)
 
 # meas = 'arb_phase_impulse_many_2/trial_{:04d}'.format(trial_ind)
 # file_inds = (7, 46)
-# meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
-meas = 'dds_phase_impulse_lower_dg/trial_{:04d}'.format(trial_ind)
-file_inds = (12, 36)
-# meas = 'dds_phase_impulse_low_dg_3/trial_{:04d}'.format(trial_ind)
-# meas = 'dds_phase_impulse_mid_dg_3/trial_{:04d}'.format(trial_ind)
-# meas = 'dds_phase_impulse_high_dg_3/trial_{:04d}'.format(trial_ind)
-# file_inds = (12, 30)
+# if meas_ind:
+#     meas_ind += 1
+#     meas = 'dds_phase_impulse_many_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_lower_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_low_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_mid_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_high_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+# else:
+#     meas = 'dds_phase_impulse_many/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_lower_dg/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_low_dg/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_mid_dg/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_high_dg/trial_{:04d}'.format(trial_ind)
+# file_inds = (12, 36)
+# # file_inds = (12, 30)
 
-# meas = 'dds_phase_impulse_1Vpp/trial_{:04d}'.format(trial_ind)
-# file_inds = (10, 100)
-# meas = 'dds_phase_impulse_1Vpp_low_dg/trial_{:04d}'.format(trial_ind)
-# file_inds = (8, 30)
+
+if meas_ind:
+    meas_ind += 1
+    # meas = 'dds_phase_impulse_1Vpp_lower_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_low_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_mid_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_high_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+else:
+    meas = 'dds_phase_impulse_3Vpp/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_lower_dg/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_low_dg/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_mid_dg/trial_{:04d}'.format(trial_ind)
+    # meas = 'dds_phase_impulse_1Vpp_high_dg/trial_{:04d}'.format(trial_ind)
+# file_inds = (8, 100)
+# file_inds = (8, 90)
+file_inds = (8, 50)
+# file_inds = (8, 25)
+
 
 dir_name = os.path.join(base, meas)
 file_step = 1
@@ -74,8 +101,8 @@ fig_basepath = os.path.join(plot_base, meas, 'ringdown_amp')
 # libration_guess = 0.0
 # libration_guess = 1335.8
 # libration_guess = 1385.0
-libration_guess = 1298.0
-# libration_guess = 297.9
+# libration_guess = 1298.0
+libration_guess = 297.9
 
 ### Carrier filter constants
 # fspin = 19000
@@ -85,9 +112,10 @@ bandwidth = 10000.0
 
 # libration_fit_band = []
 # libration_filt_band = [1000.0, 1450.0]
-libration_filt_band = [900.0, 1350.0]
+# libration_filt_band = [900.0, 1350.0]
 # libration_filt_band = [700.0, 1000.0]
-# libration_filt_band = [200.0, 500.0]
+# libration_filt_band = [175.0, 400.0]
+libration_filt_band = [350.0, 600.0]
 libration_bandwidth = 1000
 
 notch_freqs = [49020.3]
@@ -108,7 +136,8 @@ plot_lib_amp = False
 tabor_mon_fac = 100
 #tabor_mon_fac = 100 * (1.0 / 0.95)
 
-out_nsamp = 200000
+# out_nsamp = 200000
+out_nsamp = 50000
 out_cut = 100
 
 xlim = (-100, 200)
@@ -121,9 +150,12 @@ yticklabels = ['$-\\pi/2$', '0', '$\\pi/2$']
 
 fit_ringdown = True
 # base_ringdown_fit_time = 1100.0
-base_ringdown_fit_time = 150.0
+base_ringdown_fit_time = 200.0
+# base_ringdown_fit_time = 120.0
 adjust_fit_time = True
-# initial_offset = 100.0
+# ringdown_scale_fac = 2.3
+ringdown_scale_fac = 1.0
+# ringdown_scale_fac = 0.5
 initial_offset = 0.0
 
 plot_rebin = False
@@ -136,7 +168,7 @@ processed_base = '/data/old_trap_processed/spinning/{:s}/'.format(date)
 
 save_ringdown = True
 # ringdown_dict_path = '/data/old_trap_processed/spinning/20200727/arb_libration_ringdowns.p'
-ringdown_data_path = os.path.join(processed_base, 'dds_libration_ringdowns.p')
+ringdown_data_path = os.path.join(processed_base, 'dds_libration_ringdowns_3Vpp_less_pts.p')
 
 
 
@@ -330,15 +362,17 @@ initial_time -= chirp_start
 times -= chirp_start
 meas_phi_dg = np.mean(phi_dgs)
 
+print(meas_phi_dg)
+
 if adjust_fit_time:
     if meas_phi_dg == 0.0:
         ringdown_fit_time = base_ringdown_fit_time
     else:
-        ringdown_fit_time = np.min([0.75 / meas_phi_dg, base_ringdown_fit_time])
-        # ringdown_fit_time = np.min([7.5 / meas_phi_dg, base_ringdown_fit_time])
+        ringdown_fit_time = np.min([ringdown_scale_fac / meas_phi_dg, base_ringdown_fit_time])
 
     if close_xlim:
-        xlim = (-0.1*ringdown_fit_time, 1.1*ringdown_fit_time)
+        upper = np.min([1.75*ringdown_fit_time, final_time-chirp_start])
+        xlim = (-0.1*ringdown_fit_time, upper)
     else:
         xlim = (-0.5 * ringdown_fit_time, ringdown_fit_time)
 
@@ -397,16 +431,18 @@ if fit_ringdown:
     def chi_sq(amp0, t0, tau, c):
         resid = np.abs(fit_y - fit_func(fit_x, amp0, t0, tau, c))**2
         variance = fit_err**2
-        return (1.0 / (npts - 1.0)) * np.sum(resid / variance)
+        prior1 = np.abs(amp0 - np.pi/2.0)**2 / np.mean(variance)
+        prior2 = np.abs(c - init_std)**2 / init_std**2
+        return (1.0 / (npts - 1.0)) * np.sum(resid / variance) + prior1 + prior2
 
     m = Minuit(chi_sq,
                amp0 = np.pi/2.0, # set start parameter
                fix_amp0 = False,
-               limit_amp0 = (np.pi/4.0, 3.0*np.pi/4.0), # if you want to limit things
+               limit_amp0 = (np.pi/4.0, 6.0*np.pi/10.0), # if you want to limit things
                t0 = 0.0,
                fix_t0 = False,
-               limit_t0 = (fit_x[0]-10.0, fit_x[0]+10.0),
-               tau = 100.0,
+               limit_t0 = (fit_x[0]-5.0, fit_x[0]+5.0),
+               tau = 0.25*ringdown_fit_time,
                fix_tau = False,
                limit_tau = (0.0, 500.0),
                c = 0.0,

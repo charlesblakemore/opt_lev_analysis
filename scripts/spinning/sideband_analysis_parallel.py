@@ -12,7 +12,7 @@ import scipy.signal as signal
 
 from tqdm import tqdm
 from joblib import Parallel, delayed
-ncore = 20
+ncore = 30
 
 np.random.seed(12345)
 
@@ -27,17 +27,23 @@ cleanup_outarr = True
 # fc = 110000.0
 # fc = 100000.0
 fspin = 30000
+# fspin = 25000.0
 wspin = 2.0*np.pi*fspin
 bandwidth = 6000.0
 high_pass = 50.0
+detrend = True
+force_2pi_wrap = False
 
-allowed_freqs = (200.0, 5000.0)
+allowed_freqs = (250.0, 5000.0)
 
-apply_notch = True
+apply_notch = False
 notch_nharm = 15
 notch_q = 7.5
 notch_init = 10.0
 notch_range = 20.0
+
+notch_freqs = []
+notch_qs = []
 
 ### BAD SCIENCE ALERT!!!
 ###   adjustment of the noise color to help extract the libration
@@ -99,9 +105,15 @@ tabor_mon_fac = 100
 # base_save_path = '/data/old_trap_processed/spinning/wobble/20200322/50kHz_yz_1/'
 
 date = '20200727'
+meas = 'wobble_slow_2/'
+# date = '20200924'
+# meas = 'dipole_meas/initial/'
 
-base_path = '/data/old_trap/20200727/bead1/spinning/wobble_fast/'
-base_save_path = '/data/old_trap_processed/spinning/wobble/20200727/wobble_fast/'
+base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
+base_path = os.path.join(base, meas)
+invert_order = True
+
+base_save_path = '/data/old_trap_processed/spinning/wobble/{:s}/{:s}/'.format(date, meas)
 
 path_dict = {}
 paths = []
@@ -161,6 +173,8 @@ for meas in itertools.product(gases, inds):
         if load:
             continue
         files, lengths = bu.find_all_fnames(path, sort_time=True)
+        if invert_order:
+            files = files[::-1]
 
         fobj = bu.hsDat(files[0], load=True)
         nsamp = fobj.nsamp
@@ -191,17 +205,15 @@ for meas in itertools.product(gases, inds):
             vperp = fobj.dat[:,0]
             elec3 = fobj.dat[:,1]
 
-            vperp_filt = signal.filtfilt(b1, a1, vperp)
             elec3_filt = signal.filtfilt(b2, a2, elec3)
 
             if plot_raw_dat:
                 fac = bu.fft_norm(nsamp, fsamp)
                 plt.plot(time_vec[:10000], elec3[:10000])
                 plt.figure()
-                plt.plot(time_vec[:10000], vperp_filt[:10000])
+                plt.plot(time_vec[:10000], vperp[:10000])
                 plt.figure()
                 plt.loglog(freqs, fac * np.abs(np.fft.rfft(vperp)))
-                plt.loglog(freqs, fac * np.abs(np.fft.rfft(vperp_filt)))
                 plt.figure()
                 plt.loglog(freqs, fac * np.abs(np.fft.rfft(elec3)))
                 plt.loglog(freqs, fac * np.abs(np.fft.rfft(elec3_filt)))
@@ -209,9 +221,17 @@ for meas in itertools.product(gases, inds):
 
                 input()
 
-            amp, phase_mod = bu.demod(vperp_filt, fspin, fsamp, plot=plot_demod, \
-                                      tukey=True, tukey_alpha=5.0e-4, \
-                                      detrend=True, detrend_order=1, harmind=2.0)
+            inds = np.abs(freqs - fspin) < 200.0
+
+            elec3_fft = np.fft.rfft(elec3)
+            true_fspin = freqs[np.argmax(np.abs(elec3_fft))]
+
+            amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
+                                  filt=True, bandwidth=bandwidth, \
+                                  notch_freqs=notch_freqs, notch_qs=notch_qs, \
+                                  tukey=True, tukey_alpha=5.0e-4, \
+                                  detrend=detrend, detrend_order=1, harmind=2.0, \
+                                  force_2pi_wrap=force_2pi_wrap)
 
             phase_mod_filt = signal.filtfilt(b3, a3, phase_mod)
             #phase_mod_filt = phase_mod
@@ -351,18 +371,7 @@ for meas in itertools.product(gases, inds):
         results = Parallel(n_jobs=ncore)(delayed(proc_file)(file) for file in tqdm(files))
 
 
-        # for fileind, file in enumerate(files):
-        #     bu.progress_bar(fileind, nfiles, suffix=suffix)
 
-        #     out = 
-
-        #     field_strength.append(2.0*amp_fit)
-        #     field_err.append(np.sqrt(2)*amp_err)
-
-        #     wobble_freq.append(fit_max)
-        #     wobble_err.append(fit_std)
-
-        # out_arr = np.array([field_strength, field_err, wobble_freq, wobble_err])
 
         out_arr = np.array(results)
         out_arr = out_arr.T
@@ -423,7 +432,7 @@ for arrind, arr in enumerate(all_data):
 
     # plt.scatter(np.arange(arr.shape[1]), field_strength)
 
-    plt.figure()
+    # plt.figure()
     plt.errorbar(field_strength, 2*np.pi*wobble_freq, alpha=0.6, \
                  yerr=wobble_err, color=colors[arrind])
 

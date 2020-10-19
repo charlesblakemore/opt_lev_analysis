@@ -55,9 +55,16 @@ for meas in itertools.product(gases, inds):
 #one_path = True
 one_path = False
 
+base_path = '/data/old_trap_processed/spinning/wobble/'
+
 date = '20200727'
+meas = 'wobble_slow_2/'
+
+# date = '20200924'
+# meas = 'dipole_meas/initial/'
+
 gases = ['XX']
-path_dict = {'XX': ['/data/old_trap_processed/spinning/wobble/20200727/wobble_fast/']}
+path_dict = {'XX': [os.path.join(base_path, '{:s}/{:s}/'.format(date, meas))]}
 
 
 

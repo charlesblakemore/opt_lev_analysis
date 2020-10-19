@@ -14,17 +14,19 @@ import scipy.signal as signal
 from tqdm import tqdm
 from joblib import Parallel, delayed
 # ncore = 1
-ncore = 25
+ncore = 30
 
 warnings.filterwarnings('ignore')
 
 plt.rcParams.update({'font.size': 14})
 np.random.seed(12345)
 
+# date = '20200727'
+date = '20200924'
 
-base = '/data/old_trap/20200727/bead1/spinning/'
+base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
 # meas = 'dds_phase_modulation_sweep/trial_0000'
-meas = 'dds_phase_modulation_sweep_2'
+meas = 'dds_phase_modulation_sweep'
 dir_name = os.path.join(base, meas)
 file_inds = (0, 500)
 file_step = 1
@@ -51,7 +53,7 @@ tabor_mon_fac = 100
 #########################
 ### Plotting behavior ###
 #########################
-output_band = (0, 5000)
+output_band = (3, 2000)
 
 ### Full spectra plot limits
 xlim = (0.5, 5000)
@@ -63,7 +65,7 @@ ylim = (3e-4, 5e0)
 
 date = re.search(r"\d{8,}", dir_name)[0]
 
-files, _ = bu.find_all_fnames(dir_name, ext='.h5', sort_time=True)
+files, _ = bu.find_all_fnames(dir_name, ext='.h5', sort_time=True, skip_subdirectories=False)
 files = files[file_inds[0]:file_inds[1]:file_step]
 nfiles = len(files)
 

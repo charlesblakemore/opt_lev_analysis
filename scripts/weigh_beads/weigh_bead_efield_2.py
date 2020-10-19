@@ -88,14 +88,15 @@ arr.append('/data/old_trap/20200727/bead1/weigh/4Vpp_lowp_neg')
 arr.append('/data/old_trap/20200727/bead1/weigh/6Vpp_lowp_neg')
 file_dict['20200727'] = (arr, 1, 0)
 
-
-arr = []  ### 
-arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
-arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
-file_dict['20200924'] = (arr, 2, 1)
+file_dict = {'20200727': (arr, 1, 0)}
 
 
-file_dict = {'20200924': (arr, 2, 1)}
+# arr = []  ### 
+# arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
+# arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
+# file_dict['20200924'] = (arr, 2, 1)
+
+# file_dict = {'20200924': (arr, 2, 1)}
 
 
 

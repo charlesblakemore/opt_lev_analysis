@@ -12,4 +12,5 @@ h5py
 opencv-python
 pycopy-fnmatch
 peakdetect
+sklearn
 (maybe others, need to check better)
