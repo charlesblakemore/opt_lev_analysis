@@ -45,25 +45,37 @@ use_dir = False
 #             ]
 
 
-allfiles = [
-            '/data/old_trap/20200727/bead1/1_5mbar_powfb_nocool.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-i.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pi.h5',
-            '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_2.h5',
-            '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_3.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_4.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_5.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_6.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_7.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_8.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_9.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_10.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_11.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_zcool-pid_12.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_xzcool.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_yzcool.h5',
-            # '/data/old_trap/20200727/bead1/1_5mbar_powfb_xyzcool.h5',
+# allfiles = [
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_nocool.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool_i.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-id.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool_low1.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool_low2.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_2.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_3.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_4.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_5.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_6.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_7.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_8.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_9.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_10.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_11.h5',
+#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_12.h5',
+#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool.h5',
+#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_xzcool.h5',
+#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_yzcool.h5',
+#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_xyzcool.h5',
+#             ]
+
+
+allfiles  = [
+             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool.h5',
+             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low1.h5',
+             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low2.h5',
+             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low3.h5',
+             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low4.h5',
             ]
 
 
@@ -117,7 +129,7 @@ lpf = 2500   # Hz
 #file_inds = (0, 3)
 file_inds = (0, 100)
 
-userNFFT = 2**10
+userNFFT = 2**12
 diag = False
 
 fullNFFT = False

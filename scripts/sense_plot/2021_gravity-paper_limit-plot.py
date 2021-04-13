@@ -6,7 +6,7 @@ from matplotlib.patches import Polygon
 import matplotlib
 
 # matplotlib.rcParams.update({'font.size': 14})
-matplotlib.rcParams.update({'font.size': 16})
+matplotlib.rcParams.update({'font.size': 20})
 
 
 
@@ -54,16 +54,22 @@ if plot_limit:
     limit_data = pickle.load( open(limit_path, 'rb') )
     if signed_limit:
         ax.loglog(limit_data['pos_limit'][0]*1e6, limit_data['pos_limit'][limit_ax+1], \
-                  label='This work: $\\hat{\\alpha} > 0$', color='r', lw=2, ls='--', zorder=6)
+                  label='$\\hat{\\alpha} > 0$', color='r', lw=2, ls='--', zorder=6)
         ax.fill_between(limit_data['pos_limit'][0]*1e6, limit_data['pos_limit'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['pos_limit'][0])), \
-                        color='r', alpha=0.25, zorder=5 )
+                        fc='w', alpha=1.0, zorder=4, ec='none' )
+        ax.fill_between(limit_data['pos_limit'][0]*1e6, limit_data['pos_limit'][limit_ax+1], \
+                        10.0*ylim[1]*np.ones(len(limit_data['pos_limit'][0])), \
+                        fc='r', alpha=0.3, zorder=5, ec='none' )
 
         ax.loglog(limit_data['neg_limit'][0]*1e6, limit_data['neg_limit'][limit_ax+1], \
-                  label='                 $\\hat{\\alpha} < 0$', color='r', lw=3, ls=':', zorder=6)
+                  label='$\\hat{\\alpha} < 0$', color='b', lw=3, ls=':', zorder=6)
         ax.fill_between(limit_data['neg_limit'][0]*1e6, limit_data['neg_limit'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['neg_limit'][0])), \
-                        color='r', alpha=0.25, zorder=5 )
+                        fc='w', alpha=1.0, zorder=4, ec='none' )
+        ax.fill_between(limit_data['neg_limit'][0]*1e6, limit_data['neg_limit'][limit_ax+1], \
+                        10.0*ylim[1]*np.ones(len(limit_data['neg_limit'][0])), \
+                        fc='b', alpha=0.3, zorder=5, ec='none' )
     else:
         ax.loglog(limit_data['limit'][0]*1e6, limit_data['limit'][limit_ax+1], \
                   label='This work', color='r', lw=2, zorder=6)
@@ -109,11 +115,12 @@ hh_g2h = np.interp(cdat_g2l[:,0], cdat_g2h[:,0], cdat_g2h[:,1])
 #prev meas
 cmeas = np.loadtxt('prev_meas/master_all.txt',delimiter=",",skiprows=1)
 #plt.fill_between(cmeas[:,0]*1e6,cmeas[:,1],1e20,color=[135./256,205./256,250/256.])
-ax.fill_between(cmeas[:,0]*1e6,cmeas[:,1],1e20,color='k',alpha=0.5, zorder=2)
-ax.text(50, 1e6, 'Excluded by\nexperiments', \
-        horizontalalignment='center', \
-        verticalalignment='center', \
-        multialignment='center')
+ax.fill_between(cmeas[:,0]*1e6,cmeas[:,1],1e20,color='k',alpha=0.2, zorder=2)
+# ax.text(45, 3.5e6, 'Excluded by\nexperiments', \
+#         horizontalalignment='center', \
+#         verticalalignment='center', \
+#         multialignment='center')
+
 
 # cmeas = np.loadtxt('prev_meas/decca_prl_94_240401_2005.txt',delimiter=",",skiprows=1)
 # ax.loglog(cmeas[:,0]*1e6,cmeas[:,1],'k',linewidth=1, zorder=3)
@@ -133,23 +140,23 @@ if annotate:
     if ref:
         ax.text(3.5, 1.5e8, 'PRL 107, 17110111 (2011)', rotation=-37, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
     if institute:
         ax.text(2.5, 1.2e8, 'Yale (2011)', rotation=-37, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
 
 cmeas = np.loadtxt('prev_meas/geraci_prd_78_022002_2008.txt',delimiter=",",skiprows=1)
 ax.loglog(cmeas[:,0]*1e6,cmeas[:,1],'k',linewidth=1, zorder=3)
 if annotate:
     if ref:
-        ax.text(15, 9e2, 'PRD 78, 022002 (2008)', rotation=-40, \
+        ax.text(15, 9e2, 'PRD 78, 022002 (2008)', rotation=-42, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
     if institute:
-        ax.text(14, 6e3, 'Stanford (2008)', rotation=-40, \
+        ax.text(13, 1.3e4, 'Stanford (2008)', rotation=-42, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
 
 # cmeas = np.loadtxt('prev_meas/kapner_prl_98_021101_2007.txt',delimiter=",",skiprows=1)
 # ax.loglog(cmeas[:,0]*1e6,cmeas[:,1],'k',linewidth=1, zorder=3)
@@ -169,14 +176,14 @@ if annotate:
     if ref:
         ax.text(40, 5, 'PRL 124, 101101 (2020)', rotation=-33, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
     if institute:
         # ax.text(40, 4, 'Washington (2020)', rotation=-38, \
         #          horizontalalignment='center', \
         #          verticalalignment='center', fontsize=12)
-        ax.text(7.2, 2.0e4, 'Washington (2020)', rotation=-63, \
+        ax.text(6.5, 5.0e4, 'Washington (2020)', rotation=-63, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
 
 
 cmeas = np.loadtxt('prev_meas/decca_2014.txt',delimiter=",",skiprows=0)
@@ -185,11 +192,11 @@ if annotate:
     if ref:
         ax.text(3, 1.2e6, 'PRL 116, 221102 (2016)', rotation=-25, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
     if institute:
         ax.text(2.5, 8.5e5, 'IUPUI (2016)', rotation=-25, \
                  horizontalalignment='center', \
-                 verticalalignment='center', fontsize=12)
+                 verticalalignment='center', fontsize=16)
 
 
 # cmeas = np.loadtxt('prev_meas/yang_prl_108_081101_2012.txt',delimiter=",",skiprows=1)
@@ -302,7 +309,7 @@ if plot_projections:
 
 
 if plot_limit or plot_projections:
-    ax.legend(loc='upper right', fontsize=14, framealpha=1, labelspacing=1.0).set_zorder(100)
+    ax.legend(loc='upper right', fontsize=16, framealpha=1, labelspacing=1.0).set_zorder(100)
 
 
 
@@ -319,6 +326,7 @@ if plot_limit or plot_projections:
 ax.set_xlim(*xlim)
 ax.set_ylim(*ylim)
 ax.plot(np.array(xlim),[1,1],'k--', zorder=1)
+ax.grid()
 # ax.yaxis.set_yticks(np.logspace(-2,12,8))
 ax.set_xlabel('Length scale, $\\lambda$ [$\\mu$m]')
 ax.set_ylabel('Strength parameter, $\\alpha$')

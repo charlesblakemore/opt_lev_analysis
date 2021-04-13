@@ -61,7 +61,14 @@ plt.rcParams.update({'font.size': 16})
 
 # dirname = '/data/old_trap/20200924/bead1/spinning/initial_test'
 # dirname = '/data/old_trap/20200924/bead1/spinning/dipole_meas/initial/trial_0000'
-dirname = '/data/old_trap/20200924/bead1/spinning/crosstalk_check'
+# dirname = '/data/old_trap/20200924/bead1/spinning/crosstalk_check'
+# dirname = '/data/old_trap/20200924/bead1/spinning/dds_phase_modulation_8Vpp_test'
+# dirname = '/data/old_trap/20200924/bead1/spinning/dds_phase_impulse_3Vpp_high_dg_2/trial_0000'
+# dirname = '/data/old_trap/20200924/bead1/spinning/junk/55kHz_check'
+# dirname = '/data/old_trap/20200924/bead1/spinning/ringdown/55kHz_start_2'
+# dirname = '/data/old_trap/20200924/bead1/spinning/junk/110kHz_start_2'
+
+dirname  = '/data/old_trap/20201113/bead1/spinning/dipole_meas/initial'
 
 use_dir = True
 #use_dir = False
@@ -93,7 +100,7 @@ labels = []
 
 #file_inds = (-10,-1)
 file_inds = (0, 100)
-file_step = 41
+file_step = 10
 
 userNFFT = 2**20
 fullNFFT = False
@@ -144,37 +151,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
        OUTPUTS: none, plots stuff
     '''
-
-    if track_feature:
-        obj0 = bu.hsDat(files[0], load=True)
-        freqs0 = np.fft.rfftfreq(obj0.attribs['nsamp'], d=1.0/obj0.attribs['fsamp'])
-        asd = bu.fft_norm(obj0.attribs['nsamp'], obj0.attribs['fsamp']) * \
-                np.abs(np.fft.rfft(obj0.dat[:,0]))
-
-        fsamp = obj0.attribs['fsamp']
-        nsamp = obj0.attribs['nsamp']
-        t0 = obj0.attribs['time']
-
-        if approx_feature_loc == 0.0:
-            plt.loglog(freqs0, asd)
-            plt.show()
-            center_guess = float(input('Feature location [Hz]: '))
-        else:
-            center_guess = approx_feature_loc
-
-        maxind = np.argmax(asd * (np.abs(freqs0 - center_guess)<0.5*tracking_band))
-        fc = freqs0[maxind]
-
-        upper1 = (2.0 / fsamp) * (fc + 0.5 * tracking_band)
-        lower1 = (2.0 / fsamp) * (fc - 0.5 * tracking_band)
-        b1, a1 = signal.butter(3, [lower1, upper1], btype='bandpass')
-
-        dat_filt = signal.filtfilt(b1, a1, obj0.dat[:,0])
-
-        dat_filt_asd = np.abs(np.fft.rfft(dat_filt))
-        popt, pcov = opti.curve_fit(lorentzian, freqs0, dat_filt_asd, p0=[dat_filt_asd[maxind], fc, 5, 0])
-
-        fc_old = popt[1]
 
 
 
@@ -239,30 +215,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
             plot_inds = (freqs > plot_freqs[0]) * (freqs < plot_freqs[1])
 
-            if track_feature and (axind == tracking_axis):
-
-                freqs_full = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
-                asd_full = np.abs(np.fft.rfft(obj.dat[:,axind]))
-
-                maxind = np.argmax(asd_full * (np.abs(freqs_full - fc_old)<0.5*tracking_band))
-                fc = freqs_full[maxind]
-
-                upper1 = (2.0 / fsamp) * (fc + 5 * tracking_band)
-                lower1 = (2.0 / fsamp) * (fc - 5 * tracking_band)
-                b1, a1 = signal.butter(3, [lower1, upper1], btype='bandpass')
-
-                dat_filt = signal.filtfilt(b1, a1, obj.dat[:,axind])
-
-                dat_filt_asd = np.abs(np.fft.rfft(dat_filt))
-                try:
-                    popt, pcov = opti.curve_fit(lorentzian, freqs_full, dat_filt_asd, \
-                                                    p0=[dat_filt_asd[maxind], fc, 5, 0])
-                    fc_old = popt[1]
-                except:
-                    print('bad fit')
-
-                times.append((t-t0)*1e-9)
-                feature_locs.append(fc_old)
 
             if len(labels):
                 daxarr[axind].loglog(freqs[plot_inds], asd[plot_inds]*fac, \
@@ -289,17 +241,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
     if savefig:
         dfig.savefig(fig_savename)
-
-    if track_feature:
-        trackfig, trackax = plt.subplots(1,1)
-        trackax.plot(times, feature_locs)
-        trackax.set_xlabel('Time [s]')
-        trackax.set_ylabel('Center Frequency [Hz]')
-
-        if len(tracking_savefile):
-            np.save( open(tracking_savefile, 'wb'), np.array([times, feature_locs]) )
-
-        plt.tight_layout()
 
 
     plt.show()

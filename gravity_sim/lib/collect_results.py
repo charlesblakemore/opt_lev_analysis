@@ -14,23 +14,28 @@ parent = str( Path(os.path.abspath(__file__)).parents[1] )
 raw_path = os.path.join(parent, 'raw_results')
 out_path = os.path.join(parent, 'results')
 
-out_subdir = '4_6um-gbead_1um-unit-cells/'
-# out_subdir = '7_6um-gbead_1um-unit-cells/'
+# out_subdir = '4_7um-bead_1um-unit-cells/'
+# out_subdir = '4_6um-gbead_1um-unit-cells/'
+# out_subdir = '4_6um-gbead_1um-unit-cells_close/'
+out_subdir = '7_6um-gbead_1um-unit-cells_z8um-attractor_master/'
+# out_subdir = '5um-gbead_1um-unit-cells_master/'
 out_path = os.path.join(out_path, out_subdir)
 
 ### HAVE TO EDIT THIS FUNCTION TO PARSE SIMULATION OUTPUT
 ### THAT HAS MULTIPLE BEAD RADII. TRUE VALUE MEANS IT WILL
 ### BE INCLUDED
 def rbead_cond(rbead):
-    if rbead > 2.5e-6:
+    if rbead > 5.0e-6:
         return False 
+    elif rbead > 3.0e-6:
+        return True
     else:
         return True
 
 test_filename = os.path.join(out_path, 'test.p')
 bu.make_all_pardirs(test_filename)
 
-raw_filenames, _ = bu.find_all_fnames(raw_path, ext='.p')
+raw_filenames, _ = bu.find_all_fnames(raw_path, ext='.p', skip_subdirectories=True)
 
 ### Loop over all the simulation outut files and extract the 
 ### simulation parameters used in that file (rbead, sep, height, etc)
@@ -50,10 +55,12 @@ for fil_ind, fil in enumerate(raw_filenames):
         if type(key) == str:
             continue
         else:
-            rbead = key
-            break
-    if not rbead_cond(rbead):
+            rbead_key = key
+
+    if not rbead_cond(rbead_key):
         continue
+    else:
+        rbead = rbead_key
 
     ### Should probably check if there is more than one key
     cseps = list(sim_out[rbead].keys())
@@ -102,10 +109,12 @@ for fil_ind, fil in enumerate(raw_filenames):
         if type(key) == str:
             continue
         else:
-            rbead = key
-            break
-    if not rbead_cond(rbead):
+            rbead_key = key
+
+    if not rbead_cond(rbead_key):
         continue
+    else:
+        rbead = rbead_key
 
     cseps = list(sim_out[rbead].keys())
     sep = cseps[0]
@@ -123,6 +132,7 @@ for fil_ind, fil in enumerate(raw_filenames):
         for lambind, lamb in enumerate(lambdas):
             yukoutarr[lambind,sepind,:,heightind,ind] = dat[lamb][ind+3]
 
+print(rbead)
 print("Done!")
 print()
 

@@ -28,35 +28,62 @@ import configuration as config
 # first_file = 0
 # last_file = -1
 
-step_cal_dir = ['/data/old_trap/20200924/bead1/discharge/fine/']
+# step_cal_dir = ['/data/old_trap/20200924/bead1/discharge/fine/']
+# first_file = 0
+# last_file = -1
+
+# step_cal_dir = ['/data/old_trap/20201030/bead1/discharge/fine/']
+# first_file = 0
+# last_file = 550
+
+step_cal_dir = ['/data/old_trap/20201222/gbead1/discharge/fine/']
 first_file = 0
 last_file = -1
 
 using_tabor = True
-tabor_ind = 3
+# tabor_ind = 3
+tabor_ind = 4
+
+
+# new_trap = True
+new_trap = False
 
 # step_cal_dir = ['/data/new_trap/20200113/Bead1/Discharge/']
 # first_file = 64
 # last_file = -1
 
 # step_cal_dir = ['/data/new_trap/20200320/Bead1/Discharge/Discharge_after_Mass_20200402/']
-# first_file = 300
+# # first_file = 300
+# first_file = 0
 # last_file = -1
 
 # step_cal_dir = ['/data/new_trap/20200525/Bead2/Discharge/Discharge0526/']
 # first_file = 0
 # last_file = -1
 
-skip_subdirectories = True
+
+files_to_pop = []
+# files_to_pop = [120, 125, 126, 133, 147, 155, 161, 162, 168, \
+#                 174, 175, 185, 186, 194, 204, 228, 229, 230, \
+#                 231, 235, 279, 282]
+# files_to_pop = [46, 133, 209]
+# files_to_pop = [229, 230, 231, 232, 233, 234]
+
+
+
+skip_subdirectories = False
 
 elec_channel_select = 1
 # pcol = -1
 # pcol = 2
 pcol = 2
 
-# correlation_phase = np.pi/4
-correlation_phase = 0
+
+correlation_phase = 0.0
+# correlation_phase = -1.0 * np.pi / 4.0
+# correlation_phase = np.pi / 6.0
 plot_correlations = True
+
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
@@ -68,13 +95,13 @@ decimate = False
 dec_fac = 2
 
 fake_step_cal = False
-# drive_freq = 71.0
-drive_freq = 41.0
 
 # ## OLD TRAP
 # vpn = 7.264e16
+# drive_freq = 41.0
 ## NEW TRAP
-vpn = 1.79e17
+vpn = 1.796986e17
+drive_freq = 71.0
 
 plot_residual_histograms = True
 
@@ -84,9 +111,6 @@ plot_residual_histograms = True
 #####################################
 
 tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
-files_to_pop = [120, 125, 126, 133, 147, 155, 161, 162, 168, \
-                174, 175, 185, 186, 194, 204, 228, 229, 230, \
-                231, 235, 279, 282]
 
 # tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200110/Bead2/TransFunc/'
@@ -94,16 +118,20 @@ files_to_pop = [120, 125, 126, 133, 147, 155, 161, 162, 168, \
 # tf_cal_dir = '/data/new_trap/20200320/Bead1/TransFunc/'
 
 tf_substr = ''
+# tf_substr = 'm300k_250s_1hz'
 # tf_substr = 'm300k_50s'
 # tf_substr = '_0.h5'
 
-
-lines_to_remove = [60.0, 420.0]
-fit_freqs = [10.0, 700.0]
+# lines_to_remove = []
+lines_to_remove = [7.0, 35.0, 60.0, 98, 420.0, 490.0]
+fit_freqs = [1.0, 600.0]
 
 plot_tf = True
 plot_tf_fits = True
 plot_off_diagonal = False
+
+full_interp = True
+smoothing = 1.0
 
 plot_inverse_tf = False
 suppress_off_diag = True
@@ -113,11 +141,8 @@ suppress_off_diag = True
 ### Shared settings
 #####################################
 
-# new_trap = True
-new_trap = False
-
-# save = True
-save = False
+save = True
+# save = False
 
 save_charge = True
 # save_charge = False
@@ -173,14 +198,18 @@ if new_trap:
 bu.make_all_pardirs(savepath)
 
 use_origin_timestamp = False
-if new_trap:
-    use_origin_timestamp = True
+# if new_trap:
+#     use_origin_timestamp = True
 
 
 # Find all the relevant files
-step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_time=True, \
+step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_by_index=True, #sort_time=True, \
                                              use_origin_timestamp=use_origin_timestamp, \
                                              skip_subdirectories=skip_subdirectories)
+for name in step_cal_files:
+    print(name)
+input()
+
 for filind in files_to_pop[::-1]:
     step_cal_files.pop(filind)
 
@@ -206,7 +235,8 @@ if recharge:
 
 
 
-tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr)
+tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr, \
+                                           skip_subdirectories=False)
 
 # tf_cal_files = ['/data/new_trap/20200525/Bead2/TransFunc/TransFunc_X_7.h5', \
 #                 '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Y_7.h5', \
@@ -295,6 +325,10 @@ if not fake_step_cal:
     step_cal_vec_max = np.array(step_cal_vec_max)
     step_cal_vec_userphase = np.array(step_cal_vec_userphase)
 
+    step_cal_vec_inphase[-5:] = 0
+    step_cal_vec_max[-5:] = 0
+    step_cal_vec_userphase[-5:] = 0
+
     if plot_correlations:
         plt.rcParams.update({'font.size': 16})
         # tvec = np.arange(len(step_cal_vec_inphase)) * 10
@@ -369,7 +403,8 @@ Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
                         plot_inits=False, weight_phase=True, grid=True,\
                         deweight_peak=True, lowf_weight_fac=0.01, \
                         real_unwrap=True, derpy_unwrap=False, \
-                        fit_freqs=fit_freqs)
+                        fit_freqs=fit_freqs, full_interp=full_interp, \
+                        smoothing=smoothing)
 
 if plot_inverse_tf:
     freqs = np.linspace(1, 1000, 2500)

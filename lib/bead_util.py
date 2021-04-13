@@ -20,6 +20,7 @@ from bead_util_funcs import *
 from bead_data_funcs import *
 from bead_properties import *
 from stats_util import *
+from plot_util import *
 
 #######################################################
 # This module contains the DataFile class which stores
@@ -92,7 +93,10 @@ class DataFile:
         self.date = re.search(r"\d{8,}", fname)[0]
 
         self.fsamp = attribs["Fsamp"]
-        self.time = attribs["time"]
+        try:
+            self.time = attribs["time"]
+        except:
+            self.time = attribs["Time"]
 
         try:
             self.temps = attribs["temps"]
@@ -165,7 +169,11 @@ class DataFile:
         self.date = re.search(r"\d{8,}", fname)[0]
         #print fname
 
-        self.time = np.uint64(attribs["time"])   # unix epoch time in ns (time.time() * 10**9)
+        # self.time = np.uint64(attribs["time"])   # unix epoch time in ns (time.time() * 10**9)
+        try:
+            self.time = attribs["time"]
+        except:
+            self.time = attribs["Time"]
 
         if self.time == 0:
             #print 'Bad time...', self.time
@@ -173,7 +181,11 @@ class DataFile:
         else:
             self.FIX_TIME = False
 
-        self.fsamp = attribs["Fsamp"]
+        try:
+            self.fsamp = attribs["fsamp"]
+        except:
+            self.fsamp = attribs["Fsamp"]
+            
         self.nsamp = len(dat[:,0])
 
         self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \
@@ -509,9 +521,15 @@ class DataFile:
         if self.new_trap:
             cal_fac = configuration.stage_cal_new
             cal_fac_z = configuration.stage_cal_new_z
+
+            cal_func = configuration.stage_cal_new_func
+            cal_func_z = configuration.stage_cal_new_z_func
         else:
             cal_fac = configuration.stage_cal
             cal_fac_z = cal_fac
+
+            cal_func = configuration.stage_cal_func
+            cal_func_z = configuration.stage_cal_func
 
             try:
                 # First get everything into microns.
@@ -523,9 +541,14 @@ class DataFile:
                 traceback.print_exc()
             
         try:
-            self.cant_data[0] *= cal_fac
-            self.cant_data[1] *= cal_fac
-            self.cant_data[2] *= cal_fac_z
+            # self.cant_data[0] *= cal_fac
+            # self.cant_data[1] *= cal_fac
+            # self.cant_data[2] *= cal_fac_z
+
+            self.cant_data[0] = cal_func(self.cant_data[0])
+            self.cant_data[1] = cal_func(self.cant_data[1])
+            self.cant_data[2] = cal_func_z(self.cant_data[2])
+
             self.cant_calibrated = True
 
         except Exception:
@@ -827,6 +850,24 @@ class DataFile:
                 diagdatfft = np.fft.rfft(self.diag_pos_data[resp])
                 diagdatffts[resp] += diagdatfft[ginds]
 
+            # print(diagdatffts[resp])
+
+            # fig, axarr = plt.subplots(2,1,sharex=True)
+            # axarr[0].set_title('Axis {:d}'.format(resp))
+            # axarr[0].scatter(harm_freqs, np.abs(datffts[resp]), s=25, label='scaled')
+            # axarr[0].scatter(harm_freqs, np.abs(diagdatffts[resp]), s=25, label='diag')
+            # axarr[1].scatter(harm_freqs, np.angle(datffts[resp]), s=25, label='scaled')
+            # axarr[1].scatter(harm_freqs, np.angle(diagdatffts[resp]), s=25, label='diag')
+            # axarr[0].set_yscale('log')
+            # axarr[0].legend()
+            # for i in [0,1]:
+            #     axarr[i].set_xscale('log')
+            # axarr[1].set_xlabel('Frequency [Hz]')
+            # fig.tight_layout()
+            # plt.show()
+            # input()
+
+
             err_ginds = []
             for freqind, freq in enumerate(harm_freqs):
                 harm_ind = np.argmin(np.abs(freqs-freq))
@@ -1010,7 +1051,8 @@ class DataFile:
 
 
     def diagonalize(self, date='', maxfreq=1000, suppress_off_diag=False,\
-                    step_cal_drive_freq=41.0, plot=False):
+                    step_cal_drive_freq=41.0, plot=False, adjust_phase=False,\
+                    adjust_phase_dict={}):
         '''Diagonalizes data, adding a new attribute to the DataFile object.
 
            INPUTS: date, date in form YYYYMMDD if you don't want to use
@@ -1047,7 +1089,19 @@ class DataFile:
 
         ### Compute TF at frequencies of interest. Appropriately inverts
         ### so we can map response -> drive
-        Harr = tf.make_tf_array(freqs, Hfunc, suppress_off_diag=suppress_off_diag)
+        Harr = tf.make_tf_array(freqs, Hfunc, suppress_off_diag=suppress_off_diag, \
+                                adjust_phase=adjust_phase, \
+                                adjust_phase_dict=adjust_phase_dict)
+
+        # derp_freqs = np.array([3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, \
+        #                        24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 71.0])
+        # Harr_derp = tf.make_tf_array(derp_freqs, Hfunc, suppress_off_diag=True, \
+        #                              adjust_phase=adjust_phase, \
+        #                              adjust_phase_dict=adjust_phase_dict)
+        # for i, freq in enumerate(derp_freqs):
+        #     val = Harr_derp[i,2,2]
+        #     print('{:0.1f} Hz: {:0.3g} N/bit, {:0.3g} rad'.format(freq, np.abs(val), np.angle(val)))
+        # input()
 
         ### Estimate the xy resonant frequencies from the fit. After changing
         ### how the fits are represented, this code remains commented as the
@@ -1058,6 +1112,8 @@ class DataFile:
 
         if plot:
             tf.plot_tf_array(freqs, Harr)
+            input()
+
 
         maxfreq_ind = np.argmin( np.abs(freqs - maxfreq) )
         Harr[maxfreq_ind+1:,:,:] = 0.0+0.0j
@@ -1076,7 +1132,8 @@ class DataFile:
             data = self.pos_data
         data_fft = np.fft.rfft(data)
         diag_fft = np.einsum('ikj,ki->ji', Harr, data_fft)
-
+        nan_inds = np.isnan(diag_fft)
+        diag_fft[nan_inds] = 0.0+0.0j
 
         if plot:
             norm = fft_norm(N, self.fsamp)
@@ -1261,6 +1318,16 @@ class hsDat:
         self.time = self.attribs['time']
         self.nsamp = self.attribs['nsamp']
         self.fsamp = self.attribs['fsamp']
+
+        try:
+            self.phi_dg = self.attrips['phi_dg']
+        except:
+            self.phi_dg = 0.0
+
+        try:
+            self.pm_freq = self.attribs['pm_freq']
+        except:
+            self.pm_freq = 0.0
 
 
 

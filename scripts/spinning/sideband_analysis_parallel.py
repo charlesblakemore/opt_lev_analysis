@@ -18,23 +18,23 @@ np.random.seed(12345)
 
 plot_raw_dat = False
 plot_demod = False
-plot_phase = False
+plot_phase = True
 plot_sideband_fit = False
 
-cleanup_outarr = True
+cleanup_outarr = False
 
 # fc = 220000.0
 # fc = 110000.0
 # fc = 100000.0
-fspin = 30000
-# fspin = 25000.0
+# fspin = 30000
+fspin = 25000.0
 wspin = 2.0*np.pi*fspin
 bandwidth = 6000.0
 high_pass = 50.0
 detrend = True
 force_2pi_wrap = False
 
-allowed_freqs = (250.0, 5000.0)
+allowed_freqs = (150.0, 2000.0)
 
 apply_notch = False
 notch_nharm = 15
@@ -54,7 +54,7 @@ noise_color_power = 0.9
 
 # Should probably measure these monitor factors
 tabor_mon_fac = 100
-#tabor_mon_fac = 100 * (1.0 / 0.95)
+tabor_mon_fac = 100 * (1.0 / 0.95)
 
 # base_path = '/daq2/20190626/bead1/spinning/wobble/wobble_slow_after-highp_later/'
 # base_save_path = '/processed_data/spinning/wobble/20190626/after-highp_slow_later/'
@@ -104,24 +104,29 @@ tabor_mon_fac = 100
 # base_path = '/data/old_trap/20200322/gbead1/spinning/wobble/50kHz_yz_1/'
 # base_save_path = '/data/old_trap_processed/spinning/wobble/20200322/50kHz_yz_1/'
 
-date = '20200727'
-meas = 'wobble_slow_2/'
+# date = '20200727'
+# meas = 'wobble_slow_2/'
 # date = '20200924'
-# meas = 'dipole_meas/initial/'
+# date = '20201030'
+date = '20201113'
+meas = 'dipole_meas'
+# meas = 'dipole_meas/initial'
 
 base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
 base_path = os.path.join(base, meas)
 invert_order = True
 
-base_save_path = '/data/old_trap_processed/spinning/wobble/{:s}/{:s}/'.format(date, meas)
+base_save_path = os.path.join('/data/old_trap_processed/spinning/wobble/', date, meas)
 
 path_dict = {}
 paths = []
 save_paths = []
+print(base_path)
 for root, dirnames, filenames in os.walk(base_path):
     for dirname in dirnames:
-        paths.append(base_path + dirname)
-        save_paths.append(base_save_path + dirname + '.npy')
+        print(dirname)
+        paths.append(os.path.join(base_path, dirname))
+        save_paths.append(os.path.join(base_save_path, dirname + '.npy'))
 npaths = len(paths)
 
 # paths = [base_path]
@@ -261,11 +266,19 @@ for meas in itertools.product(gases, inds):
                 phase_asd_filt_2 = phase_asd_filt_2 * freqs**noise_color_power
 
             if plot_phase:
-                plt.plot(freqs, phase_asd)
+                plt.plot(freqs, phase_mod)
+                plt.xlabel('Frequency [Hz]')
+                plt.ylabel('Phase [rad]')
+                plt.tight_layout()
+
                 plt.figure()
                 plt.loglog(freqs, phase_asd)
                 plt.loglog(freqs, phase_asd_filt)
                 plt.loglog(freqs, phase_asd_filt_2)
+                plt.xlabel('Frequency [Hz]')
+                plt.ylabel('Phase ASD [arb]')
+                plt.tight_layout()
+
                 plt.show()
 
                 input()

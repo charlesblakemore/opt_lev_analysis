@@ -91,16 +91,29 @@ file_dict['20200727'] = (arr, 1, 0)
 file_dict = {'20200727': (arr, 1, 0)}
 
 
-# arr = []  ### 
-# arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
-# arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
-# file_dict['20200924'] = (arr, 2, 1)
+arr = []  ### 
+arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
+arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
+file_dict['20200924'] = (arr, 2, 1)
 
-# file_dict = {'20200924': (arr, 2, 1)}
-
-
+file_dict = {'20200924': (arr, 2, 1)}
 
 
+arr = []  ### 
+arr.append('/data/old_trap/20201030/bead1/weigh/6Vpp_lowp_neg')
+file_dict['20201030'] = (arr, 2, 1)
+
+file_dict = {'20201030': (arr, 2, 1)}
+
+
+arr = []  ### 
+arr.append('/data/old_trap/20201222/gbead1/weigh/8Vpp_lowp_neg')
+file_dict['20201222'] = (arr, 2, 0)
+
+file_dict = {'20201222': (arr, 2, 0)}
+
+# xlim = (-10, 100)
+xlim = (-40, 450)
 
 # arr = []  ### 
 # arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
@@ -109,7 +122,8 @@ file_dict = {'20200727': (arr, 1, 0)}
 
 # file_dict = {'20200320': (arr, 1, 0)}
 
-
+manual_charge = 0
+# manual_charge = 25
 
 # Noise data
 #chopper = True
@@ -154,9 +168,9 @@ save = False
 
 fullNFFT = False
 
-correct_phase_shift = True
+correct_phase_shift = False
 
-save_mass = True
+save_mass = False
 print_res = True
 plot = True
 
@@ -164,7 +178,8 @@ save_example = False
 example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.png'
 
 # upper_outlier = 95e-15  # in kg
-upper_outlier = 95e-13
+# upper_outlier = 95e-13
+upper_outlier = 600e-15
 
 lower_outlier = 70e-15
 # lower_outlier = 1e-15
@@ -218,10 +233,15 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     else:
         charge_file += '.charge'
 
+
     try:
         nq = np.load(charge_file)[0]
+        found_charge = True
     except:
-        user_nq = input('No charge file. Guess q: ')
+        found_charge = False
+
+    if not found_charge or manual_charge:
+        user_nq = input('No charge file or manual requested. Guess q: ')
         nq = int(user_nq)
 
     if correct_phase_shift:
@@ -500,7 +520,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                  label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
         # ax.set_xlim((left, 500))
-        ax.set_xlim((left, 110))
+        ax.set_xlim(*xlim)
 
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))
@@ -571,15 +591,15 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     if print_res:
         gresid_fac = (2.0 * np.pi * freqs[drive_ind])**2 / 9.8
 
-        print('      mass    [pg]: %0.1f' % (final_mass*1e15))
-        print('      st.err  [pg]: %0.2f' % (final_err_stat*1e15))
-        print('      sys.err [pg]: %0.2f' % (final_err_sys*1e15))
-        print('      qbead    [e]: %i' % (q_bead/constants.elementary_charge))
-        print('      P     [mbar]: %0.2e' % final_pressure)
-        print('      <P>    [arb]: %0.2e' % (power_avg / power_N))
-        print('      zresid   [g]: %0.3e' % ((zamp_avg / zamp_N) * gresid_fac))
-        print('      zphase [rad]: %0.3e' % (zphase_avg / zamp_N))
-        print('      zfb    [arb]: %0.3e' % (zfb_avg / zfb_N))
+        print('      mass    [pg]: {:0.1f}'.format(final_mass*1e15))
+        print('      st.err  [pg]: {:0.2f}'.format(final_err_stat*1e15))
+        print('      sys.err [pg]: {:0.2f}'.format(final_err_sys*1e15))
+        print('      qbead    [e]: {:d}'.format(int(round(q_bead/constants.elementary_charge))))
+        print('      P     [mbar]: {:0.2e}'.format(final_pressure))
+        print('      <P>    [arb]: {:0.2e}'.format(power_avg / power_N))
+        print('      zresid   [g]: {:0.3e}'.format((zamp_avg / zamp_N) * gresid_fac))
+        print('      zphase [rad]: {:0.3e}'.format(zphase_avg / zamp_N))
+        print('      zfb    [arb]: {:0.3e}'.format(zfb_avg / zfb_N))
         outarr = [ final_mass*1e15, final_err_stat*1e15, final_err_sys*1e15, \
                    q_bead/constants.elementary_charge, \
                    final_pressure, power_avg / power_N, \

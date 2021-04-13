@@ -2,7 +2,6 @@ import os, time, sys, io
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tight_layout as tlt
-from hs_digitizer import *
 from iminuit import Minuit, describe
 from datetime import datetime
 
@@ -24,6 +23,7 @@ n_core = 20
 plt.rcParams.update({'font.size': 14})
 
 date = '20200322'
+date = '20200924'
 
 # fig_base = '/home/cblakemore/plots/20190626/'
 savefig = True
@@ -49,13 +49,13 @@ newpaths = paths
 # mbead_err = 1.6e-15
 
 priors = False
-manual_priors = True
+manual_priors = False
 fix_fterm = False
 
 fit_end_time = 3000.0
 exp_fit_end_time = 3000.0
 two_point_end_time = 3000.0
-tau_ylim = (1000, 2500)
+tau_ylim = (1100, 1400)
 # tau_ylim = (1850,2050)
 both_two_point = False
 
@@ -87,8 +87,10 @@ err_adjust = 5.0
 #             dirname + '110kHz_start_6_coarse_all.p', \
 #             ]
 
-newpaths = [os.path.join(dirname, '110kHz_1_all.p'), \
-            os.path.join(dirname, '110kHz_2_all.p'), \
+newpaths = [\
+            # os.path.join(dirname, '110kHz_start_1_all.p'), \
+            os.path.join(dirname, '110kHz_start_2_all.p'), \
+            os.path.join(dirname, '110kHz_start_3_all.p'), \
            ]
 
 
@@ -700,9 +702,9 @@ if savefig:
 
 # plt.show()
 
-print(two_point_estimates)
-for i in range(len(two_point_estimates)):
-    print(np.mean(two_point_estimates[i]))
+# print(two_point_estimates)
+# for i in range(len(two_point_estimates)):
+#     print(np.mean(two_point_estimates[i]))
 
 
 

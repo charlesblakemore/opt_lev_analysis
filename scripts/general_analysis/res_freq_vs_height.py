@@ -8,7 +8,7 @@ import transfer_func_util as tf
 
 plt.rcParams.update({'font.size': 16})
 
-dirname = '/data/old_trap/20200330/gbead3/res_freq_vs_height/coarse_3'
+dirname = '/data/old_trap/20201222/gbead1/res_freq_vs_height/coarse_2'
 
 files, _ = bu.find_all_fnames(dirname, ext='.h5', sort_time=True)
 nfiles = len(files)
@@ -22,7 +22,7 @@ window = mlab.window_none
 plot_raw_data = False
 fit_debug = False
 
-freq_lims = (0, 1000)
+freq_lims = (20, 1000)
 
 
 #######################################
@@ -55,32 +55,32 @@ for filind, filename in enumerate(files):
 
         p0 = [np.std(df.pos_data[i])*df.nsamp, 300, 100]
 
-        try:
-            popt, pcov = opti.curve_fit(tf.damped_osc_amp, freqs[inds], asd[inds], p0=p0, \
-                                        maxfev=10000)
-        except:
-            popt = p0
+        # try:
+        popt, pcov = opti.curve_fit(bu.damped_osc_amp, freqs[inds], asd[inds], p0=p0, \
+                                    maxfev=10000)
+        # except:
+        #     popt = p0
 
         if fit_debug:
             plt.loglog(freqs, asd)
-            plt.loglog(freqs, tf.damped_osc_amp(freqs, *p0), lw=2, ls='--', \
+            plt.loglog(freqs, bu.damped_osc_amp(freqs, *p0), lw=2, ls='--', \
                         color='k', label='init guess')
-            plt.loglog(freqs, tf.damped_osc_amp(freqs, *popt), lw=2, ls='--', \
+            plt.loglog(freqs, bu.damped_osc_amp(freqs, *popt), lw=2, ls='--', \
                         color='r', label='fit result')
             plt.legend(fontsize=10)
             plt.show()
+            input()
 
-        fit_freqs[filind, i] = popt[1]
+        fit_freqs[filind, i] = np.abs(popt[1])
 
-fig, axarr = plt.subplots(2,1,sharex=True)
+fig, ax = plt.subplots(1,1,figsize=(8,6))
 
-axarr[0].plot(fit_freqs[:,0], label='X freqs')
-axarr[0].plot(fit_freqs[:,1], label='Y freqs')
-axarr[1].plot(zavg)
+ax.plot(zavg, fit_freqs[:,0], label='X freqs')
+ax.plot(zavg, fit_freqs[:,1], label='Y freqs')
 
-axarr[0].set_ylabel('Frequency [Hz]')
-axarr[1].set_ylabel('Mean Z-posotion')
-axarr[1].set_xlabel('File index')
+ax.set_ylabel('Frequency [Hz]')
+ax.set_xlabel('Mean Z-posotion')
+ax.legend(fontsize=12)
 
 fig.tight_layout()
 plt.show()

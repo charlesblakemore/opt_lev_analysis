@@ -12,8 +12,8 @@ from scipy.optimize import curve_fit
 
 
 
-data_dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init_2'
-data_dir2 = '/data/old_trap/20200312/beam_profiling/xprof_init_2'
+data_dir1 = '/data/old_trap/20201202/profiling/xsweep_init'
+data_dir2 = '/data/old_trap/20201202/profiling/xsweep_init'
 
 
 debug_plot = False
@@ -41,7 +41,7 @@ data_column2 = 0  # For data circa 2016: 0
 
 def profile(fname, data_column = 0, plot=False):
     df = bu.DataFile()
-    df.load(fname)
+    df.load(fname, skip_fpga=True)
     df.load_other_data()
     df.calibrate_stage_position()
 
@@ -98,7 +98,8 @@ def profile(fname, data_column = 0, plot=False):
 
     # sort_inds = np.argsort(xvec)
 
-    b, y, e = bu.spatial_bin(xvec, yvec, dt, nbins=300, nharmonics=300, add_mean=True)
+    # b, y, e = bu.spatial_bin(xvec, yvec, dt, nbins=300, nharmonics=300, add_mean=True)
+    b, y, e = bu.rebin(xvec, yvec, nbins=300)
 
     return b, y, e, h_round
 
@@ -139,7 +140,6 @@ class File_prof:
 def proc_dir(dir, data_column=0, plot=False):
     files = glob.glob(dir + '\*.h5')
     files, lengths = bu.find_all_fnames(dir)
-    #print files
     file_profs = []
     hs = []
     for fi in files:

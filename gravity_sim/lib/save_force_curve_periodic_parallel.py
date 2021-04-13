@@ -13,25 +13,31 @@ import build_attractor_v2_density as density
 import bead_util as bu
 
 from numba import jit
+from datetime import date
 
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-ncore = 24
+ncore = 20
 verbose = False
 
 ### Parameter list to simulate
-rbeads = np.array([2.32e-6, 3.78e-6])
-seps = np.arange(2.0e-6, 30.0e-6, 1.0e-6)
-heights = np.arange(-20.0e-6, 20.5e-6, 1.0e-6)
+# rbeads = np.array([2.35e-6])  # Bangs
+rbeads = np.array([3.78e-6])#, 2.32e-6])  # German
+# rbeads = np.array([7.5e-6])
+seps = np.arange(1.0e-6, 25.5e-6, 1.0e-6)
+# seps = np.arange(2.0e-6, 10.5e-6, 1.0e-6)
+heights = np.arange(-25.0e-6, 25.5e-6, 1.0e-6)
 
 ### Attractor properties in case they need to be adjusted
 density.attractor_params['include_bridge'] = True
 density.attractor_params['width_goldfinger'] = 25.0e-6
 density.attractor_params['width_siliconfinger'] = 25.0e-6
+density.attractor_params['height'] = 8.0e-6
+# density.attractor_params['height'] = 10.0e-6
 
 ### Whether or not to include the outer silicon edge at the limits
-### of y (I tink it amounts to a 12um wide strip of silicon) so it
+### of y (I think it amounts to a 12um wide strip of silicon) so it
 ### shouldn't change too much. It does increase computation time by 
 ### a factor of a few, but is more complete to include
 include_edge = True
@@ -40,11 +46,17 @@ include_edge = True
 ### docstring (and consider how to define the CENTERS of cubic unit
 ### cells, such that the unit cells themselves actually span the 
 ### physical space that you want).
+dxyz = 1.0e-6
+x_range = (-199.5e-6, 0e-6)
+y_range = (-249.5e-6, 250e-6)
+z_range = (-3.5e-6, 4e-6)
+# z_range = (-4.5e-6, 5e-6)
 xx, yy, zz, rho = \
-    density.build_3d_array(x_range=(-199.5e-6, 0e-6), dx=1.0e-6, \
-                           y_range=(-249.5e-6, 250e-6), dy=1.0e-6, \
-                           z_range=(-4.5e-6, 5e-6), dz=1.0e-6, \
+    density.build_3d_array(x_range=x_range, dx=dxyz, \
+                           y_range=y_range, dy=dxyz, \
+                           z_range=z_range, dz=dxyz, \
                            verbose=verbose)
+
 if verbose:
     print("Density Loaded.")
     sys.stdout.flush()
@@ -52,9 +64,10 @@ if verbose:
 ### Some other constants and simulation parameters
 G = 6.67e-11       # m^3 / (kg s^2)
 rhobead = 1850.0
+# rhobead = 1550.0
 
 ### Define values of the Yukawa lambda parameter to simulate
-lambdas = np.logspace(-6.3, -3, 100)
+lambdas = np.logspace(-6.7, -3, 150)
 lambdas = lambdas[::-1]
 
 ### Y-points over which to compute the result

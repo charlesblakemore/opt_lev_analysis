@@ -67,27 +67,43 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
        OUTPUTS:  H, (response / drive)'''
 
+    if new_trap:
+        using_tabor = False
+
     if not using_tabor:
         if pcol == -1:
             if ecol == -1:
                 ecol = np.argmax(file_obj.electrode_settings['driven'])
             pcol = config.elec_map[ecol]
 
-        #drive = file_obj.electrode_data[ecol]
-        if plot:
-            colors = bu.get_color_map(len(file_obj.electrode_data), cmap='plasma')
-            for i in range(len(file_obj.electrode_data)):
-                plt.plot(file_obj.electrode_data[i], color=colors[i], 
-                            label='Elec. {:s}'.format(str(i)))
-            plt.title('Electrode data [V]')
-            plt.legend()
-            plt.tight_layout()
-            plt.show()
-
-            input()
-
         efield = bu.trap_efield(file_obj.electrode_data, new_trap=new_trap)
         drive = efield[pcol]
+
+        #drive = file_obj.electrode_data[ecol]
+        if plot:
+            fig, axarr = plt.subplots(2,1,sharex=True)
+            tvec = np.arange(file_obj.nsamp) * (1.0 / file_obj.fsamp)
+            colors = bu.get_color_map(len(file_obj.electrode_data), cmap='plasma')
+            for i in range(len(file_obj.electrode_data)):
+                if file_obj.electrode_settings['driven'][i]:
+                    ext = ' - driven'
+                else:
+                    ext = ''
+                axarr[0].plot(tvec, file_obj.electrode_data[i], color=colors[i], 
+                            label='Elec. {:s}{:s}'.format(str(i), ext))
+            axarr[0].set_title('Electrode and Efield Data')
+            axarr[0].set_ylabel('Voltage [V]')
+            axarr[0].legend(fontsize=10, ncol=2, loc='upper right')
+
+            for i, ax in enumerate(['X', 'Y', 'Z']):
+                axarr[1].plot(tvec, efield[i], label=ax)
+            axarr[1].set_ylabel('Efield [V/m]')
+            axarr[1].set_xlabel('Time [s]')
+            axarr[1].legend(fontsize=10, loc='upper right')
+
+            fig.tight_layout()
+            fig.show()
+            input()
 
         # plt.plot(drive)
         # plt.show()
@@ -364,11 +380,11 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
     for val in resid_ylim:
         if np.abs(val) < 1.0:
             too_small = True
-    if too_small:
-        axarr[1].set_ylim(-1.1, 1.1)
-        resid_majorspace = 1.0
-    else:
-        resid_majorspace = 2.0
+    # if too_small:
+    axarr[1].set_ylim(-1.1, 1.1)
+    resid_majorspace = 1.0
+    # else:
+    #     resid_majorspace = 2.0
 
     normfitobj.setup_discharge_ticks(axarr, fit_majorspace=fit_majorspace, \
                                      resid_majorspace=resid_majorspace)
@@ -400,15 +416,21 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
 
         print("MANUAL STEP CALIBRATION")
         print("Enter guess at number of steps and charge at steps [[q1, q2, q3, ...], [x1, x2, x3, ...], vpq]")
-        nstep = eval(input(": "))
+        
+        try:
+            nstep = eval(input(": "))
+            plt.close(1)
 
-        plt.close(1)
+            step_qs = nstep[0]
+            step_inds = np.array(nstep[1]) * nsec
 
-        step_qs = nstep[0]
-        step_inds = np.array(nstep[1]) * nsec
+            p0 = [nstep[2],0.0]#Initial guess for the fit
+            popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-10)
 
-        p0 = [nstep[2],0.0]#Initial guess for the fit
-        popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-10)
+        except Exception:
+            plt.close(1)
+            continue
+
 
         fitobj = Fit(popt, pcov, ffun)#Store fit in object.
 
@@ -428,7 +450,7 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
                            ms=3, ylabel="Norm. Response [$e$]", xlabel="")
         normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
                                  ms=3, ylabel='Resid.', xlabel="Time [s]")
-        axarr[1].set_ylim(-2.2, 2.2)
+        axarr[1].set_ylim(-1.1, 1.1)
         normfitobj.setup_discharge_ticks(axarr)
 
         f.tight_layout()
@@ -561,7 +583,7 @@ class Fit:
         ax.set_xlim([np.min(xdata), np.max(xdata)])
 
 
-    def setup_discharge_ticks(self, axarr, fit_majorspace=5, resid_majorspace=2, \
+    def setup_discharge_ticks(self, axarr, fit_majorspace=5, resid_majorspace=1.0, \
                               major_alpha=0.8, minor_alpha=0.3, xgrid=False):
         '''Sets up the tick marks and labels for the yaxis of the discharge
            plots. This code was being called multiple times identically so 

@@ -150,31 +150,40 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
 
 
 
-def get_hdf5_time(fname):
-    try:
+def get_hdf5_time(fname, new_trap=False):
+    if new_trap:
         try:
-            f = h5py.File(fname,'r')
-            attribs = copy_attribs(f.attrs)
-            f.close()
+            d1, _, _, _, _, _, _ = getdata_new(fname)
+            pos_time, _, _, _, _ = extract_xyz_new(d1)
+            file_time = pos_time[0]
         except:
+            file_time = 0.0
+
+    else:
+        try:
+            try:
+                f = h5py.File(fname,'r')
+                attribs = copy_attribs(f.attrs)
+                f.close()
+            except:
+                attribs = {}
+                print('HDF5 file has no attributes object...')
+
+            if attribs == {}:
+                attribs = load_xml_attribs(fname)
+            
+
+        except Exception:
+            traceback.print_exc()
+            # print "Warning, got no keys for: ", fname
             attribs = {}
-            print('HDF5 file has no attributes object...')
 
-        if attribs == {}:
-            attribs = load_xml_attribs(fname)
-        
-
-    except Exception:
-        traceback.print_exc()
-        # print "Warning, got no keys for: ", fname
-        attribs = {}
-
-    try:
-        file_time = attribs["time"]
-    except Exception:
-        # print("Couldn't find a value for the time: {:s}".format(fname))
-        file_time = 0.0
-        # traceback.print_exc()
+        try:
+            file_time = attribs["time"]
+        except Exception:
+            # print("Couldn't find a value for the time: {:s}".format(fname))
+            file_time = 0.0
+            # traceback.print_exc()
 
     return file_time
 

@@ -78,7 +78,7 @@ if meas_ind:
     # meas = 'dds_phase_impulse_1Vpp_mid_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
     # meas = 'dds_phase_impulse_1Vpp_high_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
 else:
-    meas = 'dds_phase_impulse_1Vpp/trial_{:04d}'.format(trial_ind)
+    meas = 'dds_phase_impulse_8Vpp/trial_{:04d}'.format(trial_ind)
     # meas = 'dds_phase_impulse_1Vpp_lower_dg/trial_{:04d}'.format(trial_ind)
     # meas = 'dds_phase_impulse_1Vpp_low_dg/trial_{:04d}'.format(trial_ind)
     # meas = 'dds_phase_impulse_1Vpp_mid_dg/trial_{:04d}'.format(trial_ind)
@@ -114,7 +114,7 @@ detrend = True
 force_2pi_wrap = True
 
 ### Boolean flags for various sorts of plotting (used for debugging usually)
-plot_demod = False
+plot_demod = True
 
 ### Should probably measure these monitor factors
 tabor_mon_fac = 100
@@ -126,16 +126,16 @@ tabor_mon_fac = 100
 #########################
 ### Plotting behavior ###
 #########################
-show = False
+show = True
 
 output_band = (0, 5000)
 drive_output_band = (0, 80000)
 
 average_spectra = False
 
-save_spectra = True
+save_spectra = False
 processed_base = '/data/old_trap_processed/spinning/{:s}/'.format(date)
-spectra_save_path = os.path.join(processed_base, 'dds_feedback_spectra_1Vpp.p')
+spectra_save_path = os.path.join(processed_base, 'dds_feedback_spectra_8Vpp.p')
 
 waterfall = False   # Doesn't do anything if average_spectra = True
 waterfall_fac = 0.01
@@ -268,18 +268,20 @@ def proc_file(file):
     inds = np.abs(full_freqs - fspin) < 200.0
 
     elec3_fft = np.fft.rfft(elec3)
-    true_fspin = full_freqs[np.argmax(np.abs(elec3_fft))]
+    true_fspin = full_freqs[np.argmax(np.abs(elec3_fft)*inds)]
+    print(true_fspin)
     # true_fspin = np.average(full_freqs[inds], weights=np.abs(elec3_fft)[inds])
+    true_fspin = 25000.1
 
-    try:
-        amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
+    # try:
+    amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
                                   filt=True, bandwidth=bandwidth, \
                                   notch_freqs=notch_freqs, notch_qs=notch_qs, \
                                   tukey=True, tukey_alpha=5.0e-4, \
                                   detrend=detrend, detrend_order=1, harmind=2.0, \
                                   force_2pi_wrap=force_2pi_wrap)
-    except:
-        phase_mod = 1e-3 * np.random.randn(len(vperp))
+    # except:
+    #     phase_mod = 1e-3 * np.random.randn(len(vperp))
 
     phase_mod_fft = np.fft.rfft(phase_mod)[out_inds] * fac
 

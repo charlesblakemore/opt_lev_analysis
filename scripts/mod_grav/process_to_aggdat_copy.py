@@ -60,7 +60,7 @@ arg3 = int(sys.argv[3])
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/SBiN_2a/{:s}/'.format(arg)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/bkg_simple/{:s}/'.format(arg)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN/{:s}/'.format(arg1)]
-data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN2/{:s}/'.format(arg1)]
+data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN3/{:s}/'.format(arg1)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN3/{:s}/'.format(arg1)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/raw/noise/']
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/chas_tests/77/']
@@ -86,8 +86,8 @@ inj_key = arg1
 # binning_result_path = ''
 # binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_rand3_binning_2.p'
 # binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_far_rand1_binning.p'
-# binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin2_{:s}_binning.p'.format(arg1)
-binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin2_{:s}_rand{:d}_binning.p'\
+# binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin3_{:s}_binning.p'.format(arg1)
+binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin3_{:s}_rand{:d}_binning.p'\
                                     .format(arg1, arg3)
 try:
     binning_results = pickle.load(open(binning_result_path, 'rb'))

@@ -9,7 +9,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as colors
 import matplotlib.mlab as mlab
 
-import scipy.interpolate as interp
+import scipy.interpolate as interpolate
 import scipy.optimize as optimize
 import scipy.signal as signal
 import scipy.stats as stats
@@ -67,12 +67,12 @@ e_right_dat = np.loadtxt(os.path.join(calib_path, 'e-right_1V_left-right-axis.tx
 e_front_dat = np.loadtxt(os.path.join(calib_path, 'e-front_1V_front-back-axis.txt'), comments='%')
 e_back_dat  = np.loadtxt(os.path.join(calib_path, 'e-back_1V_front-back-axis.txt'), comments='%')
 
-E_front  = interp.interp1d(e_front_dat[0], e_front_dat[-1])
-E_back   = interp.interp1d(e_back_dat[0],  e_back_dat[-1])
-E_right  = interp.interp1d(e_right_dat[1], e_right_dat[-1])
-E_left   = interp.interp1d(e_left_dat[1],  e_left_dat[-1])
-E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
-E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
+E_front  = interpolate.interp1d(e_front_dat[0], e_front_dat[-1])
+E_back   = interpolate.interp1d(e_back_dat[0],  e_back_dat[-1])
+E_right  = interpolate.interp1d(e_right_dat[1], e_right_dat[-1])
+E_left   = interpolate.interp1d(e_left_dat[1],  e_left_dat[-1])
+E_top    = interpolate.interp1d(e_top_dat[2],   e_top_dat[-1])
+E_bot    = interpolate.interp1d(e_bot_dat[2],   e_bot_dat[-1])
 
 
 
@@ -84,12 +84,12 @@ e_yn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-y_-y-elec-1V_y-a
 e_zp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-z_+z-elec-1V_z-axis.txt'), comments='%').transpose()
 e_zn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-z_-z-elec-1V_z-axis.txt'), comments='%').transpose()
 
-E_xp  = interp.interp1d(e_xp_dat[0], e_xp_dat[-1])
-E_xn  = interp.interp1d(e_xn_dat[0], e_xn_dat[-1])
-E_yp  = interp.interp1d(e_yp_dat[1], e_yp_dat[-1])
-E_yn  = interp.interp1d(e_yn_dat[1], e_yn_dat[-1])
-E_zp  = interp.interp1d(e_zp_dat[2], e_zp_dat[-1])
-E_zn  = interp.interp1d(e_zn_dat[2], e_zn_dat[-1])
+E_xp  = interpolate.interp1d(e_xp_dat[0], e_xp_dat[-1])
+E_xn  = interpolate.interp1d(e_xn_dat[0], e_xn_dat[-1])
+E_yp  = interpolate.interp1d(e_yp_dat[1], e_yp_dat[-1])
+E_yn  = interpolate.interp1d(e_yn_dat[1], e_yn_dat[-1])
+E_zp  = interpolate.interp1d(e_zp_dat[2], e_zp_dat[-1])
+E_zn  = interpolate.interp1d(e_zn_dat[2], e_zn_dat[-1])
 
 # plt.figure()
 # plt.plot(e_front_dat[0], e_front_dat[-1])
@@ -360,9 +360,10 @@ def count_subdirectories(dirname):
 
 
 
-def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
+def find_all_fnames(dirlist, ext='.h5', sort=False, exclude_fpga=True, \
                     verbose=True, substr='', sort_time=False, \
-                    use_origin_timestamp=False, skip_subdirectories=False):
+                    sort_by_index=False, use_origin_timestamp=False, \
+                    skip_subdirectories=False):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -388,14 +389,12 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
 
     for dirname in dirlist:
         for root, dirnames, filenames in os.walk(dirname):
-            slashes_in_rootdir = len(root.split('/'))
+            if (root != dirname) and skip_subdirectories:
+                continue
             for filename in fnmatch.filter(filenames, '*' + ext):
-                slashes_in_filename = len(os.path.join(root, filename).split('/'))
                 if ('_fpga.h5' in filename) and exclude_fpga:
                     continue
                 if substr and (substr not in filename):
-                    continue
-                if skip_subdirectories and (slashes_in_filename != slashes_in_rootdir):
                     continue
                 files.append(os.path.join(root, filename))
         if was_list:
@@ -403,16 +402,25 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
                 lengths.append(len(files))
             else:
                 lengths.append(len(files) - np.sum(lengths)) 
-            
+
+    if len(files) == 0:
+        print("DIDN'T FIND ANY FILES :(")
+
+    if 'new_trap' in files[0]:
+        new_trap = True
+    else:
+        new_trap = False
+
     if sort:
         # Sort files based on final index
         files.sort(key = find_str)
 
-    if sort_time:
-        files = sort_files_by_timestamp(files, use_origin_timestamp=use_origin_timestamp)
+    if sort_by_index:
+        files.sort(key = lambda x: int(re.findall(r'_([0-9]+)\.', x)[0]) )
 
-    if len(files) == 0:
-        print("DIDN'T FIND ANY FILES :(")
+    if sort_time:
+        files = sort_files_by_timestamp(files, use_origin_timestamp=use_origin_timestamp, \
+                                        new_trap=new_trap)
 
     if verbose:
         print("Found %i files..." % len(files))
@@ -423,21 +431,22 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
 
 
 
-def sort_files_by_timestamp(files, use_origin_timestamp=False):
+def sort_files_by_timestamp(files, use_origin_timestamp=False, new_trap=False):
     '''Pretty self-explanatory function.'''
 
-    try:
-        files = [(get_hdf5_time(path), path) for path in files]
-    except Exception:
-        print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
-        traceback.print_exc()
-        use_origin_timestamp = True
+    if not use_origin_timestamp:
+        try:
+            files = [(get_hdf5_time(path, new_trap=new_trap), path) for path in files]
+        except Exception:
+            print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
+            traceback.print_exc()
+            use_origin_timestamp = True
 
     if use_origin_timestamp:
         files = [(os.stat(path), path) for path in files]
         files = [(stat.st_ctime, path) for stat, path in files]
 
-    files.sort(key = lambda x: (x[0]))
+    files.sort(key = lambda x: x[0])
     files = [obj[1] for obj in files]
     return files
 
@@ -702,6 +711,40 @@ def detrend_poly(arr, order=1.0, plot=False):
     return arr - fit_eval
 
 
+
+
+def get_sine_amp_phase(sine, plot=False):
+    nsamp = len(sine)
+    tvec = np.arange(nsamp)
+
+    freqs = np.fft.rfftfreq(nsamp)
+    fft = np.fft.rfft(sine)
+
+    drive_ind = np.argmax(np.abs(fft[1:])) + 1
+
+    amp_guess = np.std(sine)
+    freq_guess = freqs[drive_ind]
+    phase_guess = np.angle(fft[drive_ind])
+
+    fit_func = lambda t, a, f, phi, c: a * np.sin(2.0*np.pi*f*t + phi) + c
+
+    p0 = [amp_guess, freq_guess, phase_guess, 0.0]
+    popt, pcov = optimize.curve_fit(fit_func, tvec, sine, p0=p0)
+
+    if plot:
+        plt.plot(tvec, sine)
+        plt.plot(tvec, fit_func(tvec, *popt), ls='--', lw=2, color='r')
+        plt.tight_layout()
+        plt.show()
+
+    return popt[0], popt[2]
+
+
+def zerocross_pos2neg(data):
+    '''Simple zero-crossing detector for 1D data. Returns indices of 
+       crossings as a list.'''
+    pos = data > 0
+    return (pos[:-1] & ~pos[1:]).nonzero()[0]
 
 
 
@@ -1269,6 +1312,70 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
     return minparam, err, minval
+
+
+
+
+
+
+def get_limit_from_general_profile(profx, profy, ss=False, confidence_level=0.95, \
+                                   centered=False, no_discovery=False):
+
+    chi2dist = stats.chi2(1)
+    con_val = chi2dist.ppf(confidence_level)
+    if not ss:
+        con_val *= 0.5
+
+    profx = np.array(profx)
+    profy = np.array(profy)
+
+    profy -= np.min(profy)
+
+    if no_discovery:
+        minval = 0.0
+    else:
+        minval = profx[np.argmin(profy)]
+
+    profx_pos = profx[profx >= minval]
+    profy_pos = profy[profx >= minval]
+
+    profx_neg = profx[profx < minval]
+    profy_neg = profy[profx < minval]
+
+    try:
+        ind_pos = np.argmin(np.abs(profy_pos - con_val))
+
+        func_pos = interpolate.interp1d(profx_pos[ind_pos-5:ind_pos+5], \
+                                        profy_pos[ind_pos-5:ind_pos+5], \
+                                        fill_value='extrapolate')
+        wrapper_pos = lambda x: (func_pos(x) - con_val)**2.0
+        res_pos = optimize.minimize(wrapper_pos, x0=profx_pos[ind_pos]).x[0]
+    except:
+        res_pos = 0.0
+
+    try:
+        ind_neg = np.argmin(np.abs(profy_neg - con_val))
+        func_neg = interpolate.interp1d(profx_neg[ind_neg-5:ind_neg+5], \
+                                        profy_neg[ind_neg-5:ind_neg+5], \
+                                        fill_value='extrapolate')
+        wrapper_neg = lambda x: (func_neg(x) - con_val)**2.0
+        res_neg = optimize.minimize(wrapper_neg, x0=profx_neg[ind_neg]).x[0]
+    except:
+        res_neg = 0.0
+
+    if centered and not no_discovery:
+        minval = np.mean([res_pos, res_neg])
+
+    upper_unc = np.abs(res_pos - minval)
+    lower_unc = -1.0 * np.abs(res_neg - minval)
+
+    if no_discovery:
+        return {'min': 0.0, 'upper_unc': res_pos, 'lower_unc': res_neg}
+
+    else:
+        return {'min': minval, 'upper_unc': upper_unc, 'lower_unc': lower_unc}
+
+
 
 
 

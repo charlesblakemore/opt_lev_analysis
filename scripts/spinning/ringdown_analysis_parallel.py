@@ -1,7 +1,6 @@
 import os, time, sys
 import numpy as np
 import matplotlib.pyplot as plt
-from hs_digitizer import *
 from iminuit import Minuit, describe
 
 from obspy.signal.detrend import polynomial
@@ -56,15 +55,21 @@ nbin = 100
 #          base_path + '110kHz_start_6', \
 #          ]
 
-date = '20200322'
-base_path = '/data/old_trap/{:s}/gbead1/spinning/ringdown/'.format(date)
+# date = '20200322'
+bead = 'gbead1'
+
+date = '20200924'
+bead = 'bead1'
+
+base_path = '/data/old_trap/{:s}/{:s}/spinning/ringdown/'.format(date, bead)
 
 save_base = '/data/old_trap_processed/spinning/ringdown/{:s}/'.format(date)
 
 save_suffix = ''
 
-paths = [base_path + '110kHz_1', \
-         base_path + '110kHz_2', \
+paths = [base_path + '110kHz_start_1', \
+         base_path + '110kHz_start_2', \
+         base_path + '110kHz_start_3', \
          ]
 
 
@@ -176,10 +181,10 @@ def proc_dir(path):
         nsamp = fobj.shape[1]
         fsamp = 500000.0
     else:
-        fobj = hsDat(files[0])
-        nsamp = fobj.attribs["nsamp"]
-        fsamp = fobj.attribs["fsamp"]
-        t0 = fobj.attribs["time"]
+        fobj = bu.hsDat(files[0], load=True)
+        nsamp = fobj.nsamp
+        fsamp = fobj.fsamp
+        t0 = fobj.time
 
     time_vec = np.arange(nsamp) * (1.0 / fsamp)
     freqs = np.fft.rfftfreq(nsamp, 1.0/fsamp)
@@ -245,8 +250,8 @@ def proc_dir(path):
             t = nsamp * (1.0 / fsamp) * (1.0 + fileind) * 1e9
 
         else:
-            fobj = hsDat(file)
-            t = fobj.attribs["time"]
+            fobj = bu.hsDat(file, load=True)
+            t = fobj.time
 
             vperp = fobj.dat[:,0]
             drive = fobj.dat[:,1]

@@ -230,12 +230,16 @@ class Profile:
 
         if plot:
             plt.errorbar(xvec, yvec, yerr=errs, ls='', marker='o', \
-                         ms=6, zorder=1)
+                         ms=6, zorder=1, label='data')
             plt.plot(xvec, fit_func(xvec, *p0), ls='--', lw=3, \
-                     color='k', zorder=2)
+                     color='k', zorder=2, label='initial')
             plt.plot(xvec, fit_func(xvec, *popt), ls='--', lw=3, \
-                     color='r', zorder=3)
+                     color='r', zorder=3, label='fit result')
             plt.yscale('log')
+            plt.legend(fontsize=10)
+            plt.title("Fit of ERF to Measured Intensity")
+
+            plt.tight_layout()
             plt.show()
 
         print('Fit result: ')

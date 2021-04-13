@@ -19,7 +19,7 @@ import scipy.signal as signal
 from tqdm import tqdm
 from joblib import Parallel, delayed
 # ncore = 1
-ncore = 24
+ncore = 30
 
 warnings.filterwarnings('ignore')
 
@@ -32,15 +32,21 @@ np.random.seed(12345)
 ### Which data to analyze ###
 #############################
 
+# try:
+#     meas_ind = int(sys.argv[1])
+# except:
+#     meas_ind = 0
+
 try:
-    meas_ind = int(sys.argv[1])
+    volt_level = int(sys.argv[1])
 except:
-    meas_ind = 0
+    volt_level = 1
 
 try:
     trial_ind = int(sys.argv[2])
 except:
     trial_ind = 0
+
 
 # date = '20200727'
 date = '20200924'
@@ -68,23 +74,26 @@ base = '/data/old_trap/{:s}/{:s}/spinning/'.format(date, bead)
 # # file_inds = (12, 30)
 
 
-if meas_ind:
-    meas_ind += 1
-    # meas = 'dds_phase_impulse_1Vpp_lower_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_low_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_mid_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_high_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
-else:
-    meas = 'dds_phase_impulse_3Vpp/trial_{:04d}'.format(trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_lower_dg/trial_{:04d}'.format(trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_low_dg/trial_{:04d}'.format(trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_mid_dg/trial_{:04d}'.format(trial_ind)
-    # meas = 'dds_phase_impulse_1Vpp_high_dg/trial_{:04d}'.format(trial_ind)
-# file_inds = (8, 100)
-# file_inds = (8, 90)
-file_inds = (8, 50)
-# file_inds = (8, 25)
+# if meas_ind:
+#     meas_ind += 1
+#     meas = 'dds_phase_impulse_3Vpp_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_lower_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_low_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_mid_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_high_dg_{:d}/trial_{:04d}'.format(meas_ind, trial_ind)
+# else:
+#     meas = 'dds_phase_impulse_3Vpp/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_lower_dg/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_low_dg/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_mid_dg/trial_{:04d}'.format(trial_ind)
+#     # meas = 'dds_phase_impulse_3Vpp_high_dg/trial_{:04d}'.format(trial_ind)
+# # file_inds = (8, 100)
+# # file_inds = (8, 90)
+# file_inds = (8, 50)
+# # file_inds = (8, 25)
 
+meas = 'dds_phase_impulse_{:d}Vpp/trial_{:04d}'.format(volt_level, trial_ind)
+file_inds = (8, 100)
 
 dir_name = os.path.join(base, meas)
 file_step = 1
@@ -98,11 +107,21 @@ plot_base = '/home/cblakemore/plots/{:s}/spinning/'.format(date)
 fig_basepath = os.path.join(plot_base, meas, 'ringdown_amp')
 
 
-# libration_guess = 0.0
+processed_base = '/data/old_trap_processed/spinning/{:s}/'.format(date)
+save_ringdown = True
+# ringdown_dict_path = '/data/old_trap_processed/spinning/20200727/arb_libration_ringdowns.p'
+ringdown_data_path = os.path.join(processed_base, 'dds_libration_ringdowns_manyVpp.p')
+
+
+dipole_file = '/data/old_trap_processed/spinning/wobble/20200924/dipole_meas/initial.dipole'
+rhobead = {'val': 1850.0, 'syserr': 0.0, 'sterr': 0.0}
+
+libration_guess = 0.0
 # libration_guess = 1335.8
 # libration_guess = 1385.0
 # libration_guess = 1298.0
-libration_guess = 297.9
+# libration_guess = 297.9   # 20200924 1Vpp
+# libration_guess = 512.0   # 20200924 3Vpp
 
 ### Carrier filter constants
 # fspin = 19000
@@ -114,9 +133,9 @@ bandwidth = 10000.0
 # libration_filt_band = [1000.0, 1450.0]
 # libration_filt_band = [900.0, 1350.0]
 # libration_filt_band = [700.0, 1000.0]
-# libration_filt_band = [175.0, 400.0]
-libration_filt_band = [350.0, 600.0]
-libration_bandwidth = 1000
+# libration_filt_band = [175.0, 400.0]   # 20200924 1Vpp
+# libration_filt_band = [350.0, 600.0]   # 20200924 3Vpp
+libration_bandwidth = 400
 
 notch_freqs = [49020.3]
 notch_qs = [10000.0]
@@ -149,26 +168,12 @@ yticks = [-np.pi/2.0, 0.0, np.pi/2.0]
 yticklabels = ['$-\\pi/2$', '0', '$\\pi/2$']
 
 fit_ringdown = True
-# base_ringdown_fit_time = 1100.0
-base_ringdown_fit_time = 200.0
-# base_ringdown_fit_time = 120.0
-adjust_fit_time = True
-# ringdown_scale_fac = 2.3
-ringdown_scale_fac = 1.0
-# ringdown_scale_fac = 0.5
 initial_offset = 0.0
 
 plot_rebin = False
 plot_ringdown_fit = True
 close_xlim = True
 show = False
-
-
-processed_base = '/data/old_trap_processed/spinning/{:s}/'.format(date)
-
-save_ringdown = True
-# ringdown_dict_path = '/data/old_trap_processed/spinning/20200727/arb_libration_ringdowns.p'
-ringdown_data_path = os.path.join(processed_base, 'dds_libration_ringdowns_3Vpp_less_pts.p')
 
 
 
@@ -219,24 +224,41 @@ true_fspin = np.average(full_freqs[inds], weights=np.abs(elec3_fft)[inds])
 
 
 if not libration_guess:
-    amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_carrier_demod, \
-                              filt=True, bandwidth=bandwidth,
-                              tukey=True, tukey_alpha=5.0e-4, \
-                              detrend=True, detrend_order=1, harmind=2.0)
 
-    phase_mod_fft = np.fft.rfft(phase_mod) * fac
+    try:
+        elec3_cut = 100.0 * (50000.0 / 53000.0) * elec3[:int(fsamp)]
+        zeros = np.zeros_like(elec3_cut)
+        voltages = [zeros, zeros, zeros, elec3_cut, -1.0*elec3_cut, zeros, zeros, zeros]
+        efield = bu.trap_efield(voltages, only_x=True)[0]
+        efield_amp, _ = bu.get_sine_amp_phase(efield)
 
-    fig, ax = plt.subplots(1,1)
-    ax.loglog(full_freqs, np.abs(phase_mod_fft))
-    ax.set_xlabel('Frequency [Hz]')
-    ax.set_ylabel('Phase ASD [rad/$\\sqrt{\\rm Hz}$]')
-    ax.set_title('Identify Libration Frequency')
-    fig.tight_layout()
-    plt.show()
+        dipole = np.load(dipole_file)[0]
+        Ibead = bu.get_Ibead(date=date, rhobead=rhobead)['val']
 
-    libration_guess = float( input('Libration guess: ') )
+        libration_guess = np.sqrt(efield_amp * dipole / Ibead) / (2.0 * np.pi)
+
+    except:
+
+        amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_carrier_demod, \
+                                  filt=True, bandwidth=bandwidth,
+                                  tukey=True, tukey_alpha=5.0e-4, \
+                                  detrend=True, detrend_order=1, harmind=2.0)
+
+        phase_mod_fft = np.fft.rfft(phase_mod) * fac
+
+        fig, ax = plt.subplots(1,1)
+        ax.loglog(full_freqs, np.abs(phase_mod_fft))
+        ax.set_xlabel('Frequency [Hz]')
+        ax.set_ylabel('Phase ASD [rad/$\\sqrt{\\rm Hz}$]')
+        ax.set_title('Identify Libration Frequency')
+        fig.tight_layout()
+        plt.show()
+
+        libration_guess = float( input('Libration guess: ') )
 
 
+
+libration_filt_band = [np.min([125.0, libration_guess-200.0]), libration_guess+100.0]
 
 
 def proc_file(file):
@@ -252,6 +274,12 @@ def proc_file(file):
         phi_dg = 0.0
 
     inds = np.abs(full_freqs - fspin) < 200.0
+
+    cut = int(0.1 * fsamp)
+    zeros = np.zeros_like(elec3[:cut])
+    voltages = [zeros, zeros, zeros, elec3[:cut], -1.0*elec3[:cut], zeros, zeros, zeros]
+    efield = bu.trap_efield(voltages, only_x=True)[0]
+    drive_amp, drive_phase = bu.get_sine_amp_phase(efield)
 
     elec3_fft = np.fft.rfft(elec3)
     true_fspin = np.average(full_freqs[inds], weights=np.abs(elec3_fft)[inds])
@@ -321,7 +349,8 @@ def proc_file(file):
 
         input()
 
-    return (time_vec_ds, libration_ds, libration_amp_ds, true_libration_freq, phi_dg)
+    return (time_vec_ds, libration_ds, libration_amp_ds, \
+                true_libration_freq, phi_dg, drive_amp)
 
 
 
@@ -332,7 +361,10 @@ phi_dgs = []
 lib_freqs = []
 init_std = 0.0
 found_start = False
-for i, (tvec, lib, amp, lib_freq, phi_dg) in enumerate(all_amp):
+found_end = False
+last_val = np.pi / 2.0
+last_time = 0
+for i, (tvec, lib, amp, lib_freq, phi_dg, drive_amp) in enumerate(all_amp):
 
     if i < 5:
         init_std += np.std(lib) / 5.0
@@ -341,6 +373,30 @@ for i, (tvec, lib, amp, lib_freq, phi_dg) in enumerate(all_amp):
             initial_time = tvec[0] + times[i]
             chirp_start = tvec[np.argmax(np.abs(lib))] + times[i]
             found_start = True
+
+    if found_start and not found_end:
+        cross_thresh = np.max([(np.pi/2.0)*np.exp(-3.0), 1.5*init_std])
+
+        crossings = bu.zerocross_pos2neg(amp - cross_thresh)
+
+        cond1 = len(crossings)
+        cond2 = (last_val > cross_thresh) and (amp[0] < cross_thresh)
+
+        cond3 = tvec[0]+times[i] - chirp_start < 1000
+
+        if cond1:
+            cond4 = tvec[crossings[0]]+times[i] - chirp_start > 0.1
+        elif cond2:
+            cond4 = True
+        else:
+            cond4 = False
+
+        if cond1 and cond3 and cond4:
+            ringdown_fit_time = tvec[crossings[0]] + times[i] - chirp_start
+            found_end = True
+
+        if cond2 and cond3 and cond4:
+            ringdown_fit_time = last_time - chirp_start
 
     if len(colorbar_limits):
         if lib_freq < colorbar_limits[0]:
@@ -354,32 +410,32 @@ for i, (tvec, lib, amp, lib_freq, phi_dg) in enumerate(all_amp):
     if i == len(all_amp) - 1:
         final_time = tvec[-1] + times[-1]
 
+    last_val = amp[-1]
+    last_time = tvec[-1] + times[i]
+
 if not found_start:
     print('DID NOT DETECT A RINGDOWN!')
     exit()
+
+print('Ringdown fit time [s]: ', ringdown_fit_time)
 
 initial_time -= chirp_start
 times -= chirp_start
 meas_phi_dg = np.mean(phi_dgs)
 
-print(meas_phi_dg)
+print('Phi_dg [arb]: ', meas_phi_dg)
 
-if adjust_fit_time:
-    if meas_phi_dg == 0.0:
-        ringdown_fit_time = base_ringdown_fit_time
-    else:
-        ringdown_fit_time = np.min([ringdown_scale_fac / meas_phi_dg, base_ringdown_fit_time])
 
-    if close_xlim:
-        upper = np.min([1.75*ringdown_fit_time, final_time-chirp_start])
-        xlim = (-0.1*ringdown_fit_time, upper)
-    else:
-        xlim = (-0.5 * ringdown_fit_time, ringdown_fit_time)
+if close_xlim:
+    upper = np.min([1.75*ringdown_fit_time, final_time-chirp_start])
+    xlim = (-0.1*ringdown_fit_time, upper)
+else:
+    xlim = (-0.5 * ringdown_fit_time, ringdown_fit_time)
 
-    if ringdown_fit_time >= 10.0:
-        nbins = 1000
-    else:
-        nbins = np.max([int(1000 * ringdown_fit_time / 10.0), 50])
+if ringdown_fit_time >= 10.0:
+    nbins = 1000
+else:
+    nbins = np.max([int(1000 * ringdown_fit_time / 10.0), 100])
 
 
 
@@ -388,7 +444,7 @@ if fit_ringdown:
     fit_amps = []
     fit_errs = []
     first = False
-    for i, (tvec, lib, amp, lib_freq, phi_dg) in enumerate(all_amp):
+    for i, (tvec, lib, amp, lib_freq, phi_dg, drive_amp) in enumerate(all_amp):
 
         if times[i] < -3.0:
             continue
@@ -431,7 +487,7 @@ if fit_ringdown:
     def chi_sq(amp0, t0, tau, c):
         resid = np.abs(fit_y - fit_func(fit_x, amp0, t0, tau, c))**2
         variance = fit_err**2
-        prior1 = np.abs(amp0 - np.pi/2.0)**2 / np.mean(variance)
+        prior1 = np.abs(amp0 - np.pi/2.0 - init_std)**2 / np.mean(variance)
         prior2 = np.abs(c - init_std)**2 / init_std**2
         return (1.0 / (npts - 1.0)) * np.sum(resid / variance) + prior1 + prior2
 
@@ -484,6 +540,7 @@ if fit_ringdown:
             ringdown_dict[meas_phi_dg]['fit'] = []
             ringdown_dict[meas_phi_dg]['unc'] = []
             ringdown_dict[meas_phi_dg]['chi_sq'] = []
+            ringdown_dict[meas_phi_dg]['drive_amp'] = []
 
         saved = False
         for pathind, path in enumerate(ringdown_dict[meas_phi_dg]['paths']):
@@ -497,6 +554,7 @@ if fit_ringdown:
             ringdown_dict[meas_phi_dg]['fit'][pathind] = ringdown_fit
             ringdown_dict[meas_phi_dg]['unc'][pathind] = ringdown_unc
             ringdown_dict[meas_phi_dg]['chi_sq'][pathind] = m.fval
+            ringdown_dict[meas_phi_dg]['drive_amp'][pathind] = drive_amp
 
         else:
             ringdown_dict[meas_phi_dg]['paths'].append(dir_name)
@@ -504,6 +562,7 @@ if fit_ringdown:
             ringdown_dict[meas_phi_dg]['fit'].append( ringdown_fit )
             ringdown_dict[meas_phi_dg]['unc'].append( ringdown_unc )
             ringdown_dict[meas_phi_dg]['chi_sq'].append( m.fval )
+            ringdown_dict[meas_phi_dg]['drive_amp'].append( drive_amp )
 
         pickle.dump(ringdown_dict, open(ringdown_data_path, 'wb'))
 
@@ -554,7 +613,7 @@ vline = ax.axvline(0, color='k', zorder=4)
 hline = ax.axhline(0, color='k', zorder=4)
 
 my_colors = []
-for i, (tvec, lib, amp, lib_freq, phi_dg) in enumerate(all_amp):
+for i, (tvec, lib, amp, lib_freq, phi_dg, drive_amp) in enumerate(all_amp):
     lib_freq = lib_freqs[i]
     if color_with_libration:
         color = bu.get_single_color(lib_freq, cmap='plasma', \

@@ -10,9 +10,9 @@ from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-import scipy.interpolate as interp
+import scipy.interpolate as interpolate
 import scipy.stats as stats
-import scipy.optimize as opti
+import scipy.optimize as optimize
 import scipy.linalg as linalg
 
 import bead_util as bu
@@ -33,13 +33,24 @@ plt.rcParams.update({'font.size': 14})
 
 ### Current constraints
 
-limitdata_path = '/data/old_trap_processed/sensitivities/decca1_limits.txt'
-limitdata = np.loadtxt(limitdata_path, delimiter=',')
-limitlab = 'No Decca 2'
+nolimit = False
+try:
+    limitdata_path = '/data/old_trap_processed/sensitivities/decca1_limits.txt'
+    limitdata = np.loadtxt(limitdata_path, delimiter=',')
+    limitlab = 'No Decca 2'
 
-limitdata_path2 = '/data/old_trap_processed/sensitivities/decca2_limits.txt'
-limitdata2 = np.loadtxt(limitdata_path2, delimiter=',')
-limitlab2 = 'With Decca 2'
+    limitdata_path2 = '/data/old_trap_processed/sensitivities/decca2_limits.txt'
+    limitdata2 = np.loadtxt(limitdata_path2, delimiter=',')
+    limitlab2 = 'With Decca 2'
+except:
+    nolimit = True
+    limitdata_path = ''
+    limitdata = []
+    limitlab = ''
+
+    limitdata_path2 = ''
+    limitdata2 = []
+    limitlab2 = ''
 
 
 
@@ -56,14 +67,20 @@ ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 
 
 
-def build_paths(dirname, opt_ext='', new_trap=False):
+def build_paths(dirname, opt_ext='', pardirs_in_name=1, new_trap=False):
     date = re.search(r"\d{8,}", dirname)[0]
     parts = dirname.split('/')
 
     if new_trap:
-        bead_label = re.search(r"Bead\d", dirname)[0]
+        try:
+            bead_label = re.search(r"Bead\d", dirname)[0]
+        except:
+            bead_label = 'Bead1'
     else:
-        bead_label = re.search(r"bead\d", dirname)[0]
+        try:
+            bead_label = re.search(r"bead\d", dirname)[0]
+        except:
+            bead_label = 'bead1'
 
     nobead = ('no_bead' in parts) or ('nobead' in parts) or ('no-bead' in parts)
     if nobead:
@@ -74,9 +91,18 @@ def build_paths(dirname, opt_ext='', new_trap=False):
         newstr = 'new'
 
     if not len(parts[-1]):
-        name = parts[-2]
+        first_ind = -2
     else:
-        name = parts[-1]
+        first_ind = -1
+
+    if pardirs_in_name > 1:
+        name = ''
+        for i in range(pardirs_in_name):
+            if i != 0:
+                name += '_'
+            name += parts[first_ind-pardirs_in_name+i+1]
+    else:
+        name = parts[first_ind]
 
     agg_path = '/data/{:s}_trap_processed/aggdat/'.format(newstr) \
                     + date + '_' + name + opt_ext + '.agg'
@@ -86,9 +112,7 @@ def build_paths(dirname, opt_ext='', new_trap=False):
                         + date + '_' + name + opt_ext + '.arr'
     plot_dir = '/home/cblakemore/plots/{:s}/mod_grav/'.format(date)
     if len(opt_ext):
-        plot_dir = os.path.join(plot_dir, opt_ext)
-        if plot_dir[-1] != '/':
-            plot_dir += '/'
+        plot_dir = os.path.join(plot_dir, name + opt_ext)
 
     return {'agg_path': agg_path, \
             'alpha_dict_path': alpha_dict_path, \
@@ -445,7 +469,7 @@ def fit_parabola_to_chi2(params, chi_sqs, plot=False):
         plt.show()
 
     try:
-        popt, pcov = opti.curve_fit(parabola, params, chi_sqs, p0=p0, maxfev=100000)
+        popt, pcov = optimize.curve_fit(parabola, params, chi_sqs, p0=p0, maxfev=100000)
     except Exception:
         print("Couldn't fit")
         popt = [0,0,0]
@@ -488,6 +512,10 @@ def build_mod_grav_funcs(theory_data_dir):
     xpos = np.load(theory_data_dir + 'xpos.npy')
     ypos = np.load(theory_data_dir + 'ypos.npy')
     zpos = np.load(theory_data_dir + 'zpos.npy')
+    try:
+        rbead = np.load(theory_data_dir + 'rbead_rhobead.npy')
+    except:
+        rbead = [2.35e-6, 1550.0]
     
     if lambdas[-1] > lambdas[0]:
         lambdas = lambdas[::-1]
@@ -506,17 +534,18 @@ def build_mod_grav_funcs(theory_data_dir):
     ### Build interpolating functions for regular gravity
     gfuncs = [0,0,0]
     for resp in [0,1,2]:
-        gfuncs[resp] = interp.RegularGridInterpolator((xpos, ypos, zpos), Gdata[:,:,:,resp])
+        gfuncs[resp] = interpolate.RegularGridInterpolator((xpos, ypos, zpos), Gdata[:,:,:,resp])
 
     ### Build interpolating functions for yukawa-modified gravity
     yukfuncs = [[],[],[]]
     for resp in [0,1,2]:
         for lambind, yuklambda in enumerate(lambdas):
-            lamb_func = interp.RegularGridInterpolator((xpos, ypos, zpos), yukdata[lambind,:,:,:,resp])
+            lamb_func = interpolate.RegularGridInterpolator((xpos, ypos, zpos), yukdata[lambind,:,:,:,resp])
             yukfuncs[resp].append(lamb_func)
     lims = [xlim, ylim, zlim]
 
-    outdic = {'gfuncs': gfuncs, 'yukfuncs': yukfuncs, 'lambdas': lambdas, 'lims': lims}
+    outdic = {'gfuncs': gfuncs, 'yukfuncs': yukfuncs, 'lambdas': lambdas, 'lims': lims, \
+              'rbead': rbead[0], 'rhobead': rbead[1]}
     return outdic
 
     #return gfuncs, yukfuncs, lambdas, lims
@@ -549,6 +578,8 @@ class GravFuncs:
         self.yukfuncs = grav_dict['yukfuncs']
         self.lambdas = grav_dict['lambdas']
         self.lims = grav_dict['lims']
+        self.rbead = grav_dict['rbead']
+        self.rhobead = grav_dict['rhobead']
         self.grav_loaded = True
         if verbose:
             print("Done!")
@@ -564,7 +595,6 @@ class GravFuncs:
     def clear_grav_funcs(self):
         self.gfuncs = ''
         self.yukfuncs = ''
-        self.lambdas = ''
         self.lims = ''
         self.grav_loaded = False
 
@@ -572,13 +602,35 @@ class GravFuncs:
 
     def make_templates(self, cant_posvec, drivevec, ax0pos, ax1pos, ginds, \
                        p0_bead, fsamp, single_lambda=False, single_lambind=0, \
-                       new_trap=False, plot=True, n_largest_harms=100):
+                       new_trap=False, plot=True, n_largest_harms=100, \
+                       fix_sep=False, fix_sep_val=10.0, fix_height=False, \
+                       fix_height_val=0.0):
+
+        # print(p0_bead)
 
         xpos = p0_bead[0] - ax0pos
         height = p0_bead[2] - ax1pos
         posvec = p0_bead[1] - cant_posvec
 
+        if fix_sep:
+            xpos = fix_sep_val
+        if fix_height:
+            height = fix_height_val
+
         drivevec = p0_bead[1] - drivevec
+
+        # print(drivevec[0:100])
+        # print(drivevec)
+        # print(xpos)
+        # print(height)
+
+        # plt.plot(np.arange(len(drivevec))*(1.0/fsamp), drivevec)
+        # plt.xlabel('Time [s]')
+        # plt.ylabel('Bead Y-Position in Attractor Coord. [um]')
+        # plt.tight_layout()
+        # plt.show()
+
+        # input()
 
         nharm = np.min([len(ginds), n_largest_harms])
 
@@ -597,7 +649,7 @@ class GravFuncs:
         for resp in [0,1,2]:
                     
             gforce = self.gfuncs[resp](pts*1.0e-6)
-            gforce_func = interp.interp1d(posvec, gforce)
+            gforce_func = interpolate.interp1d(posvec, gforce)
 
             gforcet = gforce_func(drivevec)
             curr_gfft = np.fft.rfft(gforcet)[ginds] * normfac
@@ -616,6 +668,9 @@ class GravFuncs:
             if single_lambda and (lambind != single_lambind):
                 continue
 
+            # print('Height: {:0.2f} um,  Sep: {:0.2f} um'.format(height, xpos))
+            # print('Lambda: {:0.2f} um'.format(yuklambda*1e6))
+
             if plot:
                 fig1, ax1 = plt.subplots(1,1)
                 fig2, ax2 = plt.subplots(1,1)
@@ -625,18 +680,22 @@ class GravFuncs:
                 ax1.set_title('Attractor Drive')
                 ax1.plot((1.0 / fsamp) * np.arange(nsamp), drivevec)
                 ax1.set_xlabel('Time [s]')
-                ax1.set_ylabel('Attractor drive [um]')
+                ax1.set_ylabel('Bead Pos in Attractor Coord. [um]')
                 fig1.tight_layout()
 
             resp_dict = {0: 'X', 1: 'Y', 2: 'Z'}
             marker_dict = {0: 'o', 1: 'P', 2: 'X'}
+            # derp_out = []
+            # derp_out.append(np.arange(nsamp) * (1.0 / fsamp))
             for resp in [0,1,2]:
                 yukforce = self.yukfuncs[resp][lambind](pts*1.0e-6)
-                yukforce_func = interp.interp1d(posvec, yukforce)
+                yukforce_func = interpolate.interp1d(posvec, yukforce)
 
                 yukforcet = yukforce_func(drivevec)
                 curr_yukfft = np.fft.rfft(yukforcet)[ginds] * normfac
                 curr_asd = np.abs(curr_yukfft)
+
+                # derp_out.append(yukforcet)
 
                 thresh = (curr_asd[np.argsort(curr_asd)[::-1]])[nharm-1]
                 bool_ginds = curr_asd >= thresh
@@ -656,8 +715,11 @@ class GravFuncs:
                                ls='', marker=marker_dict[resp], label=resp_dict[resp], \
                                color='C{:d}'.format(resp), ms=10)
 
+            # np.save('/home/cblakemore/tmp/test_signal_5.npy', derp_out)
+            # input()
+
             if plot:
-                title_str = 'Force for $\\alpha = 1$ and $\\lambda = {:0.1g}$ m'\
+                title_str = 'Force for $\\alpha = 1$ and $\\lambda = {:0.2g}$ m'\
                                 .format(yuklambda)
                 ax2.set_title(title_str)
                 ax2.set_xlabel('Time [s]')
@@ -673,7 +735,7 @@ class GravFuncs:
 
                 ax4.set_title(title_str)
                 ax4.set_xlabel('Frequency [Hz]')
-                ax4.set_ylabel('Force Spectral Density [N/$\\sqrt{\\rm{Hz}}$]')
+                ax4.set_ylabel('Force Spectrum [N]')
                 ax4.legend(fontsize=10, ncol=3)
                 fig4.tight_layout()
 
@@ -705,7 +767,8 @@ class FileData:
 
     def __init__(self, fname, diagonalize=True, tfdate='', tophatf=2500, \
                     plot_tf=False, step_cal_drive_freq=41.0, \
-                    new_trap=False, empty=False, suppress_off_diag=False):
+                    new_trap=False, empty=False, suppress_off_diag=False, \
+                    adjust_phase=False, adjust_phase_dict={}):
         '''Load an hdf5 file into a bead_util.DataFile obj. Calibrate the stage position.
            Calibrate the microsphere response with th transfer function.'''
 
@@ -733,11 +796,16 @@ class FileData:
                 self.badfile = True
                 return
 
+            # print(df.cant_data[:,0])
+
             df.calibrate_stage_position()
+
             if diagonalize:
                 df.diagonalize(date=tfdate, maxfreq=tophatf, plot=plot_tf, \
                                 step_cal_drive_freq=step_cal_drive_freq, \
-                                suppress_off_diag=self.suppress_off_diag)
+                                suppress_off_diag=self.suppress_off_diag, \
+                                adjust_phase=adjust_phase, \
+                                adjust_phase_dict=adjust_phase_dict)
 
             # self.xy_tf_res_freqs = df.xy_tf_res_freqs
     
@@ -746,6 +814,7 @@ class FileData:
             self.nsamp = df.nsamp
             #self.phi_cm = df.phi_cm
             self.df = df
+            self.date = df.date
 
             self.data_closed = False
 
@@ -759,7 +828,7 @@ class FileData:
 
 
 
-    def reload_datafile(self, diagonalize=True):
+    def reload_datafile(self, diagonalize=True, adjust_phase=False, adjust_phase_dict={}):
         '''Reload the raw HDF5 data back into the class for debugging purposes.'''
         self.data_closed = False
 
@@ -775,7 +844,9 @@ class FileData:
             df.diagonalize(date=self.tfdate, maxfreq=self.tophatf, \
                             step_cal_drive_freq=self.step_cal_drive_freq, \
                             plot=self.plot_tf, interpolate=self.tf_interp, \
-                            suppress_off_diag=self.suppress_off_diag)
+                            suppress_off_diag=self.suppress_off_diag, \
+                            adjust_phase=adjust_phase, \
+                            adjust_phase_dict=adjust_phase_dict)
         self.df = df
 
 
@@ -960,48 +1031,6 @@ class FileData:
 
 
 
-        
-    def save(self, verbose=True):
-        parts = self.fname.split('.')
-        if len(parts) > 2:
-            print("Bad file name... too many periods/extensions")
-            return
-        else:
-            if verbose:
-                print('Saving FileData object... ', end=' ')
-                sys.stdout.flush()
-            savepath = '/data/old_trap_processed/fildat' + parts[0] + '.fildat'
-            bu.make_all_pardirs(savepath)
-            pickle.dump(self, open(savepath, 'wb'))
-            if verbose:
-                print('Done!')
-                print('Saved to: ', savepath)
-                sys.stdout.flush()
-
-
-
-    def load(self):
-        parts = self.fname.split('.')
-        if len(parts) > 2:
-            print("Bad file name... too many periods/extensions")
-            return
-        else:
-            loadpath = '/data/old_trap_processed/fildat' + parts[0] + '.fildat'
-            
-            #try:
-            old_class = pickle.load( open(loadpath, 'rb') )
-            
-            ### Load all of the class attributes
-            self.__dict__.update(old_class.__dict__)
-
-            # except Exception:
-            #     print "Couldn't find previously saved fildat"
-
-
-
-
-
-
 
 
 
@@ -1016,12 +1045,16 @@ class AggregateData:
        has some methods that work on each object in a loop.'''
 
     
-    def __init__(self, fnames, p0_bead=[0.0,0.0,0.0], tophatf=2500, harms=[], \
-                 reload_dat=True, plot_harm_extraction=False, \
+    def __init__(self, fnames, p0_bead=[0.0,0.0,0.0], tophatf=2500, \
+                 harms=[], plot_harm_extraction=False, \
                  elec_drive=False, elec_ind=0, maxfreq=2500, noisebins=10,\
                  dim3=False, extract_resonant_freq=False, noiselim=(10.0,100.0), \
                  tfdate='', tf_interp=False, step_cal_drive_freq=41.0, \
-                 new_trap=False, ncore=1, aux_data=[], suppress_off_diag=False):
+                 new_trap=False, ncore=1, aux_data=[], suppress_off_diag=False, \
+                 fake_attractor_data=False, fake_attractor_data_axis=1, \
+                 fake_attractor_data_freq=3.0, fake_attractor_data_dc=200.0, \
+                 fake_attractor_data_amp=100.0, ax0='x', ax1='z', \
+                 adjust_phase=False, adjust_phase_dict={}):
         
         if new_trap:
             self.new_trap = True
@@ -1033,6 +1066,8 @@ class AggregateData:
         self.file_data_objs = []
         self.times = np.zeros(len(fnames))
         self.aux_data = aux_data
+
+        self.likelihoods = {}
 
         # Nnames = len(self.fnames)
 
@@ -1063,7 +1098,9 @@ class AggregateData:
             # Initialize FileData obj, extract the data, then close the big file
             new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap, \
                                 step_cal_drive_freq=step_cal_drive_freq, \
-                                suppress_off_diag=suppress_off_diag)
+                                suppress_off_diag=suppress_off_diag, \
+                                adjust_phase=adjust_phase, \
+                                adjust_phase_dict=adjust_phase_dict)
 
             if new_obj.badfile:
                 print('FOUND BADDIE: ')
@@ -1075,30 +1112,48 @@ class AggregateData:
             for i in range(3):
                 if np.std(new_obj.df.cant_data[i]) > 10.0:
                     no_drive[i] = 1
-            if not np.sum(no_drive):
+
+            if not np.sum(no_drive) and not fake_attractor_data:
                 print('Bad attractor data')
                 return
+
+            if fake_attractor_data:
+                tvec = np.arange(new_obj.nsamp) * (1.0 / new_obj.fsamp)
+                new_obj.df.cant_data[fake_attractor_data_axis] \
+                        = fake_attractor_data_amp * np.sin(2.0 * np.pi * fake_attractor_data_freq * tvec) \
+                                + fake_attractor_data_dc
                 
-            if not reload_dat and not new_obj.badfile:
-                new_obj.load()
-            else:
-                new_obj.extract_data(harms=harms, noisebins=noisebins, \
-                                     plot_harm_extraction=plot_harm_extraction, \
-                                     elec_drive=elec_drive, elec_ind=elec_ind, \
-                                     maxfreq=maxfreq, noiselim=noiselim)
-                new_obj.load_position_and_bias(dim3=dim3)
+            new_obj.extract_data(harms=harms, noisebins=noisebins, \
+                                 plot_harm_extraction=plot_harm_extraction, \
+                                 elec_drive=elec_drive, elec_ind=elec_ind, \
+                                 maxfreq=maxfreq, noiselim=noiselim)
+            new_obj.load_position_and_bias(dim3=dim3, ax0=ax0, ax1=ax1)
 
-                new_obj.close_datafile()
+            # drivevec2 = new_obj.rebuild_drive()
+            # fig, axarr = plt.subplots(2, 1, figsize=(8,7), sharex=True, \
+            #                           gridspec_kw={'height_ratios': [2,1]})
+            # axarr[0].plot(new_obj.df.cant_data[1], label='Actual')
+            # axarr[0].plot(drivevec2, label='Reconstructed')
+            # axarr[0].set_ylabel('Attractor Y-Position [$\\mu$m]')
+            # axarr[0].legend(fontsize=12)
+            # axarr[1].plot(drivevec2 / new_obj.df.cant_data[1])
+            # axarr[1].set_ylabel('Ratio')
+            # axarr[1].set_xlabel('Sample')
+            # plt.tight_layout()
+            # plt.show()
+            # input()
 
-            new_obj.save(verbose=False)
+            new_obj.close_datafile()
 
             return new_obj
             #self.file_data_objs.append(new_obj)
+
 
         if len(self.fnames):
             file_data_objs = Parallel(n_jobs=ncore)(delayed(process_file)(name) \
                                                       for name in tqdm(self.fnames))
             self.file_data_objs = file_data_objs
+            self.date = file_data_objs[0].date
 
             for ind, obj in enumerate(self.file_data_objs):
                 self.times[ind] = obj.time
@@ -1142,12 +1197,80 @@ class AggregateData:
                 savepath = parts[0] + '.agg'
             sys.stdout.flush()
             self.gfuncs_class.clear_grav_funcs()
+
+            likelihood_savepaths = self._save_likelihood_dict(savepath)
+            self.likelihoods = likelihood_savepaths
+
             pickle.dump(self, open(savepath, 'wb'))
+
+            self._load_likelihood_dict(self.likelihoods)
             self.gfuncs_class.reload_grav_funcs()
+
             if verbose:
                 print('Done!')
                 print('Saved to: ', savepath)
                 sys.stdout.flush()
+
+
+    def _save_likelihood_dict(self, agg_savepath, chunk=1000):
+
+        if len(list(self.likelihoods.keys())):
+            file_dict = {}
+            for bias, ax0, ax1 in itertools.product(list(self.agg_dict.keys()), self.ax0vec, self.ax1vec):
+                if bias not in list(file_dict.keys()):
+                    file_dict[bias] = {}
+                if ax0 not in list(file_dict[bias].keys()):
+                    file_dict[bias][ax0] = {}
+                if ax1 not in list(file_dict[bias][ax0].keys()):
+                    file_dict[bias][ax0][ax1] = []
+
+                likelihoods = self.likelihoods[bias][ax0][ax1]
+
+                n_likelihoods = len(likelihoods)
+                n_files = int(np.ceil(float(n_likelihoods) / float(chunk)))
+
+                for i in range(n_files):
+                    savepath = agg_savepath[:-4] + \
+                                    '_x{:d}um_z{:d}um_likelihood-arr_{:d}'\
+                                            .format(int(ax0), int(ax1), i)
+                    savepath = savepath.replace('.', '_')
+                    savepath += '.npy'
+
+                    file_dict[bias][ax0][ax1].append(savepath)
+
+                    savearr = likelihoods[i*chunk:(i+1)*chunk]
+
+                    np.save(savepath, savearr)
+
+                return file_dict
+
+        else:
+            return {}
+
+
+    def _load_likelihood_dict(self, path_dict):
+
+        if len(list(path_dict.keys())):
+            likelihoods = {}
+            for bias, ax0, ax1 in itertools.product(list(self.agg_dict.keys()), self.ax0vec, self.ax1vec):
+                if bias not in list(likelihoods.keys()):
+                    likelihoods[bias] = {}
+                if ax0 not in list(likelihoods[bias].keys()):
+                    likelihoods[bias][ax0] = {}
+                if ax1 not in list(likelihoods[bias][ax0].keys()):
+                    likelihoods[bias][ax0][ax1] = []
+
+                paths = path_dict[bias][ax0][ax1]
+
+                arrs = []
+                for path in paths:
+                    arr = np.load(path)
+                    arrs.append(arr)
+
+                likelihoods[bias][ax0][ax1] = np.concatenate(arrs)
+
+            self.likelihoods =  likelihoods
+
 
 
     def save_alpha_dict(self, savepath, verbose=True):
@@ -1189,6 +1312,7 @@ class AggregateData:
             old_class = pickle.load( open(loadpath, 'rb') )
             self.__dict__.update(old_class.__dict__)
             self.p0_bead = new_p0
+            self._load_likelihood_dict(self.likelihoods)
 
             print('Done!')
 
@@ -1697,13 +1821,12 @@ class AggregateData:
 
 
 
-
-
-
     def find_alpha_xyz_from_templates(self, plot=False, plot_basis=False, ncore=1, \
                                         alpha_scale=1e8, add_fake_data=False, \
                                         fake_alpha=1e13, plot_bad_alphas=False, \
-                                        plot_templates=False, n_largest_harms=100):
+                                        plot_templates=False, n_largest_harms=100, \
+                                        fix_sep=False, fix_sep_val=10.0, fix_height=False, \
+                                        fix_height_val=0.0):
 
         print('Finding alpha for each coordinate via an FFT template fitting algorithm...')
         
@@ -1793,7 +1916,10 @@ class AggregateData:
                                                         single_lambind=lambind, \
                                                         new_trap=new_trap, \
                                                         plot=plot_templates, \
-                                                        n_largest_harms=n_largest_harms)
+                                                        n_largest_harms=n_largest_harms, \
+                                                        fix_sep=fix_sep, fix_sep_val=fix_sep_val, \
+                                                        fix_height=fix_height, \
+                                                        fix_height_val=fix_height_val)
                     # stop = time.time()
                     # print('Template time : {:0.4f}'.format(stop - start))
 
@@ -1925,6 +2051,1577 @@ class AggregateData:
 
 
 
+
+
+
+    def find_alpha_likelihoods_every_harm(self, plot=False, plot_basis=False, ncore=1, \
+                                          alpha_scale=1e8, add_fake_data=False, \
+                                          fake_alpha=1e13, plot_bad_alphas=False, \
+                                          plot_templates=False, n_testalpha=11, \
+                                          interpolate=False, fix_sep=False, \
+                                          fix_sep_val=10.0, fix_height=False, 
+                                          fix_height_val=0.0, diag=True):
+
+        print('Finding alpha for each coordinate and drive harmonic ' \
+                + 'via an FFT template fitting algorithm...')
+        
+        if not self.gfuncs_class.grav_loaded:
+            print("FAILED: Must load thoery data first!")
+            try:
+                self.gfuncs_class.reload_grav_funcs()
+                print("UN-FAILED: Loaded dat theory dat!")
+            except Exception:
+                return
+
+        if interpolate:
+            self.likelihood_interp = True
+        else:
+            self.likelihood_interp = False
+
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+
+        mles = {}
+        likelihoods = {}
+        likelihood_ratios = {}
+        for bias in list(self.agg_dict.keys()):
+            mles[bias] = {}
+            likelihoods[bias] = {}
+            likelihood_ratios[bias] = {}
+            for ax0key in self.ax0vec:
+                mles[bias][ax0key] = {}
+                likelihoods[bias][ax0key] = {}
+                likelihood_ratios[bias][ax0key] = {}
+                for ax1key in self.ax1vec:
+                    mles[bias][ax0key][ax1key] = []
+                    likelihoods[bias][ax0key][ax1key] = []
+                    likelihood_ratios[bias][ax0key][ax1key] = []
+
+        totlen = len(list(self.agg_dict.keys())) * len(self.ax0vec) * len(self.ax1vec)
+        for bias, ax0, ax1 in itertools.product(list(self.agg_dict.keys()), self.ax0vec, self.ax1vec):
+
+            #ax0ind = np.argmin(np.abs(np.array(self.ax0vec) - ax0))
+            #ax1ind = np.argmin(np.abs(np.array(self.ax1vec) - ax1)
+
+            file_data_objs = self.agg_dict[bias][ax0][ax1]
+            nobjs = len(file_data_objs)
+
+            nharms = len(self.ginds)
+            nlambda = len(self.gfuncs_class.lambdas)
+
+            p0_bead = self.p0_bead
+
+            new_trap = self.new_trap
+
+            gfunc_list = []
+            for i in range(nobjs):
+                gfunc_new = GravFuncs('', load=False)
+                gfunc_new.__dict__.update(self.gfuncs_class.__dict__)
+                gfunc_list.append(gfunc_new)
+
+            arg_list = list(zip(file_data_objs, gfunc_list))
+
+            def process_file_data(arg):  #obj):
+                # file_start = time.time()
+                obj, gfunc = arg
+
+                p0_bead_current = obj.p0_bead
+
+                freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)
+
+                # alpha_xyz_dict[bias][ax0][ax1].append([])
+
+                # start = time.time()
+                drivevec = obj.rebuild_drive()
+                # stop = time.time()
+                # print( 'Drive rebuild : {:0.4f}'.format(stop - start) )
+                posvec = obj.posvec
+                datfft = obj.datfft
+                daterr = obj.daterr
+                diagdatfft = obj.diagdatfft
+                diagdaterr = obj.diagdaterr
+                binned = obj.binned
+                n_err = int(len(daterr[0]) / len(datfft[0]))
+
+                if interpolate:
+                    out_likelihoods = np.zeros((nlambda, 3, nharms, 2, n_testalpha))
+                else:
+                    out_likelihoods = np.zeros((nlambda, 3, nharms, 2, 3))
+                    out_likelihood_ratios = np.zeros((nlambda, 3, nharms))
+
+                out_mles = np.zeros((nlambda, 3, nharms, 2))
+
+                # derp_ind = np.argmin(np.abs(gfunc.lambdas - 10.0e-6))
+
+                ## Loop over lambdas and do the template analysis for each value of lambda
+                for lambind, yuklambda in enumerate(gfunc.lambdas):
+
+                    templates = gfunc.make_templates(posvec, drivevec, ax0, ax1, \
+                                                     obj.ginds, p0_bead_current, obj.fsamp, \
+                                                     single_lambda=True, \
+                                                     single_lambind=lambind, \
+                                                     new_trap=new_trap, \
+                                                     plot=plot_templates, \
+                                                     fix_sep=fix_sep, fix_sep_val=fix_sep_val, \
+                                                     fix_height=fix_height, \
+                                                     fix_height_val=fix_height_val)
+                    # stop = time.time()
+                    # print('Template time : {:0.4f}'.format(stop - start))
+
+                    if plot and lambind == 0:
+                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False,figsize=(10,8))
+
+                    for resp in [0,1,2]:
+
+                        ### Get the modified gravity fft template, with alpha = 1
+                        yukfft = templates['yukffts'][lambind][resp]
+                        yukbool = templates['yukbool'][lambind][resp]
+                        erryukbool = yukbool.repeat(n_err, axis=0)
+
+                        # if lambind == 81 and resp == 2:
+                        #     print(yuklambda)
+                        #     for i in range(nharms):
+                        #         print(i, np.abs(yukfft[i]), np.angle(yukfft[i]*10**27))
+                        #     input()
+
+                        if diag:
+                            c_datfft = diagdatfft[resp][yukbool]
+                            c_daterr = diagdaterr[resp][erryukbool]
+                        else:
+                            c_datfft = datfft[resp][yukbool]
+                            c_daterr = daterr[resp][erryukbool]
+
+                        if add_fake_data:
+                            c_datfft = datfft[resp] + fake_alpha * yukfft
+
+                        for i in range(nharms):
+
+                            template_vec = np.array([yukfft[i].real, yukfft[i].imag])
+                            data_vec = np.array([c_datfft[i].real, c_datfft[i].imag])
+                            var = (1.0 / (2.0 * n_err)) * \
+                                        np.sum( (c_daterr[i*n_err:(i+1)*n_err].real)**2 + \
+                                                (c_daterr[i*n_err:(i+1)*n_err].imag)**2 )
+
+                            alpha_scale = np.inner(data_vec, template_vec) / \
+                                                    np.inner(template_vec, template_vec)
+
+                            def alphacost(alpha):
+                                ndof = len(data_vec) - 1
+                                num = (data_vec - alpha*alpha_scale*template_vec)**2
+                                return (1.0 / ndof) * np.sum(num / var)
+
+
+                            m = Minuit(alphacost,
+                                       alpha = 1.0, # set start parameter
+                                       #fix_param = "True", # you can also fix it
+                                       # limit_param = (0.0, 10000.0),
+                                       errordef = 1,
+                                       print_level = 0, 
+                                       pedantic=False)
+                            m.migrad(ncall=500000)
+
+                            alpha_best = m.values['alpha'] * alpha_scale
+                            alpha_unc = m.errors['alpha'] * alpha_scale
+
+                            # if resp == 2:
+                            #     plt.plot(test_alphas, test_cost)
+                            #     plt.title('Ax: {:s}, Freq = {:0.1f} Hz'\
+                            #                 .format(ax_dict[resp], freqs[obj.ginds[i]]))
+                            #     plt.show()
+
+                            out_mles[lambind,resp,i,0] = alpha_best
+                            out_mles[lambind,resp,i,1] = m.fval
+
+                            test_alphas = np.linspace(alpha_best-3.0*alpha_unc, \
+                                                      alpha_best+3.0*alpha_unc, n_testalpha)
+                            test_cost = []
+                            for test_alpha in test_alphas:
+                                test_cost.append(alphacost(test_alpha/alpha_scale))
+                            test_cost = np.array(test_cost)
+
+                            if interpolate:
+                                out_likelihoods[lambind,resp,i,0] = test_alphas
+                                out_likelihoods[lambind,resp,i,1] = test_cost
+
+                            else:
+                                def quadratic(x, a, b, c):
+                                    return a*x**2 + b*x + c
+
+                                p0 = [0.0, 0.0, m.fval]
+                                try:
+                                    popt, pcov =  optimize.curve_fit(quadratic, test_alphas/alpha_scale, \
+                                                                     test_cost, p0=p0, maxfev=10000)
+                                except:
+                                    popt = p0
+
+                                popt[0] /= alpha_scale**2
+                                popt[1] /= alpha_scale
+
+                                out_likelihoods[lambind,resp,i,0] = \
+                                        np.array([np.min(test_alphas), alpha_best, np.max(test_alphas)])
+
+                                out_likelihoods[lambind,resp,i,1] = popt
+
+                                out_likelihood_ratios[lambind,resp,i] = (1.0 / var) * \
+                                        np.sum(data_vec**2 - (data_vec - alpha_best*template_vec)**2)
+
+                                # if lambind == len(self.gfuncs_class.lambdas) - 1:
+                                #     print(popt)
+                                #     print(yuklambda)
+                                #     print(test_alphas)
+                                #     print(test_cost)
+                                #     plt.scatter(test_alphas, test_cost, s=25)
+                                #     plt.plot(test_alphas, quadratic(test_alphas, *popt))
+                                #     plt.plot(test_alphas, quadratic(test_alphas, *p0), color='k')
+                                #     plt.show()
+                                #     input()
+
+                return (out_mles, out_likelihoods, out_likelihood_ratios)
+
+            results = Parallel(n_jobs=ncore)(delayed(process_file_data)(arg) \
+                                                    for arg in tqdm(arg_list))
+
+            mles[bias][ax0][ax1] = np.array([i for i, j, k in results])
+            likelihoods[bias][ax0][ax1] = np.array([j for i, j, k in results])
+            likelihood_ratios[bias][ax0][ax1] = np.array([k for i, j, k in results])
+
+        print('Done!')   
+        self.mles = mles
+        self.likelihoods = likelihoods
+        self.likelihood_ratios = likelihood_ratios
+
+
+
+
+    def plot_likelihood_ratio_histograms(self, show=True, save=False, yuklambda=10.0e-6,\
+                                         basepath='/home/cblakemore/plots/mod_grav'):
+        '''Function to generate a bunch of histograms of the likelihood ratio statistics
+           and compare them to chi-squared distributions.'''
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+        if save:
+            bu.make_all_pardirs( os.path.join(basepath, 'test.svg') )
+        yukind = np.argmin( np.abs(self.gfuncs_class.lambdas - yuklambda) )
+        yuklambda = self.gfuncs_class.lambdas[yukind]
+
+        chi2dist = stats.chi2(1)
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            figs = []
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            for resp in [0,1,2]:
+                for j, freq in enumerate(freqs):
+                    likelihood_ratios = self.likelihood_ratios[bias][ax0][ax1][:,yukind,resp,j]
+                    max_val = np.max(likelihood_ratios)
+                    xvec = np.linspace(0, max_val, 500)
+                    label = 'Normalized'
+                    fig, ax = plt.subplots(1,1)
+                    ax.set_title('$\\mathcal{{L}}_0/\\mathcal{{L}}$: ${:s}$-axis, '.format(ax_dict[resp]) \
+                                    + '$f={:0.1f}~$Hz, '.format(freq) \
+                                    + '$\\lambda={:0.2f}~\\mu$m'.format(1.0e6*yuklambda))
+                    vals, _, _ = ax.hist(likelihood_ratios, bins=20, label=label, density=True)
+                    ax.plot(xvec, chi2dist.pdf(xvec), color='k', label='$\\chi^2 (1)$')
+                    ax.set_yscale('log')
+                    ax.set_ylim(np.min(vals[vals != 0.0])*0.75, 1)
+                    ax.set_xlabel('$-2 \\, \\log \\left( \\mathcal{L}_0/\\mathcal{L} \\right)$')
+                    ax.legend(loc='upper right', fontsize=10)
+                    fig.tight_layout()
+                    if save:
+                        figname = 'likelihood_ratios_{:s}_lambda{:0.2g}m_f{:d}Hz'\
+                                        .format(ax_dict[resp], yuklambda, int(freq))
+                        figname = figname.replace('.', '_')
+                        figname += '.svg'
+                        savepath = os.path.join(basepath, figname)
+                        fig.savefig(savepath)
+                    figs.append(fig)
+
+
+                likelihood_ratios = self.likelihood_ratios[bias][ax0][ax1][:,yukind,resp,:].flatten()
+                max_val = np.max(likelihood_ratios)
+                xvec = np.linspace(0, max_val, 500)
+                label = 'Normalized'
+                fig, ax = plt.subplots(1,1)
+                ax.set_title('$\\mathcal{{L}}_0/\\mathcal{{L}}$: ${:s}$-axis, '.format(ax_dict[resp]) \
+                                + '$\\lambda={:0.2f}~\\mu$m'.format(1.0e6*yuklambda))
+                vals, _, _ = ax.hist(likelihood_ratios, bins=20, label=label, density=True)
+                ax.plot(xvec, chi2dist.pdf(xvec), color='k', label='$\\chi^2 (1)$')
+                ax.set_yscale('log')
+                ax.set_ylim(np.min(vals[vals != 0.0])*0.75, 1)
+                ax.set_xlabel('$-2 \\, \\log \\left( \\mathcal{L}_0/\\mathcal{L} \\right)$')
+                ax.legend(loc='upper right', fontsize=10)
+                fig.tight_layout()
+                if save:
+                    figname = 'likelihood_ratios_{:s}_lambda{:0.2g}m'\
+                                    .format(ax_dict[resp], yuklambda)
+                    figname = figname.replace('.', '_')
+                    figname += '.svg'
+                    savepath = os.path.join(basepath, figname)
+                    fig.savefig(savepath)
+
+            if show:
+                plt.show()
+
+        for fig in figs:
+            plt.close(fig)
+        return
+
+
+
+
+    def plot_mle_histograms(self, show=True, save=False, yuklambda=10.0e-6, bins=20,\
+                            basepath='/home/cblakemore/plots/mod_grav'):
+        '''Function to generate a bunch of histograms of the alpha MLEs for 
+           each harmonic and each axis.'''
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+        if save:
+            bu.make_all_pardirs( os.path.join(basepath, 'test.svg') )
+        yukind = np.argmin( np.abs(self.gfuncs_class.lambdas - yuklambda) )
+        yuklambda = self.gfuncs_class.lambdas[yukind]
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            figs = []
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            for j, freq in enumerate(freqs):
+                for resp in [0,1,2]:
+                    mles = self.mles[bias][ax0][ax1][:,yukind,resp,j,0]
+                    mean = np.mean(mles)
+                    std_err = np.std(mles) / np.sqrt(len(mles))
+                    label = '$\\mu = {{{:0.3g}}}$\n$\\sigma/\\sqrt{{N}} = {{{:0.2g}}}$'.format(mean, std_err)
+                    fig, ax = plt.subplots(1,1)
+                    ax.set_title('MLEs: ${:s}$-axis, $f={:0.1f}~$Hz, $\\lambda={:0.2f}~\\mu$m'\
+                                .format(ax_dict[resp], freq, 1.0e6*yuklambda))
+                    ax.hist(mles, bins=20, label=label)
+                    ax.set_xlabel('$\\hat{\\alpha}$')
+                    ax.legend(loc='upper right', fontsize=10)
+                    fig.tight_layout()
+                    if save:
+                        figname = 'alpha-mles_{:s}_lambda{:0.2g}m_f{:d}Hz'\
+                                        .format(ax_dict[resp], yuklambda, int(freq))
+                        figname = figname.replace('.', '_')
+                        figname += '.svg'
+                        savepath = os.path.join(basepath, figname)
+                        fig.savefig(savepath)
+                    figs.append(fig)
+            if show:
+                plt.show()
+
+        for fig in figs:
+            plt.close(fig)
+
+        return
+
+
+
+    def plot_mle_vs_time(self, show=True, save=False, yuklambda=10.0e-6,\
+                         basepath='/home/cblakemore/plots/mod_grav', \
+                         plot_freqs=[], plot_alpha=1.0, chunk_size=0, \
+                         file_length=10.0, xscale='hour', zoom_limits=()):
+        '''Function to generate a time series of the raw alpha MLE and uncertainty.
+           of that estimate for each harmonic.'''
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+        if save:
+            bu.make_all_pardirs( os.path.join(basepath, 'test.svg') )
+        yukind = np.argmin( np.abs(self.gfuncs_class.lambdas - yuklambda) )
+        yuklambda = self.gfuncs_class.lambdas[yukind]
+
+        colors = bu.get_color_map(len(plot_freqs))
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            figs = []
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            if len(plot_freqs):
+                nfreq = len(plot_freqs)
+            else:
+                nfreq = len(freqs)
+            colors = bu.get_color_map(nfreq)
+            for resp in [0,1,2]:
+                main_fig, main_ax = plt.subplots(1,1,figsize=(9.6,4.8))
+                if len(zoom_limits):
+                    z_fig, z_ax = plt.subplots(1,1,figsize=(9.6,4.8))
+                    fig_list = [main_fig, z_fig]
+                    ax_list = [main_ax, z_ax]
+                else:
+                    fig_list =  [main_fig]
+                    ax_list = [main_ax]
+
+                i = 0
+                for j, freq in enumerate(freqs):
+                    if len(plot_freqs):
+                        if freq not in plot_freqs:
+                            continue
+                    color = colors[i]
+                    i += 1
+                    all_mles = self.mles[bias][ax0][ax1][:,yukind,resp,j,0]
+                    all_uncertainties = (1.0/3.0) * \
+                            (self.likelihoods[bias][ax0][ax1][:,yukind,resp,j,0,-1] - all_mles)
+                    if not chunk_size:
+                        mles = all_mles
+                        uncertainties =  all_uncertainties
+                        tvec = self.times0 * 1e-9
+                        chunk_size = 1
+                    else:
+                        mles = []
+                        uncertainties = []
+                        tvec = []
+                        nmeas = len(all_mles)
+                        nchunk = np.int(np.ceil(nmeas / chunk_size))
+                        for k in range(nchunk):
+                            k1 = k*chunk_size
+                            k2 = (k+1)*chunk_size
+                            c_mles = all_mles[k1:k2]
+                            c_uncertainties = all_uncertainties[k1:k2]
+                            tvec.append( np.mean(self.times0[k1:k2]) )
+                            mles.append( np.sum(c_mles/c_uncertainties**2) / \
+                                            np.sum(1.0/c_uncertainties**2) )
+                            uncertainties.append(np.sqrt(1.0 / np.sum(1.0/c_uncertainties**2)))
+
+                        tvec = np.array(tvec)*1e-9
+                        mles = np.array(mles)
+                        uncertainties = np.array(uncertainties)
+
+                    ### DO THE TIME VEC BETTER FROM ACTUAL TIMESTAMPS
+                    # tvec = np.linspace(0, len(mles)-1, len(mles)) * 10.0 * chunk_size
+
+                    if xscale == 'hour':
+                        tvec *= 1.0 / 3600.0
+                        xlabel = 'Time [hr]'
+                    else:
+                        xlabel = 'Time [s]'
+                    dt = 0.5 * (tvec[1] - tvec[0]) *  (i / (nfreq + 1))
+                    # dt = 0
+                    label = '{:0.1f} Hz'.format(freq)
+                    for ax in ax_list:
+                        ax.errorbar(tvec+dt, mles, yerr=uncertainties, fmt='.', label=label, \
+                                    color=color, alpha=plot_alpha, zorder=2)
+
+                bin_length = chunk_size * file_length
+                for ax in ax_list:
+                    ax.set_title('MLEs vs. Time: ${:s}$-axis, $\\lambda={:0.2f}~\\mu$m, {:d}-s bins'\
+                                .format(ax_dict[resp], 1.0e6*yuklambda, int(bin_length)))
+                    ax.axhline(0, color='k', alpha=0.5, zorder=1, ls='--')
+                    ax.set_ylabel('$\\hat{\\alpha}$')
+                    ax.set_xlabel(xlabel)
+                    ax.legend(loc='upper right', fontsize=10, ncol=2, framealpha=1.0)
+
+                xlim = (0, tvec[-1]+(tvec[1]-tvec[0]))
+
+                main_ax.set_xlim(*xlim)
+                main_fig.tight_layout()
+                if len(zoom_limits):
+                    z_ax.set_xlim(*zoom_limits)
+                    z_fig.tight_layout()
+
+                if save:
+                    figname = 'alpha-vs-time_{:s}_lambda{:0.2g}m_{:d}s-bins'\
+                                    .format(ax_dict[resp], yuklambda, int(bin_length))
+                    figname = figname.replace('.', '_')
+                    zoom_figname = figname + '_zoom'
+                    figname += '.svg'
+                    zoom_figname += '.svg'
+                    savepath = os.path.join(basepath, figname)
+                    main_fig.savefig(savepath)
+                    if len(zoom_limits):
+                        zoom_savepath = os.path.join(basepath,zoom_figname)
+                        z_fig.savefig(zoom_savepath)
+
+                for fig in fig_list:
+                    figs.append(fig)
+            if show:
+                plt.show()
+
+        for fig in figs:
+            plt.close(fig)
+
+        return
+
+
+
+    def sum_alpha_likelihoods(self, no_discovery=False, nalpha=1000, chunk_size=100, \
+                              freq_pairing=1, shuffle_in_time=False, shuffle_seed=12345, \
+                              sum_by_sign=False, nchunk=1):
+        print("Summing profiled likelihoods for strength parameter 'alpha'...", end='')
+        sys.stdout.flush()
+        if no_discovery and not sum_by_sign:
+            self._sum_alpha_likelihoods_hybrid(nalpha=nalpha, chunk_size=chunk_size, \
+                                               freq_pairing=freq_pairing, \
+                                               shuffle_in_time=shuffle_in_time, \
+                                               shuffle_seed=shuffle_seed)
+        elif no_discovery and sum_by_sign:
+            self._sum_alpha_likelihoods_by_sign(nalpha=nalpha, nchunk=nchunk, \
+                                                freq_pairing=freq_pairing, \
+                                                shuffle_in_time=shuffle_in_time, \
+                                                shuffle_seed=shuffle_seed)
+        else:
+            self._sum_alpha_likelihoods_by_harm(nalpha=nalpha)
+        return
+
+
+
+    def _sum_alpha_likelihoods_by_harm(self, nalpha=1000):
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            nfreq = len(freqs)
+            print(' ', end='')
+ 
+            mle_dict = {}
+            likelihood_dict = {}
+
+            ### Define some arrays to make the last likelihood sum easier to execute
+            all_mle = np.zeros((3,len(self.gfuncs_class.lambdas),nfreq,2))
+            all_coeff = np.zeros((3,len(self.gfuncs_class.lambdas),nfreq,2,3))
+
+            for j, freq in enumerate(freqs):
+                print('{:0.1f}Hz, '.format(freq), end='')
+                sys.stdout.flush()
+                outarr = np.zeros((3,len(self.gfuncs_class.lambdas),2,nalpha))
+
+                for resp in [0,1,2]:
+                    for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+
+                        prof_alphas = self.likelihoods[bias][ax0][ax1][:,k,resp,j,0]
+                        prof_vals = self.likelihoods[bias][ax0][ax1][:,k,resp,j,1]
+                        sum_prof_alphas, sum_prof_coeffs = \
+                            self._sum_alpha_likelihoods_naive_quad(\
+                                            prof_alphas, prof_vals, nalpha=nalpha, \
+                                            return_coeff=True)
+
+                        all_coeff[resp,k,j,0] = sum_prof_alphas
+                        all_coeff[resp,k,j,1] = sum_prof_coeffs
+
+                        all_mle[resp,k,j,0] = -1.0*sum_prof_coeffs[1]/(2.0*sum_prof_coeffs[0])
+                        all_mle[resp,k,j,1] = sum_prof_coeffs[2] - \
+                                                sum_prof_coeffs[1]**2/(4.0*sum_prof_coeffs[0])
+
+
+                        sum_prof_alphas, sum_prof_vals = \
+                            self._sum_alpha_likelihoods_naive_quad(\
+                                            prof_alphas, prof_vals, nalpha=nalpha)
+
+                        outarr[resp,k,0] = sum_prof_alphas
+                        outarr[resp,k,1] = sum_prof_vals
+
+                likelihood_dict[freq] = outarr
+                mle_dict[freq] = all_mle[:,:,j,:]
+
+
+            ### Array to save the final hybrid profiles
+            full_profs = np.zeros((3,len(self.gfuncs_class.lambdas),2,nalpha))
+
+            ### Sum over the harmonics and chunks for each response axis and lambda value
+            for resp in [0,1,2]:
+                for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+                    prof_alphas, prof_vals = \
+                            self._sum_alpha_likelihoods_naive_quad( \
+                                            all_coeff[resp,k,:,0], all_coeff[resp,k,:,1], \
+                                            nalpha=nalpha)
+                    full_profs[resp,k,0] = prof_alphas
+                    full_profs[resp,k,1] = prof_vals
+
+        print(' Done!')
+        self.mles_by_harmonic = mle_dict
+        self.likelihoods_sum_by_harmonic = likelihood_dict
+        self.likelihoods_sum = full_profs
+
+        return
+
+
+
+    def _sum_alpha_likelihoods_hybrid(self, chunk_size=100, freq_pairing=1, nalpha=1000, \
+                                      shuffle_in_time=False, shuffle_seed=12345):
+
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            nfreq = len(freqs)
+            nchunk_freq = int(nfreq / freq_pairing)
+
+            print(' ', end='')
+
+            args = [(j, freq) for j, freq in enumerate(freqs)]
+
+            nmeas = self.mles[bias][ax0][ax1].shape[0]
+            nchunk = int(nmeas / chunk_size)
+            nlambda = len(self.gfuncs_class.lambdas)
+
+            print('nchunk:', nchunk)
+
+            likelihood_bin_harm_dict = {}
+            likelihood_harm_dict = {}
+
+            chunked_mle = np.zeros((nchunk,3,nlambda,nfreq,2))
+            chunked_coeff = np.zeros((nchunk,3,nlambda,nfreq,2,3))
+
+            all_meas_mles = self.mles[bias][ax0][ax1]
+            all_meas_profs  = self.likelihoods[bias][ax0][ax1]
+
+            if shuffle_in_time:
+                rng = np.random.default_rng(shuffle_seed)
+                rng.shuffle(all_meas_mles)
+                rng.shuffle(all_meas_profs)
+ 
+            # def process(arg):
+            for j, freq in enumerate(freqs):
+                # j, freq = arg
+                print('{:0.1f}Hz, '.format(freq), end='')
+                sys.stdout.flush()
+                outarr = np.zeros((3,nlambda,2,nalpha))
+
+                for resp in [0,1,2]:
+                    for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+                        for i in range(nchunk):
+                            i1 = i*chunk_size
+                            i2 = (i+1)*chunk_size
+                            mles = all_meas_mles[i1:i2,k,resp,j,0]
+                            minvals = all_meas_mles[i1:i2,k,resp,j,1]
+
+                            prof_alphas = all_meas_profs[i1:i2,k,resp,j,0]
+                            prof_vals = all_meas_profs[i1:i2,k,resp,j,1]
+                            sum_prof_alphas, sum_prof_coeffs = \
+                                self._sum_alpha_likelihoods_naive_quad(\
+                                                prof_alphas, prof_vals, nalpha=nalpha, \
+                                                return_coeff=True)
+
+                            chunked_coeff[i,resp,k,j,0] = sum_prof_alphas
+                            chunked_coeff[i,resp,k,j,1] = sum_prof_coeffs
+
+                            chunked_mle[i,resp,k,j,0] = -1.0*sum_prof_coeffs[1]/(2.0*sum_prof_coeffs[0])
+                            chunked_mle[i,resp,k,j,1] = sum_prof_coeffs[2] - \
+                                                            sum_prof_coeffs[1]**2/(4.0*sum_prof_coeffs[0])
+
+                        sum_prof_alphas, sum_prof_vals = \
+                            self._sum_alpha_likelihoods_no_discovery_quad( \
+                                            chunked_coeff[:,resp,k,j,0], chunked_coeff[:,resp,k,j,1], \
+                                            chunked_mle[:,resp,k,j,1], chunked_mle[:,resp,k,j,0], \
+                                            nalpha=nalpha)
+
+                        outarr[resp,k,0] = sum_prof_alphas
+                        outarr[resp,k,1] = sum_prof_vals
+
+                likelihood_harm_dict[freq] = outarr
+                likelihood_bin_harm_dict[freq] = chunked_coeff[:,:,:,j,:]
+
+
+            ### Define some arrays to make the last likelihood sum easier to execute
+            all_mle = np.zeros((3,nlambda,nchunk_freq*nchunk,2))
+            all_coeff = np.zeros((3,nlambda,nchunk_freq*nchunk,2,3))
+
+            ### Array to save the final hybrid profiles
+            hybrid_profs = np.zeros((3,nlambda,2,nalpha))
+
+
+            for resp in [0,1,2]:
+                for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+                    for i in range(nchunk):
+                        for j in range(nchunk_freq):
+                            j1 = j*freq_pairing
+                            j2 = (j+1)*freq_pairing
+                            sum_prof_alphas, sum_prof_coeffs = \
+                                    self._sum_alpha_likelihoods_naive_quad( \
+                                                    chunked_coeff[i,resp,k,j1:j2,0], \
+                                                    chunked_coeff[i,resp,k,j1:j2,1],\
+                                                    return_coeff=True, nalpha=nalpha)
+
+                            all_coeff[resp,k,i*nchunk_freq+j,0] = sum_prof_alphas
+                            all_coeff[resp,k,i*nchunk_freq+j,1] = sum_prof_coeffs
+
+                            all_mle[resp,k,i*nchunk_freq+j,0] = \
+                                        -1.0*sum_prof_coeffs[1]/(2.0*sum_prof_coeffs[0])
+                            all_mle[resp,k,i*nchunk_freq+j,1] = sum_prof_coeffs[2] - \
+                                        sum_prof_coeffs[1]**2/(4.0*sum_prof_coeffs[0])
+
+            ### Sum over the harmonics and chunks for each response axis and lambda value
+            for resp in [0,1,2]:
+                for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+
+                    prof_alphas, prof_vals = \
+                                self._sum_alpha_likelihoods_no_discovery_quad( \
+                                                all_coeff[resp,k,:,0], all_coeff[resp,k,:,1], \
+                                                all_mle[resp,k,:,1], all_mle[resp,k,:,0], \
+                                                nalpha=nalpha, debug=True)
+
+                    hybrid_profs[resp,k,0] = prof_alphas
+                    hybrid_profs[resp,k,1] = prof_vals
+
+
+        print(' Done!')
+        self.likelihoods_sum_by_bin_harmonic = likelihood_bin_harm_dict
+        self.likelihoods_sum_by_harmonic = likelihood_harm_dict
+        self.likelihoods_sum = hybrid_profs
+
+        return
+
+
+
+    def _sum_alpha_likelihoods_by_sign(self, nchunk=1, freq_pairing=1, nalpha=1000, \
+                                       shuffle_in_time=False, shuffle_seed=12345):
+
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            nfreq = len(freqs)
+            nchunk_freq = int(nfreq / freq_pairing)
+
+            print(' ', end='')
+
+            nmeas = self.mles[bias][ax0][ax1].shape[0]
+            nlambda = len(self.gfuncs_class.lambdas)
+
+            likelihood_bin_harm_dict = {}
+            likelihood_harm_dict = {}
+
+            pos_chunked_mle = np.zeros((nchunk,3,nlambda,nfreq,2))
+            pos_chunked_coeff = np.zeros((nchunk,3,nlambda,nfreq,2,3))
+
+            neg_chunked_mle = np.zeros((nchunk,3,nlambda,nfreq,2))
+            neg_chunked_coeff = np.zeros((nchunk,3,nlambda,nfreq,2,3))
+
+            all_meas_mles = self.mles[bias][ax0][ax1]
+            all_meas_profs  = self.likelihoods[bias][ax0][ax1]
+
+            if shuffle_in_time:
+                rng = np.random.default_rng(shuffle_seed)
+                rng.shuffle(all_meas_mles)
+                rng.shuffle(all_meas_profs)
+
+            # def process(arg):
+            for j, freq in enumerate(freqs):
+                # j, freq = arg
+                print('{:0.1f}Hz, '.format(freq), end='')
+                sys.stdout.flush()
+                outarr = np.zeros((3,nlambda,2,nalpha))
+
+                for resp in [0,1,2]:
+                    for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+                        mles = all_meas_mles[:,k,resp,j,0]
+                        minvals = all_meas_mles[:,k,resp,j,1]
+
+                        pos_inds = mles > 0
+                        neg_inds = mles < 0
+
+                        pos_n = np.sum(pos_inds)
+                        neg_n = np.sum(neg_inds)
+
+                        pos_chunk_size = int(np.ceil(pos_n / nchunk))
+                        neg_chunk_size = int(np.ceil(neg_n / nchunk))
+
+                        for i in range(nchunk):
+                            pos_i1 = i*pos_chunk_size
+                            pos_i2 = (i+1)*pos_chunk_size
+
+                            neg_i1 = i*neg_chunk_size
+                            neg_i2 = (i+1)*neg_chunk_size
+
+                            pos_prof_alphas = all_meas_profs[pos_inds,k,resp,j,0][pos_i1:pos_i2]
+                            pos_prof_vals = all_meas_profs[pos_inds,k,resp,j,1][pos_i1:pos_i2]
+                            pos_sum_prof_alphas, pos_sum_prof_coeffs = \
+                                self._sum_alpha_likelihoods_naive_quad(\
+                                                pos_prof_alphas, pos_prof_vals, nalpha=nalpha, \
+                                                return_coeff=True)
+
+                            neg_prof_alphas = all_meas_profs[neg_inds,k,resp,j,0][neg_i1:neg_i2]
+                            neg_prof_vals = all_meas_profs[neg_inds,k,resp,j,1][neg_i1:neg_i2]
+                            neg_sum_prof_alphas, neg_sum_prof_coeffs = \
+                                self._sum_alpha_likelihoods_naive_quad(\
+                                                neg_prof_alphas, neg_prof_vals, nalpha=nalpha, \
+                                                return_coeff=True)
+
+                            pos_chunked_coeff[i,resp,k,j,0] = pos_sum_prof_alphas
+                            pos_chunked_coeff[i,resp,k,j,1] = pos_sum_prof_coeffs
+
+                            pos_chunked_mle[i,resp,k,j,0] = \
+                                        -1.0*pos_sum_prof_coeffs[1] / (2.0 * pos_sum_prof_coeffs[0])
+                            pos_chunked_mle[i,resp,k,j,1] = pos_sum_prof_coeffs[2] - \
+                                        pos_sum_prof_coeffs[1]**2 / (4.0*pos_sum_prof_coeffs[0])
+
+                            neg_chunked_coeff[i,resp,k,j,0] = neg_sum_prof_alphas
+                            neg_chunked_coeff[i,resp,k,j,1] = neg_sum_prof_coeffs
+
+                            neg_chunked_mle[i,resp,k,j,0] = \
+                                        -1.0*neg_sum_prof_coeffs[1] / (2.0 * neg_sum_prof_coeffs[0])
+                            neg_chunked_mle[i,resp,k,j,1] = neg_sum_prof_coeffs[2] - \
+                                        neg_sum_prof_coeffs[1]**2 / (4.0*neg_sum_prof_coeffs[0])
+
+                        pos_sum_prof_alphas, pos_sum_prof_vals = \
+                            self._sum_alpha_likelihoods_no_discovery_quad( \
+                                    pos_chunked_coeff[:,resp,k,j,0], pos_chunked_coeff[:,resp,k,j,1], \
+                                    pos_chunked_mle[:,resp,k,j,1], pos_chunked_mle[:,resp,k,j,0], \
+                                    nalpha=nalpha)
+
+                        neg_sum_prof_alphas, neg_sum_prof_vals = \
+                            self._sum_alpha_likelihoods_no_discovery_quad( \
+                                    neg_chunked_coeff[:,resp,k,j,0], neg_chunked_coeff[:,resp,k,j,1], \
+                                    neg_chunked_mle[:,resp,k,j,1], neg_chunked_mle[:,resp,k,j,0], \
+                                    nalpha=nalpha)
+
+                        sum_prof_alphas, sum_prof_vals = \
+                            self._combine_pos_neg_no_discovery( \
+                                    pos_sum_prof_alphas, pos_sum_prof_vals, \
+                                    neg_sum_prof_alphas, neg_sum_prof_vals, nalpha=nalpha)
+
+                        outarr[resp,k,0] = sum_prof_alphas
+                        outarr[resp,k,1] = sum_prof_vals
+
+                likelihood_harm_dict[freq] = outarr
+
+
+            ### Define some arrays to make the last likelihood sum easier to execute
+            all_mle = np.zeros((3,nlambda,nchunk_freq*nchunk,2))
+            all_coeff = np.zeros((3,nlambda,nchunk_freq*nchunk,2,3))
+
+            ### Array to save the final hybrid profiles
+            hybrid_profs = np.zeros((3,nlambda,2,nalpha))
+
+
+            # for resp in [0,1,2]:
+            #     for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+            #         for i in range(nchunk):
+            #             for j in range(nchunk_freq):
+            #                 j1 = j*freq_pairing
+            #                 j2 = (j+1)*freq_pairing
+            #                 sum_prof_alphas, sum_prof_coeffs = \
+            #                         self._sum_alpha_likelihoods_naive_quad( \
+            #                                         chunked_coeff[resp,k,j1:j2,i,0], \
+            #                                         chunked_coeff[resp,k,j1:j2,i,1],\
+            #                                         return_coeff=True, nalpha=nalpha)
+
+            #                 all_coeff[resp,k,i*nchunk_freq+j,0] = sum_prof_alphas
+            #                 all_coeff[resp,k,i*nchunk_freq+j,1] = sum_prof_coeffs
+
+            #                 all_mle[resp,k,i*nchunk_freq+j,0] = \
+            #                             -1.0*sum_prof_coeffs[1]/(2.0*sum_prof_coeffs[0])
+            #                 all_mle[resp,k,i*nchunk_freq+j,1] = sum_prof_coeffs[2] - \
+            #                             sum_prof_coeffs[1]**2/(4.0*sum_prof_coeffs[0])
+
+            # ### Sum over the harmonics and chunks for each response axis and lambda value
+            # for resp in [0,1,2]:
+            #     for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+
+            #         prof_alphas, prof_vals = \
+            #                     self._sum_alpha_likelihoods_no_discovery_quad( \
+            #                                     all_coeff[resp,k,:,0], all_coeff[resp,k,:,1], \
+            #                                     all_mle[resp,k,:,1], all_mle[resp,k,:,0], \
+            #                                     nalpha=nalpha, debug=True)
+
+            #         hybrid_profs[resp,k,0] = prof_alphas
+            #         hybrid_profs[resp,k,1] = prof_vals
+
+
+        print(' Done!')
+        self.likelihoods_sum_by_bin_harmonic = likelihood_bin_harm_dict
+        self.likelihoods_sum_by_harmonic = likelihood_harm_dict
+        self.likelihoods_sum = hybrid_profs
+
+        return
+
+
+
+    def _sum_alpha_likelihoods_naive_quad(self, prof_alphas, prof_coeffs, \
+                                          nalpha=1000, return_coeff=False):
+
+        sum_coeff = np.sum(prof_coeffs, axis=0)
+
+        a = sum_coeff[0]
+        b = sum_coeff[1]
+        c = sum_coeff[2]
+
+        new_mle = -1.0*b / (2.0 * a)
+        new_minval = a*new_mle**2 + b*new_mle + c
+
+        scaled_coeff = np.array([a*new_mle**2, b*new_mle, c-new_minval])
+
+        solns = solve_parabola(10.0, scaled_coeff)
+        solns = np.array(solns) * new_mle
+
+        out_alpha = np.linspace(np.min(solns), np.max(solns), nalpha)
+        out_val = a*out_alpha**2 + b*out_alpha + c
+
+        if return_coeff:
+            return np.array([out_alpha[0], new_mle, out_alpha[-1]]), sum_coeff
+        else:
+            return out_alpha, out_val
+
+
+
+
+    def _sum_alpha_likelihoods_no_discovery_interp(self, prof_alphas, prof_vals, mles, \
+                                                   nalpha=1000):
+
+        pos_start = False
+        neg_start = False
+        pos_alphas = []
+        pos_vals = []
+        neg_alphas = []
+        neg_vals = []
+        for ind, prof_alpha in enumerate(prof_alphas):
+
+            alphascale = mles[inds]
+
+            mle_scaled = mles[ind] / alphascale
+            prof_alpha_scaled = prof_alpha / alphascale
+            prof_val = prof_vals[ind]
+
+            if np.abs(mle_scaled) > 10.0**8:
+                continue
+
+            try:
+                prof_interp = interpolate.UnivariateSpline(prof_alpha_scaled, prof_val, k=2, s=0)
+            except:
+                print(prof_alpha_scaled)
+                print(prof_val)
+                plt.plot(prof_alpha_scaled, prof_val)
+                plt.show()
+                input()
+
+            if mle_scaled > 0:
+                if not pos_start:
+                    pos_alphas = np.linspace(0, np.max(prof_alpha_scaled), nalpha)
+                    pos_vals = np.zeros_like(pos_alphas)
+                    inds = np.arange(nalpha)[pos_alphas >= mle_scaled]
+                    pos_vals[inds] += prof_interp(pos_alphas[inds])
+                    pos_start = True
+                    continue
+
+                sum_prof_interp = interpolate.UnivariateSpline(pos_alphas, pos_vals, k=2, s=0)
+
+                new_pos_alphas = np.linspace(0, np.max([pos_alphas[-1], np.max(prof_alpha_scaled)]), nalpha)
+                new_pos_vals = sum_prof_interp(new_pos_alphas)
+
+                valid = new_pos_alphas >= mle_scaled
+
+                if np.sum(valid):
+                    new_pos_vals += prof_interp(new_pos_alphas) * valid
+
+                    new_sum_prof_interp = interpolate.UnivariateSpline(new_pos_alphas, new_pos_vals, \
+                                                                       k=2, s=0)
+                    valid2 = new_pos_vals <= 10.0
+                    pos_alphas = np.linspace(0, np.max(new_pos_alphas[valid2]), nalpha)
+                    pos_vals = new_sum_prof_interp(pos_alphas)
+
+            if mle_scaled < 0:
+                if not neg_start:
+                    neg_alphas = np.linspace(np.min(prof_alpha_scaled), 0, nalpha)
+                    neg_vals = np.zeros_like(neg_alphas)
+                    inds = np.arange(nalpha)[neg_alphas <= mle_scaled]
+                    neg_vals[inds] += prof_interp(neg_alphas[inds])
+                    neg_start = True
+                    continue
+
+                sum_prof_interp = interpolate.UnivariateSpline(neg_alphas, neg_vals, k=2, s=0)
+
+                new_neg_alphas = np.linspace(np.min([neg_alphas[0], np.min(prof_alpha_scaled)]), 0, nalpha)
+                new_neg_vals = sum_prof_interp(new_neg_alphas)
+
+                valid = new_neg_alphas <= mle_scaled
+
+                if np.sum(valid):
+                    new_neg_vals += prof_interp(new_neg_alphas) * valid
+
+                    new_sum_prof_interp = interpolate.UnivariateSpline(new_neg_alphas, new_neg_vals, \
+                                                                       k=2, s=0)
+                    valid2 = new_neg_vals <= 10.0
+                    neg_alphas = np.linspace(np.min(new_neg_alphas[valid2]), 0, nalpha)
+                    neg_vals = new_sum_prof_interp(neg_alphas)
+
+
+        full_alphas = np.concatenate((neg_alphas[:-1], pos_alphas))
+        full_vals = np.concatenate((neg_vals[:-1], pos_vals))
+
+        try:
+            full_interp = interpolate.UnivariateSpline(full_alphas, full_vals, k=2, s=0)
+
+            out_alphas = np.linspace(full_alphas[0], full_alphas[-1], nalpha)
+            out_vals = full_interp(out_alphas)
+            out_alphas *= alphascale
+        except:
+            out_alphas = np.zeros(nalpha)
+            out_vals = np.zeros(nalpha)
+
+        return out_alphas, out_vals
+
+
+
+    def _sum_alpha_likelihoods_no_discovery_quad(self, prof_alphas, prof_coeffs, \
+                                                 minvals, mles, nalpha=1000, debug=False):
+
+        pos_start = False
+        neg_start = False
+
+        pos_alphas = []
+        pos_vals = []
+
+        neg_alphas = []
+        neg_vals = []
+
+        def quadratic(x, a, b, c):
+            return a*x**2 + b*x + c
+
+        def quadratic2(x, a, x0, c):
+            return a * (x - x0)**2 + c
+
+        for ind, prof_alpha in enumerate(prof_alphas):
+
+            minval = minvals[ind]
+            mle = mles[ind]
+            prof_alpha = np.array(prof_alpha)
+            prof_coeff = np.array(prof_coeffs[ind])
+
+            prof_coeff[2] = prof_coeff[2] - minval
+
+            prof_coeff2 = [prof_coeff[0], -1.0 * prof_coeff[1] / (2.0 * prof_coeff[0]), \
+                           prof_coeff[2] -  prof_coeff[1]**2 / (4.0 * prof_coeff[0])]
+
+            if prof_coeff[0] == 0.0:
+                continue
+
+            if mle > 0:
+
+                def pos_quad_func(x, a, x0):
+                    valid = x > x0
+                    return quadratic2(x, a, x0, 0.0) * valid
+
+                if not pos_start:
+                    min_pos_mle = mle
+                    pos_alphas = np.concatenate((np.linspace(0, mle, nalpha)[:nalpha-1],\
+                                                 np.linspace(mle, np.max(prof_alpha), nalpha)))
+                    pos_vals = pos_quad_func(pos_alphas, prof_coeff2[0], mle)
+                    pos_start = True
+                    continue
+
+                if np.abs(mle) < np.abs(min_pos_mle):
+                    min_pos_mle = mle
+
+                valid = pos_alphas > mle
+
+                if np.sum(valid):
+
+                    pos_vals += pos_quad_func(pos_alphas, prof_coeff2[0], mle)
+
+                    if np.sum(pos_vals > 1.0e3):
+                        pos_alphas = np.concatenate((np.linspace(0, mle, nalpha)[:nalpha-1],\
+                                                     np.linspace(mle, np.max(prof_alpha), nalpha)))
+                        pos_vals = pos_quad_func(pos_alphas, prof_coeff2[0], mle)
+
+                    else:
+                        try:
+                            pos_sum_interp = interpolate.UnivariateSpline(pos_alphas, pos_vals, k=2, s=0)
+                        except:
+                            plt.plot(pos_alphas)
+                            plt.figure()
+                            plt.plot(pos_alphas, pos_vals)
+                            plt.show()
+
+                        pos_func = lambda x: np.abs(pos_sum_interp(x*min_pos_mle) - 10.0)
+                        pos_x0 = pos_alphas[np.argmin(np.abs(pos_vals -  10.0))] / min_pos_mle
+                        pos_res = optimize.minimize(pos_func, x0=[pos_x0], bounds=[(1, np.inf)])
+                        if pos_res.x[0] < 0:
+                            print(min_pos_mle)
+                            plt.plot(pos_alphas, pos_vals)
+                            plt.show()
+                        pos_alphas = np.concatenate(\
+                                            (np.linspace(0,min_pos_mle,nalpha)[:nalpha-1], \
+                                             np.linspace(min_pos_mle,pos_res.x[0]*min_pos_mle,nalpha)))
+                        pos_vals = pos_sum_interp(pos_alphas)
+
+            if mle < 0:
+
+                def neg_quad_func(x, a, x0):
+                    valid = x < x0
+                    return quadratic2(x, a, x0, 0.0) * valid
+
+                if not neg_start:
+                    min_neg_mle = mle
+                    neg_alphas = np.concatenate((np.linspace(np.min(prof_alpha), mle, nalpha),\
+                                                 np.linspace(mle, 0, nalpha)[1:]))
+                    neg_vals = neg_quad_func(neg_alphas, prof_coeff2[0], mle)
+                    neg_start = True
+                    continue
+
+                if np.abs(mle) < np.abs(min_neg_mle):
+                    min_neg_mle = mle
+
+                valid = neg_alphas < mle
+
+                if np.sum(valid):
+
+                    neg_vals += neg_quad_func(neg_alphas, prof_coeff2[0], mle)
+
+                    if np.sum(neg_vals > 1.0e3):
+                        neg_alphas = np.concatenate((np.linspace(np.min(prof_alpha), mle, nalpha),\
+                                                     np.linspace(mle, 0, nalpha)[1:]))
+                        neg_vals = neg_quad_func(neg_alphas, prof_coeff2[0], mle)   
+
+                    else:
+                        neg_sum_interp = interpolate.UnivariateSpline(neg_alphas, neg_vals, k=2, s=0)
+
+                        neg_func = lambda x: np.abs(neg_sum_interp(x*min_neg_mle) - 10.0)
+                        neg_x0 = neg_alphas[np.argmin(np.abs(neg_vals -  10.0))] / min_neg_mle
+                        neg_res = optimize.minimize(neg_func, x0=[neg_x0], bounds=[(1, np.inf)])
+                        # if  neg_res.x[0] == 1.0:
+                        # plt.plot(neg_alphas, neg_func(neg_alphas/min_neg_mle))
+                        neg_alphas = np.concatenate(\
+                                            (np.linspace(neg_res.x[0]*min_neg_mle, min_neg_mle, nalpha),\
+                                             np.linspace(min_neg_mle, 0, nalpha)[1:]))
+                        neg_vals = neg_sum_interp(neg_alphas)
+
+        full_alphas = np.concatenate((neg_alphas[:-1], pos_alphas))
+        full_vals = np.concatenate((neg_vals[:-1], pos_vals))
+
+        full_interp = interpolate.UnivariateSpline(full_alphas, full_vals, k=2, s=0)    
+
+        if not len(neg_alphas):
+            out_alphas = np.concatenate( \
+                                (np.linspace(0, min_pos_mle, 11)[:10], \
+                                 np.linspace(min_pos_mle, full_alphas[-1], nalpha-10)))
+
+        elif not len(pos_alphas):
+            out_alphas = np.concatenate( \
+                                (np.linspace(full_alphas[0], min_neg_mle, nalpha-10), \
+                                 np.linspace(min_neg_mle, 0, 11)[1:]))
+
+        else:
+            if nalpha % 2:
+                mid_nalpha = 11
+                half_nalpha = int((nalpha - 11) / 2)
+            else:
+                mid_nalpha = 10
+                half_nalpha = int((nalpha - 10) / 2)
+
+            out_alphas = np.concatenate(\
+                               (np.linspace(full_alphas[0], min_neg_mle, half_nalpha), \
+                                np.linspace(min_neg_mle, min_pos_mle, mid_nalpha+2)[1:mid_nalpha+1], \
+                                np.linspace(min_pos_mle, full_alphas[-1], half_nalpha) ))
+
+        out_vals = full_interp(out_alphas)
+
+        return out_alphas, out_vals
+
+
+
+
+    def _combine_pos_neg_no_discovery(self, pos_alphas, pos_vals, neg_alphas, neg_vals, \
+                                      nalpha=1000):
+
+        pos_interp = interpolate.UnivariateSpline(pos_alphas, pos_vals, k=2, s=0)  
+        neg_interp = interpolate.UnivariateSpline(neg_alphas, neg_vals, k=2, s=0)  
+
+        if nalpha % 2:
+            mid_nalpha = 11
+            half_nalpha = int((nalpha - 11) / 2)
+        else:
+            mid_nalpha = 10
+            half_nalpha = int((nalpha - 10) / 2)
+
+        pos_ind = np.argmax(np.abs(np.diff(np.diff(pos_alphas)))) + 1
+        neg_ind = np.argmax(np.abs(np.diff(np.diff(neg_alphas)))) + 1
+
+        pos_ind_2 = np.max(pos_alphas[pos_vals == 0.0])
+        neg_ind_2 = np.max(neg_alphas[neg_vals == 0.0])
+
+        out_alphas = \
+            np.concatenate(\
+               (np.linspace(neg_alphas[0], neg_alphas[neg_ind], half_nalpha), \
+                np.linspace(neg_alphas[neg_ind], pos_alphas[pos_ind], mid_nalpha+2)[1:mid_nalpha+1], \
+                np.linspace(pos_alphas[pos_ind], pos_alphas[-1], half_nalpha) ))
+
+        out_vals = np.zeros_like(out_alphas)
+        out_vals += pos_interp(out_alphas) * (out_alphas > 0)
+        out_vals += neg_interp(out_alphas) * (out_alphas < 0)
+
+        return out_alphas, out_vals
+
+
+
+
+
+    def plot_chunked_mle_vs_time(self, show=True, save=False, yuklambda=10.0e-6,\
+                                 basepath='/home/cblakemore/plots/mod_grav', \
+                                 plot_freqs=[], plot_alpha=1.0, file_length=10.0, \
+                                 confidence_level=0.95, xscale='hour', \
+                                 derp_key='', derp_nchunk=1):
+        '''Function to generate a time series of the raw alpha MLE and uncertainty.
+           of that estimate for each harmonic.'''
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+        if save:
+            bu.make_all_pardirs( os.path.join(basepath, 'test.svg') )
+        yukind = np.argmin( np.abs(self.gfuncs_class.lambdas - yuklambda) )
+        yuklambda = self.gfuncs_class.lambdas[yukind]
+
+        colors = bu.get_color_map(len(plot_freqs))
+
+        derp_file = '/home/cblakemore/tmp/20200320_mle_vs_time.p'
+        try:
+            derp_dict = pickle.load( open(derp_file, 'rb') )
+        except:
+            derp_dict = {}
+        derp_dict[derp_key+'_freqs'] = np.array(plot_freqs)
+        derp_arr = np.zeros((3, len(plot_freqs), 3, derp_nchunk))
+
+        for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
+            figs = []
+            obj = self.agg_dict[bias][ax0][ax1][0]
+            freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
+            if len(plot_freqs):
+                nfreq = len(plot_freqs)
+            else:
+                nfreq = len(freqs)
+            colors = bu.get_color_map(nfreq)
+            for resp in [0,1,2]:
+                fig, ax = plt.subplots(1,1,figsize=(9.6,4.8))
+                i = 0
+                for j, freq in enumerate(freqs):
+                    if len(plot_freqs):
+                        if freq not in plot_freqs:
+                            continue
+                    color = colors[i]
+
+                    all_times = self.times0 * 1e-9
+                    chunked_likelihoods = \
+                        self.likelihoods_sum_by_bin_harmonic[freq][:,resp,yukind,:]
+                    nmeas = self.mles[bias][ax0][ax1].shape[0]
+                    nchunk = chunked_likelihoods.shape[0]
+                    chunk_size = int(nmeas/nchunk)
+
+                    tvec = []
+                    mles = []
+                    uncertainties = []
+                    for k in range(nchunk):
+                        k1 = k*chunk_size
+                        k2 = (k+1)*chunk_size
+                        tvec.append( np.mean(all_times[k1:k2]) )
+
+                        prof = chunked_likelihoods[k]
+                        prof_alpha = np.linspace(prof[0,0], prof[0,-1], 501)
+                        prof_val = prof[1,0]*prof_alpha**2 + prof[1,1]*prof_alpha + prof[1,2]
+                        limit = bu.get_limit_from_general_profile(\
+                                            prof_alpha, prof_val, ss=False, \
+                                            confidence_level=confidence_level, \
+                                            no_discovery=False, centered=False)
+
+                        mles.append( limit['min'] )
+                        uncertainties.append(np.mean(np.abs([limit['upper_unc'], \
+                                                             limit['lower_unc']])))
+
+                    ### DO THE TIME VEC BETTER FROM ACTUAL TIMESTAMPS
+                    # tvec = np.linspace(0, len(mles)-1, len(mles)) * 10.0 * chunk_size
+
+                    tvec = np.array(tvec)
+                    mles = np.array(mles)
+                    uncertainties = np.array(uncertainties)
+
+                    if xscale == 'hour':
+                        tvec *= 1.0 / 3600.0
+                        xlabel = 'Time [hr]'
+                    else:
+                        xlabel = 'Time [s]'
+
+                    if len(tvec) > 1:
+                        dt = 0.3 * (tvec[1] - tvec[0]) *  (i / (nfreq + 1))
+                        xlim = (0, tvec[-1]+(tvec[1]-tvec[0]))
+                    else:
+                        dt = 0.25 * tvec[0] * (i - int(nfreq/2) / (nfreq + 1))
+                        xlim = (0, 2.0*tvec[0])
+
+                    label = '{:0.1f} Hz'.format(freq)
+                    ax.errorbar(tvec+dt, mles, yerr=uncertainties, fmt='.', label=label, \
+                                color=color, alpha=plot_alpha, zorder=2)
+
+                    derp_arr[resp,i,0,:] = tvec+dt
+                    derp_arr[resp,i,1,:] = mles
+                    derp_arr[resp,i,2,:] = uncertainties
+                    i += 1
+
+                bin_length = chunk_size * file_length
+                ax.set_title('Binned MLEs vs. Time: ${:s}$-axis, $\\lambda={:0.2f}~\\mu$m, {:d}-s bins'\
+                            .format(ax_dict[resp], 1.0e6*yuklambda, int(bin_length)))
+                ax.axhline(0, color='k', alpha=0.5, zorder=1, ls='--')
+                ax.set_xlim(*xlim)
+                ax.set_ylabel('$\\hat{\\alpha}$')
+                ax.set_xlabel(xlabel)
+                ax.legend(loc='upper right', fontsize=10)
+                fig.tight_layout()
+                if save:
+                    figname = 'binned-alpha-vs-time_{:s}_lambda{:0.2g}m_{:d}s-bins'\
+                                    .format(ax_dict[resp], yuklambda, int(bin_length))
+                    figname = figname.replace('.', '_')
+                    figname += '.svg'
+                    savepath = os.path.join(basepath, figname)
+                    fig.savefig(savepath)
+                figs.append(fig)
+
+                derp_dict[derp_key] = derp_arr
+                pickle.dump( derp_dict, open(derp_file, 'wb') )
+
+            if show:
+                plt.show()
+
+        for fig in figs:
+            plt.close(fig)
+
+        return
+
+
+
+
+
+
+    def plot_sum_likelihood_by_harm(self, yuklambda=10.0e-6, show=True, save=False, \
+                                    include_limit=False, no_discovery=False, \
+                                    confidence_level=0.95, ss=False, \
+                                    basepath='/home/cblakemore/plots/mod_grav'):
+
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+        if save:
+            bu.make_all_pardirs( os.path.join(basepath, 'test.svg') )
+
+        freqs = list(self.likelihoods_sum_by_harmonic.keys())
+        freqs.sort()
+
+        yukind = np.argmin(np.abs(self.gfuncs_class.lambdas - yuklambda))
+        yuklambda = self.gfuncs_class.lambdas[yukind]
+
+        for freq in freqs:
+            for resp in [0,1,2]:
+                prof_alpha = self.likelihoods_sum_by_harmonic[freq][resp,yukind,0]
+                prof_val = self.likelihoods_sum_by_harmonic[freq][resp,yukind,1]
+
+                if include_limit:
+                    limit = bu.get_limit_from_general_profile(prof_alpha, prof_val, ss=ss, \
+                                                              confidence_level=confidence_level, \
+                                                              no_discovery=no_discovery,
+                                                              centered=True)
+                    if no_discovery:     
+                        label = '$\\alpha_{{{:d}}} = {:0.1f}_{{{:0.3g}}}^{{{:0.3g}}}$'\
+                                    .format(int(100.0*confidence_level), limit['min'], \
+                                            limit['lower_unc'], limit['upper_unc'])
+                    else:
+                        label = '$\\alpha_{{{:d}}} = {:0.3g}_{{{:0.2g}}}^{{{:0.2g}}}$'\
+                                    .format(int(100.0*confidence_level), limit['min'], \
+                                            limit['lower_unc'], limit['upper_unc'])
+                else:
+                    label = ''
+
+                fig, ax = plt.subplots(1,1)
+                ax.plot(prof_alpha, prof_val, label=label)
+
+                if include_limit:
+                    ylim = ax.get_ylim()
+                    yrange = ylim[1] - ylim[0]
+
+                    left = limit['min'] + limit['lower_unc']
+                    right = limit['min'] + limit['upper_unc']
+                    left_ind = np.argmin(np.abs(prof_alpha - left))
+                    right_ind = np.argmin(np.abs(prof_alpha - right))
+                    interp_func = interpolate.interp1d(prof_alpha, prof_val)
+                    if limit['lower_unc']:
+                        try:
+                            left_val = (interp_func(left) - ylim[0]) / yrange
+                        except:
+                            left_val = 0
+                        ax.axvline(left, ymin=0, ymax=left_val, color='k', lw=2, ls=':')
+
+                    if limit['upper_unc']:
+                        try:
+                            right_val = (interp_func(right) - ylim[0]) / yrange
+                        except:
+                            right_val = 0
+                        ax.axvline(right, ymin=0, ymax=right_val, color='k', lw=2, ls=':')
+
+                ax.set_xlabel('Profiled $\\alpha$')
+                if no_discovery:
+                    ax.set_ylabel('$\\Delta \\chi^2$')
+                else:
+                    ax.set_ylabel('$\\chi^2$')
+                ax.set_title('{:s}-axis, {:0.1f} Hz, $\\lambda = ${:0.2f} $\\mu$m'\
+                                .format(ax_dict[resp], freq, yuklambda*1e6))
+                if include_limit:
+                    ax.legend(loc='upper center')
+
+                if save:
+                    figname = 'sum-likelihood_{:s}_lambda{:0.2g}m_f{:d}Hz'\
+                                    .format(ax_dict[resp], yuklambda, int(freq))
+                    figname = figname.replace('.', '_')
+                    figname += '.svg'
+                    savepath = os.path.join(basepath, figname)
+                    fig.tight_layout()
+                    fig.savefig(savepath)
+                    plt.close(fig)
+
+                if show:
+                    fig.tight_layout()
+                    fig.show()
+                    plt.close(fig)
+
+
+    def plot_sum_likelihood(self, yuklambda=10.0e-6, show=True, save=False, \
+                            include_limit=False, no_discovery=False, \
+                            confidence_level=0.95, ss=False, \
+                            basepath='/home/cblakemore/plots/mod_grav'):
+
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+        if save:
+            bu.make_all_pardirs( os.path.join(basepath, 'test.svg') )
+
+        yukind = np.argmin(np.abs(self.gfuncs_class.lambdas - yuklambda))
+        yuklambda = self.gfuncs_class.lambdas[yukind]
+
+        for resp in [0,1,2]:
+            prof_alpha = self.likelihoods_sum[resp,yukind,0]
+            prof_val = self.likelihoods_sum[resp,yukind,1]
+
+            fig, ax = plt.subplots(1,1)
+
+            if include_limit:
+                limit = bu.get_limit_from_general_profile(prof_alpha, prof_val, ss=ss, \
+                                                          confidence_level=confidence_level, \
+                                                          no_discovery=no_discovery,
+                                                          centered=True)
+                if no_discovery:     
+                    label = '$\\alpha_{{{:d}}} = {:0.1f}_{{{:0.3g}}}^{{{:0.3g}}}$'\
+                                .format(int(100.0*confidence_level), limit['min'], \
+                                        limit['lower_unc'], limit['upper_unc'])
+                else:
+                    label = '$\\alpha_{{{:d}}} = {:0.3g}_{{{:0.2g}}}^{{{:0.2g}}}$'\
+                                .format(int(100.0*confidence_level), limit['min'], \
+                                        limit['lower_unc'], limit['upper_unc'])
+            else:
+                label = ''
+
+            ax.plot(prof_alpha, prof_val, label=label)
+
+            if include_limit:
+                ylim = ax.get_ylim()
+                yrange = ylim[1] - ylim[0]
+
+                left = limit['min'] + limit['lower_unc']
+                right = limit['min'] + limit['upper_unc']
+                left_ind = np.argmin(np.abs(prof_alpha - left))
+                right_ind = np.argmin(np.abs(prof_alpha - right))
+                interp_func = interpolate.interp1d(prof_alpha, prof_val)
+                if limit['lower_unc']:
+                    try:
+                        left_val = (interp_func(left) - ylim[0]) / yrange
+                    except:
+                        left_val = 0
+                    ax.axvline(left, ymin=0, ymax=left_val, color='k', lw=2, ls=':')
+
+                if limit['upper_unc']:
+                    try:
+                        right_val = (interp_func(right) - ylim[0]) / yrange
+                    except:
+                        right_val = 0
+                    ax.axvline(right, ymin=0, ymax=right_val, color='k', lw=2, ls=':')
+            else:
+                label = ''
+
+            ax.set_xlabel('Profiled $\\alpha$')
+            if no_discovery:
+                ax.set_ylabel('$\\Delta \\chi^2$')
+            else:
+                ax.set_ylabel('$\\chi^2$')
+            ax.set_title('{:s}-axis, $\\lambda = ${:0.2f} $\\mu$m'\
+                            .format(ax_dict[resp], yuklambda*1e6))
+            if include_limit:
+                ax.legend(loc='upper center')
+
+            if save:
+                figname = 'sum-likelihood_{:s}_lambda{:0.2g}m'\
+                                .format(ax_dict[resp], yuklambda)
+                figname = figname.replace('.', '_')
+                figname += '.svg'
+                savepath = os.path.join(basepath, figname)
+                fig.tight_layout()
+                fig.savefig(savepath)
+
+            if show:
+                fig.tight_layout()
+                fig.show()
+
+            plt.close(fig)
+
+
+    def get_limit_from_likelihood_sum(self, confidence_level=0.95, no_discovery=False, \
+                                      ss=False, xlim=(), ylim=(), save=False, show=True, \
+                                      basepath='/home/cblakemore/plots/mod_grav/', \
+                                      export_limit=False, \
+                                      export_path='/data/old_trap_processed/limits/limit.p'):
+
+        ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
+
+        figs = []
+        axs = []
+        yuklambdas = self.gfuncs_class.lambdas
+        pos_limit = [[], [], []]
+        neg_limit = [[], [], []]
+        mle = [[], [], []]
+        mle_unc = [[[], []], [[], []], [[], []]]
+
+        for resp in [0,1,2]:
+            for k, yuklambda in enumerate(yuklambdas):
+                prof_alpha = self.likelihoods_sum[resp,k,0]
+                prof_val = self.likelihoods_sum[resp,k,1]
+
+                limit = bu.get_limit_from_general_profile(prof_alpha, prof_val, ss=ss,\
+                                                          no_discovery=no_discovery, \
+                                                          confidence_level=confidence_level)
+
+                if no_discovery:
+                    mle[resp].append(0.0)
+                    mle_unc[resp][0].append(0.0)
+                    mle_unc[resp][1].append(0.0)
+                    pos_limit[resp].append(np.abs(limit['upper_unc']))
+                    neg_limit[resp].append(np.abs(limit['lower_unc']))
+                else:
+                    mle[resp].append(limit['min'])
+                    mle_unc[resp][0].append(limit['lower_unc'])
+                    mle_unc[resp][1].append(limit['upper_unc'])
+                    if limit['min'] > 0.0:
+                        pos_limit[resp].append(np.abs(limit['min'] + limit['upper_unc']))
+                        neg_limit[resp].append(0.0)
+                    else:
+                        pos_limit[resp].append(0.0)
+                        neg_limit[resp].append(np.abs(limit['min'] + limit['lower_unc']))
+
+            fig, ax = plt.subplots(1,1)
+            ax.set_title('{:s}-Axis, {:d}%-CL'.format(ax_dict[resp], int(100.0*confidence_level)))
+            ax.loglog(yuklambdas, pos_limit[resp], ls='--', lw=3, label='$\\hat{\\alpha}$ > 0')
+            ax.loglog(yuklambdas, neg_limit[resp], ls=':', lw=3, label='$\\hat{\\alpha}$ < 0')
+            ax.set_xlabel('Length-scale $\\lambda$ [m]')
+            ax.set_ylabel('Strength $\\alpha$ [abs]')
+            ax.legend(fontsize=12)
+            ax.grid(alpha=0.75)
+            if xlim:
+                ax.set_xlim(*xlim)
+            if ylim:
+                ax.set_ylim(*ylim)
+            fig.tight_layout()
+
+            figs.append(fig)
+            axs.append(ax)
+
+        if save:
+            for resp in [0,1,2]:
+                figname = 'alpha-lambda_{:s}_{:d}cl.svg'.format(ax_dict[resp], \
+                                                                int(100.0*confidence_level))
+                savepath = os.path.join(basepath, figname)
+                figs[resp].savefig(savepath)
+
+        if show:
+            plt.show()
+
+        self.mle = np.array([yuklambdas, mle[0], mle[1], mle[2]])
+        self.mle_unc =  np.array(mle_unc)
+        self.pos_limit = np.array([yuklambdas, pos_limit[0], pos_limit[1], pos_limit[2]])
+        self.neg_limit = np.array([yuklambdas, neg_limit[0], neg_limit[1], neg_limit[2]])
+
+        if export_limit:
+            limit_dict = {'pos_limit': self.pos_limit, 'neg_limit': self.neg_limit}
+            bu.make_all_pardirs(export_path)
+            pickle.dump(limit_dict, open(export_path, 'wb'))
 
     
     def plot_alpha_xyz_dict(self, resp=0, k=0, nobjs=1e9, lambind=0):
@@ -2525,11 +4222,11 @@ class AggregateData:
 
                     ### Fit the NLL to a parabola and extract the minimum and interval
                     ### corresponding to the requested confidence level
-                    popt, pcov = opti.curve_fit(parabola, mu_dat_arr, chi_sq, \
+                    popt, pcov = optimize.curve_fit(parabola, mu_dat_arr, chi_sq, \
                                                 p0=[np.max(chi_sq)/np.max(mu_dat_arr)**2, 0, 0])
                     soln = solve_parabola(chi2dist.ppf(confidence_level), popt)
 
-                    popt_null, pcov_null = opti.curve_fit(parabola, mu_null_arr, chi_sq_sideband, \
+                    popt_null, pcov_null = optimize.curve_fit(parabola, mu_null_arr, chi_sq_sideband, \
                                                 p0=[np.max(chi_sq_sideband)/np.max(mu_null_arr)**2, 0, 0])
                     soln_null = solve_parabola(chi2dist.ppf(confidence_level), popt_null)
 
@@ -2768,8 +4465,8 @@ class AggregateData:
                             return cost
     
                         ### Optimize the previously defined function
-                        res = opti.minimize(cost_function, [0.0, 0.0, 1.0])
-                        err_res = opti.minimize(err_cost_function, [0.0, 0.0, 1.0])
+                        res = optimize.minimize(cost_function, [0.0, 0.0, 1.0])
+                        err_res = optimize.minimize(err_cost_function, [0.0, 0.0, 1.0])
 
                         x = res.x
                         err_x = err_res.x
@@ -2827,13 +4524,13 @@ class AggregateData:
 
                         try:
                             startg = time.time()
-                            popt_g, pcov_g = opti.curve_fit(gauss, bin_centers[inds], \
+                            popt_g, pcov_g = optimize.curve_fit(gauss, bin_centers[inds], \
                                                             n[inds], p0=p0, maxfev=10000)
                             stopg = time.time()
                             #print "Gauss fit: ", stopg-startg
                             
                             startc = time.time()
-                            popt_c, pcov_c = opti.curve_fit(cauchy, bin_centers[inds], \
+                            popt_c, pcov_c = optimize.curve_fit(cauchy, bin_centers[inds], \
                                                             n[inds], p0=p0, maxfev=10000)
                             stopc = time.time()
                             #print "Cauchy fit: ", stopc-startc
@@ -3029,7 +4726,7 @@ class AggregateData:
                     return ((funcval - fdat) / ferrs).flatten()
 
                 ### Optimize the previously defined function
-                res = opti.leastsq(func, [0.2*np.mean(dat_sc), 0.2*np.mean(dat_sc), 0], \
+                res = optimize.leastsq(func, [0.2*np.mean(dat_sc), 0.2*np.mean(dat_sc), 0], \
                                    full_output=1, maxfev=10000)
 
                 try:
@@ -3078,10 +4775,10 @@ class AggregateData:
                 ax.loglog(self.gfuncs_class.lambdas, self.alpha_95cl_null, \
                           linewidth=2, label='95% CL on $\\hat{\\alpha}_{\\rm ob}$', color='C1')
 
-
-        ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
-        ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
-        ax.grid()
+        if not nolimit:
+            ax.loglog(limitdata[:,0], limitdata[:,1], '--', label=limitlab, linewidth=3, color='r')
+            ax.loglog(limitdata2[:,0], limitdata2[:,1], '--', label=limitlab2, linewidth=3, color='k')
+            ax.grid()
 
         #ax.set_xlim(lambda_plot_lims[0], lambda_plot_lims[1])
         #ax.set_ylim(alpha_plot_lims[0], alpha_plot_lims[1])

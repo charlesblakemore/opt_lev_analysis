@@ -5,9 +5,9 @@
 ###############################################################################
 
 ####Data column Labels
-col_labels = {"other"     : [0, 1, 2, 3, 4],#, 5, 6, 7],
+col_labels = {"other"     : [0, 1, 2, 3, 4, 5, 6, 7],
               "electrodes": [8, 9, 10, 11, 12, 13, 14, 15],
-              "stage_pos" : [5, 6, 7] #[17, 18, 19] 
+              "stage_pos" : [1, 2, 3] #[17, 18, 19] 
 } 
 
 ####electrode column labels in  label: number pairs. cantilever approached from back. Left and right determined looking from side with bead dropper
@@ -76,10 +76,13 @@ stage_inds = {"x DC": 0,
 
 # Taken straight from newport stage datasheet
 stage_cal = 8.0 # um/V
+stage_cal_func = lambda x: 8.0 * x
 # From calibration taken by AFieguth, sometime late 2019
 # volt_mon = [-0.007, 4.968, 9.91], pos_setting = [0, 250, 500]
-stage_cal_new = 50.42 # um/V, with ~0.077 um offset
+stage_cal_new = 50.418 # um/V, with ~0.077 um offset
 stage_cal_new_z = 10.0
+stage_cal_new_func = lambda x: 50.418*x + 0.0766
+stage_cal_new_z_func = lambda x: 10.0*x
 
 
 #Stage keys that get calibrated by the stage_cal:

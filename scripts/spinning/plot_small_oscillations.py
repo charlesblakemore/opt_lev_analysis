@@ -64,7 +64,7 @@ meas = 'wobble_slow_2/'
 # meas = 'dipole_meas/initial/'
 
 gases = ['XX']
-path_dict = {'XX': [os.path.join(base_path, '{:s}/{:s}/'.format(date, meas))]}
+path_dict = {'XX': [os.path.join(base_path, '{:s}/{:s}'.format(date, meas))]}
 
 
 

@@ -26,7 +26,7 @@ date = '20200924'
 
 base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
 # meas = 'dds_phase_modulation_sweep/trial_0000'
-meas = 'dds_phase_modulation_sweep'
+meas = 'dds_phase_modulation_sweep_8Vpp/'
 dir_name = os.path.join(base, meas)
 file_inds = (0, 500)
 file_step = 1
@@ -65,8 +65,9 @@ ylim = (3e-4, 5e0)
 
 date = re.search(r"\d{8,}", dir_name)[0]
 
-files, _ = bu.find_all_fnames(dir_name, ext='.h5', sort_time=True, skip_subdirectories=False)
+files, _ = bu.find_all_fnames(dir_name, ext='.h5', sort_time=False, skip_subdirectories=False)
 files = files[file_inds[0]:file_inds[1]:file_step]
+
 nfiles = len(files)
 
 Ibead = bu.get_Ibead(date=date)
@@ -110,6 +111,8 @@ def proc_file(file):
     elec3_fft = np.fft.rfft(elec3)
     true_fspin = full_freqs[np.argmax(np.abs(elec3_fft))]
 
+    pm_freq = fobj.pm_freq
+
     amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
                               filt=True, bandwidth=bandwidth, \
                               notch_freqs=notch_freqs, notch_qs=notch_qs, \
@@ -126,7 +129,7 @@ def proc_file(file):
     phase_mod_fft = np.fft.rfft(phase_mod)[out_inds] * fac
     drive_phase_mod_fft = np.fft.rfft(drive_phase_mod)[out_inds] * fac
 
-    return (phase_mod_fft, drive_phase_mod_fft)
+    return (phase_mod_fft, drive_phase_mod_fft, pm_freq)
 
 
 
@@ -135,30 +138,54 @@ def proc_file(file):
 
 results = Parallel(n_jobs=ncore)(delayed(proc_file)(file) for file in tqdm(files))
 
-phase_mod_results, drive_phase_mod_results = map(list,zip(*results))
+phase_mod_results, drive_phase_mod_results, pm_freqs = map(list,zip(*results))
 
 
 tf_freqs = []
 tf_vals = []
+drive_vals = []
 for i in range(nfiles):
 
     phase_mod_fft = phase_mod_results[i]
     drive_phase_mod_fft = drive_phase_mod_results[i]
 
-    mod_ind = np.argmax(np.abs(drive_phase_mod_fft)[1:]) + 1
+    try:
+        pm_freq = pm_freqs[i]
+        pm_ind = np.argmin(np.abs(out_freqs - pm_freq))
+    except:
+        pm_ind = np.argmax(np.abs(drive_phase_mod_fft)[1:]) + 1
+        pm_freq = out_freqs[pm_ind]
 
-    mod_freq = out_freqs[mod_ind]
-    tf_val = phase_mod_fft[mod_ind] / drive_phase_mod_fft[mod_ind]
+    tf_val = phase_mod_fft[pm_ind] / drive_phase_mod_fft[pm_ind]
 
-    tf_freqs.append(mod_freq)
+    tf_freqs.append(pm_freq)
     tf_vals.append(tf_val)
+    drive_vals.append(np.abs(drive_phase_mod_fft[pm_ind]))
 
 tf_freqs = np.array(tf_freqs)
 tf_vals = np.array(tf_vals)
+drive_vals = np.array(drive_vals)
 
 sorter = np.argsort(tf_freqs)
 tf_freqs = tf_freqs[sorter]
 tf_vals = tf_vals[sorter]
+drive_vals = drive_vals[sorter]
+
+duplicates = []
+for i, tf_freq in enumerate(tf_freqs):
+    inds = np.arange(len(tf_freqs))[tf_freqs == tf_freq]
+    nfreq = len(inds)
+    if nfreq > 1:
+        small_drive_ind = inds[np.argmax(drive_vals[inds])]
+        for ind in inds:
+            if ind != small_drive_ind:
+                duplicates.append(ind)
+duplicates.sort()
+duplicates = duplicates[::-1]
+for ind in duplicates:
+    tf_freqs = np.delete(tf_freqs, ind)
+    tf_vals = np.delete(tf_vals, ind)
+    drive_vals = np.delete(drive_vals, ind)
 
 
 

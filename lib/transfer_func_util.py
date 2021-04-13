@@ -55,8 +55,8 @@ def ipolyfit(xs, ys, deg):
     return popt
 
 
-def make_extrapolator(interpfunc, pts=(10, 10), order=(1,1), arb_power_law=(False, False), \
-                        semilogx=False):
+def make_extrapolator(interpfunc, xs=[], ys=[], pts=(10, 10), order=(1,1), \
+                      arb_power_law=(False, False), semilogx=False):
     '''Make a functional object that does nth order polynomial extrapolation
        of a scipy.interpolate.interp1d object (should also work for other 1d
        interpolating objects).
@@ -70,8 +70,14 @@ def make_extrapolator(interpfunc, pts=(10, 10), order=(1,1), arb_power_law=(Fals
            OUTPUTS: extrapfunc, function object with extrapolation
     '''
     
-    xs = interpfunc.x
-    ys = interpfunc.y
+    if not len(xs) or not len(ys):
+        try:
+            xs = interpfunc.x
+            ys = interpfunc.y
+        except:
+            print('Need to provide data, or interpolating function needs to contain\
+                   the data as class attributes (such as interp1d objectes)')
+            return
 
     if arb_power_law[0]:
         xx = xs[:pts[0]]
@@ -133,8 +139,8 @@ def make_extrapolator(interpfunc, pts=(10, 10), order=(1,1), arb_power_law=(Fals
 
     def extrapfunc(x):
 
-        ubool = x >= xs[-1]
-        lbool = x <= xs[0]
+        ubool = x > xs[-1]
+        lbool = x < xs[0]
 
         midval = interpfunc( x[ np.invert(ubool + lbool) ] )
         uval = upper( x[ubool] )
@@ -542,7 +548,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                  weight_phase=False, plot_inits=False, plot_off_diagonal=False,\
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
                  interpolate = False, max_freq=600, num_to_avg=5, \
-                 real_unwrap=False, derpy_unwrap=True):
+                 real_unwrap=False, derpy_unwrap=True, full_interp=False, \
+                 smoothing=1.0):
     # Build the calibrated transfer function array
     # i.e. transfer matrices at each frequency and fit functions to each component
 
@@ -561,18 +568,18 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
     interps = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
     if plot:
-        figsize = (8,6)
-        # figsize = (10,8)
+        # figsize = (8,6)
+        figsize = (10,8)
         # f1, axarr1 = plt.subplots(3,3, sharex=True, sharey='row', figsize=figsize)
-        f1, axarr1 = plt.subplots(3,3, sharex=True, sharey=True, figsize=figsize)
-        f2, axarr2 = plt.subplots(3,3, sharex=True, sharey=True, figsize=figsize)
+        f1, axarr1 = plt.subplots(3,3, sharex=True, sharey='row', figsize=figsize)
+        f2, axarr2 = plt.subplots(3,3, sharex=True, sharey='row', figsize=figsize)
 
         # colors = bu.get_color_map(5, cmap='inferno')
         data_color, fit_color = ['k', 'C1']
 
     for drive in [0,1,2]:
         for resp in [0,1,2]:
-            if drive == resp and drive != 2:
+            if drive == resp and drive != 2 and not full_interp:
                 interpolate = False
                 interps[resp][drive] = False
             else:
@@ -590,10 +597,11 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
             ### A shitty shit factor that I have to add because folks operating
             ### the new trap don't know how to scale things
-            if resp == 2:
-                plot_fac = 3e-7
-            else:
-                plot_fac = 1.0
+            # if resp == 2:
+            #     plot_fac = 3e-7
+            # else:
+            #     plot_fac = 1.0
+            plot_fac = 1
 
             ### Build the array of TF magnitudes and remove NaNs
             mag = np.abs(mats[:,resp,drive])
@@ -624,8 +632,12 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
             if interpolate:
                 num = num_to_avg
-                magfunc = interp.interp1d(keys[b], mag[b], kind='quadratic')
-                phasefunc = interp.interp1d(keys[b], unphase[b], kind='quadratic')
+                mw = (1.0 / np.std(mag[b][:10])) * np.ones(np.sum(b))
+                pw = (1.0 / np.std(unphase[b][:10])) * np.ones(np.sum(b))
+                magfunc = interp.UnivariateSpline(keys[b], mag[b], w=mw, k=2, s=smoothing)
+                phasefunc = interp.UnivariateSpline(keys[b], unphase[b], w=pw, k=2, s=smoothing)
+                # magfunc = interp.interp1d(keys[b], mag[b], kind='quadratic')
+                # phasefunc = interp.interp1d(keys[b], unphase[b], kind='quadratic')
 
                 if resp == 2:
                     arb_power_law_mag = (True, True)
@@ -642,13 +654,15 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                     pts_mag = (10, 30)
                     pts_phase = (10, 20)
 
-                magfunc2 = make_extrapolator(magfunc, pts=pts_mag, order=(0, 0), \
+                magfunc2 = make_extrapolator(magfunc, xs=keys[b], ys=mag[b], \
+                                                pts=pts_mag, order=(0, 0), \
                                                 arb_power_law=arb_power_law_mag)
-                phasefunc2 = make_extrapolator(phasefunc, pts=pts_phase, order=(0, 0), \
+                phasefunc2 = make_extrapolator(phasefunc, xs=keys[b], ys=unphase[b], \
+                                                pts=pts_phase, order=(0, 0), \
                                                 arb_power_law=arb_power_law_phase, semilogx=True)
 
-                mag_params = (magfunc.x, magfunc.y, pts_mag, arb_power_law_mag)
-                phase_params = (phasefunc.x, phasefunc.y, pts_phase, arb_power_law_phase)
+                mag_params = (keys[b], mag[b], pts_mag, arb_power_law_mag)
+                phase_params = (keys[b], unphase[b], pts_phase, arb_power_law_phase)
                 fits[resp][drive] = (mag_params, phase_params)
 
                 if plot:
@@ -788,7 +802,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
     if plot:
 
-        mag_major_locator = LogLocator(base=100.0, numticks=20)
+        mag_major_locator = LogLocator(base=10.0, numticks=20)
         mag_minor_locator = LogLocator(base=10.0, numticks=20)
 
         ax_to_pos = {0: 'X', 1: 'Y', 2: 'Z'}
@@ -798,14 +812,15 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             axarr1[2, drive].set_xlabel("Frequency [Hz]")
             # axarr1[2, drive].set_xticks([1, 10, 100])
             axarr1[2, drive].set_xticks([1, 10, 100, 1000])
-            axarr1[2, drive].set_xlim(2.5, 1800)
+            axarr1[2, drive].set_xlim(1.0, 125)
 
             # axarr2[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
             axarr2[0, drive].set_title("Drive $\\widetilde{{F}}_{:s}$".format(ax_to_pos[drive]))
             axarr2[2, drive].set_xlabel("Frequency [Hz]")
             # axarr2[2, drive].set_xticks([1, 10, 100])
             axarr2[2, drive].set_xticks([1, 10, 100, 1000])
-            axarr2[2, drive].set_xlim(2.5, 1800)
+            # axarr2[2, drive].set_xlim(2.5, 1800)
+            axarr2[2, drive].set_xlim(1.0, 125)
 
 
         for response in [0,1,2]:
@@ -817,7 +832,9 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             # axarr1[response, 0].set_yticks([1e8, 1e10, 1e12, 1e14], minor=True)
             axarr1[response, 0].yaxis.set_minor_locator(mag_minor_locator)
             axarr1[response, 0].yaxis.set_minor_formatter(NullFormatter())
-            axarr1[response, 0].set_ylim(1e9, 1e13)
+            if response != 2:
+                axarr1[response, 0].set_yticks([1e9, 1e10, 1e11])
+                axarr1[response, 0].set_ylim(3e9, 1.3e11)
 
             # axarr2[response, 0].set_ylabel("Resp {:s} [$\\pi\\cdot$rad]".format(ax_to_pos[response]))
             axarr2[response, 0].set_ylabel("$ \\angle \\, \\widetilde{{R}}_{:s} / \\widetilde{{F}}_i $ [rad]"\
@@ -853,7 +870,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
 
 
-def make_tf_array(freqs, Hfunc, suppress_off_diag=False):
+def make_tf_array(freqs, Hfunc, suppress_off_diag=False, smoothing=1.0, \
+                  adjust_phase=False, adjust_phase_dict={}):
     '''Makes a 3x3xNfreq complex-valued array for use in diagonalization
            INPUTS: freqs, array of frequencies
                    Hfunc, output from build_Hfuncs()
@@ -873,21 +891,37 @@ def make_tf_array(freqs, Hfunc, suppress_off_diag=False):
             interpolate = interps[resp][drive]
             fit = fits[resp][drive]
             if interpolate:
+                oldfreqs = fit[0][0]
+                oldmag = fit[0][1]
+                oldphase = fit[1][1]
+
+                mw = (1.0 / np.std(oldmag[:10])) * np.ones(len(oldfreqs))
+                pw = (1.0 / np.std(oldphase[:10])) * np.ones(len(oldfreqs))
+                magfunc = interp.UnivariateSpline(oldfreqs, oldmag, w=mw, k=2, s=smoothing)
+                phasefunc = interp.UnivariateSpline(oldfreqs, oldphase, w=pw, k=2, s=smoothing)
+
                 mag_extrap = \
-                    make_extrapolator( interp.interp1d(fit[0][0], \
-                                       fit[0][1], kind='quadratic'),\
-                                       pts=fit[0][2], arb_power_law=fit[0][3] )
+                    make_extrapolator( magfunc, xs=oldfreqs, ys=oldmag, \
+                                       pts=fit[0][2], arb_power_law=fit[0][3])
 
                 phase_extrap = \
-                    make_extrapolator( interp.interp1d(fit[1][0], fit[1][1], \
-                                       kind='quadratic'),pts=fit[1][2], \
-                                       arb_power_law=fit[1][3], semilogx=True )
+                    make_extrapolator( phasefunc, xs=oldfreqs, ys=oldphase, \
+                                       pts=fit[1][2], arb_power_law=fit[1][3], semilogx=True)
                 mag = mag_extrap(freqs)
                 phase = phase_extrap(freqs)
 
             else:
                 mag = bu.damped_osc_amp(freqs, *fit[0])
                 phase = bu.damped_osc_phase(freqs, *fit[1], phase0=fit[2])
+
+            if adjust_phase:
+                adjust_key = '{:d}{:d}'.format(drive, resp)
+                if adjust_key in adjust_phase_dict:
+                    adjust_freqs = list(adjust_phase_dict[adjust_key].keys())
+                    for freq in adjust_freqs:
+                        freqind = np.argmin( np.abs(freqs - freq) )
+                        phase[freqind] = adjust_phase_dict[adjust_key][freq]
+
 
             Harr[:,drive,resp] = mag * np.exp(1.0j * phase)
 
@@ -897,14 +931,15 @@ def make_tf_array(freqs, Hfunc, suppress_off_diag=False):
     ### If using an interpolating function with custom extrapolation, 
     ### this avoids singular matrices because usually the z-dirction 
     ### response goes to 0 at 0 frequency
-    Harr[0,:,:] = Harr[1,:,:]
+    # Harr[0,:,:] = Harr[1,:,:]
+    ### THIS IS COMMENTED BECAUSE NEW DATA DOESN"T INCLUDE A DC VALUE
 
     ### numPy's matrix inverse can handle an array of matrices
     Hout = np.linalg.inv(Harr)
 
     ### If the diagonal components are suppressed, sometimes the 
     ### inversion does some weird stuff so explicitly set the 
-    ### off-diagonal compoenents to 0 again
+    ### off-diagonal components to 0 again
     if suppress_off_diag:
         for drive in [0,1,2]:
             for resp in [0,1,2]:

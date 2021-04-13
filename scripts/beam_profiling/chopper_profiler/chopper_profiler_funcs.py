@@ -28,60 +28,6 @@ def gauss_intensity(x, A, xo, w):
     return A * np.exp( -2.0 * (x - xo)**2 / (w**2) )
 
 
-def rebin(xvec, yvec, numbins=100):
-    '''Use a cubic interpolating spline to rebin data
-
-           INPUTS: xvec, x-axis vector to bin against
-                   yvec, response to binned vector
-                   numbins, number of bins to divide xvec into
-                       
-           OUTPUTS: xarr, rebinned x-axis
-                    yarr, rebinned response
-                    err, errors on rebinned response'''
-
-    #print numbins
-
-    xvec = np.array(xvec)
-    yvec = np.array(yvec)
-
-    minval = np.min(xvec)
-    maxval = np.max(xvec)
-    dx = np.abs(xvec[1] - xvec[0])
-
-    xarr = np.linspace(minval, maxval, numbins)
-
-    yarr = np.zeros_like(xarr)
-    err = np.zeros_like(xarr)
-
-    dx2 = xarr[1] - xarr[0]
-    for i, x in enumerate(xarr):
-        inds = (xvec >= x - 0.5*dx2) * (xvec < x + 0.5*dx2)
-        yarr[i] = np.mean(yvec[inds])
-        err[i] = np.std(yvec[inds])
-    '''
-    xvec2 = np.hstack( (xvec[0] - dx, np.hstack( (xvec, xvec[-1] + dx) ) ) )
-    yvec2 = np.hstack( (yvec[0], np.hstack( (yvec, yvec[-1]) ) ) )
-
-    if numbins % 2:
-        numbins += 1
-
-    dx2 = (maxval - minval + dx) / float(numbins)
-    new_minval = minval - 0.5*dx + 0.5*dx2
-    new_maxval = maxval + 0.5*dx - 0.5*dx2
-    xarr = np.linspace(new_minval, new_maxval, numbins)
-
-    yarr = np.zeros_like(xarr)
-    err = np.zeros_like(xarr)
-
-    # Generate new yvals and new error bars
-    for i, x in enumerate(xarr):
-        inds = np.abs(xvec - x) < 0.5*dx2
-        yarr[i] = np.mean( yvec[inds] )
-        err[i] = np.std( yvec[inds] )
-    '''
-    
-    return xarr, yarr, err
-
 
 
 
@@ -125,8 +71,8 @@ def fit_gauss_and_truncate(t, prof, twidth, numbins = 500):
     pos_cent_bin = np.argmin( np.abs(pos_t - pos_popt[1]) )
     neg_cent_bin = np.argmin( np.abs(neg_t - neg_popt[1]) )
 
-    new_pos_bins = (pos_cent_bin-numbins/2, pos_cent_bin+numbins/2)
-    new_neg_bins = (neg_cent_bin-numbins/2, neg_cent_bin+numbins/2)
+    new_pos_bins = (int(pos_cent_bin-numbins/2), int(pos_cent_bin+numbins/2))
+    new_neg_bins = (int(neg_cent_bin-numbins/2), int(neg_cent_bin+numbins/2))
 
     new_pos_t = pos_t[new_pos_bins[0]:new_pos_bins[1]] - pos_popt[1]
     new_neg_t = neg_t[new_neg_bins[0]:new_neg_bins[1]] - neg_popt[1]
@@ -171,7 +117,7 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
     t = np.linspace( 0, (numpoints - 1) * dt, numpoints ) 
 
     psd, freqs = mlab.psd(raw_dat, NFFT=len(raw_dat), Fs=fsamp)
-    chopfreq = freqs[np.argmax(psd)]
+    chopfreq = freqs[np.argmax(psd[5:]) + 5]
 
     if chopfreq > 15:
         chopfreq = 10.2
@@ -228,25 +174,28 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
         pos_peak_loc = pos_peak[0]
         neg_peak_loc = neg_peak[0]
 
-        if pos_peak_loc < 500:
+        if pos_peak_loc < 250:
             continue
 
-        fit_t = t[pos_peak_loc-500:neg_peak_loc+500]
-        fit_prof = grad[pos_peak_loc-500:neg_peak_loc+500]
+        fit_t = t[pos_peak_loc-250:neg_peak_loc+250]
+        fit_prof = grad[pos_peak_loc-250:neg_peak_loc+250]
 
-        try:
-            new_t, new_prof = fit_gauss_and_truncate(fit_t, fit_prof, \
-                                                     twidth, numbins = numbins)
+        # try:
+        new_t, new_prof = fit_gauss_and_truncate(fit_t, fit_prof, \
+                                                 twidth, numbins = numbins)
 
-            if len(tot_t) == 0:
-                tot_t = new_t
-                tot_prof = new_prof
-            else:
-                tot_t = np.hstack((tot_t, new_t))
-                tot_prof = np.hstack((tot_prof, new_prof))
+        if len(tot_t) == 0:
+            tot_t = new_t
+            tot_prof = new_prof
+        else:
+            tot_t = np.hstack((tot_t, new_t))
+            tot_prof = np.hstack((tot_prof, new_prof))
 
-        except:
-            print('Failed to fit and return result')
+        # except:
+        #     plt.plot(fit_t, fit_prof)
+        #     plt.show()
+        #     input()
+        #     print('Failed to fit and return result')
 
     sort_inds = tot_t.argsort()
 
@@ -281,7 +230,7 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
 
 
 def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
-                      return_pos=False, plot_peaks=False):
+                      return_pos=False, plot_peaks=False, guess=3e-3):
     ''' Takes a directory path and profiles each file, and averages 
         for a final result
     
@@ -310,13 +259,14 @@ def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
 
         x, prof, popt = profile(prof_df, raw_dat_col = raw_dat_col, \
                                 drum_diam = drum_diam, return_pos = return_pos, \
-                                fit_intensity=True, plot_peaks=plot_peaks)
+                                fit_intensity=True, plot_peaks=plot_peaks, \
+                                guess=guess)
 
 
         #plt.plot(x, prof)
         #plt.show()
 
-        #x, prof, errs = rebin(x, prof, numbins=5000)
+        #x, prof, errs = bu.rebin(x, prof, numbins=5000)
         #plt.plot(x, prof)
         #plt.show()
 
