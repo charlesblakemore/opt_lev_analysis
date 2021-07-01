@@ -11,7 +11,7 @@ import matplotlib.mlab as mlab
 import bead_util as bu
 import configuration as config
 
-plt.rcParams.update({'font.size': 16})
+plt.rcParams.update({'font.size': 14})
 
 # dir1 = '/data/old_trap/20191017/bead1/spinning/junk/shit_test_10'
 maxfiles = 500
@@ -80,22 +80,40 @@ allfiles  = [
 
 
 
+allfiles  = [
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-pid.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low1.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low2.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low3.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low4.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low5.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low6.h5',
+             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low7.h5',
+            ]
+
+
+
 # allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
 #             ]
 
 new_trap = False
 
 
-tfdate = '20200307'
+tfdate = '20190619'  # Bangs bead
+tfdate = '20200327'  # gbead
+tfdate = ''
 tf_plot = False
 
-filename_labels = True 
-# filename_labels = False
+# filename_labels = True 
+filename_labels = False
 
 #labs = ['1','2', '3']
 
+figsize = (6,7)
+
 data_axes = [0,1,2]
-fb_axes = [0,1,2]
+
+fb_axes = []
 #fb_axes = [0,1,2]
 
 other_axes = []
@@ -105,7 +123,7 @@ cant_axes = []
 #cant_axes = [0,1,2]
 #other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
-plot_power = True
+plot_power = False
 
 drive_ax = 1
 
@@ -132,14 +150,18 @@ file_inds = (0, 100)
 userNFFT = 2**12
 diag = False
 
-fullNFFT = False
+fullNFFT = True
+
+cascade = True
+cascade_fac = 0.1
 
 #window = mlab.window_hanning
 window = mlab.window_none
 
 ###########################################################
 
-cmap = 'inferno'
+# cmap = 'inferno'
+cmap = 'plasma'
 #cmap = 'jet'
 
 posdic = {0: 'x', 1: 'y', 2: 'z'}
@@ -164,10 +186,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
     if diag:
         dfig, daxarr = plt.subplots(len(data_axes),2,sharex=True,sharey=True, \
-                                    figsize=(8,8))
+                                    figsize=figsize)
     else:
         dfig, daxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True, \
-                                    figsize=(8,8))
+                                    figsize=figsize)
     dfig.suptitle('XYZ Data', fontsize=18)
 
     if len(cant_axes):
@@ -187,12 +209,12 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         ofig.suptitle('Other Data', fontsize=18)
     if len(fb_axes):
         fbfig, fbaxarr = plt.subplots(len(fb_axes),1,sharex=True,sharey=True, \
-                                    figsize=(8,8))
+                                    figsize=figsize)
         if len(fb_axes) == 1:
             fbaxarr = [fbaxarr]
         fbfig.suptitle('Feedback Data', fontsize=18)
     if plot_power:
-        pfig, paxarr = plt.subplots(2,1,sharex=True,figsize=(8,6))
+        pfig, paxarr = plt.subplots(2,1,sharex=True,figsize=(6,6))
         pfig.suptitle('Power/Power Feedback Data', fontsize=18)
 
     kludge_fig, kludge_ax = plt.subplots(1,1)
@@ -233,9 +255,15 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         #plt.plot(df.pos_data[0])
         #plt.show()
 
+        if cascade:
+            cascade_scale = (cascade_fac)**fil_ind
+        else:
+            cascade_scale = 1.0
+
         freqs = np.fft.rfftfreq(len(df.pos_data[0]), d=1.0/df.fsamp)
 
-        df.diagonalize(maxfreq=lpf, date=tfdate, plot=tf_plot)
+        if diag:
+            df.diagonalize(maxfreq=lpf, date=tfdate, plot=tf_plot)
 
         if fil_ind == 0 and len(cant_axes):
             drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
@@ -245,9 +273,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         for axind, ax in enumerate(data_axes):
 
             try:
-                fac = df.conv_facs[ax]# * (1.0 / 0.12e-12)
+                fac = cascade_scale * df.conv_facs[ax]# * (1.0 / 0.12e-12)
             except:
-                fac = 1.0
+                fac = cascade_scale
 
             if fullNFFT:
                 NFFT = len(df.pos_data[ax])
@@ -344,7 +372,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
     else:
         derp_ax = daxarr[0]
 
-    derp_ax.legend(fontsize=10)
+    # derp_ax.legend(fontsize=10)
 
     if len(ylim):
         derp_ax.set_ylim(*ylim)

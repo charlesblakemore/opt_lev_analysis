@@ -160,11 +160,12 @@ class DataFile:
         dat, attribs = getdata(fname)
 
         if plot_raw_dat:
-            for n in range(20):
+            for n in range(dat.shape[1]):
                 plt.plot(dat[:,n], label=str(n))
             plt.legend()
             plt.show()
-        
+            input()
+
         self.fname = fname
         self.date = re.search(r"\d{8,}", fname)[0]
         #print fname
@@ -175,16 +176,19 @@ class DataFile:
         except:
             self.time = attribs["Time"]
 
+
         if self.time == 0:
             #print 'Bad time...', self.time
             self.FIX_TIME = True
         else:
             self.FIX_TIME = False
 
+
         try:
             self.fsamp = attribs["fsamp"]
         except:
             self.fsamp = attribs["Fsamp"]
+
             
         self.nsamp = len(dat[:,0])
 
@@ -195,12 +199,29 @@ class DataFile:
             imgrid = bool(attribs["imgrid"])
         except Exception:
             imgrid = False
-            traceback.print_exc()
+
+
+
+        if int(self.date) < 20180601:
+            skip_fpga = True
+            skip_mon = False
+
+            self.pos_data = np.transpose(dat[:, [0,1,2]])
+
+
 
         # If it's not an imgrid file, process all the fpga data
         if (not imgrid) and (not skip_fpga):
             fpga_fname = fname[:-3] + '_fpga.h5'
-            fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
+
+            ### This date isn't final yet. Haven't looked over all the relevant data 
+            ### folders to see exactly when we added the feedback signals into the
+            ### output FIFOs, but it was relatively soon after the initial implementation
+            ### of the FPGA data readout on 20180601
+            if int(self.date) < 20180701:
+                fpga_dat = get_fpga_data_2018(fpga_fname, verbose=verbose, timestamp=self.time)
+            else:
+                fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
 
             try:
                 encode = attribs["encode_bits"]
@@ -213,7 +234,7 @@ class DataFile:
                 traceback.print_exc()
 
             fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                               self.encode_bits, plot_sync=plot_sync)
+                                                   self.encode_bits, plot_sync=plot_sync)
 
             # IT CAN ONLY FIX THE TIME ATTRIB IF THE PARENT SCRIPT IS EXECUTED
             # AS ROOT OR ANY SUPERUSER
@@ -277,8 +298,6 @@ class DataFile:
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
         ''' 
-
-        #dat, attribs = getdata(fname)
 
         fname = os.path.abspath(fname)
 

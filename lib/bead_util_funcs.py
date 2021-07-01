@@ -210,15 +210,17 @@ def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
 
 
 
-def get_color_map( n, cmap='plasma', log=False):
+def get_color_map( n, cmap='plasma', log=False, invert=False):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
-
+       
         INPUTS: 
 
             n - length of color array to make
             
             cmap - color map for final output
+
+            invert - option to invert
 
         OUTPUTS: 
 
@@ -237,6 +239,10 @@ def get_color_map( n, cmap='plasma', log=False):
 
     for i in range(n):
         outmap.append( scalarMap.to_rgba(2*i + 1) )
+
+    if invert:
+        outmap = outmap[::-1]
+
     return outmap
 
 
@@ -1514,13 +1520,7 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         asd = np.abs(sig)
         freqs = np.linspace(0, 0.5*fsamp, len(asd))
 
-    ### Generate some initial guesses
-    maxind = np.argmax(asd)
-    if not freq_guess:
-        freq_guess = freqs[maxind]
-    if not gamma_guess:
-        gamma_guess = 2e-3 * freq_guess
-    amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+    derp_inds = np.arange(len(freqs))
 
     ### Define some indicies for fitting and plotting
     if len(fit_band):
@@ -1529,6 +1529,16 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
     else:
         inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
         plot_inds = (freqs > 0.05 * freq_guess) * (freqs < 20.0 * freq_guess)
+
+    first_ind = np.min(derp_inds[inds])
+
+    ### Generate some initial guesses
+    maxind = np.argmax(asd[inds])   # Look for max within fit_band
+    if not freq_guess:
+        freq_guess = (freqs[inds])[maxind]
+    if not gamma_guess:
+        gamma_guess = 5e-2 * freq_guess
+    amp_guess = (asd[inds])[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
 
     ### Define the fitting function to use. Keeping this modular in case
     ### we ever want to make more changes/linearization attempts
@@ -1558,13 +1568,13 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
 
     ### Fit the data
     p0 = [amp_guess, freq_guess, gamma_guess]
-    try:
-        popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
-                                        p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
-    except:
-        print('BAD FIT')
-        popt = p0
-        pcov = np.zeros( (len(p0), len(p0)) )
+    # try:
+    popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
+                                    p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
+    # except:
+    #     print('BAD FIT')
+    #     popt = p0
+    #     pcov = np.zeros( (len(p0), len(p0)) )
 
     ### We know the parameters should be positive so enforce that here since
     ### the fit occasionally finds negative values (sign degeneracy in the 
@@ -1578,6 +1588,10 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         init_mag = damped_osc_amp(fit_freqs, *p0)
         fit_mag = damped_osc_amp(fit_freqs, *popt)
 
+        print('Initial parameter guess:')
+        print('    {:0.3g}, {:0.3g}, {:0.3g}'.format(p0[0], p0[1], p0[2]))
+        print(popt)
+
         plt.loglog(freqs[plot_inds], asd[plot_inds])
         plt.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
         plt.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
@@ -1585,7 +1599,8 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
         plt.legend()
         plt.show()
-        # input()
+
+        input()
 
     return popt, pcov
 

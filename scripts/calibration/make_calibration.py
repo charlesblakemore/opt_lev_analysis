@@ -12,6 +12,9 @@ import calib_util as cal
 import transfer_func_util as tf
 import configuration as config
 
+
+plt.rcParams.update({'font.size': 14})
+
 #######################################################
 # Script to generate step calibrations and transfer
 # functions making use of the calib_util and 
@@ -23,6 +26,23 @@ import configuration as config
 #####################################
 ### Settings for discharge
 #####################################
+
+plot_raw_dat = False
+
+step_cal_dir = ['/data/old_trap/20180613/bead1/discharge/fine2/']
+first_file = 0
+last_file = -1
+
+# step_cal_dir = ['/data/old_trap/20181119/bead1/discharge/fine/']
+# first_file = 0
+# last_file = -1
+
+# step_cal_dir = ['/data/old_trap/20190408/bead1/discharge/fine/']
+# first_file = 0
+# last_file = -1
+
+using_tabor = False
+tabor_ind = 3
 
 # step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
 # first_file = 0
@@ -36,13 +56,13 @@ import configuration as config
 # first_file = 0
 # last_file = 550
 
-step_cal_dir = ['/data/old_trap/20201222/gbead1/discharge/fine/']
-first_file = 0
-last_file = -1
+# step_cal_dir = ['/data/old_trap/20201222/gbead1/discharge/fine/']
+# first_file = 0
+# last_file = -1
 
-using_tabor = True
+# using_tabor = True
 # tabor_ind = 3
-tabor_ind = 4
+# tabor_ind = 4
 
 
 # new_trap = True
@@ -61,6 +81,8 @@ new_trap = False
 # first_file = 0
 # last_file = -1
 
+sort_by_index = True
+sort_time = False
 
 files_to_pop = []
 # files_to_pop = [120, 125, 126, 133, 147, 155, 161, 162, 168, \
@@ -74,34 +96,39 @@ files_to_pop = []
 skip_subdirectories = False
 
 elec_channel_select = 1
-# pcol = -1
+pcol = -1
 # pcol = 2
-pcol = 2
+# pcol = 2
 
 
 correlation_phase = 0.0
 # correlation_phase = -1.0 * np.pi / 4.0
 # correlation_phase = np.pi / 6.0
-plot_correlations = True
+plot_correlations = False
 
 
 # auto_try = 0.25     ### for Z direction in new trap
 # auto_try = 1.5e-8   ### for Y direction in new trap
 # auto_try = 0.1
 # auto_try = 0.028
-auto_try = 0.0
+# auto_try = 0.011
+auto_try = 100
+# auto_try = 0.0
 
 decimate = False
 dec_fac = 2
+
 
 fake_step_cal = False
 
 # ## OLD TRAP
 # vpn = 7.264e16
-# drive_freq = 41.0
+vpn = 8.48e16
+drive_freq = 41.0
+
 ## NEW TRAP
-vpn = 1.796986e17
-drive_freq = 71.0
+# vpn = 1.796986e17
+# drive_freq = 71.0
 
 plot_residual_histograms = True
 
@@ -110,7 +137,11 @@ plot_residual_histograms = True
 ### Settings for transfer function
 #####################################
 
-tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
+
+tf_cal_dir = '/data/old_trap/20180613/bead1/tf_20180613_2/'
+# tf_cal_dir = '/data/old_trap/20181119/bead1/tf_20181119/'
+# tf_cal_dir = '/data/old_trap/20190408/bead1/tf_20190408/'
+# tf_cal_dir = '/data/old_trap/20200307/gbead1/tf_20200311/'
 
 # tf_cal_dir = '/data/new_trap/20191204/Bead1/TransFunc/'
 # tf_cal_dir = '/data/new_trap/20200110/Bead2/TransFunc/'
@@ -122,16 +153,29 @@ tf_substr = ''
 # tf_substr = 'm300k_50s'
 # tf_substr = '_0.h5'
 
-# lines_to_remove = []
-lines_to_remove = [7.0, 35.0, 60.0, 98, 420.0, 490.0]
+plot_response = False
+
+zero_drive_phase = True
+skip_qpd = True
+lines_to_remove = []
+# lines_to_remove = [7.0, 35.0, 60.0, 98, 420.0, 490.0]
 fit_freqs = [1.0, 600.0]
+
+amp_xlim = (4, 750)
+# amp_ylim = ()
+amp_ylim = [(9e18, 6e22), (9e18, 6e22), (1e15, 3e18)]
+phase_xlim = (4, 750)
+phase_ylim = (-1.2*np.pi, 1.2*np.pi)
 
 plot_tf = True
 plot_tf_fits = True
 plot_off_diagonal = False
 
-full_interp = True
-smoothing = 1.0
+interps = [[0,1,1], [1,0,1], [1,1,0]]
+derpy_unwrap = [[0,0,0], [0,0,0], [0,0,0]]
+real_unwrap = [[1,0,0], [0,1,0], [0,0,1]]
+
+smoothing = 1
 
 plot_inverse_tf = False
 suppress_off_diag = True
@@ -203,12 +247,13 @@ use_origin_timestamp = False
 
 
 # Find all the relevant files
-step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_by_index=True, #sort_time=True, \
+step_cal_files, lengths = bu.find_all_fnames(step_cal_dir, sort_by_index=sort_by_index, \
+                                             sort_time=sort_time, \
                                              use_origin_timestamp=use_origin_timestamp, \
                                              skip_subdirectories=skip_subdirectories)
-for name in step_cal_files:
-    print(name)
-input()
+# for name in step_cal_files:
+#     print(name)
+# input()
 
 for filind in files_to_pop[::-1]:
     step_cal_files.pop(filind)
@@ -235,8 +280,14 @@ if recharge:
 
 
 
-tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr, \
-                                           skip_subdirectories=False)
+tf_cal_files, lengths = bu.find_all_fnames(tf_cal_dir, substr=tf_substr,\
+                                           sort_by_index=sort_by_index, \
+                                           sort_time=sort_time, \
+                                           use_origin_timestamp=use_origin_timestamp, \
+                                           skip_subdirectories=skip_subdirectories)
+# tf_cal_files = tf_cal_files[:3]
+# print(tf_cal_files)
+# input()
 
 # tf_cal_files = ['/data/new_trap/20200525/Bead2/TransFunc/TransFunc_X_7.h5', \
 #                 '/data/new_trap/20200525/Bead2/TransFunc/TransFunc_Y_7.h5', \
@@ -291,7 +342,7 @@ if not fake_step_cal:
                 if not df.electrode_settings['driven'][elec_channel_select]:
                     continue
             else:
-                df.load(filname)
+                df.load(filname, plot_raw_dat=plot_raw_dat)
         except Exception:
             traceback.print_exc()
             continue
@@ -308,6 +359,7 @@ if not fake_step_cal:
                                        userphase=correlation_phase)
         if fileind == 0:
             print('Drive freq [Hz]: {:0.1f}'.format(step_resp_dict['drive_freq']))
+            pcol_actual = step_resp_dict['pcol']
 
         step_cal_vec_inphase.append(step_resp_dict['inphase'])
         step_cal_vec_max.append(step_resp_dict['max'])
@@ -379,8 +431,11 @@ for fil_ind, filname in enumerate(tf_cal_files):
     tf_file_objs.append(df)
 
 # Build the uncalibrated TF: Vresp / Vdrive
-allH = tf.build_uncalibrated_H(tf_file_objs, plot_qpd_response=False, new_trap=new_trap, \
-                                lines_to_remove=lines_to_remove)
+allH = tf.build_uncalibrated_H(tf_file_objs, plot_response=plot_response, \
+                                new_trap=new_trap, \
+                                lines_to_remove=lines_to_remove, \
+                                zero_drive_phase=zero_drive_phase, \
+                                skip_qpd=skip_qpd)
 
 Hout = allH['Hout']
 Hnoise = allH['Hout_noise']
@@ -392,19 +447,21 @@ keys.sort()
 close_freq = keys[ np.argmin(np.abs(keys - drive_freq)) ]
 # print(vpn, pcol, Hout[close_freq][2,2])
 
-Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol, \
+Hcal, q = tf.calibrate_H(Hout, vpn, step_cal_drive_channel=pcol_actual, \
                             drive_freq=drive_freq, verbose=True)
 
 ### Build the Hfunc object
 ### Hfunc
-Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], weight_peak=False, \
-                        weight_lowf=True, plot=plot_tf, plot_fits=plot_tf_fits, \
-                        plot_off_diagonal=plot_off_diagonal, \
-                        plot_inits=False, weight_phase=True, grid=True,\
-                        deweight_peak=True, lowf_weight_fac=0.01, \
-                        real_unwrap=True, derpy_unwrap=False, \
-                        fit_freqs=fit_freqs, full_interp=full_interp, \
-                        smoothing=smoothing)
+Hfunc = tf.build_Hfuncs(Hcal, fpeaks=[400, 400, 200], \
+                        weight_lowf=False, lowf_weight_fac=0.01, \
+                        weight_phase=False, weight_peak=False, \
+                        deweight_peak=False, linearize=False, \
+                        real_unwrap=real_unwrap, derpy_unwrap=derpy_unwrap, \
+                        fit_freqs=fit_freqs, interps=interps, \
+                        plot=plot_tf, plot_fits=plot_tf_fits, plot_inits=False, \
+                        plot_off_diagonal=plot_off_diagonal, grid=True,\
+                        smoothing=smoothing, amp_xlim=amp_xlim, amp_ylim=amp_ylim, \
+                        phase_xlim=phase_xlim, phase_ylim=phase_ylim)
 
 if plot_inverse_tf:
     freqs = np.linspace(1, 1000, 2500)
