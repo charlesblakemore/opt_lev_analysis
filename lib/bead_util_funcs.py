@@ -1388,17 +1388,26 @@ def get_limit_from_general_profile(profx, profy, ss=False, confidence_level=0.95
 
 
 def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
-                new_trap=False):
+                n_elec=8, new_trap=False, plot_voltages=False):
     '''Using output of 4/2/19 COMSOL simulation, return
        the value of the electric field at the trap based
        on the applied voltages on each electrode and the
        principle of superposition.'''
     if nsamp == 0:
         nsamp = len(voltages[0])
-    if len(voltages) != 8:
-        print("There are eight electrodes.")
-        print("   len(volt arr. passed to 'trap_efield') != 8")
+    if len(voltages) != n_elec:
+        print("There are ({:d}) electrodes.".format(n_elec))
+        print("   len(volt arr. passed to 'trap_efield') != {:d}".format(n_elec))
     else:
+        if plot_voltages:
+            for i in range(n_elec):
+                plt.plot(voltages[i], label='{:d}'.format(i))
+            plt.xlabel('Sample index')
+            plt.ylabel('Voltage [V]')
+            plt.legend(fontsize=10, loc=0, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
         if only_y or only_z:
             Ex = np.zeros(nsamp)
         else:
@@ -1406,10 +1415,6 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
                 Ex = voltages[3] * E_xp(0.0) + voltages[4] * E_xn(0.0)
             else:   
                 Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
-            # plt.plot(voltages[3], label='3')
-            # plt.plot(voltages[4], label='4')
-            # plt.legend()
-            # plt.show()
 
         if only_x or only_z:
             Ey = np.zeros(nsamp)
@@ -1418,10 +1423,6 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
                 Ey = voltages[5] * E_yp(0.0) + voltages[6] * E_yn(0.0)
             else:
                 Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
-            # plt.plot(voltages[5], label='5')
-            # plt.plot(voltages[6], label='6')
-            # plt.legend()
-            # plt.show()
 
         if only_y or only_z:
             Ez = np.zeros(nsamp)
@@ -1430,10 +1431,6 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
                 Ez = voltages[1] * E_zp(0.0)   + voltages[2] * E_zn(0.0)
             else:
                 Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
-            # plt.plot(voltages[1], label='1')
-            # plt.plot(voltages[2], label='2')
-            # plt.legend()
-            # plt.show()
 
         return np.array([Ex, Ey, Ez])   
 
