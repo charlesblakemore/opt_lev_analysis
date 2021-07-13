@@ -23,7 +23,7 @@ plot_theory = False
 plot_projections = False
 all_three = False
 
-plot_limit = True
+plot_limit = False
 signed_limit = True
 limit_ax = 2
 limit_path = '/data/new_trap_processed/limits/20200320_limit_binning-10000.p'
@@ -33,7 +33,7 @@ ylim = (1e-1, 1e11)
 ylim = (1e3, 1e11)
 
 
-savefig = True
+savefig = False
 fig_path = '/home/cblakemore/plots/20200320/mod_grav/20200320_limit_binning-10000.svg'
 
 

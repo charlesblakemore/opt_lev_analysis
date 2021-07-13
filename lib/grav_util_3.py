@@ -1215,6 +1215,7 @@ class AggregateData:
     def _save_likelihood_dict(self, agg_savepath, chunk=1000):
 
         if len(list(self.likelihoods.keys())):
+
             file_dict = {}
             for bias, ax0, ax1 in itertools.product(list(self.agg_dict.keys()), self.ax0vec, self.ax1vec):
                 if bias not in list(file_dict.keys()):
@@ -1242,7 +1243,7 @@ class AggregateData:
 
                     np.save(savepath, savearr)
 
-                return file_dict
+            return file_dict
 
         else:
             return {}
@@ -1251,6 +1252,7 @@ class AggregateData:
     def _load_likelihood_dict(self, path_dict):
 
         if len(list(path_dict.keys())):
+
             likelihoods = {}
             for bias, ax0, ax1 in itertools.product(list(self.agg_dict.keys()), self.ax0vec, self.ax1vec):
                 if bias not in list(likelihoods.keys()):
@@ -2059,8 +2061,9 @@ class AggregateData:
                                           fake_alpha=1e13, plot_bad_alphas=False, \
                                           plot_templates=False, n_testalpha=11, \
                                           interpolate=False, fix_sep=False, \
-                                          fix_sep_val=10.0, fix_height=False, 
-                                          fix_height_val=0.0, diag=True):
+                                          fix_sep_val=10.0, fix_height=False, \
+                                          fix_height_val=0.0, diag=True, \
+                                          ax_scale_facs=[1.0, 1.0, 1.0]):
 
         print('Finding alpha for each coordinate and drive harmonic ' \
                 + 'via an FFT template fitting algorithm...')
@@ -2178,20 +2181,20 @@ class AggregateData:
                         erryukbool = yukbool.repeat(n_err, axis=0)
 
                         # if lambind == 81 and resp == 2:
-                        #     print(yuklambda)
+                        #     print(yuklambda) 
                         #     for i in range(nharms):
                         #         print(i, np.abs(yukfft[i]), np.angle(yukfft[i]*10**27))
                         #     input()
 
                         if diag:
-                            c_datfft = diagdatfft[resp][yukbool]
-                            c_daterr = diagdaterr[resp][erryukbool]
+                            c_datfft = diagdatfft[resp][yukbool] * ax_scale_facs[resp]
+                            c_daterr = diagdaterr[resp][erryukbool] * ax_scale_facs[resp]
                         else:
-                            c_datfft = datfft[resp][yukbool]
-                            c_daterr = daterr[resp][erryukbool]
+                            c_datfft = datfft[resp][yukbool] * ax_scale_facs[resp]
+                            c_daterr = daterr[resp][erryukbool] * ax_scale_facs[resp]
 
                         if add_fake_data:
-                            c_datfft = datfft[resp] + fake_alpha * yukfft
+                            c_datfft += fake_alpha * yukfft
 
                         for i in range(nharms):
 
@@ -2564,23 +2567,23 @@ class AggregateData:
             obj = self.agg_dict[bias][ax0][ax1][0]
             freqs = np.fft.rfftfreq(obj.nsamp, d=1.0/obj.fsamp)[obj.ginds]
             nfreq = len(freqs)
+            nlambda = len(self.gfuncs_class.lambdas)
             print(' ', end='')
  
             mle_dict = {}
             likelihood_dict = {}
 
             ### Define some arrays to make the last likelihood sum easier to execute
-            all_mle = np.zeros((3,len(self.gfuncs_class.lambdas),nfreq,2))
-            all_coeff = np.zeros((3,len(self.gfuncs_class.lambdas),nfreq,2,3))
+            all_mle = np.zeros((3,nlambda,nfreq,2))
+            all_coeff = np.zeros((3,nlambda,nfreq,2,3))
 
             for j, freq in enumerate(freqs):
                 print('{:0.1f}Hz, '.format(freq), end='')
                 sys.stdout.flush()
-                outarr = np.zeros((3,len(self.gfuncs_class.lambdas),2,nalpha))
+                outarr = np.zeros((3,nlambda,2,nalpha))
 
-                for resp in [0,1,2]:
-                    for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
-
+                for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+                    for resp in [0,1,2]:
                         prof_alphas = self.likelihoods[bias][ax0][ax1][:,k,resp,j,0]
                         prof_vals = self.likelihoods[bias][ax0][ax1][:,k,resp,j,1]
                         sum_prof_alphas, sum_prof_coeffs = \
@@ -2608,21 +2611,33 @@ class AggregateData:
 
 
             ### Array to save the final hybrid profiles
-            full_profs = np.zeros((3,len(self.gfuncs_class.lambdas),2,nalpha))
+            full_profs_by_axis = np.zeros((3,nlambda,2,nalpha))
+            full_profs = np.zeros((nlambda,2,nalpha))
 
             ### Sum over the harmonics and chunks for each response axis and lambda value
-            for resp in [0,1,2]:
-                for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+            for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+
+                for resp in [0,1,2]:
                     prof_alphas, prof_vals = \
                             self._sum_alpha_likelihoods_naive_quad( \
                                             all_coeff[resp,k,:,0], all_coeff[resp,k,:,1], \
                                             nalpha=nalpha)
-                    full_profs[resp,k,0] = prof_alphas
-                    full_profs[resp,k,1] = prof_vals
+                    full_profs_by_axis[resp,k,0] = prof_alphas
+                    full_profs_by_axis[resp,k,1] = prof_vals
+
+                full_coeff = np.concatenate((all_coeff[0,k,:,:,:], all_coeff[1,k,:,:,:], \
+                                             all_coeff[2,k,:,:,:]), axis=0)
+                full_prof_alphas, full_prof_vals = \
+                        self._sum_alpha_likelihoods_naive_quad( \
+                                        full_coeff[:,0], full_coeff[:,1], \
+                                        nalpha=nalpha)
+                full_profs[k,0] = full_prof_alphas
+                full_profs[k,1] = full_prof_vals
 
         print(' Done!')
         self.mles_by_harmonic = mle_dict
         self.likelihoods_sum_by_harmonic = likelihood_dict
+        self.likelihoods_sum_by_axis = full_profs_by_axis
         self.likelihoods_sum = full_profs
 
         return
@@ -2709,10 +2724,6 @@ class AggregateData:
             all_mle = np.zeros((3,nlambda,nchunk_freq*nchunk,2))
             all_coeff = np.zeros((3,nlambda,nchunk_freq*nchunk,2,3))
 
-            ### Array to save the final hybrid profiles
-            hybrid_profs = np.zeros((3,nlambda,2,nalpha))
-
-
             for resp in [0,1,2]:
                 for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
                     for i in range(nchunk):
@@ -2733,9 +2744,13 @@ class AggregateData:
                             all_mle[resp,k,i*nchunk_freq+j,1] = sum_prof_coeffs[2] - \
                                         sum_prof_coeffs[1]**2/(4.0*sum_prof_coeffs[0])
 
+            ### Array to save the final hybrid profiles
+            hybrid_profs = np.zeros((3,nlambda,2,nalpha))
+            full_profs = np.zeros((nlambda,2,nalpha))
+
             ### Sum over the harmonics and chunks for each response axis and lambda value
-            for resp in [0,1,2]:
-                for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+            for k, yuklambda in enumerate(self.gfuncs_class.lambdas):
+                for resp in [0,1,2]:
 
                     prof_alphas, prof_vals = \
                                 self._sum_alpha_likelihoods_no_discovery_quad( \
@@ -2746,11 +2761,25 @@ class AggregateData:
                     hybrid_profs[resp,k,0] = prof_alphas
                     hybrid_profs[resp,k,1] = prof_vals
 
+                full_coeff = np.concatenate((all_coeff[0,k,:,:,:], all_coeff[1,k,:,:,:], \
+                                             all_coeff[2,k,:,:,:]), axis=0)
+                full_mle = np.concatenate((all_mle[0,k,:,:], all_mle[1,k,:,:], \
+                                           all_mle[2,k,:,:]), axis=0)
+
+                full_prof_alphas, full_prof_vals = \
+                            self._sum_alpha_likelihoods_no_discovery_quad( \
+                                            full_coeff[:,0], full_coeff[:,1], \
+                                            full_mle[:,1], full_mle[:,0], \
+                                            nalpha=nalpha, debug=True)
+
+                full_profs[k,0] = full_prof_alphas
+                full_profs[k,1] = full_prof_vals
 
         print(' Done!')
         self.likelihoods_sum_by_bin_harmonic = likelihood_bin_harm_dict
         self.likelihoods_sum_by_harmonic = likelihood_harm_dict
-        self.likelihoods_sum = hybrid_profs
+        self.likelihoods_sum_by_axis = hybrid_profs
+        self.likelihoods_sum = full_profs
 
         return
 
@@ -2758,6 +2787,7 @@ class AggregateData:
 
     def _sum_alpha_likelihoods_by_sign(self, nchunk=1, freq_pairing=1, nalpha=1000, \
                                        shuffle_in_time=False, shuffle_seed=12345):
+        '''THIS ONE BE BROKE, USE AT YOUR OWN RISK.'''
 
 
         for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
@@ -2914,7 +2944,7 @@ class AggregateData:
         print(' Done!')
         self.likelihoods_sum_by_bin_harmonic = likelihood_bin_harm_dict
         self.likelihoods_sum_by_harmonic = likelihood_harm_dict
-        self.likelihoods_sum = hybrid_profs
+        self.likelihoods_sum_by_axis = hybrid_profs
 
         return
 
@@ -3242,7 +3272,8 @@ class AggregateData:
                                  basepath='/home/cblakemore/plots/mod_grav', \
                                  plot_freqs=[], plot_alpha=1.0, file_length=10.0, \
                                  confidence_level=0.95, xscale='hour', \
-                                 derp_key='', derp_nchunk=1):
+                                 derp_save=False, derp_key='', derp_nchunk=1, \
+                                 derp_file='/home/cblakemore/tmp/derp.p'):
         '''Function to generate a time series of the raw alpha MLE and uncertainty.
            of that estimate for each harmonic.'''
         ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
@@ -3253,13 +3284,13 @@ class AggregateData:
 
         colors = bu.get_color_map(len(plot_freqs))
 
-        derp_file = '/home/cblakemore/tmp/20200320_mle_vs_time.p'
-        try:
-            derp_dict = pickle.load( open(derp_file, 'rb') )
-        except:
-            derp_dict = {}
-        derp_dict[derp_key+'_freqs'] = np.array(plot_freqs)
-        derp_arr = np.zeros((3, len(plot_freqs), 3, derp_nchunk))
+        if derp_save:
+            try:
+                derp_dict = pickle.load( open(derp_file, 'rb') )
+            except:
+                derp_dict = {}
+            derp_dict[derp_key+'_freqs'] = np.array(plot_freqs)
+            derp_arr = np.zeros((3, len(plot_freqs), 3, derp_nchunk))
 
         for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
             figs = []
@@ -3330,9 +3361,11 @@ class AggregateData:
                     ax.errorbar(tvec+dt, mles, yerr=uncertainties, fmt='.', label=label, \
                                 color=color, alpha=plot_alpha, zorder=2)
 
-                    derp_arr[resp,i,0,:] = tvec+dt
-                    derp_arr[resp,i,1,:] = mles
-                    derp_arr[resp,i,2,:] = uncertainties
+                    if derp_save:
+                        derp_arr[resp,i,0,:] = tvec+dt
+                        derp_arr[resp,i,1,:] = mles
+                        derp_arr[resp,i,2,:] = uncertainties
+
                     i += 1
 
                 bin_length = chunk_size * file_length
@@ -3353,8 +3386,9 @@ class AggregateData:
                     fig.savefig(savepath)
                 figs.append(fig)
 
-                derp_dict[derp_key] = derp_arr
-                pickle.dump( derp_dict, open(derp_file, 'wb') )
+                if derp_save:
+                    derp_dict[derp_key] = derp_arr
+                    pickle.dump( derp_dict, open(derp_file, 'wb') )
 
             if show:
                 plt.show()
@@ -3469,9 +3503,13 @@ class AggregateData:
         yukind = np.argmin(np.abs(self.gfuncs_class.lambdas - yuklambda))
         yuklambda = self.gfuncs_class.lambdas[yukind]
 
-        for resp in [0,1,2]:
-            prof_alpha = self.likelihoods_sum[resp,yukind,0]
-            prof_val = self.likelihoods_sum[resp,yukind,1]
+        for resp in [0,1,2,3]:
+            if resp == 3:
+                prof_alpha = self.likelihoods_sum[yukind,0]
+                prof_val = self.likelihoods_sum[yukind,1]
+            else:
+                prof_alpha = self.likelihoods_sum_by_axis[resp,yukind,0]
+                prof_val = self.likelihoods_sum_by_axis[resp,yukind,1]
 
             fig, ax = plt.subplots(1,1)
 
@@ -3523,14 +3561,22 @@ class AggregateData:
                 ax.set_ylabel('$\\Delta \\chi^2$')
             else:
                 ax.set_ylabel('$\\chi^2$')
-            ax.set_title('{:s}-axis, $\\lambda = ${:0.2f} $\\mu$m'\
-                            .format(ax_dict[resp], yuklambda*1e6))
+
+            if resp == 3:
+                ax.set_title('All axes, $\\lambda = ${:0.2f} $\\mu$m'\
+                                .format(yuklambda*1e6))
+            else:
+                ax.set_title('{:s}-axis, $\\lambda = ${:0.2f} $\\mu$m'\
+                                .format(ax_dict[resp], yuklambda*1e6))
             if include_limit:
                 ax.legend(loc='upper center')
 
             if save:
-                figname = 'sum-likelihood_{:s}_lambda{:0.2g}m'\
-                                .format(ax_dict[resp], yuklambda)
+                if resp == 3:
+                    figname = 'sum-likelihood_lambda{:0.2g}m'.format(yuklambda)
+                else:
+                    figname = 'sum-likelihood_{:s}_lambda{:0.2g}m'\
+                                    .format(ax_dict[resp], yuklambda)
                 figname = figname.replace('.', '_')
                 figname += '.svg'
                 savepath = os.path.join(basepath, figname)
@@ -3555,41 +3601,75 @@ class AggregateData:
         figs = []
         axs = []
         yuklambdas = self.gfuncs_class.lambdas
-        pos_limit = [[], [], []]
-        neg_limit = [[], [], []]
-        mle = [[], [], []]
-        mle_unc = [[[], []], [[], []], [[], []]]
 
-        for resp in [0,1,2]:
+        pos_limit = []
+        neg_limit = []
+        mle = []
+        mle_unc = [[], []]
+
+        pos_limit_by_axis = [[], [], []]
+        neg_limit_by_axis = [[], [], []]
+        mle_by_axis = [[], [], []]
+        mle_unc_by_axis = [[[], []], [[], []], [[], []]]
+
+        for resp in [0,1,2,3]:
             for k, yuklambda in enumerate(yuklambdas):
-                prof_alpha = self.likelihoods_sum[resp,k,0]
-                prof_val = self.likelihoods_sum[resp,k,1]
+                if resp == 3:
+                    prof_alpha = self.likelihoods_sum[k,0]
+                    prof_val = self.likelihoods_sum[k,1]
+                else:
+                    prof_alpha = self.likelihoods_sum_by_axis[resp,k,0]
+                    prof_val = self.likelihoods_sum_by_axis[resp,k,1]
 
                 limit = bu.get_limit_from_general_profile(prof_alpha, prof_val, ss=ss,\
                                                           no_discovery=no_discovery, \
                                                           confidence_level=confidence_level)
 
-                if no_discovery:
-                    mle[resp].append(0.0)
-                    mle_unc[resp][0].append(0.0)
-                    mle_unc[resp][1].append(0.0)
-                    pos_limit[resp].append(np.abs(limit['upper_unc']))
-                    neg_limit[resp].append(np.abs(limit['lower_unc']))
-                else:
-                    mle[resp].append(limit['min'])
-                    mle_unc[resp][0].append(limit['lower_unc'])
-                    mle_unc[resp][1].append(limit['upper_unc'])
-                    if limit['min'] > 0.0:
-                        pos_limit[resp].append(np.abs(limit['min'] + limit['upper_unc']))
-                        neg_limit[resp].append(0.0)
+                if resp == 3:
+                    if no_discovery:
+                        mle.append(0.0)
+                        mle_unc[0].append(0.0)
+                        mle_unc[1].append(0.0)
+                        pos_limit.append(np.abs(limit['upper_unc']))
+                        neg_limit.append(np.abs(limit['lower_unc']))
                     else:
-                        pos_limit[resp].append(0.0)
-                        neg_limit[resp].append(np.abs(limit['min'] + limit['lower_unc']))
+                        mle.append(limit['min'])
+                        mle_unc[0].append(limit['lower_unc'])
+                        mle_unc[1].append(limit['upper_unc'])
+                        if limit['min'] > 0.0:
+                            pos_limit.append(np.abs(limit['min'] + limit['upper_unc']))
+                            neg_limit.append(0.0)
+                        else:
+                            pos_limit.append(0.0)
+                            neg_limit.append(np.abs(limit['min'] + limit['lower_unc']))
+
+                else:
+                    if no_discovery:
+                        mle_by_axis[resp].append(0.0)
+                        mle_unc_by_axis[resp][0].append(0.0)
+                        mle_unc_by_axis[resp][1].append(0.0)
+                        pos_limit_by_axis[resp].append(np.abs(limit['upper_unc']))
+                        neg_limit_by_axis[resp].append(np.abs(limit['lower_unc']))
+                    else:
+                        mle_by_axis[resp].append(limit['min'])
+                        mle_unc_by_axis[resp][0].append(limit['lower_unc'])
+                        mle_unc_by_axis[resp][1].append(limit['upper_unc'])
+                        if limit['min'] > 0.0:
+                            pos_limit_by_axis[resp].append(np.abs(limit['min'] + limit['upper_unc']))
+                            neg_limit_by_axis[resp].append(0.0)
+                        else:
+                            pos_limit_by_axis[resp].append(0.0)
+                            neg_limit_by_axis[resp].append(np.abs(limit['min'] + limit['lower_unc']))
 
             fig, ax = plt.subplots(1,1)
-            ax.set_title('{:s}-Axis, {:d}%-CL'.format(ax_dict[resp], int(100.0*confidence_level)))
-            ax.loglog(yuklambdas, pos_limit[resp], ls='--', lw=3, label='$\\hat{\\alpha}$ > 0')
-            ax.loglog(yuklambdas, neg_limit[resp], ls=':', lw=3, label='$\\hat{\\alpha}$ < 0')
+            if resp == 3:
+                ax.set_title('All-Axes, {:d}%-CL'.format(int(100.0*confidence_level)))
+                ax.loglog(yuklambdas, pos_limit, ls='--', lw=3, label='$\\hat{\\alpha}$ > 0')
+                ax.loglog(yuklambdas, neg_limit, ls=':', lw=3, label='$\\hat{\\alpha}$ < 0')
+            else:
+                ax.set_title('{:s}-Axis, {:d}%-CL'.format(ax_dict[resp], int(100.0*confidence_level)))
+                ax.loglog(yuklambdas, pos_limit_by_axis[resp], ls='--', lw=3, label='$\\hat{\\alpha}$ > 0')
+                ax.loglog(yuklambdas, neg_limit_by_axis[resp], ls=':', lw=3, label='$\\hat{\\alpha}$ < 0')
             ax.set_xlabel('Length-scale $\\lambda$ [m]')
             ax.set_ylabel('Strength $\\alpha$ [abs]')
             ax.legend(fontsize=12)
@@ -3604,8 +3684,11 @@ class AggregateData:
             axs.append(ax)
 
         if save:
-            for resp in [0,1,2]:
-                figname = 'alpha-lambda_{:s}_{:d}cl.svg'.format(ax_dict[resp], \
+            for resp in [0,1,2,3]:
+                if resp == 3:
+                    figname = 'alpha-lambda_{:d}cl.svg'.format(int(100.0*confidence_level))
+                else:
+                    figname = 'alpha-lambda_{:s}_{:d}cl.svg'.format(ax_dict[resp], \
                                                                 int(100.0*confidence_level))
                 savepath = os.path.join(basepath, figname)
                 figs[resp].savefig(savepath)
@@ -3613,13 +3696,23 @@ class AggregateData:
         if show:
             plt.show()
 
-        self.mle = np.array([yuklambdas, mle[0], mle[1], mle[2]])
-        self.mle_unc =  np.array(mle_unc)
-        self.pos_limit = np.array([yuklambdas, pos_limit[0], pos_limit[1], pos_limit[2]])
-        self.neg_limit = np.array([yuklambdas, neg_limit[0], neg_limit[1], neg_limit[2]])
+        self.mle = np.array([yuklambdas, mle])
+        self.mle_unc = np.array(mle_unc)
+        self.pos_limit = np.array([yuklambdas, pos_limit])
+        self.neg_limit = np.array([yuklambdas, neg_limit])
+
+        self.mle_by_axis = np.array([yuklambdas, mle_by_axis[0], mle_by_axis[1], mle_by_axis[2]])
+        self.mle_unc_by_axis =  np.array(mle_unc_by_axis)
+        self.pos_limit_by_axis = np.array([yuklambdas, pos_limit_by_axis[0], \
+                                            pos_limit_by_axis[1], pos_limit_by_axis[2]])
+        self.neg_limit_by_axis = np.array([yuklambdas, neg_limit_by_axis[0], \
+                                            neg_limit_by_axis[1], neg_limit_by_axis[2]])
 
         if export_limit:
-            limit_dict = {'pos_limit': self.pos_limit, 'neg_limit': self.neg_limit}
+            limit_dict = {'pos_limit': self.pos_limit, \
+                          'neg_limit': self.neg_limit, \
+                          'pos_limit_by_axis': self.pos_limit_by_axis, \
+                          'neg_limit_by_axis': self.neg_limit_by_axis}
             bu.make_all_pardirs(export_path)
             pickle.dump(limit_dict, open(export_path, 'wb'))
 

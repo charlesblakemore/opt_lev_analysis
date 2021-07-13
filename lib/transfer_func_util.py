@@ -1,4 +1,4 @@
-import glob, os, sys, copy, time, math
+import glob, os, sys, copy, time, math, traceback
 
 import numpy as np
 import matplotlib
@@ -18,6 +18,7 @@ import configuration as config
 import dill as pickle
 
 from iminuit import Minuit, describe
+
 
 
 
@@ -156,8 +157,8 @@ def make_extrapolator(interpfunc, xs=[], ys=[], pts=(10, 10), order=(1,1), \
 
 
 def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 1., \
-                         plot_qpd_response=False, drop_bad_bins=True, new_trap=False, \
-                         lines_to_remove=[60.0]):
+                         skip_qpd=False, plot_response=False, drop_bad_bins=True, \
+                         new_trap=False, lines_to_remove=[60.0], zero_drive_phase=False):
     '''Generates a transfer function from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    average_first, boolean specifying whether to average responses
@@ -175,56 +176,62 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
     Hout = {}
     Hout_noise = {}
-
     Hout_amp = {}
     Hout_phase = {}
     Hout_fb = {}
 
     Hout_counts = {}
 
-
     avg_drive_fft = {}
     avg_data_fft = {}
     avg_fb_fft = {}
-    avg_side_fft = {}
 
-    avg_amp_fft = {}
-    avg_phase_fft = {}
+    if not skip_qpd:
+        avg_side_fft = {}
+
+        avg_amp_fft = {}
+        avg_phase_fft = {}
 
     counts = {}
 
-    if plot_qpd_response:
-        ampfig, amp_axarr = plt.subplots(5,3,sharex=True,sharey=True,figsize=(8,10))
-        phasefig, phase_axarr = plt.subplots(5,3,sharex=True,sharey=True,figsize=(8,10))
-        sidefig, side_axarr = plt.subplots(4,3,sharex=True,sharey=True,figsize=(8,9))
-        fbfig, fb_axarr = plt.subplots(3,3,sharex=True,sharey=True,figsize=(8,8))
-        posfig, pos_axarr = plt.subplots(3,3,sharex=True,sharey=True,figsize=(8,8))
-        drivefig, drive_axarr = plt.subplots(3,3,sharex=True,sharey=True,figsize=(8,8))
+    if plot_response:
+        fbfig, fb_axarr = plt.subplots(3,3,sharex=True,sharey=True,figsize=(9,8))
+        posfig, pos_axarr = plt.subplots(3,3,sharex=True,sharey='row',figsize=(9,8))
+        drivefig, drive_axarr = plt.subplots(3,3,sharex=True,sharey=True,figsize=(9,8))
+        if not skip_qpd:
+            ampfig, amp_axarr = plt.subplots(5,3,sharex=True,sharey=True,figsize=(9,10))
+            phasefig, phase_axarr = plt.subplots(5,3,sharex=True,sharey=True,figsize=(9,10))
+            sidefig, side_axarr = plt.subplots(4,3,sharex=True,sharey=True,figsize=(9,9))
 
     filind = 0
     for fobj in fobjs:
+
+        N = np.shape(fobj.pos_data)[1]#number of samples
+        fsamp = fobj.fsamp
+        
+        fft_fac = bu.fft_norm(N, fsamp)
 
         drive = bu.trap_efield(fobj.electrode_data) #* constants.elementary_charge
         #drive = np.roll(drive, -10, axis=-1)
 
         # dfft = np.fft.rfft(fobj.electrode_data) #fft of electrode drive in daxis.
-        dfft = np.fft.rfft( drive )
+        dfft = np.fft.rfft( drive ) * fft_fac
         if new_trap: 
-            data_fft = np.fft.rfft(fobj.pos_data_3)
+            data_fft = np.fft.rfft(fobj.pos_data_3) * fft_fac
         else:
-            data_fft = np.fft.rfft(fobj.pos_data)
-        amp_fft = np.fft.rfft(fobj.amp)
-        phase_fft = np.fft.rfft(fobj.phase)
-        fb_fft = np.fft.rfft(fobj.pos_fb)
+            data_fft = np.fft.rfft(fobj.pos_data) * fft_fac
 
-        left = fobj.amp[2] + fobj.amp[3]
-        right = fobj.amp[0] + fobj.amp[1]
-        top = fobj.amp[2] + fobj.amp[0]
-        bot = fobj.amp[3] + fobj.amp[1]
-        side_fft = np.fft.rfft(np.array([right, left, top, bot]))
+        fb_fft = np.fft.rfft(fobj.pos_fb) * fft_fac
 
-        N = np.shape(fobj.pos_data)[1]#number of samples
-        fsamp = fobj.fsamp
+        if not skip_qpd:
+            amp_fft = np.fft.rfft(fobj.amp) * fft_fac
+            phase_fft = np.fft.rfft(fobj.phase) * fft_fac
+
+            left = fobj.amp[2] + fobj.amp[3]
+            right = fobj.amp[0] + fobj.amp[1]
+            top = fobj.amp[2] + fobj.amp[0]
+            bot = fobj.amp[3] + fobj.amp[1]
+            side_fft = np.fft.rfft(np.array([right, left, top, bot])) * fft_fac
 
         fft_freqs = np.fft.rfftfreq(N, d=1.0/fsamp)
 
@@ -234,30 +241,41 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         # # plt.loglog(fft_freqs, np.abs(data_fft[0]))
         # plt.show()
 
-        dpsd = np.abs(dfft)**2 * bu.fft_norm(fobj.nsamp, fsamp)**2 #psd for all electrode drives
+        dpsd = np.abs(dfft)**2  #psd for all electrode drives
         dpsd_thresh = 0.1 * np.max(dpsd.flatten())
         inds = np.where(dpsd>dpsd_thresh)#Where the dpsd is over the threshold for being used.
         eind = np.unique(inds[0])[0]
         # print(eind)
-        # plt.plot(drive[eind], label=eind)
-        # plt.legend()
-        # plt.show()
 
         if eind not in avg_drive_fft:
             avg_drive_fft[eind] = np.zeros(dfft.shape, dtype=np.complex128)
             avg_data_fft[eind] = np.zeros(data_fft.shape, dtype=np.complex128)
-            avg_amp_fft[eind] = np.zeros(amp_fft.shape, dtype=np.complex128)
-            avg_phase_fft[eind] = np.zeros(phase_fft.shape, dtype=np.complex128)
             avg_fb_fft[eind] = np.zeros(fb_fft.shape, dtype=np.complex128)
-            avg_side_fft[eind] = np.zeros(side_fft.shape, dtype=np.complex128)
+            if not skip_qpd:
+                avg_amp_fft[eind] = np.zeros(amp_fft.shape, dtype=np.complex128)
+                avg_phase_fft[eind] = np.zeros(phase_fft.shape, dtype=np.complex128)
+                avg_side_fft[eind] = np.zeros(side_fft.shape, dtype=np.complex128)
             counts[eind] = 0.
 
+        # try:
         avg_drive_fft[eind] += dfft
         avg_data_fft[eind] += data_fft
-        avg_amp_fft[eind] += amp_fft
-        avg_phase_fft[eind] += phase_fft
         avg_fb_fft[eind] += fb_fft
-        avg_side_fft[eind] += side_fft
+        if not skip_qpd:
+            avg_amp_fft[eind] += amp_fft
+            avg_phase_fft[eind] += phase_fft
+            avg_side_fft[eind] += side_fft
+
+        # except:
+        #     traceback.print_exc()
+        #     print()
+        #     print(fobj.fname)
+        #     derpfig, derpax = plt.subplots(1,1)
+        #     for i in [0,1,2,3,4]:
+        #         derpax.loglog(np.abs(amp_fft[i]) * 10**i, label=str(i))
+        #     derpax.legend()
+        #     plt.show()
+        #     input()
 
         counts[eind] += 1.
 
@@ -265,10 +283,11 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         print(eind, counts[eind])
         avg_drive_fft[eind] = avg_drive_fft[eind] / counts[eind]
         avg_data_fft[eind] = avg_data_fft[eind] / counts[eind]
-        avg_amp_fft[eind] = avg_amp_fft[eind] / counts[eind]
-        avg_phase_fft[eind] = avg_phase_fft[eind] / counts[eind]
         avg_fb_fft[eind] = avg_fb_fft[eind] / counts[eind]
-        avg_side_fft[eind] = avg_side_fft[eind] / counts[eind]
+        if not skip_qpd:
+            avg_amp_fft[eind] = avg_amp_fft[eind] / counts[eind]
+            avg_phase_fft[eind] = avg_phase_fft[eind] / counts[eind]
+            avg_side_fft[eind] = avg_side_fft[eind] / counts[eind]
 
     poslabs = {0: 'X', 1: 'Y', 2: 'Z'}
     sidelabs = {0: 'Right', 1: 'Left', 2: 'Top', 3: 'Bottom'}
@@ -277,7 +296,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
     for eind in list(avg_drive_fft.keys()):
         # First find drive-frequency bins above a fixed threshold
-        dpsd = np.abs(avg_drive_fft[eind])**2 * 2. / (N*fsamp)
+        dpsd = np.abs(avg_drive_fft[eind])**2 
         inds = np.where(dpsd > dpsd_thresh)
 
         # Extract the frequency indices
@@ -294,6 +313,9 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
             tf_inds = tf_inds[tf_inds != line_freq_ind]
 
         freqs = fft_freqs[tf_inds]
+
+        xlim = (np.min(fft_freqs[1:]), np.max(fft_freqs))
+        # xlim = (45.0, 130.0)
 
         # plt.plot(freqs, np.angle(avg_drive_fft[eind][eind,tf_inds]) / np.pi)
         # plt.title('Raw Phase From Drive FFT')
@@ -312,62 +334,99 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
         # outind = config.elec_map[eind]
         outind = eind
 
-        if plot_qpd_response:
+        if plot_response:
             
             for elec in [0,1,2]: #,3,4,5,6,7]:
                 drive_axarr[elec,outind].loglog(fft_freqs, \
-                                                np.abs(avg_drive_fft[eind][elec]), alpha=0.75)
+                                                np.abs(avg_drive_fft[eind][elec]), alpha=1.0)
                 drive_axarr[elec,outind].loglog(fft_freqs[tf_inds], \
-                                                np.abs(avg_drive_fft[eind][elec])[tf_inds], alpha=0.75)
+                                                np.abs(avg_drive_fft[eind][elec])[tf_inds], alpha=1.0)
                 if outind == 0:
-                    drive_axarr[elec,outind].set_ylabel('Efield axis ' + str(elec))
+                    drive_axarr[elec,outind].set_ylabel('Efield axis ' + str(elec) \
+                                                            + '\n[(V/m)/$\\sqrt{\\rm Hz}$]')
                 if elec == 2: #7:
                     drive_axarr[elec,outind].set_xlabel('Frequency [Hz]')
 
 
             for resp in [0,1,2,3,4]:
-                amp_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
-                                              np.abs(avg_amp_fft[eind][resp])[tf_inds], alpha=0.75)
-                phase_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
-                                                np.abs(avg_phase_fft[eind][resp])[tf_inds], alpha=0.75)
-                if outind == 0:
-                    amp_axarr[resp,outind].set_ylabel(quadlabs[resp])
-                    phase_axarr[resp,outind].set_ylabel(quadlabs[resp])
-                if resp == 4:
-                    amp_axarr[resp,outind].set_xlabel('Frequency [Hz]')
-                    phase_axarr[resp,outind].set_xlabel('Frequency [Hz]')
 
-                if resp in [0,1,2,3]:
-                    side_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
-                                                   np.abs(avg_side_fft[eind][resp])[tf_inds], alpha=0.75)
+                if not skip_qpd:
+                    amp_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
+                                                  np.abs(avg_amp_fft[eind][resp])[tf_inds], alpha=1.0)
+                    phase_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
+                                                    np.abs(avg_phase_fft[eind][resp])[tf_inds], alpha=1.0)
                     if outind == 0:
-                        side_axarr[resp,outind].set_ylabel(sidelabs[resp])
-                    if resp == 3:
-                        side_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+                        amp_axarr[resp,outind].set_ylabel(quadlabs[resp])
+                        phase_axarr[resp,outind].set_ylabel(quadlabs[resp])
+                    if resp == 4:
+                        amp_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+                        phase_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+
+                    if resp in [0,1,2,3]:
+                        side_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
+                                                       np.abs(avg_side_fft[eind][resp])[tf_inds], alpha=1.0)
+                        if outind == 0:
+                            side_axarr[resp,outind].set_ylabel(sidelabs[resp])
+                        if resp == 3:
+                            side_axarr[resp,outind].set_xlabel('Frequency [Hz]')
+
 
                 if resp in [0,1,2]:
-                    pos_axarr[resp,outind].loglog(fft_freqs, np.abs(avg_data_fft[eind][resp]), alpha=0.75)
+                    # if resp == 2:
+                    #     fac = 1000.0
+                    # else:
+                    #     fac = 1.0
+                    pos_axarr[resp,outind].loglog(fft_freqs, np.abs(avg_data_fft[eind][resp]), alpha=1.0)
                     pos_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
-                                                  np.abs(avg_data_fft[eind][resp])[tf_inds], alpha=0.75)
+                                                  np.abs(avg_data_fft[eind][resp])[tf_inds], alpha=1.0)
+
+                    fb_axarr[resp,outind].loglog(fft_freqs, np.abs(avg_fb_fft[eind][resp]), alpha=1.0)
                     fb_axarr[resp,outind].loglog(fft_freqs[tf_inds], \
-                                                  np.abs(avg_fb_fft[eind][resp])[tf_inds], alpha=0.75)
+                                                  np.abs(avg_fb_fft[eind][resp])[tf_inds], alpha=1.0)
                     if outind == 0:
-                        pos_axarr[resp,outind].set_ylabel(poslabs[resp])
-                        fb_axarr[resp,outind].set_ylabel(poslabs[resp] + ' FB')
+                        pos_axarr[resp,outind].set_ylabel(poslabs[resp] + ' [arb]')
+                        fb_axarr[resp,outind].set_ylabel(poslabs[resp] + ' FB\n[bits/$\\sqrt{\\rm Hz}$]')
                     if resp == 2:
                         pos_axarr[resp,outind].set_xlabel('Frequency [Hz]')
                         fb_axarr[resp,outind].set_xlabel('Frequency [Hz]')
             
             drivefig.suptitle('Drive Amplitude vs. Frequency', fontsize=16)
-            ampfig.suptitle('ASD of Demod. Carrier Amp vs. Frequency', fontsize=16)
-            phasefig.suptitle('ASD of Demod. Carrier Phase vs. Frequency', fontsize=16)
-            sidefig.suptitle('ASD of Sum of Neighboring QPD Carrier Amplitudes', fontsize=16)
             posfig.suptitle('ASD of XYZ vs. Frequency', fontsize=16)
             fbfig.suptitle('ASD of XYZ Feedback vs. Frequency', fontsize=16)
-            
-            for axarr in [amp_axarr, phase_axarr, side_axarr, pos_axarr, fb_axarr, drive_axarr]:
+            if not skip_qpd:
+                ampfig.suptitle('ASD of Demod. Carrier Amp vs. Frequency', fontsize=16)
+                phasefig.suptitle('ASD of Demod. Carrier Phase vs. Frequency', fontsize=16)
+                sidefig.suptitle('ASD of Sum of Neighboring QPD Carrier Amplitudes', fontsize=16)
+
+                figlist = [posfig, fbfig, drivefig, ampfig, phasefig, sidefig]
+                axlist = [pos_axarr, fb_axarr, drive_axarr, amp_axarr, phase_axarr, side_axarr]
+
+            else:
+                figlist = [posfig, fbfig, drivefig]
+                axlist = [pos_axarr, fb_axarr, drive_axarr]
+
+
+            for axind, axarr in enumerate(axlist):
+                # axarr[0,0].set_xlim(*xlim)
+                axarr[0,0].set_xlim(34, 107)
+
                 for drive in [0,1,2]:
                     axarr[0,drive].set_title(poslabs[drive] + ' Drive')
+
+                for resp in [0,1,2]:
+                    if (axind != 0) and (resp != 0):
+                        continue
+
+                    mag_major_locator = LogLocator(base=10.0, numticks=30)
+                    mag_minor_locator = LogLocator(base=1.0, numticks=300)
+
+                    axarr[resp,0].yaxis.set_major_locator(mag_major_locator)
+                    axarr[resp,0].yaxis.set_minor_locator(mag_minor_locator)
+                    axarr[resp,0].yaxis.set_minor_formatter(NullFormatter())
+
+                for d in [0,1,2]:
+                    for r in [0,1,2]:
+                        axarr[r,d].grid(which='both')
 
 
 
@@ -379,10 +438,12 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
 
         Hmat_fb = np.einsum('ij, kj -> ikj', \
                             avg_fb_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
-        Hmat_amp = np.einsum('ij, kj -> ikj', \
-                             avg_amp_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
-        Hmat_phase = np.einsum('ij, kj -> ikj', \
-                               avg_phase_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
+
+        if not skip_qpd:
+            Hmat_amp = np.einsum('ij, kj -> ikj', \
+                                 avg_amp_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
+            Hmat_phase = np.einsum('ij, kj -> ikj', \
+                                   avg_phase_fft[eind][:,tf_inds], 1. / avg_drive_fft[eind][:,tf_inds])
 
 
         # Generate an integer by which to roll the data_fft to compute the noise
@@ -412,7 +473,7 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
                     # above threshold response is found not on a drive bin. Sometimes
                     # random noise components pop up or some power leaks to a 
                     # neighboring bin
-                    if sep < 0.9 * (freqs[1] - freqs[0]):
+                    if sep < 0.8 * (freqs[1] - freqs[0]):
                         continue
                 Hout[freq] = np.zeros((3,3), dtype=np.complex128)
                 Hout_noise[freq] = np.zeros((3,3), dtype=np.complex128)
@@ -422,11 +483,12 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
             # Add the response from this drive freq/electrode pair to the TF matrix
             Hout[freq][:,outind] += Hmat[:,eind,i]
             Hout_noise[freq][:,outind] += Hmat_noise[:,eind,i]
-            Hout_amp[freq][:,outind] += Hmat_amp[:,eind,i]
-            Hout_phase[freq][:,outind] += Hmat_phase[:,eind,i]
+            if not skip_qpd:
+                Hout_amp[freq][:,outind] += Hmat_amp[:,eind,i]
+                Hout_phase[freq][:,outind] += Hmat_phase[:,eind,i]
 
-    if plot_qpd_response:
-        for fig in [ampfig, phasefig, sidefig, posfig, fbfig, drivefig]:
+    if plot_response:
+        for fig in figlist:
             fig.tight_layout()
             fig.subplots_adjust(top=0.90)
         plt.show()
@@ -434,25 +496,31 @@ def build_uncalibrated_H(fobjs, average_first=True, dpsd_thresh = 8e-1, mfreq = 
     # first_mats = []
     freqs = list(Hout.keys())
     freqs.sort()
-    # print(freqs)
-    # input()
-    # for freq in freqs[:3]:
-    #     first_mats.append(Hout[freq])
-    # first_mats = np.array(first_mats)
-    # init_phases = np.mean(np.angle(first_mats), axis=0)
 
-    # init_phases = np.angle(Hout[freqs[0]])
-    # for drive in [0,1,2]:
-    #     if np.abs(init_phases[drive,drive]) > 1.5:
-    #         ### Check the second frequency to make sure the first isn't crazy
-    #         if np.abs(np.angle(Hout[freqs[1]][drive,drive])) > 1.5:
-    #             print("Correcting phase shift for drive channel", drive)
-    #             sys.stdout.flush()
-    #             for freq in freqs:
-    #                 Hout[freq][drive,:] = Hout[freq][drive,:] * (-1)
-    #                 # Hout[freq][:,drive] = Hout[freq][:,drive] * (-1)
-    #         else:
-    #             Hout[freqs[0]][drive,:] = Hout[freqs[0]][drive,:] * (-1)
+
+    if zero_drive_phase:
+        # init_phases = np.angle(Hout[freqs[0]])
+
+        first_mats = []
+        for freq in freqs[1:3]:
+            first_mats.append(Hout[freq])
+        first_mats = np.array(first_mats)
+        init_phases = np.mean(np.unwrap(np.angle(first_mats), axis=0), axis=0)
+
+        # print(init_phases)
+        # input()
+
+        for drive in [0,1,2]:
+            if np.abs(init_phases[drive,drive]) > 1.5:
+                ### Check the second frequency to make sure the first isn't crazy
+                if np.abs(np.angle(Hout[freqs[1]][drive,drive])) > 1.5:
+                    print("Correcting phase shift for drive channel", drive)
+                    sys.stdout.flush()
+                    for freq in freqs:
+                        Hout[freq][drive,:] = Hout[freq][drive,:] * (-1)
+                        # Hout[freq][:,drive] = Hout[freq][:,drive] * (-1)
+                else:
+                    Hout[freqs[0]][drive,:] = Hout[freqs[0]][drive,:] * (-1)
 
 
     out_dict = {'Hout': Hout, 'Hout_amp': Hout_amp, 'Hout_phase': Hout_phase, \
@@ -519,8 +587,8 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
         q_tf *= -1.0
 
     if verbose:
-        outstr = "Charge-step calibration implies "+\
-                 "{:0.2f} charge during H measurement".format(q_tf / e_charge)
+        outstr = " Charge-step calibration implies "+\
+                 " {:0.2f} charge during H measurement".format(q_tf / e_charge)
         print(outstr)
 
     Hout_cal = {}
@@ -529,7 +597,7 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
         ### and convert to force with capacitor plate separation
         ### F = q*E = q*(V/d) so we take
         ### (Vresp / Vdrive) * d / q = Vresp / Fdrive
-        Hout_cal[freq] = np.copy(Hout[freq]) * (1.0 / q_tf)
+        Hout_cal[freq] = np.copy(Hout[freq]) * (1.0 / np.abs(q_tf))
 
     return Hout_cal, q_tf / e_charge
 
@@ -544,12 +612,16 @@ def calibrate_H(Hout, vpn, step_cal_drive_channel=0, drive_freq=41., \
 
 def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                  weight_peak=False, weight_lowf=False, lowf_weight_fac=0.1, \
-                 lowf_thresh=120., plot=False, plot_fits=False,\
-                 weight_phase=False, plot_inits=False, plot_off_diagonal=False,\
+                 lowf_thresh=120., linearize=False, ignore_phase=False,
+                 weight_phase=False, plot=False, plot_fits=False, \
+                 plot_inits=False, plot_off_diagonal=False, \
                  grid = False, fit_osc_sum=False, deweight_peak=False, \
                  interpolate = False, max_freq=600, num_to_avg=5, \
-                 real_unwrap=False, derpy_unwrap=True, full_interp=False, \
-                 smoothing=1.0):
+                 real_unwrap=[[0, 1, 1], [1, 0, 1], [1, 1, 0]], \
+                 derpy_unwrap=[[1, 0, 0], [0, 1, 0], [0, 0, 1]], \
+                 interps=[[0, 1, 1], [1, 0, 1], [1, 1, 0]], \
+                 smoothing=1.0, amp_xlim=(), amp_ylim=(), \
+                 phase_xlim=(), phase_ylim=()):
     # Build the calibrated transfer function array
     # i.e. transfer matrices at each frequency and fit functions to each component
 
@@ -565,7 +637,6 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
     mats = np.array(mats)
     fits = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-    interps = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
     if plot:
         # figsize = (8,6)
@@ -579,21 +650,11 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
     for drive in [0,1,2]:
         for resp in [0,1,2]:
-            if drive == resp and drive != 2 and not full_interp:
-                interpolate = False
-                interps[resp][drive] = False
-            else:
-                interpolate = True
-                interps[resp][drive] = True
 
-            ### Define some axis dependent variables to avoid overwriting
-            ### the arguments provided in the function call
-            if drive == resp:
-                r_unwrap = real_unwrap
-                d_unwrap = derpy_unwrap
-            else:
-                r_unwrap = False
-                d_unwrap = False
+            interpolate = interps[resp][drive]
+
+            d_unwrap = derpy_unwrap[resp][drive]
+            r_unwrap = real_unwrap[resp][drive]
 
             ### A shitty shit factor that I have to add because folks operating
             ### the new trap don't know how to scale things
@@ -618,13 +679,23 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                     phase[nanind] = phase[nanind-1]
 
             ### Unwrap the phase
-            if r_unwrap:
-                unphase = np.unwrap(phase, discont=1.4*np.pi)
-            elif d_unwrap:
+            if d_unwrap:
                 pos_inds = phase > np.pi / 4.0
                 unphase = phase - 2.0 * np.pi * pos_inds
             else:
-                unphase = phase
+                unphase = np.copy(phase)
+
+            if r_unwrap:
+                unphase = np.unwrap(unphase)
+
+            # if drive == resp == 1:
+            #     plt.figure()
+            #     plt.semilogx(keys, phase)
+            #     plt.semilogx(keys, np.unwrap(phase))
+            #     plt.semilogx(keys, unphase)
+            #     plt.show()
+
+            #     input()
 
             b1 = keys >= fit_freqs[0]
             b2 = keys <= fit_freqs[1]
@@ -680,6 +751,9 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
             if not interpolate:
 
+                magscale = np.mean(mag[b])
+                phasescale = np.mean(unphase[b])
+
                 fpeak = keys[np.argmax(mag)]
                 if fpeak < 100.0:
                     fpeak = fpeaks[resp]
@@ -695,12 +769,14 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                                 * ((2.0 * np.pi * fpeak)**2)
 
                 ### Construct initial paramter arrays
-                p0_mag = [amp0, fpeak, g]
+                p0_mag = [amp0/magscale, fpeak, g]
                 p0_phase = [1., fpeak, g]  ### includes arbitrary smearing amplitude
 
                 ### Construct weights if desired
                 npkeys = np.array(keys)
                 mag_weights = np.zeros_like(npkeys) + 1.
+                phase_weights = np.zeros(len(npkeys)) + 1.
+
                 if (weight_peak or deweight_peak):
                     if weight_peak:
                         fac = -0.7
@@ -710,18 +786,22 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                         else:
                             fac = 1.0
                     mag_weights = mag_weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 50) )
+                    phase_weights = phase_weights + fac * np.exp(-(npkeys-fpeak)**2 / (2 * 50) )
+
                 if weight_lowf:
                     ind = np.argmin(np.abs(npkeys - lowf_thresh))
                     # if drive != resp:
                     mag_weights[:ind] *= lowf_weight_fac #0.01
-                mag_weights *= amp0 / ((2.0 * np.pi * fpeak)**2)
+                    phase_weights[:ind] *= lowf_weight_fac #0.01
 
-                phase_weights = np.zeros(len(npkeys)) + 1.
-                # if weight_phase and (drive != 2 and resp != 2):
-                #     low_ind = np.argmin(np.abs(npkeys - 10.0))
-                #     high_ind = np.argmin(np.abs(npkeys - 10.0))
-                #     phase_weights[low_ind:ind] *= 0.05
-                phase_weights *= np.pi
+                # mag_weights *= amp0 / ((2.0 * np.pi * fpeak)**2)
+                # mag_weights *= np.sqrt(mag)
+
+                # plt.figure()
+                # plt.loglog(keys[b], mag[b]/magscale)
+                # plt.loglog(keys[b], mag_weights[b])
+                # plt.show()
+
 
                 lowkey = np.argmin(np.abs(keys[b]-10.0))
                 highkey = np.argmin(np.abs(keys[b]-100.0))
@@ -732,38 +812,59 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
                     mult = -1
                 phase0 = np.pi * mult
 
-                # plt.figure()
-                # plt.loglog(keys[b], mag[b])
-                # plt.loglog(keys[b], bu.damped_osc_amp(keys[b], amp0, fpeak, g))
-                # plt.show()
+                # def NLL(amp, f0, g):
+                #     mag_term = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
+                #     phase_term = ( bu.damped_osc_phase(keys[b], 1.0, f0, g, phase0=phase0) - unphase[b] )**2 \
+                #                         / phase_weights[b]**2
+                #     return np.sum(mag_term + phase_term)
 
-                def NLL(amp, f0, g):
-                    mag_term = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
-                    phase_term = ( bu.damped_osc_phase(keys[b], 1.0, f0, g, phase0=phase0) - unphase[b] )**2 \
-                                        / phase_weights[b]**2
-                    return np.sum(mag_term + phase_term)
+                # if linearize:
+                #     def NLL(amp, f0, g):
+                #         num = ( np.log(bu.damped_osc_amp(keys[b], amp, f0, g)) - np.log(mag[b]) )**2 
+                #         denom = np.log(mag_weights[b])**2
+                #         return np.sum(num / denom)
+                if ignore_phase:
+                    def NLL(amp, f0, g):
+                        num = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b]/magscale )**2 
+                        denom = mag_weights[b]**2
+                        return np.sum(num / denom)
+                else:
+                    def NLL(amp, f0, g):
+                        num1 = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b]/magscale )**2
+                        num2 = ( bu.damped_osc_phase(keys[b], 1.0, f0, g, phase0=phase0) \
+                                        - unphase[b])**2 
+                        denom1 = mag_weights[b]**2
+                        denom2 = phase_weights[b]**2
+                        return np.sum( (num1 / denom1) + (num2 / denom2) )
 
-                def NLL2(amp, f0, g):
-                    mag_term = ( bu.damped_osc_amp(keys[b], amp, f0, g) - mag[b] )**2 / mag_weights[b]**2
-                    return np.sum(mag_term)
 
-                m = Minuit(NLL2,
-                           amp = amp0, # set start parameter
+                m = Minuit(NLL,
+                           amp = amp0/magscale, # set start parameter
                            # fix_amp = 'True', # you can also fix it
-                           # limit_amp = (0.0, 10000.0),
+                           limit_amp = (0.0, np.inf),
                            f0 = fpeak, # set start parameter
                            # fix_f0 = 'True', 
-                           # limit_f0 = (0.0, 10000.0),
+                           limit_f0 = (0.0, np.inf),
                            g = g, # set start parameter
-                           # fix_sigma = "True", 
-                           # limit_sigma = (1e-3 * sigma_guess, 1000.0 * sigma_guess),
+                           # fix_g = "True", 
+                           limit_g = (0, np.inf),
                            errordef = 1,
-                           print_level = 0, 
+                           print_level = 1, 
                            pedantic=False)
                 m.migrad(ncall=500000)
 
-                popt_mag = [m.values['amp'], m.values['f0'], m.values['g']]
+                # plt.figure()
+                # m.draw_mnprofile('f0')
+                # plt.figure()
+                # m.draw_mncontour('amp', 'f0')
+                # input()
+
+                popt_mag = [m.values['amp']*magscale, m.values['f0'], m.values['g']]
                 popt_phase = [1.0, m.values['f0'], m.values['g']]
+
+                print()
+                print(popt_mag)
+                print()
 
                 fits[resp][drive] = (popt_mag, popt_phase, phase0)
 
@@ -802,9 +903,6 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
 
     if plot:
 
-        mag_major_locator = LogLocator(base=10.0, numticks=20)
-        mag_minor_locator = LogLocator(base=10.0, numticks=20)
-
         ax_to_pos = {0: 'X', 1: 'Y', 2: 'Z'}
         for drive in [0,1,2]:
             # axarr1[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
@@ -812,7 +910,8 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             axarr1[2, drive].set_xlabel("Frequency [Hz]")
             # axarr1[2, drive].set_xticks([1, 10, 100])
             axarr1[2, drive].set_xticks([1, 10, 100, 1000])
-            axarr1[2, drive].set_xlim(1.0, 125)
+            if amp_xlim:
+                axarr1[2, drive].set_xlim(*amp_xlim)
 
             # axarr2[0, drive].set_title("Drive direction {:s}".format(ax_to_pos[drive]))
             axarr2[0, drive].set_title("Drive $\\widetilde{{F}}_{:s}$".format(ax_to_pos[drive]))
@@ -820,10 +919,15 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             # axarr2[2, drive].set_xticks([1, 10, 100])
             axarr2[2, drive].set_xticks([1, 10, 100, 1000])
             # axarr2[2, drive].set_xlim(2.5, 1800)
-            axarr2[2, drive].set_xlim(1.0, 125)
+            if phase_xlim:
+                axarr2[2, drive].set_xlim(*phase_xlim)
 
 
         for response in [0,1,2]:
+
+            mag_major_locator = LogLocator(base=10.0, numticks=30)
+            mag_minor_locator = LogLocator(base=10.0, numticks=30)
+
             # axarr1[response, 0].set_ylabel("Resp {:s} [Arb/N]".format(ax_to_pos[response]))
             axarr1[response, 0].set_ylabel("$| \\widetilde{{R}}_{:s} / \\widetilde{{F}}_i |$ [Arb/N]"\
                                                 .format(ax_to_pos[response]))
@@ -832,9 +936,17 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             # axarr1[response, 0].set_yticks([1e8, 1e10, 1e12, 1e14], minor=True)
             axarr1[response, 0].yaxis.set_minor_locator(mag_minor_locator)
             axarr1[response, 0].yaxis.set_minor_formatter(NullFormatter())
-            if response != 2:
-                axarr1[response, 0].set_yticks([1e9, 1e10, 1e11])
-                axarr1[response, 0].set_ylim(3e9, 1.3e11)
+            # if response != 2:
+            #     axarr1[response, 0].set_yticks([1e9, 1e10, 1e11])
+            #     axarr1[response, 0].set_ylim(3e9, 1.3e11)
+
+            if amp_ylim:
+                if type(amp_ylim) == tuple:
+                    axarr1[response, 0].set_ylim(*amp_ylim)
+                elif type(amp_ylim) == list:
+                    axarr1[response, 0].set_ylim(*(amp_ylim[response]))
+                else:
+                    print('custom y-axis limits provided are not of the right type')
 
             # axarr2[response, 0].set_ylabel("Resp {:s} [$\\pi\\cdot$rad]".format(ax_to_pos[response]))
             axarr2[response, 0].set_ylabel("$ \\angle \\, \\widetilde{{R}}_{:s} / \\widetilde{{F}}_i $ [rad]"\
@@ -843,6 +955,9 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
             axarr2[response, 0].set_yticklabels(['-2$\\pi$', '-$\\pi$', '0', '$\\pi$', '2$\\pi$'])
             axarr2[response, 0].set_ylim(-1.3*np.pi, 1.3*np.pi)
 
+            if phase_ylim:
+                axarr2[response, 0].set_ylim(*phase_ylim)
+
 
         f1.suptitle("Magnitude of Transfer Function", fontsize=18)
         f2.suptitle("Phase of Transfer Function", fontsize=18)
@@ -850,15 +965,15 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
         f1.tight_layout()
         f2.tight_layout()
 
-        f1.subplots_adjust(wspace=0.065, hspace=0.1, top=0.88)
-        f2.subplots_adjust(wspace=0.065, hspace=0.1, top=0.88)
+        f1.subplots_adjust(wspace=0.065, hspace=0.1, top=0.9)
+        f2.subplots_adjust(wspace=0.065, hspace=0.1, top=0.9)
 
 
         if grid:
             for d in [0,1,2]:
                 for r in [0,1,2]:
                     axarr1[r,d].grid(True, which='both')
-                    axarr2[r,d].grid(True)
+                    axarr2[r,d].grid(True, which='both')
 
         plt.show()
 

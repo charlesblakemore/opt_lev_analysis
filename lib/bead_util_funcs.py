@@ -210,15 +210,17 @@ def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
 
 
 
-def get_color_map( n, cmap='plasma', log=False):
+def get_color_map( n, cmap='plasma', log=False, invert=False):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
-
+       
         INPUTS: 
 
             n - length of color array to make
             
             cmap - color map for final output
+
+            invert - option to invert
 
         OUTPUTS: 
 
@@ -237,6 +239,10 @@ def get_color_map( n, cmap='plasma', log=False):
 
     for i in range(n):
         outmap.append( scalarMap.to_rgba(2*i + 1) )
+
+    if invert:
+        outmap = outmap[::-1]
+
     return outmap
 
 
@@ -1379,17 +1385,26 @@ def get_limit_from_general_profile(profx, profy, ss=False, confidence_level=0.95
 
 
 def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
-                new_trap=False):
+                n_elec=8, new_trap=False, plot_voltages=False):
     '''Using output of 4/2/19 COMSOL simulation, return
        the value of the electric field at the trap based
        on the applied voltages on each electrode and the
        principle of superposition.'''
     if nsamp == 0:
         nsamp = len(voltages[0])
-    if len(voltages) != 8:
-        print("There are eight electrodes.")
-        print("   len(volt arr. passed to 'trap_efield') != 8")
+    if len(voltages) != n_elec:
+        print("There are ({:d}) electrodes.".format(n_elec))
+        print("   len(volt arr. passed to 'trap_efield') != {:d}".format(n_elec))
     else:
+        if plot_voltages:
+            for i in range(n_elec):
+                plt.plot(voltages[i], label='{:d}'.format(i))
+            plt.xlabel('Sample index')
+            plt.ylabel('Voltage [V]')
+            plt.legend(fontsize=10, loc=0, ncol=2)
+            plt.tight_layout()
+            plt.show()
+
         if only_y or only_z:
             Ex = np.zeros(nsamp)
         else:
@@ -1397,10 +1412,6 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
                 Ex = voltages[3] * E_xp(0.0) + voltages[4] * E_xn(0.0)
             else:   
                 Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
-            # plt.plot(voltages[3], label='3')
-            # plt.plot(voltages[4], label='4')
-            # plt.legend()
-            # plt.show()
 
         if only_x or only_z:
             Ey = np.zeros(nsamp)
@@ -1409,10 +1420,6 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
                 Ey = voltages[5] * E_yp(0.0) + voltages[6] * E_yn(0.0)
             else:
                 Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
-            # plt.plot(voltages[5], label='5')
-            # plt.plot(voltages[6], label='6')
-            # plt.legend()
-            # plt.show()
 
         if only_y or only_z:
             Ez = np.zeros(nsamp)
@@ -1421,10 +1428,6 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
                 Ez = voltages[1] * E_zp(0.0)   + voltages[2] * E_zn(0.0)
             else:
                 Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
-            # plt.plot(voltages[1], label='1')
-            # plt.plot(voltages[2], label='2')
-            # plt.legend()
-            # plt.show()
 
         return np.array([Ex, Ey, Ez])   
 
@@ -1511,13 +1514,7 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         asd = np.abs(sig)
         freqs = np.linspace(0, 0.5*fsamp, len(asd))
 
-    ### Generate some initial guesses
-    maxind = np.argmax(asd)
-    if not freq_guess:
-        freq_guess = freqs[maxind]
-    if not gamma_guess:
-        gamma_guess = 2e-3 * freq_guess
-    amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+    derp_inds = np.arange(len(freqs))
 
     ### Define some indicies for fitting and plotting
     if len(fit_band):
@@ -1526,6 +1523,16 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
     else:
         inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
         plot_inds = (freqs > 0.05 * freq_guess) * (freqs < 20.0 * freq_guess)
+
+    first_ind = np.min(derp_inds[inds])
+
+    ### Generate some initial guesses
+    maxind = np.argmax(asd[inds])   # Look for max within fit_band
+    if not freq_guess:
+        freq_guess = (freqs[inds])[maxind]
+    if not gamma_guess:
+        gamma_guess = 5e-2 * freq_guess
+    amp_guess = (asd[inds])[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
 
     ### Define the fitting function to use. Keeping this modular in case
     ### we ever want to make more changes/linearization attempts
@@ -1555,13 +1562,13 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
 
     ### Fit the data
     p0 = [amp_guess, freq_guess, gamma_guess]
-    try:
-        popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
-                                        p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
-    except:
-        print('BAD FIT')
-        popt = p0
-        pcov = np.zeros( (len(p0), len(p0)) )
+    # try:
+    popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
+                                    p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
+    # except:
+    #     print('BAD FIT')
+    #     popt = p0
+    #     pcov = np.zeros( (len(p0), len(p0)) )
 
     ### We know the parameters should be positive so enforce that here since
     ### the fit occasionally finds negative values (sign degeneracy in the 
@@ -1575,6 +1582,10 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         init_mag = damped_osc_amp(fit_freqs, *p0)
         fit_mag = damped_osc_amp(fit_freqs, *popt)
 
+        print('Initial parameter guess:')
+        print('    {:0.3g}, {:0.3g}, {:0.3g}'.format(p0[0], p0[1], p0[2]))
+        print(popt)
+
         plt.loglog(freqs[plot_inds], asd[plot_inds])
         plt.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
         plt.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
@@ -1582,7 +1593,8 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
         plt.legend()
         plt.show()
-        # input()
+
+        input()
 
     return popt, pcov
 

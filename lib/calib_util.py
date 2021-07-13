@@ -19,10 +19,7 @@ import sklearn.cluster as cluster
 plt.rcParams.update({'font.size': 14})
 
 #######################################################
-# Core module for handling calibrations, both the step 
-# calibrations and freq-dependent TF calibrations
-#
-# Main data type is a BeadCalibration class
+# Core module for handling calibrations
 #######################################################
 
 
@@ -85,12 +82,15 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             tvec = np.arange(file_obj.nsamp) * (1.0 / file_obj.fsamp)
             colors = bu.get_color_map(len(file_obj.electrode_data), cmap='plasma')
             for i in range(len(file_obj.electrode_data)):
-                if file_obj.electrode_settings['driven'][i]:
-                    ext = ' - driven'
-                else:
-                    ext = ''
-                axarr[0].plot(tvec, file_obj.electrode_data[i], color=colors[i], 
-                            label='Elec. {:s}{:s}'.format(str(i), ext))
+                try:
+                    if file_obj.electrode_settings['driven'][i]:
+                        ext = ' - driven'
+                    else:
+                        ext = ''
+                    axarr[0].plot(tvec, file_obj.electrode_data[i], color=colors[i], 
+                                label='Elec. {:s}{:s}'.format(str(i), ext))
+                except:
+                    2+2
             axarr[0].set_title('Electrode and Efield Data')
             axarr[0].set_ylabel('Voltage [V]')
             axarr[0].legend(fontsize=10, ncol=2, loc='upper right')
@@ -102,7 +102,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             axarr[1].legend(fontsize=10, loc='upper right')
 
             fig.tight_layout()
-            fig.show()
+            plt.show(fig)
             input()
 
         # plt.plot(drive)
@@ -243,6 +243,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     outdict['userphase_nonorm'] = response_userphase
     outdict['drive']            = drive_amp
     outdict['drive_freq']       = drive_freq
+    outdict['pcol']             = pcol
 
     return outdict
 
@@ -360,9 +361,9 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
                             gridspec_kw = {'height_ratios':[2,1]}, \
                             figsize=(10,5),dpi=150)#Plot fit
     normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
-                       ms=3, ylabel="Norm. Response [$e$]", xlabel="")
+                       ms=5, ylabel="Norm. Response [$e$]", xlabel="")
     normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
-                             ms=3, xlabel="Time [s]")
+                             ms=5, xlabel="Time [s]")
 
     fit_ylim = axarr[0].get_ylim()
     for val in fit_ylim:
@@ -549,7 +550,7 @@ class Fit:
         else:    
             ax.plot(xdata, ydata, 'o', ms = ms, zorder=zorder)
             ax.plot(xfundata + 0.5*delta_x, self.fun(xfundata, *(self.popt)), \
-                        'r', linewidth = 3, zorder=zorder+1)
+                        'r', linewidth = 3, zorder=zorder+1, alpha=0.75)
 
         ax.set_yscale(scale)
         ax.set_xscale(scale)

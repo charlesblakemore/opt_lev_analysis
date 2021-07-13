@@ -170,7 +170,10 @@ def get_hdf5_time(fname, new_trap=False):
                 print('HDF5 file has no attributes object...')
 
             if attribs == {}:
-                attribs = load_xml_attribs(fname)
+                try:
+                    attribs = load_xml_attribs(fname)
+                except:
+                    attribs = {}
             
 
         except Exception:
@@ -378,13 +381,13 @@ def extract_quad_new(quad_dat, verbose=False):
 
 
 
-
-
-def extract_xyz(xyz_dat, timestamp, verbose=False):
+def extract_xyz(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
     
+    ndata = 11
+
     if timestamp == 0.0:
         # if no timestamp given, use current time
         # and set the timing threshold for 1 year.
@@ -419,19 +422,19 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
 
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    xyz_time_high = np.uint32(xyz_dat[tind::11])
-    xyz_time_low = np.uint32(xyz_dat[tind+1::11])
+    xyz_time_high = np.uint32(xyz_dat[tind::ndata])
+    xyz_time_low = np.uint32(xyz_dat[tind+1::ndata])
     if len(xyz_time_low) != len(xyz_time_high):
         xyz_time_high = xyz_time_high[:-1]
 
     xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
 
-    xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
-    xy_2 = [xyz_dat[tind+2::11], xyz_dat[tind+3::11]]
-    xyz_fb = [xyz_dat[tind+8::11], xyz_dat[tind+9::11], xyz_dat[tind+10::11]]
+    xyz = [xyz_dat[tind+4::ndata], xyz_dat[tind+5::ndata], xyz_dat[tind+6::ndata]]
+    xy_2 = [xyz_dat[tind+2::ndata], xyz_dat[tind+3::ndata]]
+    xyz_fb = [xyz_dat[tind+8::ndata], xyz_dat[tind+9::ndata], xyz_dat[tind+10::ndata]]
     
-    sync = np.int32(xyz_dat[tind+7::11])
+    sync = np.int32(xyz_dat[tind+7::ndata])
 
     #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
     #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
@@ -463,9 +466,187 @@ def extract_xyz(xyz_dat, timestamp, verbose=False):
             xy_2[ind] = xy_2[ind][:min_len]
     xyz = np.array(xyz)
     xyz_fb = np.array(xyz_fb)
-    xy_2 = np.array(xy_2)
+    xy_2 = np.array(xy_2)    
+
+
+    if plot_raw_xyz_dat:
+
+        nsamp = len(xyz[0])
+        dt = (xyz_time[1] - xyz_time[0]) * 1e-9
+
+        freqs = np.fft.rfftfreq(nsamp, d=dt)
+
+        plt.figure()
+        plt.plot(xyz_time)
+        plt.title('UNIX Epoch Time Array')
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(xyz[0], label='X')
+        plt.plot(xyz[1], label='Y')
+        plt.plot(xyz[2], label='Z')
+        plt.title('X, Y, and Z Signals')
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(np.fft.rfft(xyz[0])), label='X')
+        plt.loglog(freqs, np.abs(np.fft.rfft(xyz[1])), label='Y')
+        plt.loglog(freqs, np.abs(np.fft.rfft(xyz[2])), label='Z')
+        plt.title('X, Y, and Z ASD')
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(xyz_fb[0], label='X_fb')
+        plt.plot(xyz_fb[1], label='Y_fb')
+        plt.plot(xyz_fb[2], label='Z_fb')
+        plt.title('Feedback for X, Y, and Z')
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(sync)
+        plt.title('Sync Signal')
+        plt.tight_layout()
+
+        plt.show()
+
+        input()
 
     return xyz_time, xyz, xy_2, xyz_fb, sync
+
+
+
+
+
+def extract_xyz_2018(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
+    '''Reads a stream of I32s, finds the first timestamp,
+       then starts de-interleaving the demodulated data
+       from the FPGA'''
+
+    ndata = 9
+    
+    if timestamp == 0.0:
+        # if no timestamp given, use current time
+        # and set the timing threshold for 1 year.
+        # This threshold is used to identify the timestamp 
+        # in the stream of I32s
+        timestamp = time.time()
+        diff_thresh = 365.0 * 24.0 * 3600.0 * 5.0
+    else:
+        timestamp = timestamp * (10.0**(-9))
+        # 2-minute difference allowed for longer integrations
+        diff_thresh = 120.0
+
+
+    for ind, dat in enumerate(xyz_dat):
+        # Assemble time stamp from successive I32s, since
+        # it's a 64 bit object
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.uint32(xyz_dat[ind])
+            low = np.uint32(xyz_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
+
+        # Time stamp from FPGA is a U64 with the UNIX epoch 
+        # time in nanoseconds, synced to the host's clock
+        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
+            if verbose:
+                print("found timestamp  : ", float(dattime) * 10**(-9))
+                print("comparison time  : ", timestamp) 
+            break
+
+    # Once the timestamp has been found, select each dataset
+    # wit thhe appropriate decimation of the primary array
+    xyz_time_high = np.uint32(xyz_dat[tind::ndata])
+    xyz_time_low = np.uint32(xyz_dat[tind+1::ndata])
+    if len(xyz_time_low) != len(xyz_time_high):
+        xyz_time_high = xyz_time_high[:-1]
+
+    xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
+                  + xyz_time_low.astype(np.uint64)
+
+    xyz = [xyz_dat[tind+2::ndata], xyz_dat[tind+3::ndata], xyz_dat[tind+4::ndata]]
+    xyz_fb = [xyz_dat[tind+6::ndata], xyz_dat[tind+7::ndata], xyz_dat[tind+8::ndata]]
+    
+    sync = np.int32(xyz_dat[tind+5::ndata])
+
+    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
+    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
+    #plt.show()
+
+    # Since the FIFO read request is asynchronous, sometimes
+    # the timestamp isn't first to come out, but the total amount of data
+    # read out is a multiple of 5 (2 time + X + Y + Z) so the Z
+    # channel usually  ends up with less samples.
+    # The following is coded very generally
+
+    min_len = 10.0**9  # Assumes we never more than 1 billion samples
+    for ind in [0,1,2]:
+        if len(xyz[ind]) < min_len:
+            min_len = len(xyz[ind])
+        if len(xyz_fb[ind]) < min_len:
+            min_len = len(xyz_fb[ind])
+
+    # Re-size everything by the minimum length and convert to numpy array
+    xyz_time = np.array(xyz_time[:min_len])
+    sync = np.array(sync[:min_len])
+    for ind in [0,1,2]:
+        xyz[ind]    = xyz[ind][:min_len]
+        xyz_fb[ind] = xyz_fb[ind][:min_len]
+    xyz = np.array(xyz)
+    xyz_fb = np.array(xyz_fb)
+
+    if plot_raw_xyz_dat:
+
+        nsamp = len(xyz[0])
+        dt = (xyz_time[1] - xyz_time[0]) * 1e-9
+
+        freqs = np.fft.rfftfreq(nsamp, d=dt)
+
+        plt.figure()
+        plt.plot(xyz_time)
+        plt.title('UNIX Epoch Time Array')
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(xyz[0], label='X')
+        plt.plot(xyz[1], label='Y')
+        plt.plot(xyz[2], label='Z')
+        plt.title('X, Y, and Z Signals')
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(np.fft.rfft(xyz[0])), label='X')
+        plt.loglog(freqs, np.abs(np.fft.rfft(xyz[1])), label='Y')
+        plt.loglog(freqs, np.abs(np.fft.rfft(xyz[2])), label='Z')
+        plt.title('X, Y, and Z ASD')
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(xyz_fb[0], label='X_fb')
+        plt.plot(xyz_fb[1], label='Y_fb')
+        plt.plot(xyz_fb[2], label='Z_fb')
+        plt.title('Feedback for X, Y, and Z')
+        plt.legend(loc=0)
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(sync)
+        plt.title('Sync Signal')
+        plt.tight_layout()
+
+        plt.show()
+
+        input()
+
+    return xyz_time, xyz, xyz_fb, sync
+
 
 
 
@@ -654,7 +835,8 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         # Use subroutines to handle each type of data
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
         quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-        xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose)
+        xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose, \
+                                                        plot_raw_xyz_dat=False)
         if len(dat3):
             pow_time, power, power_fb = extract_power(dat3, timestamp, verbose=verbose)
     else:
@@ -675,6 +857,68 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
         out['power_fb'] = np.zeros_like(xyz[0])
 
     return out
+
+
+
+
+def get_fpga_data_2018(fname, timestamp=0.0, verbose=False):
+    '''Raw data from the FPGA is saved in an hdf5 (.h5) 
+       file in the form of 3 continuous streams of I32s
+       (32-bit integers). This script reads it out and 
+       makes sense of it for post-processing'''
+
+    # Open the file and bring datasets into memory
+    try:
+        f = h5py.File(fname,'r')
+        dset1 = f['beads/data/quad_data']
+        dset2 = f['beads/data/pos_data']
+        dat1 = np.transpose(dset1)
+        dat2 = np.transpose(dset2)
+        dat3 = []
+        f.close()
+
+    # Shit failure mode. What kind of sloppy coding is this
+    except (KeyError, IOError):
+        if verbose:
+            print("Warning, couldn't load HDF5 datasets: ", fname)
+        dat1 = []
+        dat2 = []
+        dat3 = []
+        attribs = {}
+        try:
+            f.close()
+        except Exception:
+            if verbose:
+                print("couldn't close file, not sure if it's open")
+            traceback.print_exc()
+
+    if len(dat1):
+        # Use subroutines to handle each type of data
+        # raw_time, raw_dat = extract_raw(dat0, timestamp)
+        quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
+        xyz_time, xyz, xyz_fb, sync = extract_xyz_2018(dat2, timestamp, verbose=verbose, \
+                                                        plot_raw_xyz_dat=False)
+        xy_2 = np.zeros_like(xyz[0:2,:])
+    else:
+        quad_time, amp, phase = (None, None, None)
+        xyz_time, xyz, xyz_fb, sync = (None, None, None, None, None)
+
+    # Assemble the output as a human readable dictionary
+    out = {'xyz_time': xyz_time, 'xyz': xyz, 'xy_2': xy_2, \
+           'fb': xyz_fb, 'quad_time': quad_time, 'amp': amp, \
+           'phase': phase, 'sync': sync}
+
+    if len(dat3):
+        out['pow_time'] = pow_time
+        out['power'] = power
+        out['power_fb'] = power_fb
+    else:
+        out['pow_time'] = np.zeros_like(xyz_time)
+        out['power'] = np.zeros_like(xyz[0])
+        out['power_fb'] = np.zeros_like(xyz[0])
+
+    return out
+
 
 
 
@@ -751,3 +995,6 @@ def sync_and_crop_fpga_data(fpga_dat, timestamp, nsamp, encode_bin, \
 
     # return data in the same format as it was given
     return out
+
+
+

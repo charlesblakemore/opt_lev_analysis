@@ -18,20 +18,21 @@ warnings.filterwarnings("ignore")
 
 theory_base = '/home/cblakemore/opt_lev_analysis/gravity_sim/results'
 sim = '7_6um-gbead_1um-unit-cells_close/'
+sim = '7_6um-gbead_1um-unit-cells_master/'
 # sim = '15um-gbead_1um-unit-cells_close/'
 
 theory_data_dir = os.path.join(theory_base, sim)
 
 yuklambda = 10.0e-6
 
-# seps = [9.0]
+seps = [7.5]
 # seps = [9.0, 11.0, 13.0, 15.0, 18.0, 21.0]
-seps = [2.5, 5.0, 7.5, 10.0]#, 12.5]
+# seps = [2.5, 5.0, 7.5, 10.0]#, 12.5]
 
 # heights = [6.0]
-# heights = np.linspace(-20.0, 20.0, 51)
+heights = np.linspace(-20.0, 20.0, 51)
 # heights = np.linspace(-10.0, 10.0, 7)
-heights = np.linspace(-5.0, 5.0, 7)
+# heights = np.linspace(-5.0, 5.0, 7)
 
 posvec = np.linspace(-249.5, 249.5, 501)
 
@@ -88,7 +89,7 @@ sep_fig.tight_layout()
 
 
 
-modamps = []
+modamps = [[], [], []]
 
 colors = bu.get_color_map(len(heights), cmap='coolwarm')
 for heightind, height in enumerate(heights):
@@ -103,9 +104,8 @@ for heightind, height in enumerate(heights):
         height_axarr[resp].plot(posvec, fac*yukforce, color=colors[heightind], \
                                 label='$\\Delta z = {:0.1f}$ um'.format(height))
 
-        if resp == 2:
-            inds = np.abs(posvec) <= 50.0
-            modamps.append(np.max(yukforce[inds]) - np.min(yukforce[inds]))
+        inds = np.abs(posvec) <= 50.0
+        modamps[resp].append(np.max(yukforce[inds]) - np.min(yukforce[inds]))
 
 ax_dict = {0: 'X', 1: 'Y', 2: 'Z'}
 for resp in [0,1,2]:
@@ -120,10 +120,13 @@ height_fig.tight_layout()
 
 
 
-modamp_ax.plot(heights, modamps)
+for resp in [0,1,2]:
+    modamp_ax.plot(heights, modamps[resp], label='{:s}'.format(ax_dict[resp]))
+
 modamp_ax.set_title('Modulation vs. Z with $\\Delta x = {:0.1f}~\\mu$m'.format(minsep))
 modamp_ax.set_xlabel('Bead Height Relative to Attractor Center [um]')
 modamp_ax.set_ylabel('Amplitude of Modulation [N]')
+modamp_ax.legend(loc=0)
 modamp_fig.tight_layout()
 
 
