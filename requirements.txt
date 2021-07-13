@@ -13,4 +13,4 @@ opencv-python
 pycopy-fnmatch
 peakdetect
 sklearn
-(maybe others, need to check better)
+#(maybe others, need to check better)
