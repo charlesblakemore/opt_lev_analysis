@@ -29,7 +29,7 @@ all_three = False
 
 
 savefig = True
-fig_path = '/home/cblakemore/plots/thesis/alpha-lambda_exclusions_shortrange.svg'
+fig_path = '/home/cblakemore/plots/thesis/alpha_lambda_full_range.svg'
 
 
 
@@ -331,7 +331,7 @@ plt.yticks(np.logspace(-2,12,8))
 plt.xlabel('Length scale, $\\lambda$ [$\\mu$m]')
 plt.ylabel('Strength parameter, $|\\alpha|$')
 
-fig.set_size_inches(6,4.5)
+# fig.set_size_inches(6,4.5)
 #plt.gcf().subplots_adjust(bottom=0.14,left=0.16,right=0.95,top=0.95)
 
 plt.tight_layout()

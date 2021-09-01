@@ -8,23 +8,26 @@ import bead_util as bu
 
 ### Path to save the best current experimental constraints as a single array
 save = True
-savepath = './prev_meas/master_all.txt'
+# savepath = './prev_meas/irvine_1985.txt'
+savepath = './prev_meas/maryland_1993.txt'
 
 ### Some arrays for sorting out various mesurements
 min_lambdas = []
 max_lambdas = []
 
-files, _ = bu.find_all_fnames('./prev_meas/', skip_subdirectories=True, \
-                                sort=False, ext='.txt')
+# files= [ \
+#         './prev_meas/signed/irvine_1985_positive_alpha.txt', \
+#         './prev_meas/signed/irvine_1985_negative_alpha.txt' \
+#        ]
+
+files= [ \
+        './prev_meas/signed/maryland_1993_positive_alpha.txt', \
+        './prev_meas/signed/maryland_1993_negative_alpha.txt' \
+       ]
 
 rawfiles = []
 rawdata = []
 for file in files:
-    ### Ignore previously compiled limits
-    if 'master' in file:
-        continue
-    if 'tot' in file:
-        continue
 
     ### Load the raw data for reach limit and append it to 
     ### an array. Do the same for the file name for labeling
@@ -48,9 +51,9 @@ for ind in sorter:
 
 ### Construct a master array of logrithmically-spaced lambdas from 
 ### the largest and smallest values of lambdas over all of the data
-master_lambda = np.logspace(np.log10(np.min(min_lambdas)), \
-                            np.log10(np.max(max_lambdas)), 10000)
-master_alpha = []
+master_lambda = np.logspace(np.log10(np.max(min_lambdas)), \
+                            np.log10(np.min(max_lambdas)), 500)
+mean_alpha = []
 
 ### Each constraint will be resampled at values contained within 
 ### the master_lambda array, and then the tightest constraint will be 
@@ -106,9 +109,9 @@ for i, lamb_val in enumerate(master_lambda):
     ### the last value of master_lambda sometimes has no valid measurement, so
     ### there's a little try/except block here to try to deal with that
     try:
-        master_alpha.append(np.min(vals))
+        mean_alpha.append(np.mean(vals))
     except:
-        master_alpha.append(master_alpha[-1])
+        mean_alpha.append(mean_alpha[-1])
 
 
 
@@ -117,12 +120,12 @@ colors = bu.get_color_map(len(alldata))
 for i, data in enumerate(alldata):
     plt.loglog(data[:,0], data[:,1], color=colors[i], label=allfiles[i])
 plt.legend(fontsize=10)
-plt.loglog(master_lambda, master_alpha, lw=2, ls='--', color='r')
+plt.loglog(master_lambda, mean_alpha, lw=2, ls='--', color='r')
 plt.show()
 
 
 if save:
-    np.savetxt(savepath, np.array([master_lambda, master_alpha]).T, delimiter=',')
+    np.savetxt(savepath, np.array([master_lambda, mean_alpha]).T, delimiter=',')
 
 
 
