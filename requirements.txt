@@ -3,14 +3,12 @@ scipy
 matplotlib
 obspy
 xmltodict
-fnmatch
 joblib
 iminuit
 tqdm
 dill
 h5py
 opencv-python
-pycopy-fnmatch
 peakdetect
 sklearn
-(maybe others, need to check better)
+#(maybe others, need to check better)

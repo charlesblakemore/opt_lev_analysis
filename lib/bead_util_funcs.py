@@ -951,19 +951,19 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
 
 
-def rebin(xvec, yvec, errs=[], nbins=500, plot=False, correlated_errs=False):
+def rebin(xvec, yvec, errs=[], nbin=500, plot=False, correlated_errs=False):
     '''Slow and derpy function to re-bin based on averaging. Works
        with any value of nbins, but can be slow since it's a for loop.'''
     if len(errs):
         assert len(errs) == len(yvec), 'error vec is not the right length'
 
-    if nbins > 0.25 * len(xvec):
-        nbins = int(0.25 * len(xvec))
+    if nbin > 0.25 * len(xvec):
+        nbin = int(0.25 * len(xvec))
 
     lenx = np.max(xvec) - np.min(xvec)
-    dx = lenx / nbins
+    dx = lenx / nbin
 
-    xvec_new = np.linspace(np.min(xvec)+0.5*dx, np.max(xvec)-0.5*dx, nbins)
+    xvec_new = np.linspace(np.min(xvec)+0.5*dx, np.max(xvec)-0.5*dx, nbin)
     yvec_new = np.zeros_like(xvec_new)
     errs_new = np.zeros_like(xvec_new)
 
@@ -988,13 +988,7 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False, correlated_errs=False):
         plt.errorbar(xvec_new, yvec_new, yerr=errs_new, fmt='o', color='C1')
         plt.show()
 
-
     return xvec_new, yvec_new, errs_new
-
-
-
-
-
 
 
 
@@ -1024,9 +1018,10 @@ def rebin_mean(a, *args):
     return eval(''.join(evList))
 
 
+
 def rebin_std(a, *args):
     '''Refer to rebin_mean() docstring. Not sure why, but this one
-       seems to have trouble with more than 1D nput arrays.'''
+       seems to have trouble with more than 1D input arrays.'''
     shape = a.shape
     lenShape = len(shape)
     factor = (np.asarray(shape)/np.asarray(args)).astype(int)
@@ -1038,21 +1033,23 @@ def rebin_std(a, *args):
     return eval(''.join(evList))
 
 
-def rebin_vectorized(a, nbin, model=None):
+
+def rebin_vectorized(xvec, yvec, nbin, model=None):
     '''Takes a vector (1D numpy array) a and rebins it to size nbin,
        with the caveats stated in rebin_mean() and rebin_std() docstrings.
        If the underlying data should follow a model, this first fits the data
        to said model and rebins the residuals to determine the appropriate
        rebinned error array.'''
     nbin_int = int(nbin)
-    a_rb = rebin_mean(a, nbin_int)
+    xvec_rb = rebin_mean(xvec, nbin_int)
+    yvec_rb = rebin_mean(yvec, nbin_int)
     if model is not None:
-        popt, pcov = opti.curve_fit(model, np.arange(nbin_int), a_rb)
-        resid = a - model(np.linspace(0, nbin_int-1, len(a)), *popt)
-        a_err_rb = rebin_std(resid, nbin_int)
+        popt, pcov = opti.curve_fit(model, np.arange(nbin_int), yvec_rb)
+        resid = yvec - model(np.linspace(0, nbin_int-1, len(yvec)), *popt)
+        yvec_err_rb = rebin_std(resid, nbin_int)
     else:
-        a_err_rb = rebin_std(a, nbin_int)
-    return a_rb, a_err_rb
+        yvec_err_rb = rebin_std(yvec, nbin_int)
+    return xvec_rb, yvec_rb, yvec_err_rb
 
 
 
