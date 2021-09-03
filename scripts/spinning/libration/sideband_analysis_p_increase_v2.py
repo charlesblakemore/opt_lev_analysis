@@ -29,18 +29,21 @@ base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_3/change_dg_3
 base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_5/'
 base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_7/'
 #base_name = '/data/old_trap/20191105/bead4/phase_mod/deriv_feedback/deriv_feedback_1/'
-base_name = '/data/old_trap/20191223/bead1/spinning/change_press_1/'
-base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_4/zero_dg/'
-base_name = '/data/old_trap/20200130/bead1/spinning/deriv_fb/no_dg_8Vpp/'
-base_name = '/data/old_trap/20200130/bead1/spinning/series_3/base_press/long_int/0_9_dg/'
-base_name = '/data/old_trap/20200130/bead1/spinning/series_4/base_press/change_phi_offset_3/long_int/'
-base_name = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/'
-base_name = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/long_int/'
+#base_name = '/data/old_trap/20191223/bead1/spinning/change_press_1/'
+#base_name = '/data/old_trap/20191223/bead1/spinning/deriv_feedback_4/zero_dg/'
+#base_name = '/data/old_trap/20200130/bead1/spinning/deriv_fb/no_dg_8Vpp/'
+#base_name = '/data/old_trap/20200130/bead1/spinning/series_3/base_press/long_int/0_9_dg/'
+#base_name = '/data/old_trap/20200130/bead1/spinning/series_4/base_press/change_phi_offset_3/long_int/'
+#base_name = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/'
+#base_name = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/long_int/'
 base_name = '/data/old_trap/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/'
+base_name = '/data/old_trap/20200601/bead2/spinning/libration_cooling/change_phi_offset/change_phi_offset_1/'
 
-base_name = '/data/old_trap/20200130/bead1/spinning/series_5/long_int_3_to_4_dg/'
-
-
+#base_name = '/data/old_trap/20200130/bead1/spinning/series_5/long_int_3_to_4_dg/'
+#base_name = '/data/old_trap/20190626/bead1/spinning/pramp/He/'
+#base_name = '/data/old_trap/20190805/bead1/spinning/ringdown/reset_dipole_2/'
+#base_name = '/data/old_trap/20200330/gbead3/spinning/ringdown/high_press/high_press_5/'
+#base_name = '/data/old_trap/20200330/gbead3/spinning/long_int/base_press/50kHz_6Vpp_1/' 
 
 fils = ['no_dg_0000','no_dg_0001','no_dg_0002','no_dg_0003','no_dg_0004',\
         'no_dg_0005','no_dg_0006','no_dg_0007','no_dg_0008','no_dg_0009']
@@ -66,16 +69,22 @@ files, zero, folders = bu.find_all_fnames(base_name, add_folders=True, sort_time
 if len(folders) > 1:
     folders.pop(0)
 
-save = True
+
+#folders = ['/data/old_trap/20200330/gbead3/spinning/long_int/base_press/50kHz_6Vpp_1/'
+#           ]#'/data/old_trap/20200330/gbead3/spinning/long_int/base_press/50kHz_6Vpp_1/']
+
+#high_p_files, zero = bu.find_all_fnames(folders[0], sort_time=True)
+#base_p_files, zero1 = bu.find_all_fnames(folders[1], sort_time=True)
+
 save_ind_files = True
 
 overwrite = True
 
 tabor_fac = 100.
-spinning_freq = 25e3
+spinning_freq = 50e3
 filt = False
 
-lib_freq = 370
+lib_freq = 240
 bandwidth = 100
 
 pm_bandwidth = 200
@@ -133,8 +142,11 @@ def avg_phase_psd_eff(files, ind_to_avg, threshold=10e3):
     obj_init = hd.hsDat(files[0])
     Ns = obj_init.attribs['nsamp']
     Fs = obj_init.attribs['fsamp']
-    dg = obj_init.attribs['current_pm_dg']
-
+    #dg = obj_init.attribs['current_pm_dg']
+    #Ns = 500000
+    #Fs = 300000
+    dg = 0
+    
     freqs = np.fft.rfftfreq(Ns, 1./Fs)
     tarr = np.arange(Ns)/Fs
     #psd_sum = np.zeros((Ns/2) + 1)
@@ -145,18 +157,28 @@ def avg_phase_psd_eff(files, ind_to_avg, threshold=10e3):
     for i in range(len(files)):
         bad_file = False
 
-        print(files[i])    
+        #print(files[i])    
         meas_name = files[i].split('/')[-2]
         raw_name = files[i].split('/')[-1].split('.')[0]
         
         obj = hd.hsDat(files[i])
 
+        #pressures = obj.attribs['pressures']
+        pressures = 0
         spin_sig = obj.dat[:,ind_to_avg]
+        drive_sig = obj.dat[:,drive_ind]
+        
+        t_cut = tarr > 10
 
-
+        spin_sig = spin_sig[t_cut]
+        drive_sig = drive_sig[t_cut]
+        
+        Ns = len(spin_sig)
+    
+        freqs = np.fft.rfftfreq(Ns, 1./Fs)
         if filt:
             spin_sig = bp_filt(spin_sig,2*spinning_freq,Ns,Fs,1800)
-        
+            drive_sig = bp_filt(drive_sig, spinning_freq,Ns,Fs,1800)
         fft = np.fft.rfft(spin_sig)
 
         #plt.loglog(freqs,np.abs(fft))
@@ -164,7 +186,10 @@ def avg_phase_psd_eff(files, ind_to_avg, threshold=10e3):
         #plt.show()
 
         z = ss.hilbert(spin_sig)
+        z_drive = ss.hilbert(drive_sig)
+
         phase = ss.detrend(np.unwrap(np.angle(z)))
+        phase_drive = ss.detrend(np.unwrap(np.angle(z_drive)))
 
         std_phase = np.std(phase)
          
@@ -174,28 +199,48 @@ def avg_phase_psd_eff(files, ind_to_avg, threshold=10e3):
             continue
         
         psd, freqs_ = mlab.psd(phase, NFFT=len(phase), Fs=Fs, window = np.hanning(len(phase)))
-        
+        psd_drive, freqs_ = mlab.psd(phase_drive, NFFT=len(phase_drive), Fs=Fs, window = np.hanning(len(phase_drive)))
 
-        mask = (freqs_ > lib_freq - (bandwidth/2)) & (freqs_ < lib_freq + (bandwidth/2))
-
-        #plt.loglog(freqs_, psd, label='{}'.format(files[i].split('/')[-1]))
-        
+        #plt.loglog(freqs_, psd, label=r'$\phi_{crossp}(t)$ PSD')
+        #plt.loglog(freqs_, psd_drive, label=r'$\phi_{Drive}(t)$ PSD')
+        #plt.xlabel('Frequency [Hz]')
+        #plt.ylabel(r'Instantaneous phase $\phi(t) [rad^{2}/Hz]$')
+        #plt.legend()
+        #plt.tight_layout()
         #plt.show()
+
+        mask = freqs_ < 1000
+        
+        cut = freqs_ < 70
+        y_zero = psd
+        y_zero[cut] = 0
+        max_ind = np.argmax(y_zero)
+
+        #plt.loglog(freqs_,y_zero)
+        #plt.scatter(freqs_[max_ind], psd[max_ind])
+        #plt.show()
+
+        print(freqs_[max_ind])
+        mask = (freqs_ >= freqs_[max_ind] - bandwidth*0.5) & (freqs_ <= freqs_[max_ind] + 0.5*bandwidth)
+
+        #mask = (freqs_ > lib_freq - (bandwidth/2)) & (freqs_ < lib_freq + (bandwidth/2))
 
         
         #plt.ylabel(r'PSD $[rad^{2}/Hz]$')
         #plt.xlabel('Frequency [Hz]')
         #plt.legend()
         #plt.show()
-    
+
+        plt.loglog(freqs_[mask], psd[mask])
+        plt.show()
         if save_ind_files:
 
-            save_name = save_base_name + '/raw_curves/' + meas_name + '/{}'.format(raw_name)
-            #print(save_name) 
+            save_name = save_base_name + '/raw_curves_1/' + meas_name + '/{}'.format(raw_name)
+            print(save_name) 
             bu.make_all_pardirs(save_name)
 
-            np.savez(save_name, psd=psd[mask], freqs=freqs_[mask], Ns=Ns, Fs=Fs, num_files=num_files, bad_file=bad_file, dg=dg)   
-
+            np.savez(save_name, psd=psd[mask], freqs=freqs_[mask], psd_drive=psd_drive[mask], Ns=Ns, Fs=Fs, num_files=num_files, bad_file=bad_file, dg=dg, pressures=pressures)   
+    #plt.semilogy(freqs_1, psd_1, label='{} torr'.format(round(pressures[0],2)))
 
 def extract_libration_freq(obj, rot_filt=False):
     Ns = obj.attribs['nsamp']
@@ -265,17 +310,22 @@ def extract_libration_freq(obj, rot_filt=False):
     return libration_freq
 
     
-#folders.sort(key=lambda f: int(filter(str.isdigit,f)))
-#folders = folders[:]
+folders.sort(key=lambda f: int(filter(str.isdigit,f)))
+folders = folders[:]
 
 if avg_psd:
     for i in range(len(folders)):
         
-        print(folders[i])
+        #print(folders[i])
+        #raw_input()
         files, zero = bu.find_all_fnames(folders[i], sort_time=True, ext='.h5')
 
         meas_name = folders[i].split('/')[-1] 
-
-        avg_phase_psd_eff(files, ind, thresh)
+        #print(folders)
+        avg_phase_psd_eff(files[:], ind, thresh)
         
+    #plt.ylabel(r'PSD $[rad^{2}/Hz]$')
+    #plt.xlabel('Frequency [Hz]')
+    #plt.legend()
+    #plt.show()
 

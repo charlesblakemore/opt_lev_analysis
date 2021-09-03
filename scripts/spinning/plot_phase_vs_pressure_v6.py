@@ -15,21 +15,21 @@ gas ='He'
 
 #base_path = "/processed_data/spinning/pramp_data/20190626/Kr/"
 base_path = "/home/dmartin/Desktop/analyzedData/20190905/pramp/He/"
+base_path = "/home/dmartin/Desktop/analyzedData/20200330/gbead3/spinning/pramp_2/"
 
-in_fs = ['50kHz_4Vpp_1_']#,'50kHz_4Vpp_4_','50kHz_4Vpp_5_']
+in_fs = ['50kHz_4Vpp_1']#,'50kHz_4Vpp_4_','50kHz_4Vpp_5_']
 
-out_dir = '/home/dmartin/analyzedData/20190905/pramp/He/'
+out_dir = '/home/dmartin/Desktop/analyzedData/20200330/gbead3/spinning/pramp/'
 
 num_files = len(in_fs)
 cal = 0.66
 
-corr = np.load(base_path + in_fs[0] + "corr.npy")
 def get_phi(fname):
-    phi = np.load(base_path + fname + "phi.npy")
+    phi = np.load(base_path + fname + "_phi.npy")
     return phi/2
 
 def get_pressure(fname):
-    pressures = np.load(base_path + fname + "pressures.npy")
+    pressures = np.load(base_path + fname + "_pressures.npy")
     return pressures
 
 def pressure_model(pressures, break_ind = 855 , p_ind = 1 , plt_press = True):
@@ -76,42 +76,41 @@ p_fits = []
 
 x = np.linspace(-10,10)
 
-fun = cu.step_fun(x,0.8,0)
-
-plt.plot(fun)
-plt.show()
-
-print fun.shape
-
+#fun = cu.step_fun(x,0.8,0)
+#
+#plt.plot(fun)
+#plt.show()
+#
+#print fun.shape
+#
 for i in range(len(pressures)):
 	p, interp_p = np.array(pp.build_full_pressure(pressures[i],plot=True))
 	p_fits.append(interp_p)
-
-
-
-a = corr.flatten()/np.max(corr.flatten())
-
-plt.plot(a)
-plt.show()
-
-pi = [0.03, 0.03]
-pstep,pcov = curve_fit(cu.step_fun,interp_p,corr.flatten()/np.max(corr.flatten()),p0=pi)
-
-print pstep
-
-plt.plot(interp_p,step_fun(interp_p,*pstep))
-plt.plot(interp_p,corr)
-plt.show()
-
-
-#phases = -1 * phases
-mask = corr <= 2.e-4
-
-plt.plot(interp_p,corr.flatten())
+#
+#
+#
+##a = corr.flatten()/np.max(corr.flatten())
+#
+#plt.plot(a)
+#plt.show()
+#
+#pi = [0.03, 0.03]
+#pstep,pcov = curve_fit(cu.step_fun,interp_p,corr.flatten()/np.max(corr.flatten()),p0=pi)
+#
+#print pstep
+#
+#plt.plot(interp_p,step_fun(interp_p,*pstep))
+#plt.plot(interp_p,corr)
+#plt.show()
+#
+#
+##phases = -1 * phases
+#mask = corr <= 2.e-4
+#
+#plt.plot(interp_p,corr.flatten())
 plt.plot(interp_p,phases[0])
 plt.show()
 
-'''
 max_diff_ind = np.empty([len(in_fs)],dtype=int)
 upper_bound =  0.08
 
@@ -146,9 +145,12 @@ for i in range(len(p_fits)):
 				break
 		#plot data and the point where phase is random
 		print(max_diff_ind[i])
-		plt.scatter(p_fits[i][max_diff_ind[i]],phases[i][max_diff_ind[i]])
-		plt.plot(p_fits[i],phases[i],'r')
-		plt.show()
+		#plt.scatter(p_fits[i][max_diff_ind[i]],phases[i][max_diff_ind[i]])
+		#plt.plot(p_fits[i],phases[i],'r')
+	        plt.scatter(max_diff_ind[i],phases[i][max_diff_ind[i]])
+                plt.plot(phases[i],'r')
+	
+                plt.show()
 	 
 	np.save(param,max_diff_ind[i])
 
@@ -215,4 +217,3 @@ arr = [np.mean(p_maxs),np.std(p_maxs)/len(p_maxs)]
 
 if int(raw_input('save avg and std? ')) == 1:
 	np.save(param,arr)
-'''

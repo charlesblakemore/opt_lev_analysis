@@ -14,6 +14,7 @@ mpl.rcParams['figure.dpi'] = 150
 #path = '/processed_data/spinning/wobble/20190829/long_wobble_before_pramp'
 path = '/home/dmartin/Desktop/analyzedData/spinning/wobble/20191017/dipole_reset/'
 #path = '/data/old_trap_processed/spinning/wobble/20191017/He_pramp_1/'
+
 out_path = '/home/dmartin/Desktop/analyzedData/20191017/dipole_reset/analyzed/'
 
 

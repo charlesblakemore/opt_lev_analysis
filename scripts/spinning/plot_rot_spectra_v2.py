@@ -19,43 +19,58 @@ mpl.rcParams['figure.figsize'] = [7,5]
 mpl.rcParams['figure.dpi'] = 150
 
 directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/long_int/long_int_0004/'
-#directory = '/data/old_trap/20200130/bead1/spinning/series_3/base_press/change_phi_offset/0_dg/'
+directory = '/data/old_trap/20201030/bead1/spinning/dds_phase_impulse_6Vpp/trial_0005/'
+directory = '/data/old_trap/20210521/bead1/neutrality/spinning/w_height_fb_100V_41_Hz_bias_sweep_x_100kHz_yz_spin_up_1/'
 files, lengths = bu.find_all_fnames(directory, sort_time=True)
 
-files = files[-2:]
+files = files[-1:]
+#filenames = ['/data/old_trap/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/long_int_base_press/turbombar_powfb_xyzcool_1.h5', '/data/old_trap/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/long_int_0000/turbombar_powfb_xyzcool_14.h5']
 
 bandwidth = 100
-libration_freq = 360
+libration_freq = 1142
 data_ind = 0
+drive_ind = 1
 
-plot_rot_sig_bool = False
-
-###
-plot_rot_sig_damp = True
-filenames = ['/data/old_trap/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/long_int_base_press/turbombar_powfb_xyzcool_1.h5', '/data/old_trap/20200130/bead1/spinning/series_5/long_int_0_to_0_9_dg/long_int_0000/turbombar_powfb_xyzcool_14.h5']
-rot_freq = 25e3
-wind_bandwidth = 1000
-###
-
+plot_rot_sig_bool = True
+plot_rot_sig_damp = False
 plot_phase_vs_freq = False
-plot = False
+plot_phase_v_time_bool = False
 plot_phase_v_time_multiple = False
+
 filt = False
+
+rot_freq = 100e3
+rot_bw = 8000
+wind_bandwidth = 1000
 
 
 def plot_phase_v_time(files):
-    for i, f in enumerate(files):
+    for i, f in enumerate(files[14:]):
         obj = hsDat(f)
 
         Ns = obj.attribs['nsamp']
         Fs = obj.attribs['fsamp']
-        sig = obj.dat[:,data_ind]
-        
-        tarr = np.arange(Ns)/Fs
+        freqs = np.fft.rfftfreq(Ns, 1./Fs)
 
+        sig = obj.dat[:,data_ind]
+        drive_sig = obj.dat[:,drive_ind]
+        sig = bp_filt(sig, 2*rot_freq, Ns, Fs, rot_bw)
+        sig_fft = np.fft.rfft(sig)
+        drive_fft = np.fft.rfft(drive_sig)
+        #plt.loglog(freqs, np.abs(sig_fft))
+        #plt.loglog(freqs, np.abs(drive_fft))
+        #plt.show()
+
+        tarr = np.arange(Ns)/Fs
+      
         z = signal.hilbert(sig)
 
         phase = signal.detrend(np.unwrap(np.angle(z)))
+
+        phase_fft = np.fft.rfft(phase)
+        
+        #plt.loglog(freqs, np.abs(phase_fft))
+        #plt.show()
 
         if filt:
             phase = bp_filt(phase, libration_freq, Ns, Fs, bandwidth)
@@ -138,19 +153,22 @@ def plot_phase_v_freq(files):
 
 def plot_rot_sig(files):
     for i, f in enumerate(files):
+        print(f)
         obj = hsDat(f)
 
         Ns = obj.attribs['nsamp']
         Fs = obj.attribs['fsamp']
         sig = obj.dat[:,data_ind]
+        drive = obj.dat[:,drive_ind]
 
         tarr = np.arange(Ns)/Fs
         freqs = np.fft.rfftfreq(Ns, 1./Fs)
-        #psd, freqs = mlab.psd(sig, NFFT=len(sig),Fs=Fs, window=mlab.window_none(sig))#mlab.window_hanning(sig))
+        
         fft = np.fft.rfft(sig)
+        fft_drive = np.fft.rfft(drive)
 
         plt.loglog(freqs, np.abs(fft))
-        #plt.loglog(freqs, np.sqrt(psd))
+        plt.loglog(freqs, np.abs(fft_drive))
         plt.show()
  
 if plot_rot_sig_bool:
@@ -164,10 +182,12 @@ if plot_phase_vs_freq:
     print('plot_phase_v_freq')
 
     plot_phase_v_freq(files)
-if plot:
+if plot_phase_v_time_bool:
     print('plot_phase_v_time')
     plot_phase_v_time(files)
 if plot_phase_v_time_multiple:
     print('plot_phase_v_time_multiple')
     plot_phase_v_time_multiple(files)
- 
+if plot_rot_signal_bool:
+    print('plot_rot_signal')
+    plot_rot_signal(files)

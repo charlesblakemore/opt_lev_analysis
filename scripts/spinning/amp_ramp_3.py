@@ -24,6 +24,8 @@ save = False
 
 path = "/daq2/20190805/bead1/spinning/wobble/reset_dipole_1/after_reset"
 #path = "/daq2/20190626/bead1/spinning/wobble/wobble_many/wobble_0000"
+path = '/data/old_trap/20200322/gbead1/spinning/wobble/wobble_init/wobble_0000'
+
 out_path = "/home/dmartin/analyzedData/20190626/pramp/"
 out_base_fname = "wobble_many_wobble_0000"
 
@@ -72,29 +74,38 @@ def find_spikes(threshold):
 def find_phasemod_freq(obj,amp_thresh,lookahead=55,delta=3400):
 	fft = np.fft.rfft(obj.dat[:,0])	
 	
-	fft[freq_bool] = 0
+	#fft[freq_bool] = 0
+        freqs = np.fft.rfftfreq(Ns, 1./Fs)
+        sig = bp_filt(obj.dat[:,0], fc, Ns, Fs, bw )
 
-	
+        fft = np.fft.rfft(sig)
+	#plt.loglog(freqs, np.abs(fft))
+        #plt.show()
+
 	#Take Hilbert tranform of signal to generate the complex part
-	hilb = ss.hilbert(np.fft.irfft(fft)*flattop(len(obj.dat[:,0])))
-	#Extract the phase which contains information about the phase modulation of the microsphere
+	#hilb = ss.hilbert(np.fft.irfft(fft)*flattop(len(obj.dat[:,0])))
+	hilb = ss.hilbert(sig)
+        #Extract the phase which contains information about the phase modulation of the microsphere
 	phase = ss.detrend(np.unwrap(np.angle(hilb)))
 	fft_phase = np.fft.rfft(phase)
 	
+
 	#Max_peaks is really the only useful thing here. This just finds the peaks in the FFT at certain frequencies.
 	max_peaks, min_peaks = pd(np.abs(fft_phase),freqs,lookahead,delta)
 	
 
-	#plt.plot(freqs,np.abs(fft_phase))	
-	for i in range(len(max_peaks)):
-		#plt.scatter(max_peaks[i][0],max_peaks[i][1])
+	plt.loglog(freqs,np.abs(fft_phase))	
+	#plt.show()
+        for i in range(len(max_peaks)):
+		plt.scatter(max_peaks[i][0],max_peaks[i][1])
 		
 		#The peak must be greater than 60 Hz (there is sometimes a 53 Hz signal) and the amplitude must be above some threshold
-		if max_peaks[i][0] > 80 and max_peaks[i][1] > amp_thresh:
+		if max_peaks[i][0] > 100 and max_peaks[i][1] > amp_thresh:
 			freq = max_peaks[i][0]
 		else:
 			freq = 0
-	#plt.show()
+                        print('fail')
+	plt.show()
 
 	
 		
@@ -123,6 +134,13 @@ def find_drive_amp_filt(obj):
 	low_freq = (drive_freq - 1000)/freqs[-1]
 	high_freq = (drive_freq + 1000)/freqs[-1]
 
+        psd, freqs = matplotlib.mlab.psd(obj.dat[:,1], Ns, Fs)
+
+        fft = np.fft.rfft(obj.dat[:,1])
+
+       # plt.loglog(freqs, np.abs(fft))
+        #plt.show()
+
 	b, a = ss.butter(2,[low_freq,high_freq],btype='bandpass')
 	
 	sig = ss.filtfilt(b,a,obj.dat[:,1])
@@ -130,7 +148,10 @@ def find_drive_amp_filt(obj):
 	win = flattop(len(sig))
 	
 	psd_filt, freqs = matplotlib.mlab.psd(sig,Ns,Fs,window=win)
-	
+
+        #plt.loglog(freqs, psd_filt)
+        #plt.show()
+
 	damp = 2 * np.sum(np.sqrt(psd_filt))
 	
 	return damp
@@ -141,7 +162,7 @@ def bp_filt(signal,frequency,Ns,Fs,bandwidth):
 	
 	low_freq = (frequency - bandwidth/2)/freqs[-1]
 	high_freq = (frequency + bandwidth/2)/freqs[-1]
-	
+
 	if low_freq < 0.:
 		low_freq = 1e-20	
 	
@@ -173,9 +194,9 @@ def lp_filt(signal, frequency, Ns, Fs):
     return sig
 
 if __name__ == "__main__":
-	fc = 1e5 #2 times spinning frequency
-	bw = 1e3 #Bandwidth for freq_bool
-	drive_freq = 50e3
+	fc = 50e3 #2 times spinning frequency
+	bw = 2e3 #Bandwidth for freq_bool
+	drive_freq = 25e3
 	
 	files, zero = buf.find_all_fnames(path) 
 		
@@ -200,7 +221,7 @@ if __name__ == "__main__":
 		
 		#amp[i] = find_drive_amp(obj,10)
 		amp[i] = find_drive_amp_filt(obj)
-		phase_freq[i] = find_phasemod_freq(obj, 6000) #Hz
+		phase_freq[i] = find_phasemod_freq(obj, 1000) #Hz
 
 	data_arr = np.array([amp,0,phase_freq,0])
 

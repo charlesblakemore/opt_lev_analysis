@@ -21,6 +21,9 @@ mpl.rcParams['figure.dpi'] = 150
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/spinning/base_press/series_4/change_phi_offset_3/change_phi_offset/raw_curves/'
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/raw_curves/'
 base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves/'
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_2/base_press/change_phi_offset_0_dg/raw_curves/'
+
+#base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_2/base_press'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_6_to_9_dg/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/test/change_phi_offset_30_dg/change_phi_offset/raw_curves/'
@@ -30,56 +33,12 @@ base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/raw_curves_env_rebin/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_6_to_0_9_dg/change_phi_offset/raw_curves/'
 #base_folder = '/home/dmartin/Desktop/analyzedData/20200130/bead1/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/raw_curves_env_rebin/'
-
-files, zeros, folders = bu.find_all_fnames(base_folder, sort_time=True, add_folders=True)
-
-print(folders)
-
-save = False
-multiple_folders = True
-
-max_length_from_end = 150000
-
-#fit transients params:
-dist_to_end = 3# for long 33s int
-a_fix = True
-b_fix = True
-c_fix = False
-d_fix = True
-start_c = -2
-migrad_ncall = 100 
-
-time_wind = 5
-
-just_env = True
-env_and_osc = False
-
-###################
-plot_end_mask = False
-plot_data_and_fit = False
-set_limits = True
-xmin = 0
-xmax = 2
-##################
-
-plot_multiple = False
-
-save_base_name_fit_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/fit_data/'
-
-if just_env:
-    save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data/'
-if env_and_osc:
-    save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data_env_and_osc/'
-
-if save:
-    bu.make_all_pardirs(save_base_name_fit_trans)
-
 def exp(x, a, b , c, d):
     return a*np.exp((x-b)*c) + d
 def exp_sine(x, a, b, c, d, f0, p):
     return (a*np.exp((x-b)*c)+d)*np.sin(2*np.pi*f0*x+p) 
 
-def fit_transients(filenames, max_lfe, start_c, migrad_ncall):
+def fit_transients(filenames, start_c, migrad_ncall):
 
     init_data = np.load(filenames[0])
     y = init_data['crossp_phase_amp']
@@ -147,7 +106,7 @@ def fit_transients(filenames, max_lfe, start_c, migrad_ncall):
 
         y = data['crossp_phase_amp']
         x = data['tarr']
-       
+        
         if env_and_osc:
             errs = data['errs']
         
@@ -295,18 +254,74 @@ def fit_transients(filenames, max_lfe, start_c, migrad_ncall):
 
 
 if __name__ == "__main__":
-    for i, folder in enumerate(folders[1:]):
-        print(folder, i)
-        files, zero = bu.find_all_fnames(folder, ext='.npz')
+    save = False
+    multiple_folders = False
+   
+    if multiple_folders:
+        files, zeros, folders = bu.find_all_fnames(base_folder, sort_time=True, add_folders=True)
+        print(folders)
+    else:
+        files, zeros = bu.find_all_fnames(base_folder, ext='.npz', sort_time=True)
+
+        print(files)
     
-        fit_params, dg, chi_sq_arr, num_bad_files = fit_transients(files[:], max_length_from_end, start_c, migrad_ncall) 
-         
-        meas_name = folder.split('/')[-1]
+    #fit transients params:
+    dist_to_end = 2# for long 33s int
+    a_fix = True
+    b_fix = True
+    c_fix = False
+    d_fix = False
+    start_c = -2
+    migrad_ncall = 100 
     
+    time_wind = 30
+    
+    just_env = True
+    env_and_osc = False
+    
+    ###################
+    plot_end_mask = True
+    plot_data_and_fit = False 
+    set_limits = False
+    xmin = 0
+    xmax = 2
+    ##################
+    
+    plot_multiple = False
+    
+    save_base_name_fit_trans = '/home/dmartin/Desktop/analyzedData/20200130/spinning/series_5/change_phi_offset_0_to_0_3_dg/change_phi_offset/fit_data/'
+    
+    if just_env:
+        save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data/'
+    if env_and_osc:
+        save_base_name_fit_trans = base_folder.split('raw_curves')[0] + 'fit_data_env_and_osc/'
+    
+    if save:
+        bu.make_all_pardirs(save_base_name_fit_trans)
+
+    if multiple_folders:
+        for i, folder in enumerate(folders[1:]):
+            print(folder, i)
+            files, zero = bu.find_all_fnames(folder, ext='.npz')
+        
+            fit_params, dg, chi_sq_arr, num_bad_files = fit_transients(files[:], start_c, migrad_ncall) 
+             
+            meas_name = folder.split('/')[-1]
+        
+            if save:
+                print('saving')
+                save_name = save_base_name_fit_trans + meas_name + '_exp_fit_params' 
+                print('save name ' + save_name)
+                np.savez(save_name, fit_params=fit_params, dg=dg, chi_sq_arr=chi_sq_arr, num_bad_files=num_bad_files)
+
+    else:
+        fit_params, dg, chi_sq_arr, num_bad_files = fit_transients(files[:], start_c, migrad_ncall)
+        
+        meas_name = base_folder.split('/')[-2]
+        
         if save:
             print('saving')
-            save_name = save_base_name_fit_trans + meas_name + '_exp_fit_params' 
+            save_name = save_base_name_fit_trans + meas_name + '_exp_fit_params'
             print('save name ' + save_name)
             np.savez(save_name, fit_params=fit_params, dg=dg, chi_sq_arr=chi_sq_arr, num_bad_files=num_bad_files)
-
-
+ 

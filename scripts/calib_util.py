@@ -98,6 +98,8 @@ def find_step_cal_response(file_obj, bandwidth=1.,include_in_phase=False):
        OUTPUTS:  H, (response / drive)'''
 
     ecol = np.argmax(file_obj.electrode_settings['driven'])
+    print(file_obj.electrode_settings['driven'])    
+    print(ecol)
     pcol = config.elec_map[ecol]
     
     # Extract the drive, detrend it, and compute an fft

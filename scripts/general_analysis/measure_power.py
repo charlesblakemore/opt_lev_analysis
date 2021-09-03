@@ -18,11 +18,13 @@ import transfer_func_util as tf
 import iminuit
 
 
-filename = '/data/old_trap/measure_power_2.h5'
-
+filename = '/data/old_trap/20210323/measure_power/1_5mbar_powfb_xyzcool_dg.h5'
 df = bu.DataFile()
 
 df.load(filename, load_other=True)
+
+
+
 
 trans_gain = 100e3#TIA amplifier gain
 pd_gain = 0.25 #A/W from pd manual at 1064nm

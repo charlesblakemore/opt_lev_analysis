@@ -1,26 +1,31 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect, subprocess, math, xmltodict
+import h5py, os, re, glob, time, sys, fnmatch, inspect
+import subprocess, math, xmltodict, traceback
 import numpy as np
 import datetime as dt
 import dill as pickle 
 
 import matplotlib.pyplot as plt
-import matplotlib.cm as cmx
+import matplotlib.cm as cm
 import matplotlib.colors as colors
 import matplotlib.mlab as mlab
 
 import scipy.interpolate as interp
-import scipy.optimize as opti
+import scipy.optimize as optimize
 import scipy.signal as signal
 import scipy.stats as stats
 import scipy.constants as constants
 import scipy
 
+from obspy.signal.detrend import polynomial
+
+#from tqdm import tqdm
+from joblib import Parallel, delayed
+
 import configuration
-import transfer_func_util as tf
 
 import warnings
 
-
+from bead_data_funcs import get_hdf5_time
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -49,17 +54,18 @@ import warnings
 #######################################################
 
 
+my_path = os.path.abspath( os.path.dirname(__file__) )
 
 
+#calib_path = '/data/old_trap_processed/calibrations/'
+calib_path = os.path.abspath( os.path.join(my_path, '../data/') )
 
-calib_path = '/data/old_trap_processed/calibrations/'
-
-e_top_dat   = np.loadtxt(calib_path + 'e-top_1V_optical-axis.txt', comments='%')
-e_bot_dat   = np.loadtxt(calib_path + 'e-bot_1V_optical-axis.txt', comments='%')
-e_left_dat  = np.loadtxt(calib_path + 'e-left_1V_left-right-axis.txt', comments='%')
-e_right_dat = np.loadtxt(calib_path + 'e-right_1V_left-right-axis.txt', comments='%')
-e_front_dat = np.loadtxt(calib_path + 'e-front_1V_front-back-axis.txt', comments='%')
-e_back_dat  = np.loadtxt(calib_path + 'e-back_1V_front-back-axis.txt', comments='%')
+e_top_dat   = np.loadtxt(os.path.join(calib_path, 'e-top_1V_optical-axis.txt'), comments='%')
+e_bot_dat   = np.loadtxt(os.path.join(calib_path, 'e-bot_1V_optical-axis.txt'), comments='%')
+e_left_dat  = np.loadtxt(os.path.join(calib_path, 'e-left_1V_left-right-axis.txt'), comments='%')
+e_right_dat = np.loadtxt(os.path.join(calib_path, 'e-right_1V_left-right-axis.txt'), comments='%')
+e_front_dat = np.loadtxt(os.path.join(calib_path, 'e-front_1V_front-back-axis.txt'), comments='%')
+e_back_dat  = np.loadtxt(os.path.join(calib_path, 'e-back_1V_front-back-axis.txt'), comments='%')
 
 E_front  = interp.interp1d(e_front_dat[0], e_front_dat[-1])
 E_back   = interp.interp1d(e_back_dat[0],  e_back_dat[-1])
@@ -69,8 +75,59 @@ E_top    = interp.interp1d(e_top_dat[2],   e_top_dat[-1])
 E_bot    = interp.interp1d(e_bot_dat[2],   e_bot_dat[-1])
 
 
+
+
+e_xp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-x_+x-elec-1V_x-axis.txt'), comments='%').transpose()
+e_xn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-x_-x-elec-1V_x-axis.txt'), comments='%').transpose()
+e_yp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-y_+y-elec-1V_y-axis.txt'), comments='%').transpose()
+e_yn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-y_-y-elec-1V_y-axis.txt'), comments='%').transpose()
+e_zp_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-z_+z-elec-1V_z-axis.txt'), comments='%').transpose()
+e_zn_dat = np.loadtxt(os.path.join(calib_path, 'new-trap_efield-z_-z-elec-1V_z-axis.txt'), comments='%').transpose()
+
+E_xp  = interp.interp1d(e_xp_dat[0], e_xp_dat[-1])
+E_xn  = interp.interp1d(e_xn_dat[0], e_xn_dat[-1])
+E_yp  = interp.interp1d(e_yp_dat[1], e_yp_dat[-1])
+E_yn  = interp.interp1d(e_yn_dat[1], e_yn_dat[-1])
+E_zp  = interp.interp1d(e_zp_dat[2], e_zp_dat[-1])
+E_zn  = interp.interp1d(e_zn_dat[2], e_zn_dat[-1])
+
+# plt.figure()
+# plt.plot(e_front_dat[0], e_front_dat[-1])
+# plt.plot(e_back_dat[0], e_back_dat[-1])
+# plt.figure()
+# plt.plot(e_right_dat[1], e_right_dat[-1])
+# plt.plot(e_left_dat[1], e_left_dat[-1])
+# plt.figure()
+# plt.plot(e_top_dat[2], e_top_dat[-1])
+# plt.plot(e_bot_dat[2], e_bot_dat[-1])
+# plt.show()
+
+
+
+def gauss(x, A, mu, sigma, c):
+    return A * np.exp( -1.0*(x-mu)**2 / (2 * sigma**2) ) + c
+
+def line(x, a, b):
+    return a*x + b
+
+
+
+
+
 #### Generic Helper functions
 
+
+
+def iterable(obj):
+    '''Simple function to check if an object is iterable. Helps with
+       exception handling when checking arguments in other functions.
+    '''
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
 
 
 
@@ -118,28 +175,73 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
         print()
 
 
+def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
+    '''Gets a single color from a colormap. Useful when the values
+       span a continuous range with uneven spacing.
 
-def get_color_map( n, cmap='plasma' ):
+        INPUTS:
+
+            val - value between vmin and vmax, which represent
+              the ends of the colormap
+
+            cmap - color map for final output
+
+            vmin - minimum value for the colormap
+
+            vmax - maximum value for the colormap
+
+        OUTPUTS: 
+
+           color - single color in rgba format
+    '''
+
+    if (val > vmax) or (val < vmin):
+        raise ValueError("Input value doesn't conform to limits")
+
+    if log:
+        norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+    my_cmap = cm.get_cmap(cmap)
+
+    return my_cmap(norm(val))
+
+
+
+
+def get_color_map( n, cmap='plasma', log=False):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
 
-           INPUTS: n, length of color array to make
-                   cmap, color map for final output
+        INPUTS: 
 
-           OUTPUTS: outmap, color map in rgba format'''
+            n - length of color array to make
+            
+            cmap - color map for final output
 
+        OUTPUTS: 
+
+            outmap - color map in rgba format
+    '''
+
+    n = int(n)
     outmap = []
-    if n >= 10:
-        cNorm  = colors.Normalize(vmin=0, vmax=n-1)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap) #cmap='viridis')
-        for i in range(n):
-            outmap.append( scalarMap.to_rgba(i) )
+
+    if log:
+        cNorm = colors.LogNorm(vmin=0, vmax=2*n)
     else:
         cNorm = colors.Normalize(vmin=0, vmax=2*n)
-        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cmap)
-        for i in range(n):
-            outmap.append( scalarMap.to_rgba(2*i + 1) )
+
+    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
+
+    for i in range(n):
+        outmap.append( scalarMap.to_rgba(2*i + 1) )
     return outmap
+
+
+
+
 
 def round_sig(x, sig=2):
     '''Round a number to a certain number of sig figs
@@ -163,7 +265,7 @@ def round_sig(x, sig=2):
             return num
 
 
-def weighted_mean(vals, errs, correct_dispersion=True):
+def weighted_mean(vals, errs, correct_dispersion=False):
     '''Compute the weighted mean, and the standard error on the weighted mean
        accounting for for over- or under-dispersion
 
@@ -245,8 +347,22 @@ def make_all_pardirs(path):
 
 
 
-def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
-                    exclude_fpga=True, verbose=True):
+
+
+def count_subdirectories(dirname):
+    '''Simple function to count subdirectories.'''
+    count = 0
+    for root, dirs, files in os.walk(dirname):
+        count += len(dirs)
+    return count
+
+
+
+
+
+def find_all_fnames(dirlist, ext='.h5', sort=True, exclude_fpga=True, \
+                    verbose=True, substr='', sort_time=False, \
+                    use_origin_timestamp=False, skip_subdirectories=False):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
@@ -272,8 +388,14 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
 
     for dirname in dirlist:
         for root, dirnames, filenames in os.walk(dirname):
+            slashes_in_rootdir = len(root.split('/'))
             for filename in fnmatch.filter(filenames, '*' + ext):
+                slashes_in_filename = len(os.path.join(root, filename).split('/'))
                 if ('_fpga.h5' in filename) and exclude_fpga:
+                    continue
+                if substr and (substr not in filename):
+                    continue
+                if skip_subdirectories and (slashes_in_filename != slashes_in_rootdir):
                     continue
                 files.append(os.path.join(root, filename))
         if was_list:
@@ -287,7 +409,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
         files.sort(key = find_str)
 
     if sort_time:
-        files = sort_files_by_timestamp(files)
+        files = sort_files_by_timestamp(files, use_origin_timestamp=use_origin_timestamp)
 
     if len(files) == 0:
         print("DIDN'T FIND ANY FILES :(")
@@ -297,18 +419,24 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
     if was_list:
         return files, lengths
     else:
-        return files, 0
+        return files, [len(files)]
 
 
 
-def sort_files_by_timestamp(files):
+def sort_files_by_timestamp(files, use_origin_timestamp=False):
     '''Pretty self-explanatory function.'''
+
     try:
         files = [(get_hdf5_time(path), path) for path in files]
-    except:
+    except Exception:
         print('BAD HDF5 TIMESTAMPS, USING GENESIS TIMESTAMP')
+        traceback.print_exc()
+        use_origin_timestamp = True
+
+    if use_origin_timestamp:
         files = [(os.stat(path), path) for path in files]
         files = [(stat.st_ctime, path) for stat, path in files]
+
     files.sort(key = lambda x: (x[0]))
     files = [obj[1] for obj in files]
     return files
@@ -366,6 +494,46 @@ def find_str(str):
     else:
         return int(sparts[0][:-2])
 
+
+
+def angle_between_vectors(vec1, vec2, coord='Cartesian', radians=True):
+    '''Computes the angle between two 3d vectors, or two arrays of 3d
+       vectors, in either cartesian or spherical-polar coordinates.
+    '''
+
+    axis = np.argmax( np.array( np.array(vec1).shape ) == 3 )
+    if axis != 0:
+        vec1 = np.transpose(vec1)
+        vec2 = np.transpose(vec2)
+
+    if (coord == 'Cartesian') or (coord == 'C') or (coord == 'c'):
+
+        v1 = np.copy(vec1)
+        v2 = np.copy(vec2)
+
+    elif (coord == 'Spherical') or (coord == 'S') or (coord == 's'):
+
+        v1 = np.array( [vec1[0] * np.sin(vec1[1]) * np.cos(vec1[2]), \
+                        vec1[0] * np.sin(vec1[1]) * np.sin(vec1[2]), \
+                        vec1[0] * np.cos(vec1[1])] )
+
+        v2 = np.array( [vec2[0] * np.sin(vec2[1]) * np.cos(vec2[2]), \
+                        vec2[0] * np.sin(vec2[1]) * np.sin(vec2[2]), \
+                        vec2[0] * np.cos(vec2[1])] )
+
+    else:
+        print('Coordinate system not understood')
+        return np.zeros(vec.shape[1])
+
+    v1_mag = np.sqrt(np.sum(v1 * v1, axis=0))
+    v2_mag = np.sqrt(np.sum(v2 * v2, axis=0))
+
+    angle = np.arccos( np.sum(v1 * v2, axis=0) / (v1_mag * v2_mag))
+
+    if not radians:
+        angle *= 180 / np.pi
+
+    return angle
 
 
 def euler_rotation_matrix(rot_angles, radians=True):
@@ -486,8 +654,9 @@ def fix_time(fname, dattime):
         f['beads/data/pos_data'].attrs.create("time", dattime)
         f.close()
         print("Fixed time.")
-    except:
+    except Exception:
         print("Couldn't fix the time...")
+        traceback.print_exc()
 
 
 def labview_time_to_datetime(lt):
@@ -516,10 +685,30 @@ def unpack_config_dict(dic, vec):
 
 
 
+def detrend_poly(arr, order=1.0, plot=False):
+    xarr = np.arange( len(arr) )
+    fit_model = np.polyfit(xarr, arr, order)
+    fit_eval = np.polyval(fit_model, xarr)
+
+    if plot:
+        fig, axarr = plt.subplots(2,1,sharex=True, \
+                        gridspec_kw={'height_ratios': [1,1]})
+        axarr[0].plot(xarr, arr, color='k')
+        axarr[0].plot(xarr, fit_eval, lw=2, color='r')
+        axarr[1].plot(xarr, arr - fit_eval, color='k')
+        fig.tight_layout()
+        plt.show()
+
+    return arr - fit_eval
+
+
+
+
 
 def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
                 width=0, sg_filter=False, sg_params=[3,1], verbose=True, \
-                maxfreq=2500, add_mean=False):
+                maxfreq=2500, add_mean=False, correct_phase_shift=False, \
+                grad_sign=0, plot=False):
     '''Given two waveforms drive(t) and resp(t), this function generates
        resp(drive) with a fourier method. drive(t) should be a pure tone,
        such as a single frequency cantilever drive (although the 
@@ -539,54 +728,59 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
                             filter for final smoothing of resp(drive)
                 sg_params, parameters of the savgol filter 
                             (see scipy.signal.savgol_filter for explanation)
+                verbose, usual boolean switch for printing
+                maxfreq, top-hat filter cutoff
+                add_mean, boolean switch toadd back the mean of each signal
+                correct_phase_shift, boolean switch to adjust the phase of 
+                                      of the response to match the drive
+                grad_sign, -1, 0 or 1 to indicate the sign of the drive's 
+                            derivative to include in order to select either
+                            'forward-going' or 'backward-going' data
 
        OUTPUT:  drivevec, vector of drive values, monotonically increasing
                 respvec, resp as a function of drivevec'''
 
-    def fit_fun(t, A, f, phi, C):
-        return A * np.sin(2 * np.pi * f * t + phi) + C
 
-    Nsamp = len(drive)
-    if len(resp) != Nsamp:
+    nsamp = len(drive)
+    if len(resp) != nsamp:
         if verbose:
             print("Data Error: x(t) and f(t) don't have the same length")
             sys.stdout.flush()
         return
 
-    # Generate t array
+    ### Generate t array
     t = np.linspace(0, len(drive) - 1, len(drive)) * dt
 
-    # Generate FFTs for filtering
+    ### Generate FFTs for filtering
     drivefft = np.fft.rfft(drive)
     respfft = np.fft.rfft(resp)
     freqs = np.fft.rfftfreq(len(drive), d=dt)
 
-    # Find the drive frequency, ignoring the DC bin
+    ### Find the drive frequency, ignoring the DC bin
     maxind = np.argmin( np.abs(freqs - maxfreq) )
 
     fund_ind = np.argmax( np.abs(drivefft[1:maxind]) ) + 1
     drive_freq = freqs[fund_ind]
 
-    meandrive = np.mean(drive)
     mindrive = np.min(drive)
     maxdrive = np.max(drive)
 
     meanresp = np.mean(resp)
 
-    # Build the notch filter
-    drivefilt = np.zeros(len(drivefft)) #+ np.random.randn(len(drivefft))*1.0e-3
-    drivefilt[fund_ind] = 1.0
+    ### Build the notch filter
+    drivefilt = np.zeros_like(drivefft) #+ np.random.randn(len(drivefft))*1.0e-3
+    drivefilt[fund_ind] = 1.0 + 0.0j
 
     errfilt = np.zeros_like(drivefilt)
     noise_bins = (freqs > 10.0) * (freqs < 100.0)
-    errfilt[noise_bins] = 1.0
-    errfilt[fund_ind] = 0.0
+    errfilt[noise_bins] = 1.0+0.0j
+    errfilt[fund_ind] = 0.0+0.0j
 
     #plt.loglog(freqs, np.abs(respfft))
     #plt.loglog(freqs, np.abs(respfft)*errfilt)
     #plt.show()
 
-    # Error message triggered by verbose option
+    ### Error message triggered by verbose option
     if verbose:
         if ( (np.abs(drivefft[fund_ind-1]) > 0.03 * np.abs(drivefft[fund_ind])) or \
              (np.abs(drivefft[fund_ind+1]) > 0.03 * np.abs(drivefft[fund_ind])) ):
@@ -597,70 +791,48 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
             plt.show()
     
 
-    # Expand the filter to more than a single bin. This can introduce artifacts
-    # that appear like lissajous figures in the resp vs. drive final result
+    ### Expand the filter to more than a single bin. This can introduce artifacts
+    ### that appear like lissajous figures in the resp vs. drive final result
     if width:
         lower_ind = np.argmin(np.abs(drive_freq - 0.5 * width - freqs))
         upper_ind = np.argmin(np.abs(drive_freq + 0.5 * width - freqs))
         drivefilt[lower_ind:upper_ind+1] = drivefilt[fund_ind]
 
-    # Generate an array of harmonics
+    ### Generate an array of harmonics
     if not len(harms):
         harms = np.array([x+2 for x in range(nharmonics)])
 
-    # Loop over harmonics and add them to the filter
+    ### Loop over harmonics and add them to the filter
     for n in harms:
         harm_ind = np.argmin( np.abs(n * drive_freq - freqs) )
-        drivefilt[harm_ind] = 1.0 
+        drivefilt[harm_ind] = 1.0+0.0j
+        errfilt[harm_ind] = 0.0+0.0j
         if width:
             h_lower_ind = harm_ind - (fund_ind - lower_ind)
             h_upper_ind = harm_ind + (upper_ind - fund_ind)
             drivefilt[h_lower_ind:h_upper_ind+1] = drivefilt[harm_ind]
 
-    if add_mean:
-        drivefilt[0] = 1.0
+    if correct_phase_shift:
+        phase_shift = np.angle(respfft[fund_ind]) - np.angle(drivefft[fund_ind])
+        drivefilt2 = drivefilt * np.exp(-1.0j * phase_shift)
+    else:
+        drivefilt2 = np.copy(drivefilt)
 
-    # Apply the filter to both drive and response
-    #drivefilt = np.ones_like(drivefilt)
-    #drivefilt[0] = 0
+    if add_mean:
+        drivefilt[0] = 1.0+0.0j
+        drivefilt2[0] = 1.0+0.0j
+
+    ### Apply the filter to both drive and response
     drivefft_filt = drivefilt * drivefft
-    respfft_filt = drivefilt * respfft
+    respfft_filt = drivefilt2 * respfft
     errfft_filt = errfilt * respfft
 
-    #print fund_ind
-    #print np.abs(drivefft_filt[fund_ind])
-    #print np.abs(respfft_filt[fund_ind])
-    #print np.abs(drivefft_filt[fund_ind]) / np.abs(respfft_filt[fund_ind])
-    #raw_input()
-
-    #plt.loglog(freqs, np.abs(respfft))
-    #plt.loglog(freqs[drivefilt>0], np.abs(respfft[drivefilt>0]), 'x', ms=10)
-    #plt.show()
-
-    # Reconstruct the filtered data
-    
-    #plt.loglog(freqs, np.abs(drivefft_filt))
-    #plt.show()
-
-    fac = np.sqrt(2) * fft_norm(len(t),1.0/(t[1]-t[0])) * np.sqrt(freqs[1] - freqs[0])
-
-    #drive_r = np.zeros(len(t)) + meandrive
-    #for ind, freq in enumerate(freqs[drivefilt>0]):
-    #    drive_r += fac * np.abs(drivefft_filt[drivefilt>0][ind]) * \
-    #               np.cos( 2 * np.pi * freq * t + \
-    #                       np.angle(drivefft_filt[drivefilt>0][ind]) )
-    drive_r = np.fft.irfft(drivefft_filt) + meandrive
-
-    #resp_r = np.zeros(len(t))
-    #for ind, freq in enumerate(freqs[drivefilt>0]):
-    #    resp_r += fac * np.abs(respfft_filt[drivefilt>0][ind]) * \
-    #              np.cos( 2 * np.pi * freq * t + \
-    #                      np.angle(respfft_filt[drivefilt>0][ind]) )
-    resp_r = np.fft.irfft(respfft_filt) #+ meanresp
-
+    ### Reconstruct the filtered data
+    drive_r = np.fft.irfft(drivefft_filt) 
+    resp_r = np.fft.irfft(respfft_filt)
     err_r = np.fft.irfft(errfft_filt)
 
-    # Sort reconstructed data, interpolate and resample
+    ### Sort reconstructed data, interpolate and resample
     mindrive = np.min(drive_r)
     maxdrive = np.max(drive_r)
     grad = np.gradient(drive_r)
@@ -670,23 +842,24 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     resp_r = resp_r[sortinds]
     err_r = err_r[sortinds]
 
-    #plt.plot(drive_r, resp_r, '.')
-    #plt.plot(drive_r, err_r, '.')
-    #plt.show()
-
-    ginds = grad[sortinds] < 0
+    if grad_sign < 0:
+        ginds = grad[sortinds] < 0
+    elif grad_sign > 0:
+        ginds = grad[sortinds] > 0
+    elif grad_sign == 0.0:
+        ginds = np.ones(len(grad[sortinds]), dtype=np.bool)
 
     bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
     drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
     
-    # This part is slow, don't really know the best way to fix that....
+    ### This part is slow, don't really know the best way to fix that....
     respvec = []
     errvec = []
     for bin_loc in drivevec:
-        inds = (drive_r >= bin_loc - 0.5*bin_spacing) * \
-               (drive_r < bin_loc + 0.5*bin_spacing)
-        val = np.mean( resp_r[inds] )
-        err_val = np.mean( err_r[inds] )
+        inds = (drive_r[ginds] >= bin_loc - 0.5*bin_spacing) * \
+               (drive_r[ginds] < bin_loc + 0.5*bin_spacing)
+        val = np.mean( resp_r[ginds][inds] )
+        err_val = np.mean( err_r[ginds][inds] )
         respvec.append(val)
         errvec.append(err_val)
 
@@ -699,30 +872,44 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
     #plt.plot(drivevec, respvec, linewidth=5)
     #plt.show()
 
-    #sortinds = drive_r.argsort()
-    #interpfunc = interp.interp1d(drive_r[sortinds], resp_r[sortinds], \
-    #                             bounds_error=False, fill_value='extrapolate')
-
-    #respvec = interpfunc(drivevec)
     if sg_filter:
         respvec = signal.savgol_filter(respvec, sg_params[0], sg_params[1])
 
-    #plt.errorbar(drivevec, respvec, errvec)
-    #plt.show()
-    #if add_mean:
-    #    drivevec += meandrive
-    #    respvec += meanresp
+
+    if plot:
+        plt.figure()
+        drive_asd = np.abs(drivefft)
+        resp_asd = np.abs(respfft)
+        plt.loglog(freqs, drive_asd / np.max(drive_asd), label='Drive')
+        plt.loglog(freqs, resp_asd / np.max(resp_asd), label='Response')
+        plt.loglog(freqs[np.abs(drivefilt)>0], \
+                   resp_asd[np.abs(drivefilt)>0] / np.max(resp_asd), 
+                   'X', label='Filter', ms=10)
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('ASD [arb.]')
+        plt.legend()
+
+        plt.figure()
+        plt.errorbar(drivevec, respvec,  yerr=errvec, ls='', marker='o', ms=6)
+        plt.xlabel('Drive units')
+        plt.ylabel('Response units')
+
+        plt.show()
+
 
     return drivevec, respvec, errvec
 
 
 
 
-def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
+def rebin(xvec, yvec, errs=[], nbins=500, plot=False, correlated_errs=False):
     '''Slow and derpy function to re-bin based on averaging. Works
        with any value of nbins, but can be slow since it's a for loop.'''
     if len(errs):
         assert len(errs) == len(yvec), 'error vec is not the right length'
+
+    if nbins > 0.25 * len(xvec):
+        nbins = int(0.25 * len(xvec))
 
     lenx = np.max(xvec) - np.min(xvec)
     dx = lenx / nbins
@@ -740,7 +927,10 @@ def rebin(xvec, yvec, errs=[], nbins=500, plot=False):
         if len(errs):
             errs_new[xind] = np.sqrt( np.mean(errs[inds]**2))
         else:
-            errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
+            if correlated_errs:
+                errs_new[xind] = np.std(yvec[inds])
+            else:
+                errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
 
         yvec_new[xind] = np.mean(yvec[inds])
 
@@ -775,7 +965,8 @@ def rebin_mean(a, *args):
        Needs to be applied separately for xvec and yvec'''
     shape = a.shape
     lenShape = len(shape)
-    factor = np.asarray(shape)/np.asarray(args)
+    factor = (np.asarray(shape)/np.asarray(args)).astype(int)
+
     evList = ['a.reshape('] + \
              ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
              [')'] + ['.mean(%d)'%(i+1) for i in range(lenShape)]
@@ -789,7 +980,7 @@ def rebin_std(a, *args):
        seems to have trouble with more than 1D nput arrays.'''
     shape = a.shape
     lenShape = len(shape)
-    factor = np.asarray(shape)/np.asarray(args)
+    factor = (np.asarray(shape)/np.asarray(args)).astype(int)
 
     evList = ['a.reshape('] + \
               ['args[%d],factor[%d],'%(i,i) for i in range(lenShape)] + \
@@ -804,60 +995,231 @@ def rebin_vectorized(a, nbin, model=None):
        If the underlying data should follow a model, this first fits the data
        to said model and rebins the residuals to determine the appropriate
        rebinned error array.'''
-    a_rb = rebin_mean(a, nbin)
+    nbin_int = int(nbin)
+    a_rb = rebin_mean(a, nbin_int)
     if model is not None:
-        popt, pcov = opti.curve_fit(model, np.arange(nbin), a_rb)
-        resid = a - model(np.linspace(0, nbin-1, len(a)), *popt)
-        a_err_rb = rebin_std(resid, nbin)
+        popt, pcov = opti.curve_fit(model, np.arange(nbin_int), a_rb)
+        resid = a - model(np.linspace(0, nbin_int-1, len(a)), *popt)
+        a_err_rb = rebin_std(resid, nbin_int)
     else:
-        a_err_rb = rebin_std(a, nbin)
+        a_err_rb = rebin_std(a, nbin_int)
     return a_rb, a_err_rb
 
 
 
 
-def good_corr(drive, response, fsamp, fdrive):
-    corr = np.zeros(int(fsamp/fdrive))
-    response = np.append(response, np.zeros( int(fsamp/fdrive)-1 ))
-    n_corr = len(drive)
-    for i in range(len(corr)):
-        #Correct for loss of points at end
-        correct_fac = 2.0*n_corr/(n_corr-i) # x2 from empirical tests
-        #correct_fac = 1.0*n_corr/(n_corr-i) # 
-        corr[i] = np.sum(drive*response[i:i+n_corr])*correct_fac
-    return corr
+def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
+    '''Compute the full correlation between drive and response,
+       correctly normalized for use in step-calibration.
 
+       INPUTS:   drive, drive signal as a function of time
+                 response, resposne signal as a function of time
+                 fsamp, sampling frequency
+                 fdrive, predetermined drive frequency
+                 filt, boolean switch for bandpass filtering
+                 band_width, bandwidth in [Hz] of filter
 
-def corr_func(drive, response, fsamp, fdrive, good_pts = [], filt = False, band_width = 1):
-    #gives the correlation over a cycle of drive between drive and response.
+       OUTPUTS:  corr_full, full and correctly normalized correlation'''
 
-    #First subtract of mean of signals to avoid correlating dc
+    ### First subtract of mean of signals to avoid correlating dc
     drive = drive-np.mean(drive)
-    response  = response-np.mean(response)
+    response = response-np.mean(response)
 
-    #bandpass filter around drive frequency if desired.
+    ### bandpass filter around drive frequency if desired.
     if filt:
-        b, a = sp.butter(3, [2.*(fdrive-band_width/2.)/fsamp, 2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
-        drive = sp.filtfilt(b, a, drive)
-        response = sp.filtfilt(b, a, response)
-
-    #Compute the number of points and drive amplitude to normalize correlation
+        b, a = signal.butter(3, [2.*(fdrive-band_width/2.)/fsamp, \
+                             2.*(fdrive+band_width/2.)/fsamp ], btype = 'bandpass')
+        drive = signal.filtfilt(b, a, drive)
+        response = signal.filtfilt(b, a, response)
+    
+    ### Compute the number of points and drive amplitude to normalize correlation
     lentrace = len(drive)
     drive_amp = np.sqrt(2)*np.std(drive)
 
-    #Throw out bad points if desired
-    if len(good_pts):
-        response[-good_pts] = 0.
-        lentrace = np.sum(good_pts)
+    ### Define the correlation vector which will be populated later
+    corr = np.zeros(int(fsamp/fdrive))
 
+    ### Zero-pad the response
+    response = np.append(response, np.zeros(int(fsamp / fdrive) - 1) )
 
-    #corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp**2)
-    corr_full = good_corr(drive, response, fsamp, fdrive)/(lentrace*drive_amp)
-    return corr_full
+    ### Build the correlation
+    for i in range(len(corr)):
+        ### Correct for loss of points at end
+        correct_fac = 2.0*lentrace/(lentrace-i) ### x2 from empirical test
+        corr[i] = np.sum(drive*response[i:i+lentrace])*correct_fac
+
+    return corr * (1.0 / (lentrace * drive_amp))
 
 
 
         
+
+
+def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
+          bandwidth=1000.0, filt_band=[], plot=False, \
+          notch_freqs=[], notch_qs=[], force_2pi_wrap=False, \
+          ncycle_pad=0, detrend=False, detrend_order=1, \
+          tukey=False, tukey_alpha=1e-3):
+    '''Sub-routine to perform a hilbert transformation on a given 
+       signal, filtering it if requested and plotting throughout.
+       Includes a tukey window to remove artifacts at the endpoint
+       of the demodulated phase.'''
+
+    npad = int(ncycle_pad * fsamp / fsig)
+
+    nsamp = len(input_sig)
+    tvec = np.arange(nsamp) * (1.0 / fsamp)
+    freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+
+    fc = float(harmind) * fsig
+
+    if len(filt_band):
+        lower, upper = filt_band
+    else:
+        lower = fc - 0.5 * bandwidth
+        upper = fc + 0.5 * bandwidth
+
+    filt_band_digital = (2.0/fsamp) * np.array([lower, upper])
+
+    # b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
+    sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
+
+    sig = input_sig - np.mean(input_sig)
+
+    if npad:
+        sig_refl = sig[::-1]
+        sig_padded = np.concatenate((sig_refl[-npad:], \
+                                     sig, sig_refl[:npad]))
+    else:
+        sig_padded = np.copy(sig)
+
+    if filt:
+        # sig_filt = signal.filtfilt(b1, a1, sig)
+        sig_filt = signal.sosfiltfilt(sos, sig)
+        # sig_filt_padded = signal.filtfilt(b1, a1, sig_padded)
+        sig_filt_padded = signal.sosfiltfilt(sos, sig_padded)
+
+        if len(notch_freqs):
+            for i, notch_freq in enumerate(notch_freqs):
+                notch_q = notch_qs[i]
+                bn, an = signal.iirnotch(notch_freq, notch_q, fs=fsamp)
+                sig_filt = signal.lfilter(bn, an, sig_filt)
+                sig_filt_padded = signal.lfilter(bn, an, sig_filt_padded)
+
+        hilbert_padded = signal.hilbert(sig_filt_padded)
+
+    else:
+        hilbert_padded = signal.hilbert(sig_padded)
+
+    if npad:
+        hilbert = hilbert_padded[npad:-npad]
+    else:
+        hilbert = np.copy(hilbert_padded)
+
+
+    amp = np.abs(hilbert)
+
+    phase = np.unwrap(np.angle(hilbert)) 
+    phase_mod = phase - 2.0*np.pi*fc*tvec
+
+    # plt.plot( np.gradient(np.unwrap(np.angle(hilbert))) )
+    # plt.show()
+
+    # plt.plot(np.unwrap(np.angle(hilbert)))
+    # plt.plot(2.0*np.pi*fc*tvec)
+
+    # plt.figure()
+    # plt.plot(phase)
+    # inst_freq = np.gradient(phase, tvec[1]-tvec[0]) / (2.0*np.pi)
+    # plt.plot(inst_freq, zorder=1)
+    # plt.axhline(np.mean(inst_freq), lw=3, color='k', ls='--', zorder=2, \
+    #             label='{:0.1f} Hz'.format(np.mean(inst_freq)))
+
+    phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
+    phase_mod_unwrap = np.unwrap(phase_mod)
+
+    if detrend:
+        good_inds = (phase_mod - phase_mod_unwrap) == 0
+        inds = np.arange(len(phase_mod))
+        fit_func = lambda x,a,b: a*x + b
+        try:
+            popt, _ = optimize.curve_fit(fit_func, inds[good_inds], phase_mod[good_inds], \
+                                         p0=[0,0], maxfev=10000)
+        except:
+            popt = [0,0]
+
+        # phase_mod = polynomial(phase_mod[good_inds], order=detrend_order, plot=plot)
+        phase_mod_unwrap -= inds * popt[0] + popt[1]
+
+        if plot:
+            fig, axarr = plt.subplots(2,1,figsize=(8,6))
+            axarr[0].plot(inds, phase_mod, color='k')
+            axarr[0].plot(inds, fit_func(inds, *popt), color='r', lw=2)
+            # axarr[1].plot(inds, phase_mod - (inds*popt[0] + popt[1]), color='k')
+            axarr[1].plot(inds, phase_mod_unwrap, color='k')
+            axarr[1].set_xlabel('Samples')
+            fig.tight_layout()
+            plt.show()
+
+    if force_2pi_wrap:
+        phase_mod = (phase_mod_unwrap + np.pi) % (2.0*np.pi) - np.pi
+    else:
+        phase_mod = np.copy(phase_mod_unwrap)
+
+    # plt.legend()
+    # plt.show()
+    # input()
+
+
+    if tukey:
+        window = signal.tukey(len(phase), alpha=tukey_alpha)
+        phase_mod *= window
+        amp *= window
+
+    phase_mod *= (1.0 / float(harmind))
+
+    if plot:
+        plt.figure()
+        plt.plot(tvec, sig, label='signal')
+        if filt:
+            plt.plot(tvec, sig_filt, label='signal_filt')
+        plt.plot(tvec, amp, label='amplitude')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Signal [sig units]')
+        plt.legend()
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(np.fft.rfft(sig)), \
+                   label='signal')
+        if filt:
+            plt.loglog(freqs, np.abs(np.fft.rfft(sig_filt)), \
+                       label='signal_filt')
+            # plt.axvline(fc, ls='--', lw=3, color='r')
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Signal ASD [Arb]')
+        plt.legend()
+        plt.tight_layout()
+
+        plt.figure()
+        plt.plot(tvec, phase_mod)
+        plt.xlabel('Time [s]')
+        plt.ylabel('Phase Modulation [rad]')
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(np.fft.rfft(phase_mod)))
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Phase ASD [Arb]')
+        plt.tight_layout()
+
+        plt.show()
+        input()
+
+    return amp, phase_mod
+
+
+
 
 
 def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
@@ -912,8 +1274,8 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
 
-
-def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
+def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
+                new_trap=False):
     '''Using output of 4/2/19 COMSOL simulation, return
        the value of the electric field at the trap based
        on the applied voltages on each electrode and the
@@ -926,20 +1288,45 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False):
     else:
         if only_y or only_z:
             Ex = np.zeros(nsamp)
-        else:   
-            Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+        else:
+            if new_trap:
+                Ex = voltages[3] * E_xp(0.0) + voltages[4] * E_xn(0.0)
+            else:   
+                Ex = voltages[3] * E_front(0.0) + voltages[4] * E_back(0.0)
+            # plt.plot(voltages[3], label='3')
+            # plt.plot(voltages[4], label='4')
+            # plt.legend()
+            # plt.show()
 
         if only_x or only_z:
             Ey = np.zeros(nsamp)
         else:
-            Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+            if new_trap:
+                Ey = voltages[5] * E_yp(0.0) + voltages[6] * E_yn(0.0)
+            else:
+                Ey = voltages[5] * E_right(0.0) + voltages[6] * E_left(0.0)
+            # plt.plot(voltages[5], label='5')
+            # plt.plot(voltages[6], label='6')
+            # plt.legend()
+            # plt.show()
 
         if only_y or only_z:
             Ez = np.zeros(nsamp)
         else:
-            Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+            if new_trap:
+                Ez = voltages[1] * E_zp(0.0)   + voltages[2] * E_zn(0.0)
+            else:
+                Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+            # plt.plot(voltages[1], label='1')
+            # plt.plot(voltages[2], label='2')
+            # plt.legend()
+            # plt.show()
 
-        return np.array([Ex, Ey, Ez])    
+        return np.array([Ex, Ey, Ez])   
+
+
+
+
 
 
 
@@ -952,6 +1339,9 @@ def thermal_psd_spec(f, A, f0, g):
     denom = ((w0**2 - w**2)**2 + w**2*g**2)
     return 2 * (A * num / denom) # Extra factor of 2 from single-sided PSD
 
+
+
+
 def damped_osc_amp(f, A, f0, g):
     '''Fitting function for AMPLITUDE of a damped harmonic oscillator
            INPUTS: f [Hz], frequency 
@@ -962,13 +1352,16 @@ def damped_osc_amp(f, A, f0, g):
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * g**2)
+    gamma = 2. * np.pi * g
+    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * gamma**2)
     return A / denom
 
 
+
+
 def damped_osc_phase(f, A, f0, g, phase0 = 0.):
-    '''Fitting function for PHASE of a damped harmonic oscillator. 
-       Includes an arbitrary DC phase to fit over out of phase responses 
+    '''Fitting function for PHASE of a damped harmonic oscillator.
+       Includes an arbitrary DC phase to fit over out of phase responses
            INPUTS: f [Hz], frequency 
                    A, amplitude
                    f0 [Hz], resonant frequency
@@ -977,7 +1370,382 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+    gamma = 2. * np.pi * g
+    # return A * np.arctan2(-w * g, w0**2 - w**2) + phase0
+    return 1.0 * np.arctan2(-w * gamma, w0**2 - w**2) + phase0
+
+
+
+
+def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
+                       sig_asd=False, linearize=False, asd_errs=[], \
+                       gamma_guess=0, freq_guess=0, weight_lowf=False, \
+                       weight_lowf_val=1.0, weight_lowf_thresh=100.0, \
+                       maxfev=100000):
+    '''Routine to fit the above defined damped HO amplitude spectrum
+       to the ASD of some input signal, assumed to have a single
+       resonance etc etc
+           INPUTS: sig, signal to analyze 
+                   fsamp [Hz], sampling frequency of input signal
+                   fit_band [Hz], array-like with upper/lower limits
+                   plot, boolean flag for plotting of fit results
+                   sig_asd, boolean indicating if 'sig' is already an
+                                an amplitude spectral density
+                   linearize, try linearizing the fit
+                   asd_errs, uncertainties to use in fitting
+
+           OUTPUTS: popt, optimal parameters from curve_fit
+                    pcov, covariance matrix from curve_fit'''
+
+    ### Generate the frequencies and ASD values from the given time
+    ### domain signal, or given ASD
+    if not sig_asd:
+        nsamp = len(sig)
+        freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+        asd = np.abs( np.fft.rfft(sig) ) * fft_norm(nsamp, fsamp)
+    else:
+        asd = np.abs(sig)
+        freqs = np.linspace(0, 0.5*fsamp, len(asd))
+
+    ### Generate some initial guesses
+    maxind = np.argmax(asd)
+    if not freq_guess:
+        freq_guess = freqs[maxind]
+    if not gamma_guess:
+        gamma_guess = 2e-3 * freq_guess
+    amp_guess = asd[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+
+    ### Define some indicies for fitting and plotting
+    if len(fit_band):
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+        plot_inds = (freqs > 0.5 * fit_band[0]) * (freqs < 2.0 * fit_band[1])
+    else:
+        inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
+        plot_inds = (freqs > 0.05 * freq_guess) * (freqs < 20.0 * freq_guess)
+
+    ### Define the fitting function to use. Keeping this modular in case
+    ### we ever want to make more changes/linearization attempts
+    fit_x = freqs[inds]
+    if linearize:
+        fit_func = lambda f,A,f0,g: np.log(damped_osc_amp(f,A,f0,g))
+        fit_y = np.log(asd[inds])
+        if not len(asd_errs):
+            errs = np.ones(len(fit_x))
+            absolute_sigma = False
+        else:
+            errs = asd_errs[inds] / asd[inds]
+            absolute_sigma = True
+    else:
+        fit_func = lambda f,A,f0,g: damped_osc_amp(f,A,f0,g)
+        fit_y = asd[inds]
+        if not len(asd_errs):
+            errs = np.ones(len(fit_x))
+            absolute_sigma = False
+        else:
+            errs = asd_errs[inds]
+            absolute_sigma = True
+
+    if weight_lowf:
+        weight_inds = fit_x < weight_lowf_thresh
+        errs[weight_inds] *= weight_lowf_val
+
+    ### Fit the data
+    p0 = [amp_guess, freq_guess, gamma_guess]
+    try:
+        popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
+                                        p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
+    except:
+        print('BAD FIT')
+        popt = p0
+        pcov = np.zeros( (len(p0), len(p0)) )
+
+    ### We know the parameters should be positive so enforce that here since
+    ### the fit occasionally finds negative values (sign degeneracy in the 
+    ### damped HO response function)
+    popt = np.abs(popt)
+
+    ### Plot!
+    if plot:
+        fit_freqs = np.linspace((freqs[inds])[0], (freqs[inds])[-1], \
+                                10*len(freqs[inds])) 
+        init_mag = damped_osc_amp(fit_freqs, *p0)
+        fit_mag = damped_osc_amp(fit_freqs, *popt)
+
+        plt.loglog(freqs[plot_inds], asd[plot_inds])
+        plt.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
+        plt.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
+        plt.xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
+        plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
+        plt.legend()
+        plt.show()
+        # input()
+
+    return popt, pcov
+
+
+
+
+
+
+def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
+                   lower_delta_fac=0.0, exclude_df=10, band=[], \
+                   plot=False):
+    '''Function to scan the ASD associated to an input FFT, looking for 
+       values above the baseline of the ASD, and then attempting to fit
+       a gaussian to the region around the above-baseline feature. It 
+       should avoid fitting the same feature multiple times.
+
+            freqs : the array of frequencies associated to the input
+                FFT. Assumed to be in Hz
+
+            fft : the FFT in which we are trying to find peaks
+
+            window : the width (in frequency bins) of the region where
+                the fit is performed
+
+            delta_fac : the factor above the baseline required to 
+                trigger a peak fitting
+
+            lower_delta_fac : a secondary factor to help avoid fitting
+                spuriously large frequency components that aren't peaks.
+                If set to the same value as delta_fac, it basically 
+                does nothing
+
+            exclude_df : the number of frequency bins to exclude 
+                redundant peak finding around a feature that was already
+                found and fit with a gaussian
+
+            band : the frequenncy band (if any) in which to limit the search
+       '''
+
+    if not lower_delta_fac:
+        lower_delta_fac = delta_fac
+
+    ### Determin the frequency spacing
+    df = freqs[1] - freqs[0]
+
+    ### Compute the ASD
+    asd = np.abs(fft)
+
+    ### Define some arrays for later use
+    baseline = []
+    all_inds = np.arange(len(freqs))
+
+    ### Define the fitting function, which in this case is a gaussian
+    ### without a constant
+    fit_fun = lambda x,a,b,c: gauss(x, a, b, c, 0)
+
+    ### Loop over all (frequency, ASD) pairs, looking for peaks
+    peaks = []
+    for ind, (freq, val) in enumerate(zip(freqs, asd)):
+
+        ### See if the current value is above the baseline
+        if ind != 0:
+            cond1 = val > lower_delta_fac * np.mean(baseline)
+            cond2 = val > delta_fac * np.mean(baseline)
+        else:
+            baseline.append(val)
+            continue
+
+        ### Update the baseline, appending a value if it hasn't been
+        ### fully built yet, skipping spuriously large values (based on
+        ### the lower_delta_fac threshold), or updating an old value of
+        ### baseline to properly reflect the local baseline
+        if ind < window:
+            baseline.append(val)
+        elif cond1 and not cond2:
+            continue
+        else:
+            baseline[int(ind%window)] = val
+
+        ### If the current frequency is too close to the most recently found
+        ### peak, then skip it and move on
+        if len(peaks):
+            if np.abs(freq - peaks[-1][0]) < exclude_df*df:
+                continue
+
+        ### If the current ASD value is sufficiently above the baseline,
+        ### fit the region around the current value to a gaussian
+        if cond2:
+            ### Define a mask for local fitting
+            mask = (all_inds > ind - window/2) * (all_inds < ind + window/2)
+
+            ### Try the fit
+            p0 = [val, freq, df]
+            try:
+                popt, pcov = optimize.curve_fit(fit_fun, freqs[mask], \
+                                                asd[mask], p0=p0, maxfev=5000)
+            except:
+                popt = p0
+
+            ### Append either the fit result, or our best guess if the fit failed
+            peaks.append( [popt[1], popt[0]] )
+
+    if plot:
+        plot_pdet([peaks, []], freqs, asd, loglog=True)
+
+    return np.array(peaks)
+
+
+
+
+
+
+def track_spectral_feature(peaks_list, init_features=[], first_fft=(), \
+                           allowed_jumps=0.05):
+    '''Function to track a spectral feature over successive integrations,
+       making use of paralleization.
+
+            peaks_list : the list of successive FFT peaks (found by the
+                function find_fft_peaks()) in which we're trying to 
+                track a feature
+
+            init_features : list of initial feature locations used to seed
+                the tracking. if empty, it will plot the first ASD and 
+                ask for user input
+
+            allowed_jump : fraction of feature fequency which it's allowed
+                to jump between successive integrations
+       '''
+
+    if not len(init_features) and not len(first_fft):
+        raise ValueError('No input features, and no first_fft to identify features')
+
+    ### If initial features are not given, plot the first ASD and request user
+    ### input to seed the feature tracking
+    if not len(init_features):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_title('Identify Frequencies of Interest')
+        ax.loglog(first_fft[0], np.abs(first_fft[1]))
+        fig.tight_layout()
+        plt.show()
+
+        init_str = input('Enter frequencies separated by comma: ')
+        init_features = list(map(float, init_str.split(',')))
+
+    if not iterable(allowed_jumps):
+        allowed_jumps = [allowed_jumps for i in range(len(init_features))]
+
+
+    ### Loop over each of the features we're interested in and track it across
+    ### the successive integrations
+    feature_lists = []
+    for i, init_feature in enumerate(init_features):
+        clist = []
+        feature = [init_feature, 0.0]
+
+        ### Loop over all the integrations
+        for j, peaks in enumerate(peaks_list):
+
+            try:
+                ### Compute the distances between the current feature location
+                ### and the frequency of all the peaks found for a particular
+                ### integration
+                distances = np.abs(peaks[:,0] - feature[0])
+
+                ### Sort the distances and find which are within the allowed jump
+                sorter = np.argsort(distances)
+                close_enough = distances[sorter] < allowed_jumps[i] * feature[0]
+
+                ### Sort the peaks and sub-select the ones that are close enough
+                peaks_sorted = peaks[sorter,:]
+                peaks_valid = peaks_sorted[close_enough,:]
+
+                ### Try to find the biggest peak within those that are close enough.
+                ### Sometimes this fails if the peak gets anomalously small or lost
+                ### in the noise, since peaks_valid might be an empty array                
+                feature_ind = np.argmax(peaks_valid[:3,1])
+                feature = peaks_valid[feature_ind]
+
+                clist.append(feature)
+
+            except:
+                clist.append([0.0, 0.0])
+
+        ### Add the result from tracking this specific feature
+        feature_lists.append(clist)
+
+    return np.array(feature_lists)
+
+
+
+
+
+def refine_pdet(peaks, xdat, ydat, half_window=5, sort=False):
+    '''Function to refine the output from any of the many peakdetection
+       algorithms in the 'peakdetect' library often used. Sometimes,
+       result is off by a bin or two for some reason.'''
+
+    pospeaks = peaks[0]
+    negpeaks = peaks[1]
+
+    new_pospeaks = []
+    new_negpeaks = []
+
+    for pospeak in pospeaks:
+        xind = np.argmin(np.abs(xdat - pospeak[0]))
+        inds = np.arange(len(xdat))
+
+        mask = (inds > xind - half_window) * (inds < xind + half_window)
+        maxind = np.argmax(ydat*mask)
+
+        new_pospeaks.append([xdat[maxind], ydat[maxind]])
+
+    for negpeak in negpeaks:
+        xind = np.argmin(np.abs(xdat - negpeak[0]))
+        inds = np.arange(len(xdat))
+
+        mask = (inds > xind - half_window) * (inds < xind + half_window)
+        minind = np.argmax((1.0/ydat)*mask)
+
+        new_negpeaks.append([xdat[minind], ydat[minind]])
+
+    if sort:
+        try:
+            new_pospeaks = sorted(new_pospeaks, key = lambda x: x[1])
+        except:
+            new_pospeaks = []
+
+        try:
+            new_negpeaks = sorted(new_negpeaks, key = lambda x: x[1])
+        except:
+            new_negpeaks = []
+
+    return [new_pospeaks, new_negpeaks]
+
+
+
+
+
+
+def plot_pdet(peaks, xdat, ydat, loglog=False, show=True):
+    '''Function to plot the output from any of the many peakdetection
+       algorithms in the 'peakdetect' library often used. Useful for 
+       figuring out exactly what algorithm parameters are most robust
+       for a particular dataset.'''
+
+    fig, ax = plt.subplots(1,1)
+    if loglog:
+        ax.loglog(xdat, ydat, label='data', zorder=1)
+    else:
+        ax.plot(xdat, ydat, label='data', zorder=1)
+
+    pospeaks = peaks[0]
+    negpeaks = peaks[1]
+
+    for peak in pospeaks:
+        ax.scatter([peak[0]], [peak[1]], zorder=2, \
+                   color='r', marker='X', s=30)
+
+    for peak in negpeaks:
+        ax.scatter([peak[0]], [peak[1]], zorder=2, \
+                   color='k', marker='X', s=30)
+
+    if show:
+        plt.show()
+
+
 
 
 

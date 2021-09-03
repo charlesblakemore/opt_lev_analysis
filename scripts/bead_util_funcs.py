@@ -242,7 +242,9 @@ def find_all_fnames(dirlist, ext='.h5', sort=True, sort_time=False, \
     if was_list:
         return files, lengths
     else:
-        if add_folders:
+        if add_folders and folders:
+
+            folders.pop(0)
             return files, 0, folders
         
         else:

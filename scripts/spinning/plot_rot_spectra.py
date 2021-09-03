@@ -40,46 +40,44 @@ files = ['/data/old_trap/20191204/bead1/spinning/change_pressure/xy/turbombar_po
 files = ['/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191213/test_pm/turbombar_powfb_xyzcool_test_sig_50kHz_300Hz_pm_in_25kHz_dds_out_1dg_10down_samp_num_0.h5']
 
 directory = '/data/old_trap/20191204/bead1/tests/dg/no_dg/'
-directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191210/dg/pos_0_0025_amp/'
-directory = '/data/old_trap/20191204/bead1/spinning/change_pressure/xy/'
-directory = '/data/old_trap/20191204/bead1/spinning/low_f_sidebands/25kHz_8Vpp_to_2Vpp_1/'
-directory = '/data/old_trap/20191105/bead4/phase_mod/change_press/change_press_2/'
-directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191211/dg_xz/pos_0_005amp_base_press/' 
-directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191216/change_dg/change_dg_0000/'
-directory = '/data/old_trap/20191220/phi_fb_test/'
-directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191218/test_pm/'
-#directory = '/data/old_trap/20191223/bead1/spinning/efield_pm_test/'
-#directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191216/tests/srs_filter/'
-#directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/20191216/change_dg/change_dg_0005/'
-directory = '/data/old_trap/20191204/bead1/spinning/deriv_feedback/neg_05amp_dg/'
-#directory = '/data/old_trap/20191105/bead4/phase_mod/deriv_feedback/deriv_feedback_1/'
-#directory = '/data/old_trap/20191223/bead1/spinning/transient_behavior/8amp_dg/'
-directory = '/data/old_trap/20191223/bead1/spinning/tests/deriv_fb_50_down_samp/'
-##directory = '/data/old_trap/20191223/bead1/spinning/deriv_feedback/change_dg_0_to_0_15/change_dg_0001/'
-##directory = '/data/old_trap/20191223/bead1/spinning/tests/test_pm_sig/'
-##directory = '/data/old_trap/20191223/bead1/spinning/tests/digitize_inst_freq' 
-##directory = '/data/old_trap/20191223/bead1/spinning/tests/slowly_varying_crossp_amp/'
-##directory = '/data/old_trap/20191223/bead1/spinning/tests/test_amp_mod/'
-#directory = '/data/old_trap/20191223/bead1/spinning/tests/noise_inject/'
-#directory = '/data/old_trap/20200130/bead1/spinning/long_int/4Vpp_base_press/'
-##directory = '/data/old_trap/20200130/bead1/spinning/transient/change_dc_offset_1/'
-#directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset/base_press/'
-#
-#directory = '/data/old_trap/20200130/bead1/spinning/test/square_drive/'
-##directory = '/data/old_trap/20200130/bead1/spinning/series_2/base_press/long_int_0_dg/'
-#directory = '/data/old_trap/20200130/bead1/spinning/test/check_rot/'
-#directory = '/data/old_trap/20190905/bead1/spinning/ringdown/50kHz_start_1/'
-#directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_1/'
-#directory = '/data/old_trap/20200130/bead1/waveform_gen_test/'
-#directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/change_phi_offset_0000/'
-#directory = '/data/old_trap/20200130/bead1/spinning/test/change_phi_offset_300_dg/change_phi_offset/'
-#directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_10_to_50_dg/change_phi_offset/change_phi_offset_0001/'
-#directory = '/data/old_trap/20200130/bead1/spinning/test/check_rot/'
-#directory = '/data/old_trap/20200304/gbead3/tests/check_rot/'
-#directory = '/data/old_trap/20200307/gbead1/spinning/junk/'
-directory = '/data/old_trap/20200312/gbead1/crossp_check/'
 directory = '/data/old_trap/20200312/TIA_change/'
+directory = '/data/old_trap/20200322/gbead1/spinning/ringdown/terminal_velocity_check_1/'
+directory = '/data/old_trap/20200322/gbead1/spinning/wobble/25kHz_xz_1/wobble_0000/'
+directory = '/data/old_trap/20200322/gbead1/spinning/wobble/wobble_init/wobble_0000/'
+directory = '/data/old_trap/20200322/gbead1/spinning/wobble/faster_rot/wobble_0000/'
+directory = '/data/old_trap/20200307/gbead1/spinning/wobble/wobble_0/wobble_0000/'
+directory = '/data/old_trap/20200322/gbead1/spinning/ringdown/terminal_velocity_check_1/'
+directory = '/data/old_trap/20200322/gbead1/spinning/ringdown/110kHz_2/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/wobble/
+#directory = '/data/old_trap/20200330/gbead3/spinning/wobble/110kHz_xy_1/wobble_0000/'
+directory = '/data/old_trap/20200330/gbead3/spinning/pramp/pramp_0/50kHz_3Vpp_xy_1/'
+#directory = '/data/old_trap/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp_1/'
 #directory = '/data/old_trap/20190626/bead1/spinning/wobble/wobble_many/wobble_0000/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/pramp/pramp_0/50kHz_5Vpp_xy_1/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/efield_mod/test/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/ringdown/high_press/high_press_3/50kHz_8Vpp_xy_ringdown_6/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/ringdown/high_press/high_press_6/110kHz_8Vpp_xy_ringdown_2/'
+#directory = '/data/old_trap/20181204/bead1/high_speed_digitizer/pramp/50k_zhat_1vpp_0/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/test/check_rot_3/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/ringdown/high_press_1/50kHz_8Vpp_0.02torr_ringdown_1/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/ringdown/high_press/high_press_5/110kHz_8Vpp_xy_long_int_1/'
+#directory = '/data/old_trap/20200330/gbead3/spinning/long_int/high_press/50kHz_4Vpp_2/'
+directory = '/data/old_trap/20200130/bead1/spinning/series_5/change_phi_offset_0_3_to_0_6_dg_1/change_phi_offset/change_phi_offset_0000/'
+directory = '/data/old_trap/20200601/bead2/spinning/libration_cooling/long_int/long_int_3_basep_light_off/'
+directory = '/data/old_trap/20200601/bead2/spinning/libration_cooling/change_phi_offset/change_phi_offset_1/change_phi_0005/'
+#directory = '/data/old_trap/20200601/bead2/spinning/libration_cooling/vary_E_amp/0_3dg/'
+#directory = '/data/old_trap/20200601/bead2/spinning/libration_cooling/long_int/tests/'
+directory = '/data/old_trap/20200924/bead1/spinning/dds_8Vpp_test/'
+
+
+skip = False
+mask_on = True
+file_range = True
+start = 0#380
+end = 10#382
+
+skip_files = 10
+NFFT_fac = 10
 
 labels = ['Positive','Negative','Zero']
 labels = ['']
@@ -90,13 +88,13 @@ if use_dir:
 
 
 
-files = files[-1:]
+files = files[:]
 
 drive_ind = 1
 data_ind = 0
 hilbert_ind = data_ind
 
-freq_spinning = 25.e3
+freq_spinning = 50.e3
 wind_width = 5320.
 bandwidth = 200 
 libration_freq =  350.
@@ -104,6 +102,9 @@ libration_freq =  350.
 time_low = 4.02
 time_high = 4.15
 
+
+spin_bw = 150000e3
+freq = 50e3
 #libration_freq = 269
 #bandwidth = 80
 
@@ -533,7 +534,7 @@ def plot_phi_fb_out(filenames):
         plt.show()
         gc.collect()
 
-def plot_many_spectra(filenames, lib_freq, bw, pressure_ramp=False, skip=False, mask_on=False):
+def plot_many_spectra_lib(filenames, lib_freq, bw, pressure_ramp=False, skip=False, mask_on=False):
     colors = bu.get_color_map(len(filenames), 'inferno')
     
     pressures = np.zeros((len(files), 3))
@@ -556,7 +557,7 @@ def plot_many_spectra(filenames, lib_freq, bw, pressure_ramp=False, skip=False, 
     fig2, ax2 = plt.subplots()
     for i, f in enumerate(filenames):
         if skip:
-            if i%100 or i ==0:
+            if i%10 or i ==0:
                 continue
         
         obj = hsDat(f)
@@ -617,6 +618,88 @@ def plot_many_spectra(filenames, lib_freq, bw, pressure_ramp=False, skip=False, 
         ax2.set_xlabel('Frequency [Hz]')
         ax2.set_ylabel(r'PSD of $\phi$ [$rad^{2}$/Hz]')
     plt.show()
+
+def plot_many_spectra(filenames, freq, bw, pressure_ramp=False, skip=False, mask_on=False):
+
+    if file_range:
+        #if end >= len(filenames): 
+        #    print('bad end')
+        #    end = len(filenames)-1
+
+        filenames = filenames[start:end]
+
+    colors = bu.get_color_map(len(filenames), 'inferno')
+    
+    
+
+    fig1, ax1 = plt.subplots(2,1, sharex=False)
+    for i, f in enumerate(filenames):
+        if skip:
+            if i%skip_files or i == 0:
+                continue
+            
+        obj = hsDat(f)
+                
+        print(f)
+        
+        
+
+        Ns = obj.attribs['nsamp']
+        Fs = obj.attribs['fsamp']
+        tarr = np.arange(Ns)/Fs
+        freqs = np.fft.rfftfreq(Ns, 1./Fs)
+       
+        #plt.plot(tarr[tarr < 10], obj.dat[:,1][tarr < 10])
+        #plt.show()
+        print('pressures', obj.attribs['pressures'])
+        print(Ns, Fs)
+        rot_sig = obj.dat[:,data_ind]
+        drive_sig = obj.dat[:,drive_ind]
+
+        filt_sig = bp_filt(rot_sig, 12e3, Ns, Fs, 2000)
+        #filt_sig = rot_sig
+        fft = np.fft.rfft(filt_sig)
+
+
+        z =  signal.hilbert(filt_sig)
+        phase = np.unwrap(np.angle(z))
+
+        int_freq = np.gradient(phase)*(1./(2*np.pi)) *Fs
+        #plt.plot(tarr, int_freq)
+        #plt.show()
+        #plt.loglog(freqs, np.abs(fft))
+
+        #plt.show()
+        psd, freqs_ = mlab.psd(rot_sig, NFFT=len(rot_sig)/NFFT_fac, Fs=Fs, window = np.hanning(len(rot_sig)/NFFT_fac))
+
+        psd_drive, freqs_ = mlab.psd(drive_sig, NFFT=len(drive_sig)/NFFT_fac, Fs=Fs, window = np.hanning(len(drive_sig)/NFFT_fac))
+
+        freqs = freqs_
+        if mask_on:
+            mask = (freqs_ > freq-(bw/2)) & (freqs_ < freq+(bw/2))
+            mask_drive = (freqs > 0.5*freq-(bw/2)) & (freqs < freq*0.5+(bw/2))
+            ax1[0].semilogy(freqs_[mask]/1000, psd[mask], color=colors[i], label='cross polarized light')
+            ax1[1].semilogy(freqs_[mask_drive]/1000, psd_drive[mask_drive], color=colors[i], label='drive')
+            #ax1[0].loglog(freqs[mask], psd[mask], color=colors[i], label='cross polarized light')
+            #ax1[1].loglog(freqs[mask_drive], psd_drive[mask_drive], color=colors[i], label='drive')
+        else:
+            ax1[0].loglog(freqs_/1000, np.sqrt(psd), color=colors[i], label='cross polarized light')
+            ax1[1].loglog(freqs_/1000, np.sqrt(psd_drive), color=colors[i], label='drive')
+            #ax1[0].set_xlabel('Frequency [Hz]')
+        ax1[0].set_ylabel(r'PSD [arb.]')
+        ax1[1].set_ylabel(r'PSD [arb.]')
+        ax1[1].set_xlabel('Frequency [kHz]')
+    ax1[0].set_title('Cross polarized light')
+    ax1[1].set_title('Drive')
+    fig1.tight_layout()
+    plt.show()
+
+    psd, freqs_ = mlab.psd(signal.detrend(phase), NFFT=len(phase)/NFFT_fac, Fs=Fs, window = np.hanning(len(phase)/NFFT_fac))
+
+    plt.loglog(freqs_, np.sqrt(psd))
+    
+    plt.show()
+
 
 
 #for i, f in enumerate(files):
@@ -711,7 +794,7 @@ def plot_drive(files):
     plt.show()
 
 #plot_drive(files)
-
+#plot_many_spectra(files[:], 2*freq, spin_bw, skip=skip, mask_on=mask_on)
 if plot_many_phi_fft:
     plot_many_phase_fft(files,False,False,False)
 
@@ -818,7 +901,12 @@ for i in range(len(files)):
                     plt.plot(obj.dat[:,data_ind])
                     plt.show()
                 sig = obj.dat[:,data_ind]
+                drive_sig = obj.dat[:,drive_ind]
+                #sig = sig[t >10]
+                #drive_sig = drive_sig[t > 10]
+                #Ns = len(sig)
 
+                freqs = np.fft.rfftfreq(Ns, 1./Fs)
                 if filt:
                     sig = bp_filt(sig,2*freq_spinning, Ns, Fs, bandwidth) 
                 
@@ -827,7 +915,7 @@ for i in range(len(files)):
                 plt.plot(sig)
                 plt.show()
                 fft = np.fft.rfft(sig)
-		drive_fft = np.fft.rfft(obj.dat[:,drive_ind])
+		drive_fft = np.fft.rfft(drive_sig)
 		
                 
 		plt.loglog(freqs,np.abs(fft), label='$P_{\perp}$')
@@ -845,10 +933,10 @@ for i in range(len(files)):
         if hilbert:
             tarr = np.arange(0, Ns/Fs, 1/Fs)
 
-            plt.plot(tarr, obj.dat[:,drive_ind])
-            plt.show()
+            #plt.plot(tarr, obj.dat[:,drive_ind])
+            #plt.show()
             
-            sig = obj.dat[:,hilbert_ind]
+            #sig = obj.dat[:,hilbert_ind]
 
             if filt: 
                sig = bp_filt(sig, 2*freq_spinning, Ns, Fs, bandwidth)
@@ -857,6 +945,8 @@ for i in range(len(files)):
             amp = np.abs(z)
             phase = signal.detrend(np.unwrap(np.angle(z)))
             
+            #phase = bp_filt(phase, 120, Ns, Fs, 200)
+
             window = np.hanning(Ns)
 
             #phase *= window

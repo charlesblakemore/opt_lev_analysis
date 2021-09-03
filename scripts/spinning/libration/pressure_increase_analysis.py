@@ -4,9 +4,11 @@ from hs_digitizer import *
 import glob
 import scipy.signal as ss
 from scipy.optimize import curve_fit
+from sideband_analysis_amp_hilbert import find_efield_amp
+from amp_ramp_3 import bp_filt
 import re, sys
 
-save = True 
+save = True
 
 #path = "/data/20181204/bead1/high_speed_digitizer/pramp/50k_zhat_8vpp_3"
 
@@ -20,6 +22,10 @@ save = True
 #		'/daq2/20190626/bead1/spinning/pramp/N2/50kHz_4Vpp_3']	
 path_list = ['/data/old_trap/20191017/bead1/spinning/pramp/He/50kHz_4Vpp_1/']#,\
 	     #'/daq2/20190905/bead1/spinning/pramp/He/50kHz_4Vpp_5']
+path_list = ['/data/old_trap/20200330/gbead3/spinning/pramp_2/25kHz_3Vpp_xy_1/',\
+             ]#'/data/old_trap/20200330/gbead3/spinning/pramp/50kHz_4Vpp_xy_1/',\
+             #'/data/old_trap/20200330/gbead3/spinning/pramp/50kHz_6Vpp_xy_1/',\
+             #'/data/old_trap/20200330/gbead3/spinning/pramp/50kHz_8Vpp_xy_1/']
 drive_ax = 1
 data_ax = 0
 
@@ -28,8 +34,10 @@ data_ax = 0
 #out_f = "/home/dmartin/analyzedData/20190417/N2/N2_3vpp_0"
 #out_f = "/home/dmartin/analyzedData/20190514/Xe_4Vpp_50kHz_1"
 #out_f = "/home/dmartin/analyzedData/20190514/pramp/He/50kHz_4Vpp_3"
-out_f = "/home/dmartin/Desktop/analyzedData/20191017/spinning/pramp/He/50kHz_4Vpp_1/"
+out_f = "/home/dmartin/Desktop/analyzedData/20200330/gbead3/spinning/pramp_2/"
 
+
+spinning_freq = 25e3
 plot_dat = False 
  
 def line(x, m, b):
@@ -45,12 +53,11 @@ for i, path in enumerate(path_list):
     
     #files = files[0:500]
     
-    fi_init = 25.e3
     init_file = 0
     final_file = len(files)
     n_file = final_file-init_file
     
-    bw = 5.
+    bw = 10
     obj0 = hsDat(files[init_file])
     t0 = obj0.attribs['time']
     Ns = obj0.attribs['nsamp']
@@ -65,7 +72,7 @@ for i, path in enumerate(path_list):
     dphases = np.zeros(n_file)
     pressures = np.zeros((n_file, 3))
     
-    fc = 2.*fi_init
+    fc = 2.*spinning_freq
     bfreq = np.abs(freqs-fc)>bw/2.
     bfreq2 = np.abs(freqs-fc/2.)>bw/2.
     
@@ -76,10 +83,22 @@ for i, path in enumerate(path_list):
         try:
         
             obj = hsDat(f)
-            fft = np.fft.rfft(obj.dat[:, data_ax])
-            fft2 = np.fft.rfft(obj.dat[:, drive_ax])
-            fft[bfreq] = 0.
-            fft2[bfreq2] = 0.
+           
+            Ns = obj.attribs['nsamp']
+            Fs = obj.attribs['fsamp']
+            
+            efield_arr = find_efield_amp(obj, spinning_freq)
+
+            filt_crossp = bp_filt(obj.dat[:, data_ax], 2*spinning_freq, Ns, Fs, bw)
+            filt_drive = bp_filt(obj.dat[:,drive_ax], spinning_freq, Ns, Fs, bw )
+            
+            fft = np.fft.rfft(filt_crossp)
+            fft2 = np.fft.rfft(filt_drive)
+
+            #fft = np.fft.rfft(obj.dat[:, data_ax])
+            #fft2 = np.fft.rfft(obj.dat[:, drive_ax])
+            #fft[bfreq] = 0.
+            #fft2[bfreq2] = 0.
             if plot_dat:
             	plt.loglog(freqs, np.abs(fft))
             	plt.loglog(freqs, np.abs(fft2))
@@ -104,9 +123,12 @@ for i, path in enumerate(path_list):
     phi[phi>np.pi]-=2.*np.pi
     phi[phi<-np.pi]+=2.*np.pi
     
-    meas_name = path.split('/')[-1]	
+    meas_name = path.split('/')[-2]
+    save_name = out_f + meas_name
+    print('save name', save_name)
     if save:
-        np.save(out_f +  meas_name + '_phi.npy', phi)
-        np.save(out_f +  meas_name + "_pressures.npy", pressures)
-        np.save(out_f +  meas_name + "_time.npy", times)
-        np.save(out_f +  meas_name + "_corr.npy", corr)	
+        np.save(save_name + '_efield.npy', efield_arr)
+        np.save(save_name + '_phi.npy', phi)
+        np.save(save_name + "_pressures.npy", pressures)
+        np.save(save_name + "_time.npy", times)
+        np.save(save_name + "_corr.npy", corr)	

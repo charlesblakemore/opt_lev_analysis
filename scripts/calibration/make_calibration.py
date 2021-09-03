@@ -78,9 +78,10 @@ import configuration as config
 
 
 step_cal_dir = ['/daq2/20190408/bead1/discharge/fine']
-step_cal_dir = ['/data/old_trap/20200304/gbead3/discharge/fine']
-step_cal_dir = ['/data/old_trap/20200307/gbead1/discharge_2/recharge']
-
+#step_cal_dir = ['/data/old_trap/20200304/gbead3/discharge/fine']
+#step_cal_dir = ['/data/old_trap/20200307/gbead1/discharge_2/recharge']
+step_cal_dir = ['/data/old_trap/20200322/gbead1/discharge/coarse_2']
+#step_cal_dir = ['/data/old_trap/20210429/bead1/discharge/fine_after_recharge']
 recharge = False
 if type(step_cal_dir) == str:
     step_date = step_cal_dir.split('/')[2]
@@ -102,7 +103,7 @@ dec_fac = 2
 fake_step_cal = False
 vpn = 7.264e16
 
-#tf_cal_dir = '/data/20180625/bead1/tf_20180625/'
+#tf_cal_dir = '/data/old_trap/20180625/bead1/tf_20180625/'
 #tf_cal_dir = '/data/20180704/bead1/tf_20180704/'
 #tf_cal_dir = '/data/20180808/bead4/tf_20180809/'
 #tf_cal_dir = '/data/20180827/bead2/500e_data/tf_20180829/'
@@ -112,8 +113,8 @@ vpn = 7.264e16
 
 #tf_cal_dir = '/data/20181119/bead1/tf_20181119/'
 
-tf_cal_dir = '/daq2/20190408/bead1/tf_20190408/'
-tf_cal_dir = '/data/old_trap/gbead1/tf_20200310/'
+tf_cal_dir = '/data/old_trap/20190408/bead1/tf_20190408/'
+#tf_cal_dir = '/data/old_trap/gbead1/tf_20200310/'
 
 tf_date = tf_cal_dir.split('/')[2]
 

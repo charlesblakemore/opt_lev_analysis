@@ -108,7 +108,6 @@ class DataFile:
         # First get DC values from its own .h5 attribute
         self.electrode_settings["dc_settings"] = \
             attribs["electrode_dc_vals"][:configuration.num_electrodes]
-        
         # Copy "electrode_settings" attribute into numpy array so it can be 
         # indexed by a list of indicies coming from 
         # configuration.eloectrode_settings 
@@ -156,7 +155,7 @@ class DataFile:
         self.date = fname.split('/')[2]
         #print fname
 
-        self.time = np.int64(attribs["Time"])   # unix epoch time in ns (time.time() * 10**9)
+        self.time = np.int64(attribs["time"])   # unix epoch time in ns (time.time() * 10**9)
 
         if self.time == 0:
             #print 'Bad time...', self.time
@@ -164,7 +163,7 @@ class DataFile:
         else:
             self.FIX_TIME = False
 
-        self.fsamp = attribs["Fsamp"]
+        self.fsamp = attribs["fsamp"]
         self.nsamp = len(dat[:,0])
 
         self.daqmx_time = np.linspace(0,self.nsamp-1,self.nsamp) * (1.0/self.fsamp) \

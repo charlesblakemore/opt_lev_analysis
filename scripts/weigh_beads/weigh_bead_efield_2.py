@@ -174,6 +174,9 @@ file_dict = {'20200307': (True, arr)}
 #file_dict = {'20191204': (True, arr)}
 # Noise data
 #chopper = True
+
+arr = []
+arr.append('/data/old_trap/20210530/bead1/weigh/4Vpp_
 noise = False
 n_noise = 7
 

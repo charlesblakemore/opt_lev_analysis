@@ -15,10 +15,13 @@ plt.rcParams.update({'font.size': 16})
 
 #dir1 = '/data/20190109/bead1/'
 #dir1 = '/daq2/20190514/bead1/spinning/junk/derptest/'
-dir1 = '/data/old_trap/20200313/gbead2/fb_adj_4/'
+dir1 = '/data/old_trap/20200330/gbead3/res_freq_vs_height/coarse_3/'
+dir1 = '/data/old_trap/20210429/bead1/neutrality/wo_height_fb_100V_41_Hz_10V_bias_x'
+
+dir1 = '/data/old_trap/20210521/bead1/neutrality/w_height_fb_100V_41_Hz_0_to_25V_bias_sweep_y_slow_dds_100kHz_spinning_xz/'
 maxfiles = 10
 
-use_dir = True 
+use_dir = False
 filename_labels = True #False
 
 #allfiles = ['/daq2/20190827/bead3/1_5mbar_zfb_lower_1.h5',\
@@ -172,13 +175,79 @@ allfiles = [
             '/data/old_trap/20200313/gbead1/1_5mbar_powfb_yzcool_adj_1.h5',\
             '/data/old_trap/20200313/gbead1/1_5mbar_powfb_xyzcool.h5'
             ]
-allfiles = ['/data/old_trap/20200313/gbead1/power_jumping/1_5mbar_powfb_xyzcool.h5']
+allfiles = ['/data/old_trap/20200330/gbead1/1_5mbar_powfb_init.h5',\
+            '/data/old_trap/20200330/gbead1/1_5mbar_powfb_zcool_init.h5',\
+            '/data/old_trap/20200330/gbead1/zfb_adj/pg/1_5mbar_powfb_zcool_7.h5',\
+            '/data/old_trap/20200330/gbead1/zfb_adj/ig/1_5mbar_powfb_zcool_0.h5',\
+            '/data/old_trap/20200330/gbead1/zfb_adj/ig/1_5mbar_powfb_zcool_1.h5',\
+            '/data/old_trap/20200330/gbead1/zfb_adj/ig/1_5mbar_powfb_zcool_2.h5']
 
-allfiles = ['/data/old_trap/20200313/gbead2/1_5mbar_powfb_zcool_low10.h5',\
-            '/data/old_trap/20200313/gbead2/1_5mbar_powfb_zcool_low11.h5',\
-            '/data/old_trap/20200313/gbead2/1_5mbar_powfb_zcool_low12.h5'
+allfiles=['/data/old_trap/20200601/bead2/fb/1_5mbar_powfb_zcool_dg_pg_ig_1.h5',\
+          '/data/old_trap/20200601/bead2/z_set/1_5mbar_powfb_zcool_lower_1.h5',\
+          '/data/old_trap/20200601/bead2/z_set/1_5mbar_powfb_zcool_lower_2.h5',\
+          '/data/old_trap/20200601/bead2/z_set/1_5mbar_powfb_zcool_lower_3_pg.h5',\
+          '/data/old_trap/20200601/bead2/z_set/1_5mbar_powfb_zcool_lower_4.h5',\
+          '/data/old_trap/20200601/bead2/1_5mbar_powfb_xzcool.h5',\
+          '/data/old_trap/20200601/bead2/1_5mbar_powfb_yzcool.h5'
+         ]
+allfiles = ['/data/old_trap/20201222/gbead1/1_5mbar_powfb_xyzcool.h5']
+allfiles = ['/data/old_trap/20210127/gbead1/1_5mbar_powfb_zcool_init.h5',\
+            '/data/old_trap/20210127/gbead1/1_5mbar_powfb_zcool_lower.h5']
+allfiles = ['/data/old_trap/20201222/gbead1/1_5mbar_powfb_zcool-low1.h5',\
+            '/data/old_trap/20201222/gbead1/1_5mbar_powfb_zcool-low2.h5',\
+            '/data/old_trap/20201222/gbead1/1_5mbar_powfb_xyzcool.h5',\
+            ]
+allfiles = ['/data/old_trap/20201218/gbead1/1_5mbar_powfb_zcool-pid.h5',\
+            '/data/old_trap/20201218/gbead1/1_5mbar_powfb_zcool-low1.h5',\
+            '/data/old_trap/20201218/gbead1/1_5mbar_powfb_zcool-low2.h5',\
+            '/data/old_trap/20201218/gbead1/1_5mbar_powfb_zcool-low3.h5',\
+            '/data/old_trap/20201218/gbead1/discharge/coarse/turbombar_powfb_xyzcool_2_elec3_100mV41Hz0mVdc_0.h5']
+allfiles = [#'/data/old_trap/20210412/bead1/1_5mbar_powfb_init.h5',\
+            '/data/old_trap/20210412/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
+            '/data/old_trap/20210412/bead1/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20210412/bead1/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20210412/bead1/1_5mbar_powfb_xyzcool.h5'
+            ]
+allfiles = [#'/data/old_trap/20210423/bead1/1_5mbar_powfb_nocool_init.h5',\
+            #'/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_init.h5',\
+            #'/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_lower.h5',\
+            #'/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_lower_1.h5',\
+            #'/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_lower_2.h5',\
+            #'/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_lower_3.h5',\
+            '/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
+            #'/data/old_trap/20210423/bead1/1_5mbar_powfb_zcool_lower_5.h5',\
+            '/data/old_trap/20210423/bead1/1_5mbar_powfb_xzcool.h5',\
+            '/data/old_trap/20210423/bead1/1_5mbar_powfb_yzcool.h5',\
+            '/data/old_trap/20210423/bead1/1_5mbar_powfb_xyzcool.h5',\
+            ]
+allfiles = ['/data/old_trap/20210429/bead1/1_5mbar_powfb_nocool_init.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_init.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_lower.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_lower_1.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_lower_2.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_lower_3.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_lower_4.h5',\
+            '/data/old_trap/20210429/bead1/1_5mbar_powfb_zcool_lower_5.h5',\
+            ]
+allfiles = ['/data/old_trap/20210429/bead1/discharge/fine_after_recharge/turbombar_powfb_xyzcool_elec3_3000mV41Hz0mVdc_0.h5',\
+            '/data/old_trap/20210429/bead1/discharge/fine_after_recharge/turbombar_powfb_xyzcool_elec3_3000mV41Hz0mVdc_134.h5'
             ]
 
+allfiles = ['/data/old_trap/20210429/bead1/neutrality/wo_height_fb_100V_41_Hz_10V_bias_x_1/turbombar_powfb_xyzcool_39.h5'
+            ]
+allfiles = ['/data/old_trap/20210521/bead1/1_5mbar_powfb_nocool_init.h5',\
+            '/data/old_trap/20210521/bead1/1_5mbar_powfb_zcool_init.h5',\
+            '/data/old_trap/20210521/bead1/1_5mbar_powfb_zcool_lower.h5',\
+            '/data/old_trap/20210521/bead1/1_5mbar_powfb_zcool_lower_1.h5',\
+            '/data/old_trap/20210521/bead1/1_5mbar_powfb_zcool_lower_2.h5',\
+            '/data/old_trap/20210521/bead1/1_5mbar_powfb_zcool_lower_3.h5',\
+            ]
+allfiles = ['/data/old_trap/20210603/bead1/1_5mbar_powfb_zcool_init.h5',\
+            '/data/old_trap/20210603/bead1/1_5mbar_powfb_zcool_lower.h5',\
+            '/data/old_trap/20210603/bead1/1_5mbar_powfb_zcool_lower_1.h5',\
+            '/data/old_trap/20210603/bead1/1_5mbar_powfb_zcool_lower_2.h5',\
+            '/data/old_trap/20210603/bead1/1_5mbar_powfb_zcool_lower_3.h5',\
+            ]
 tfdate = '20190327'
 
 #labs = ['1','2', '3']
@@ -223,9 +292,12 @@ cmap = 'inferno'
 posdic = {0: 'x', 1: 'y', 2: 'z'}
 
 
+sum_psd = False
+ax_to_sum = 0
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
-                      fb_axes=[], diag=True, colormap='jet', sort='time', file_inds=(0,10000)):
+                      fb_axes=[], diag=True, colormap='jet', sort='time', file_inds=(0,10000),\
+                      sum_psd=False, ax_to_sum=0):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -273,9 +345,22 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
     colors = bu.get_color_map(len(files), cmap=colormap)
     #colors = ['C0', 'C1', 'C2']
 
+    if sum_psd:
+        df = bu.DataFile()
+        df.load(files[0])
+        if fullNFFT:
+            NFFT = len(df.pos_data[ax_to_sum])
+        else:
+            NFFT = userNFFT
+        psd, freqs = mlab.psd(df.pos_data[ax_to_sum], Fs=df.fsamp, \
+                    NFFT=NFFT, window=window)
+    
+        psd_sum = np.zeros_like(freqs)
     old_per = 0
     print "Processing %i files..." % len(files)
     for fil_ind, fil in enumerate(files):
+        if fil_ind > 100:
+            break
         color = colors[fil_ind]
         
         # Display percent completion
@@ -287,8 +372,23 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 	
         df.load(fil)
 
+        print(df.fsamp)
         if len(other_axes):
             df.load_other_data()
+        #    for i, data in enumerate(df.other_data):
+        #        plt.plot(data[0:len(data)/10],label='{}'.format(i))
+        #        print(np.mean(data))
+        #plt.legend()
+        #plt.show()
+            
+        Ns = df.nsamp
+        Fs = df.fsamp
+
+        fft = np.fft.rfft(df.other_data[7])
+        fftfreqs = np.fft.rfftfreq(Ns, 1./Fs)
+
+        #plt.loglog(fftfreqs, np.abs(fft))
+        #plt.show()
 
         df.calibrate_stage_position()
         
@@ -310,104 +410,126 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                 drivepsd = np.abs(np.fft.rfft(df.cant_data[drive_ax]))
                 driveind = np.argmax(drivepsd[1:]) + 1
                 drive_freq = freqs[driveind]
+        if sum_psd:
+            
+            psd, freqs = mlab.psd(df.pos_data[ax_to_sum], Fs=df.fsamp, \
+                    NFFT=NFFT, window=window)
+            psd_sum += psd
+        else:
 
-        for axind, ax in enumerate(data_axes):
+            for axind, ax in enumerate(data_axes):
 
-            try:
-                fac = df.conv_facs[ax]# * (1.0 / 0.12e-12)
-            except:
-                fac = 1.0
-            if fullNFFT:
-                NFFT = len(df.pos_data[ax])
-            else:
-                NFFT = userNFFT
-            psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, \
-                                  NFFT=NFFT, window=window)
-            fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
-                                  NFFT=NFFT, window=window)
+                try:
+                    fac = df.conv_facs[ax]# * (1.0 / 0.12e-12)
+                except:
+                    fac = 1.0
+                if fullNFFT:
+                    NFFT = len(df.pos_data[ax])
+                else:
+                    NFFT = userNFFT
+                psd, freqs = mlab.psd(df.pos_data[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
+                fb_psd, freqs = mlab.psd(df.pos_fb[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
 
-            dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
-                                    NFFT=NFFT, window=window)
-            if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                         NFFT=NFFT, window=window)
-                daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, color=color)
-                daxarr[axind,0].grid(alpha=0.5)
-                daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
-                daxarr[axind,1].grid(alpha=0.5)
-                daxarr[axind,0].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
-                if ax == data_axes[-1]:
-                    daxarr[axind,0].set_xlabel('Frequency [Hz]')
-                    daxarr[axind,1].set_xlabel('Frequency [Hz]')
-            else:
-                daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color, label=fil)
-                daxarr[axind].grid(alpha=0.5)
-                daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                if diag:
+                    dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
+                                            NFFT=NFFT, window=window)
+                    daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, color=color)
+                    daxarr[axind,0].grid(alpha=0.5)
+                    daxarr[axind,1].loglog(freqs, np.sqrt(dpsd), color=color)
+                    daxarr[axind,1].grid(alpha=0.5)
+                    daxarr[axind,0].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                    if ax == data_axes[-1]:
+                        daxarr[axind,0].set_xlabel('Frequency [Hz]')
+                        daxarr[axind,1].set_xlabel('Frequency [Hz]')
+                else:
+                    daxarr[axind].loglog(freqs, np.sqrt(psd) * fac, color=color, label=fil)
+                    daxarr[axind].grid(alpha=0.5)
+                    daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
 
-                if len(fb_axes):
-                    fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
-                    fbaxarr[axind].grid(alpha=0.5)
-                    fbaxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
-
-
-                if ax == data_axes[-1]:
-                    daxarr[axind].set_xlabel('Frequency [Hz]')
                     if len(fb_axes):
-                        fbaxarr[axind].set_xlabel('Frequency [Hz]')
+                        fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
+                        fbaxarr[axind].grid(alpha=0.5)
+                        fbaxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
 
-        if len(cant_axes):
-            for axind, ax in enumerate(cant_axes):
-                psd, freqs = mlab.psd(df.cant_data[ax], Fs=df.fsamp, \
+
+                    if ax == data_axes[-1]:
+                        daxarr[axind].set_xlabel('Frequency [Hz]')
+                        if len(fb_axes):
+                            fbaxarr[axind].set_xlabel('Frequency [Hz]')
+
+            if len(cant_axes):
+                for axind, ax in enumerate(cant_axes):
+                    psd, freqs = mlab.psd(df.cant_data[ax], Fs=df.fsamp, \
+                                          NFFT=NFFT, window=window)
+                    caxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
+
+            if len(elec_axes):
+                for axind, ax in enumerate(elec_axes):
+                    psd, freqs = mlab.psd(df.electrode_data[ax], Fs=df.fsamp, \
+                                          NFFT=NFFT, window=window)
+                    eaxarr[axind].loglog(freqs, np.sqrt(psd), color=color ) 
+
+            if len(other_axes):
+                print('Length of other_axes',len(other_axes))
+                for axind, ax in enumerate(other_axes):
+                    ax = ax - 3
+                    #psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
+                                        #NFFT=NFFT, window=window)
+                    psd, freqs = mlab.psd(df.power, Fs=df.fsamp, \
                                       NFFT=NFFT, window=window)
-                caxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
 
-        if len(elec_axes):
-            for axind, ax in enumerate(elec_axes):
-                psd, freqs = mlab.psd(df.electrode_data[ax], Fs=df.fsamp, \
-                                      NFFT=NFFT, window=window)
-                eaxarr[axind].loglog(freqs, np.sqrt(psd), color=color ) 
+                    oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
+        
 
-        if len(other_axes):
-            print('Length of other_axes',len(other_axes))
-            for axind, ax in enumerate(other_axes):
-                ax = ax - 3
-                #psd, freqs = mlab.psd(df.other_data[ax], Fs=df.fsamp, \
-                                    #NFFT=NFFT, window=window)
-                psd, freqs = mlab.psd(df.power, Fs=df.fsamp, \
-                                  NFFT=NFFT, window=window)
+    if sum_psd:
+        try:
+            fac = df.conv_facs[ax_to_sum]# * (1.0 / 0.12e-12)
+        except:
+            fac = 1.0
+        if diag:
+            daxarr[ax_to_sum,0].loglog(freqs, np.sqrt(psd_sum))
+            daxarr[ax_to_sum,0].grid(alpha=0.5)
+            daxarr[ax_to_sum,0].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+        else:
+            daxarr[ax_to_sum].loglog(freqs, np.sqrt(psd_sum)) 
+            daxarr[ax_to_sum].grid(alpha=0.5)
+            daxarr[ax_to_sum].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
 
-                oaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
-
-
-    if filename_labels:
-        daxarr[0].legend(fontsize=5)
-    if len(fb_axes):
-        fbaxarr[0].legend()
-
-    daxarr[0].set_xlim(0.5, 25000)
-    
-    if len(ylim):
-        daxarr[0].set_ylim(ylim[0], ylim[1])
-    plt.tight_layout()
-
-
-    if savefigs:
-        plt.savefig(title_pre + '.png')
-
-        daxarr[0].set_xlim(2000, 25000)
-        plt.tight_layout()
-
-        plt.savefig(title_pre + '_zoomhf.png')
-
-        daxarr[0].set_xlim(1, 80)
-        plt.tight_layout()
-
-        plt.savefig(title_pre + '_zoomlf.png')
+        plt.show()
+    else:
+        if filename_labels:
+            daxarr[0].legend(fontsize=5)
+        if len(fb_axes):
+            fbaxarr[0].legend()
 
         daxarr[0].set_xlim(0.5, 25000)
-    
-    if not savefigs:
-        plt.show()
+        
+        if len(ylim):
+            daxarr[0].set_ylim(ylim[0], ylim[1])
+        plt.tight_layout()
+
+
+        if savefigs:
+            plt.savefig(title_pre + '.png')
+
+            daxarr[0].set_xlim(2000, 25000)
+            plt.tight_layout()
+
+            plt.savefig(title_pre + '_zoomhf.png')
+
+            daxarr[0].set_xlim(1, 80)
+            plt.tight_layout()
+
+            plt.savefig(title_pre + '_zoomlf.png')
+
+            daxarr[0].set_xlim(0.5, 25000)
+        
+        if not savefigs:
+            plt.show()
 
 
 if use_dir:
@@ -420,6 +542,7 @@ allfiles = allfiles[:maxfiles]
 
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
-                  fb_axes=fb_axes, colormap=cmap)
+                  fb_axes=fb_axes, colormap=cmap, sum_psd=sum_psd,\
+                  ax_to_sum=ax_to_sum)
 
 pickle.dump(shit, open('/processed_data/ichep_spectra.p', 'wb'))
