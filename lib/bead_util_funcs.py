@@ -367,17 +367,42 @@ def count_subdirectories(dirname):
 
 
 def find_all_fnames(dirlist, ext='.h5', sort=False, exclude_fpga=True, \
-                    verbose=True, substr='', sort_time=False, \
+                    verbose=True, substr='', subdir='', sort_time=False, \
                     sort_by_index=False, use_origin_timestamp=False, \
                     skip_subdirectories=False):
     '''Finds all the filenames matching a particular extension
        type in the directory and its subdirectories .
 
-       INPUTS: dirlist, list of directory names to loop over
-               ext, file extension you're looking for
-               sort, boolean specifying whether to do a simple sort
+       INPUTS: 
+            dirlist, list of directory names to loop over
 
-       OUTPUTS: files, list of files names as strings'''
+            ext, file extension you're looking for
+            
+            sort, boolean specifying whether to do a simple sort
+            
+            exclude_fpga, boolean to ignore hdf5 files directly from
+                the fpga given that the classes load these automatically
+               
+            verbose, print shit
+            
+            substr, string within the the child filename to match
+            
+            subdir, string within the full parent director to match
+               
+            sort_time, sort files by timestamp, trying to use the hdf5 
+                timestamp first
+
+            use_origin_timestamp, boolean to tell the time sorting to
+                use the file creation timestamp itself
+
+            skip_subdirectories, boolean to skip recursion into child
+                directories when data is organized poorly
+
+       OUTPUTS: 
+            files, list of filenames as strings, or list of lists if 
+                multiple input directories were given
+
+            lengths, length of file lists found '''
 
     if verbose:
         print("Finding files in: ")
@@ -401,6 +426,8 @@ def find_all_fnames(dirlist, ext='.h5', sort=False, exclude_fpga=True, \
                 if ('_fpga.h5' in filename) and exclude_fpga:
                     continue
                 if substr and (substr not in filename):
+                    continue
+                if subdir and (subdir not in root):
                     continue
                 files.append(os.path.join(root, filename))
         if was_list:

@@ -252,7 +252,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
 
 def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
-             auto_try = 0.0, max_step_size=10, plot_residual_histograms=False):
+             auto_try=0.0, max_step_size=10, plot_residual_histograms=False):
     '''Generates a step calibration from a list of DataFile objects
            INPUTS: fobjs, list of file objects
                    plate_sep, face-to-face separation of electrodes
@@ -571,10 +571,10 @@ class Fit:
         #print np.std( self.fun(xdata, *self.popt) - ydata )
 
         if len(errors):
-            ax.errorbar(xdata, self.fun(xdata, *self.popt) - ydata, errors, \
+            ax.errorbar(xdata, ydata - self.fun(xdata, *self.popt), errors, \
                         fmt = 'o', ms = ms, zorder=zorder)
         else:
-            ax.plot(xdata, (self.fun(xdata, *self.popt) - ydata), 'o', \
+            ax.plot(xdata, ydata - self.fun(xdata, *self.popt), 'o', \
                     ms = ms, zorder=zorder)
         
         #ax.set_xscale(scale)

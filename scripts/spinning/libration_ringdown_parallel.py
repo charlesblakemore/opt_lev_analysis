@@ -108,13 +108,14 @@ fig_basepath = os.path.join(plot_base, meas, 'ringdown_amp')
 
 
 processed_base = '/data/old_trap_processed/spinning/{:s}/'.format(date)
-save_ringdown = True
+save_ringdown = False
 # ringdown_dict_path = '/data/old_trap_processed/spinning/20200727/arb_libration_ringdowns.p'
 ringdown_data_path = os.path.join(processed_base, 'dds_libration_ringdowns_manyVpp.p')
 
 
 dipole_file = '/data/old_trap_processed/spinning/wobble/20200924/dipole_meas/initial.dipole'
-rhobead = {'val': 1850.0, 'syserr': 0.0, 'sterr': 0.0}
+# rhobead = {'val': 1850.0, 'syserr': 0.0, 'sterr': 0.0}
+rhobead = {'val': 1550.0, 'syserr': 0.0, 'sterr': 0.0}
 
 libration_guess = 0.0
 # libration_guess = 1335.8
@@ -147,7 +148,7 @@ colorbar_limits = [900, 1350]
 ### Boolean flags for various sorts of plotting (used for debugging usually)
 plot_carrier_demod = False
 plot_libration_demod = False
-plot_downsample = False
+plot_downsample = True
 
 plot_lib_amp = False
 
@@ -173,7 +174,8 @@ initial_offset = 0.0
 plot_rebin = False
 plot_ringdown_fit = True
 close_xlim = True
-show = False
+save_ringdown_figs = False
+show = True
 
 
 
@@ -340,10 +342,10 @@ def proc_file(file):
     time_vec_ds = time_vec_ds[out_cut:int(-1*out_cut)]
 
     if plot_downsample:
-        plt.plot(time_vec, carrier_phase_mod_filt, color='C0', label='Original')
-        plt.plot(time_vec_ds, libration_ds, color='C0', ls='--', label='Downsampled')
-        plt.plot(time_vec, libration_amp, color='C1')#, label='Original')
-        plt.plot(time_vec_ds, libration_amp_ds, color='C1', ls='--')#, label='Downsampled')
+        plt.plot(time_vec, carrier_phase_mod_filt, color='C0', lw=1, label='Original')
+        plt.plot(time_vec_ds, libration_ds, color='C0', lw=3, ls='--', label='Downsampled')
+        plt.plot(time_vec, libration_amp, color='C1', lw=1)#, label='Original')
+        plt.plot(time_vec_ds, libration_amp_ds, color='C1', lw=3, ls='--')#, label='Downsampled')
         plt.legend()
         plt.show()
 
@@ -660,8 +662,9 @@ if save_sequence:
             hline.remove()
 
         fig.canvas.draw_idle()
-        fig.savefig(figname)
-        print('Saved:  image_{:04d}.png'.format(i))
+        if save_ringdown_figs:
+            fig.savefig(figname)
+            print('Saved:  image_{:04d}.png'.format(i))
 
 else:
     vline.remove()
@@ -669,7 +672,9 @@ else:
 
     figname = os.path.join(plot_base, meas+'_ringdown_gd-{:.2g}.svg'.format(meas_phi_dg))
     bu.make_all_pardirs(figname)
-    fig.savefig(figname)
+
+    if save_ringdown_figs:
+        fig.savefig(figname)
 
     if show:
         plt.show()

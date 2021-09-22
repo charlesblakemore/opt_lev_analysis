@@ -26,6 +26,8 @@ inds = [1, 2, 3]
 # inds = [1, 2, 3]
 
 
+dipole_savebase = '/data/old_trap_processed/calibrations/dipoles/'
+
 
 # base_path = '/processed_data/spinning/wobble/20190626/'
 # base_path = '/processed_data/spinning/wobble/20190626/long_wobble/'
@@ -58,13 +60,30 @@ one_path = False
 base_path = '/data/old_trap_processed/spinning/wobble/'
 
 date = '20200727'
-meas = 'wobble_slow_2/'
+# meas = 'wobble_slow_2'
 
 # date = '20200924'
-# meas = 'dipole_meas/initial/'
+# meas = 'dipole_meas/initial'
+
+meas_list = [\
+             'wobble_fast', \
+             'wobble_large-step_many-files', \
+             'wobble_slow', \
+             'wobble_slow_2', \
+             'wobble_slow_after'
+            ]
+
+paths = []
+for meas in meas_list:
+    path = os.path.join(base_path, date, meas)
+    paths.append(path)
+npaths = len(paths)
 
 gases = ['XX']
-path_dict = {'XX': [os.path.join(base_path, '{:s}/{:s}'.format(date, meas))]}
+path_dict = {'XX': paths}
+
+print(paths)
+input()
 
 
 
@@ -79,7 +98,16 @@ for gas in gases:
     paths = path_dict[gas]
     for pathind, path in enumerate(paths):
 
-        dipole_filename = path[:-1] + '.dipole'
+        parts = path.split('/')
+        if not len(parts[-1]):
+            meas = parts[-2]
+        else:
+            meas = parts[-1]
+
+        dipole_filename = os.path.join(dipole_savebase, \
+                                       '{:s}_{:s}.dipole'.format(date, meas))
+        print(dipole_filename)
+        input()
 
         color = 'C' + str(pathind)
 
@@ -238,9 +266,6 @@ for gas in gases:
 
             label = '${:0.1f} \\pm {:0.1f} (st) \\pm {:0.1f} (sys) \\, \\, e \\cdot \\mu$m'\
                             .format(d_scaled, d_sterr_scaled, d_syserr_scaled)
-
-            # label = ('%0.1f' % d_scaled) + '$\pm$' \
-            #             + ('%0.1f' % d_err_scaled) + ' $e \cdot \mu \mathrm{m}$'
 
             ax.plot(plot_x*1e-3, plot_y, '--', lw=2, color=color, label=label)
 

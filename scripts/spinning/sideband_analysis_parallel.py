@@ -12,13 +12,13 @@ import scipy.signal as signal
 
 from tqdm import tqdm
 from joblib import Parallel, delayed
-ncore = 30
+ncore = 20
 
 np.random.seed(12345)
 
 plot_raw_dat = False
 plot_demod = False
-plot_phase = True
+plot_phase = False
 plot_sideband_fit = False
 
 cleanup_outarr = False
@@ -48,7 +48,9 @@ notch_qs = []
 ### BAD SCIENCE ALERT!!!
 ###   adjustment of the noise color to help extract the libration
 ###   feature. Sometimes a ~(1 / f^k) spectrum results from low
-###   low frequency drifts. This adjusts for that.
+###   frequency drifts. This adjusts for that problem by scaling 
+###   the entire spectrum so the libration feature has a symmetric
+###   background.
 correct_noise_color = False
 noise_color_power = 0.9
 
@@ -104,45 +106,56 @@ tabor_mon_fac = 100 * (1.0 / 0.95)
 # base_path = '/data/old_trap/20200322/gbead1/spinning/wobble/50kHz_yz_1/'
 # base_save_path = '/data/old_trap_processed/spinning/wobble/20200322/50kHz_yz_1/'
 
-# date = '20200727'
-# meas = 'wobble_slow_2/'
-# date = '20200924'
-# date = '20201030'
-date = '20201113'
-meas = 'dipole_meas'
-# meas = 'dipole_meas/initial'
-
-base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
-base_path = os.path.join(base, meas)
+### Need to look this over a bit, but should only affect the 'cleanup' step that
+### happens at the end to remove misidentified peaks
 invert_order = True
 
-base_save_path = os.path.join('/data/old_trap_processed/spinning/wobble/', date, meas)
+date = '20200727'
+# date = '20200924'
+# date = '20201030'
+# date = '20201113'
 
-path_dict = {}
+meas_list = [\
+             # 'wobble_fast', \
+             # 'wobble_large-step_many-files', \
+             'wobble_slow', \
+             # 'wobble_slow_2', \
+             # 'wobble_slow_after'
+            ]
+
+base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
+savebase = '/data/old_trap_processed/spinning/wobble/'
+
 paths = []
 save_paths = []
-print(base_path)
-for root, dirnames, filenames in os.walk(base_path):
-    for dirname in dirnames:
-        print(dirname)
-        paths.append(os.path.join(base_path, dirname))
-        save_paths.append(os.path.join(base_save_path, dirname + '.npy'))
+for meas in meas_list:
+    base_path = os.path.join(base, meas)
+    base_save_path = os.path.join(savebase, date, meas)
+    for root, dirnames, filenames in os.walk(base_path):
+        for dirname in dirnames:
+            # print(dirname)
+            paths.append(os.path.join(base_path, dirname))
+            save_paths.append(os.path.join(base_save_path, dirname + '.npy'))
 npaths = len(paths)
-
-# paths = [base_path]
-# save_paths = [base_save_path]
 
 paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
 
+path_dict = {}
 path_dict['XX'] = {}
-path_dict['XX'][1] = (paths, save_paths)
+# path_dict['XX'][1] = (paths, save_paths)
+path_dict['XX'][1] = ([paths[0]], [save_paths[0]])
 gases = ['XX']
 inds = [1]
 
-save = True
+save = False
 load = False
 
-#####################################################
+
+
+##########################################################
+##########################################################
+##########################################################
+
 
 if plot_raw_dat or plot_demod or plot_phase or plot_sideband_fit:
     ncore = 1
@@ -169,8 +182,8 @@ def simple_pow(x, A, pow):
 
 
 all_data = []
-for meas in itertools.product(gases, inds):
-    gas, ind = meas
+for combination in itertools.product(gases, inds):
+    gas, ind = combination
     paths, save_paths = path_dict[gas][ind]
 
 
@@ -180,6 +193,9 @@ for meas in itertools.product(gases, inds):
         files, lengths = bu.find_all_fnames(path, sort_time=True)
         if invert_order:
             files = files[::-1]
+
+        # print(files)
+        # input()
 
         fobj = bu.hsDat(files[0], load=True)
         nsamp = fobj.nsamp
@@ -307,7 +323,7 @@ for meas in itertools.product(gases, inds):
                 plot_freqs = np.linspace(freqs[max_ind-30], freqs[max_ind+30], 100)
                 plt.loglog(freqs, phase_asd_filt_2)
                 plt.loglog(plot_freqs, lorentzian(plot_freqs, *popt))
-                print(fit_max, fit_std)
+                # print(fit_max, fit_std)
                 plt.show()
 
                 input()
@@ -446,7 +462,7 @@ for arrind, arr in enumerate(all_data):
     # plt.scatter(np.arange(arr.shape[1]), field_strength)
 
     # plt.figure()
-    plt.errorbar(field_strength, 2*np.pi*wobble_freq, alpha=0.6, \
+    plt.errorbar(field_strength, 2*np.pi*wobble_freq, fmt='o', ms=5, alpha=0.6, \
                  yerr=wobble_err, color=colors[arrind])
 
     p0 = [10, 0, 0]
