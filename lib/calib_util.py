@@ -3,7 +3,7 @@ import sys, time, traceback
 import numpy as np
 
 import matplotlib
-matplotlib.use('gtk3agg')
+#matplotlib.use('gtk3agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, NullFormatter
 
