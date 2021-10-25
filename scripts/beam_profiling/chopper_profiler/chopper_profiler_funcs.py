@@ -122,6 +122,10 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
     if chopfreq > 15:
         chopfreq = 10.2
 
+    # plt.plot(raw_dat)
+    # plt.show()
+    # input()
+
     grad = np.gradient(raw_dat)
 
     dt_chop = 1.0 / chopfreq

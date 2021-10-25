@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import scipy.signal as signal
 import scipy.interpolate as interpolate
@@ -49,7 +51,7 @@ for ind in sorter:
 ### Construct a master array of logrithmically-spaced lambdas from 
 ### the largest and smallest values of lambdas over all of the data
 master_lambda = np.logspace(np.log10(np.min(min_lambdas)), \
-                            np.log10(np.max(max_lambdas)), 10000)
+                            np.log10(np.max(max_lambdas)), 100000)
 master_alpha = []
 
 ### Each constraint will be resampled at values contained within 
@@ -123,6 +125,7 @@ plt.show()
 
 if save:
     np.savetxt(savepath, np.array([master_lambda, master_alpha]).T, delimiter=',')
+    print('Saved best limits to: {:s}'.format(os.path.abspath(savepath)))
 
 
 

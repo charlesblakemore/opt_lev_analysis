@@ -1,4 +1,4 @@
-import sys, time, traceback
+import sys, time, traceback, os
 
 import numpy as np
 
@@ -17,6 +17,10 @@ import scipy.constants as constants
 import sklearn.cluster as cluster
 
 plt.rcParams.update({'font.size': 14})
+
+
+home_directory = '/home/cblakemore'
+
 
 #######################################################
 # Core module for handling calibrations
@@ -251,189 +255,160 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
 
 
-def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
-             auto_try=0.0, max_step_size=10, plot_residual_histograms=False):
-    '''Generates a step calibration from a list of DataFile objects
-           INPUTS: fobjs, list of file objects
-                   plate_sep, face-to-face separation of electrodes
-                   drive_freq, electrostatic drive freq during step_cal
-                   amp_gain, gain of HV amplifier if noise is a problem
+def step_cal(step_cal_vec, nsec=10, new_trap = False, \
+             auto_try=0.0, max_step_size=10, plot_residual_histograms=False, \
+             save_discharge_plot=False, date=''):
+    '''
+    Generates a step calibration from a list of step_cal responses 
+    extracted via the above routine
 
-           OUTPUTS: vpn, volts of response per Newton of drive
-                    err, 1 std.dev. error on vpn'''
+        INPUTS: 
+
+            step_cal_vec, 1D iterable with response/drive correlation 
+                from successive integration during discharge measurement
+
+            nsec, derpy argument to put things roughly in units of time
+                although it callously ignores dead-time
+
+            new_trap, boolean specifying new vs old trap. currently unused
+                but could be useful for distinct step finding conditions
+
+            auto_try, uncalibrated value for [Delta(signal) per 1e-] for
+                automatic fitter to try. works well for datasets spaced
+                immediately one after another
+
+            max_step_size, the maximum discharge step size allowed, in
+                units of fundamental charge
+
+            plot_residual_histograms, plot histograms for 1st, 2nd, and 
+                3rd thirds of the full integration
+
+            save_discharge_plot, boolean for automatic saving of the
+                final plot
+
+            date, date-string to build plot save path. won't save if empty
+
+        OUTPUTS: 
+
+            vpn, volts (or arb unit) of response per Newton of drive
+            
+            offset, global offset to account for systematic uncertainties
+                as well as a residual dipole term
+
+            vpn_err, 1-sigma standard deviation on vpn from fit
+    '''
 
 
     step_cal_vec = np.array(step_cal_vec)
-
+    npts = len(step_cal_vec)
 
     # yfit = np.abs(step_cal_vec)
     yfit = np.copy(step_cal_vec)
-    # yfit = yfit[first_file:]
 
-    #bvec = yfit == yfit #[yfit<10.*np.mean(yfit)] #exclude cray outliers
-    #yfit = yfit[bvec] 
+    done_with_fit = False
+    manual_fit = False
 
-    if not auto_try:
-        # plt.ion()
-        plt.figure(1)
-        plt.plot(np.arange(len(yfit)), yfit, 'o')
-        plt.xlabel('Integration number [Arb]')
-        plt.ylabel('Response [Arb]')
-        plt.tight_layout()
-        plt.show()
-        # plt.show(block=False)
-        # plt.draw()
-        guess = input('Enter a guess for response / step: ')
-        guess = float(guess)
-        plt.close(1)
-        # plt.ioff()
-    else:
-        guess = auto_try
+    while not done_with_fit:
 
-    guess0 = guess
+        step_inds = []
+        step_qs = []
+        step_sizes = []
+        last_step = 0
 
-    step_inds = []
-    step_qs = []
-    step_sizes = []
-    last_step = 0
+        if not manual_fit:
 
-    for i in range(len(yfit)):
+            if not auto_try:
+                # plt.ion()
+                plt.figure(1)
+                plt.plot(np.arange(len(yfit)), yfit, 'o')
+                plt.xlabel('Integration number [Arb]')
+                plt.ylabel('Response [Arb]')
+                plt.tight_layout()
+                plt.show()
+                # plt.show(block=False)
+                # plt.draw()
+                guess = input('Enter a guess for response / step: ')
+                guess = float(guess)
+                plt.close(1)
+                # plt.ioff()
+            else:
+                guess = auto_try
 
-        if i == 0:
-            current_charge = [yfit[0]]
-            continue
+            guess0 = guess
 
-        diff = np.mean(current_charge) - yfit[i]
-        diff_abs = np.abs(diff)
+            for i in range(len(yfit)):
 
-        cond1 = (diff_abs > 0.5 * guess)
+                if i == 0:
+                    current_charge = [yfit[0]]
+                    continue
 
-        # if not new_trap:
-        #     std = np.std(yfit[last_step+1:i-1])
-        #     cond2 = diff_abs > 2.0 * std
-        # else:
-        #     cond2 = True
-        cond2 = True
+                diff = np.mean(current_charge) - yfit[i]
+                diff_abs = np.abs(diff)
 
-        if cond1 and cond2:
+                cond1 = (diff_abs > 0.5 * guess)
+
+                # if not new_trap:
+                #     std = np.std(yfit[last_step+1:i-1])
+                #     cond2 = diff_abs > 2.0 * std
+                # else:
+                #     cond2 = True
+                cond2 = True
+
+                if cond1 and cond2:
+                    
+                    current_charge = [yfit[i]]
+
+                    done = False
+                    for step_size in (np.arange(max_step_size) + 1)[::-1]:
+                        if (step_size == 1) or (diff_abs > (step_size - 0.5) * guess):
+                            done = True
+
+                        if done:
+                            step_sizes.append(diff_abs * (1.0 / step_size))
+                            step_qs.append(np.sign(diff) * step_size)
+                            break
+
+                    step_inds.append((i-1)*nsec)
+                    last_step = step_inds[-1]
+
+                    guess = np.mean(step_sizes + [guess0])
+
+                else:
+                    current_charge.append(yfit[i])
+
+            vpq_guess = np.mean(step_sizes)
+
+        else:
+
+            plt.figure(1)
+            #plt.ion()
+            plt.plot(yfit, 'o')
+            plt.show()
+
+            print("MANUAL STEP CALIBRATION")
+            print("Enter guess at number of steps and charge at steps [[q1, q2, q3, ...], [x1, x2, x3, ...], vpq]")
             
-            current_charge = [yfit[i]]
-
-            done = False
-            for step_size in (np.arange(max_step_size) + 1)[::-1]:
-                if (step_size == 1) or (diff_abs > (step_size - 0.5) * guess):
-                    done = True
-
-                if done:
-                    step_sizes.append(diff_abs * (1.0 / step_size))
-                    step_qs.append(np.sign(diff) * step_size)
-                    break
-
-            step_inds.append((i-1)*nsec)
-            last_step = step_inds[-1]
-
-            guess = np.mean(step_sizes + [guess0])
-
-        else:
-            current_charge.append(yfit[i])
-
-    vpq_guess = np.mean(step_sizes)
-
-    def ffun(x, vpq, offset):
-        qqs = vpq * np.array(step_qs)
-        offarr = np.zeros(len(x)) + offset
-        return multi_step_fun(x, qqs, step_inds) + offarr
-    
-    xfit = np.arange(len(yfit)) * nsec
-
-    p0 = [vpq_guess, 0]#Initial guess for the fit
-
-    popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
-
-    fitobj = Fit(popt, pcov, ffun)
-
-    newpopt = np.copy(popt)
-    newpopt[1] = 0.0
-
-    normfitobj = Fit(newpopt / popt[0], pcov / popt[0], ffun)
-
-    f, axarr = plt.subplots(2, sharex = True, \
-                            gridspec_kw = {'height_ratios':[2,1]}, \
-                            figsize=(10,5),dpi=150)#Plot fit
-    normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
-                       ms=5, ylabel="Norm. Response [$e$]", xlabel="")
-    normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
-                             ms=5, xlabel="Time [s]")
-
-    fit_ylim = axarr[0].get_ylim()
-    for val in fit_ylim:
-        if np.abs(val) > 15.0:
-            fit_majorspace = 5.0
-            break
-        elif np.abs(val) > 4.0:
-            fit_majorspace = 2.0
-            break
-        else:
-            fit_majorspace = 1.0
-
-    resid_ylim = axarr[1].get_ylim()
-    too_small = False
-    for val in resid_ylim:
-        if np.abs(val) < 1.0:
-            too_small = True
-    # if too_small:
-    axarr[1].set_ylim(-1.1, 1.1)
-    resid_majorspace = 1.0
-    # else:
-    #     resid_majorspace = 2.0
-
-    normfitobj.setup_discharge_ticks(axarr, fit_majorspace=fit_majorspace, \
-                                     resid_majorspace=resid_majorspace)
-    # for x in xfit:
-    #     if not (x-1) % 3:
-    #         axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
-    plt.tight_layout()
-    plt.show()
-
-    happy = input("does the fit look good? (Y/n): ")
-    if happy == 'y' or happy == 'Y':
-        happy_with_fit = True
-    elif happy == 'n' or happy == 'N':
-        happy_with_fit = False
-        f.clf()
-    else:
-        happy_with_fit = False
-        f.clf()
-        print('that was a yes or no question... assuming you are unhappy')
-        sys.stdout.flush()
-        time.sleep(5)
-
-
-    while not happy_with_fit:
-        plt.figure(1)
-        #plt.ion()
-        plt.plot(yfit, 'o')
-        plt.show()
-
-        print("MANUAL STEP CALIBRATION")
-        print("Enter guess at number of steps and charge at steps [[q1, q2, q3, ...], [x1, x2, x3, ...], vpq]")
-        
-        try:
             nstep = eval(input(": "))
-            plt.close(1)
 
             step_qs = nstep[0]
             step_inds = np.array(nstep[1]) * nsec
-
-            p0 = [nstep[2],0.0]#Initial guess for the fit
-            popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-10)
-
-        except Exception:
-            plt.close(1)
-            continue
+            vpq_guess = nstep[2]
 
 
-        fitobj = Fit(popt, pcov, ffun)#Store fit in object.
+
+
+        def ffun(x, vpq, offset):
+            qqs = vpq * np.array(step_qs)
+            offarr = np.zeros(len(x)) + offset
+            return multi_step_fun(x, qqs, step_inds) + offarr
+        
+        xfit = np.arange(len(yfit)) * nsec
+
+        p0 = [vpq_guess, 0]#Initial guess for the fit
+
+        popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
+
+        fitobj = Fit(popt, pcov, ffun)
 
         newpopt = np.copy(popt)
         newpopt[1] = 0.0
@@ -441,18 +416,36 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
         normfitobj = Fit(newpopt / popt[0], pcov / popt[0], ffun)
 
         resids = ((yfit - popt[1]) / popt[0]) - ffun(xfit, *(newpopt/popt[0]))
-        npts = len(resids)
 
         f, axarr = plt.subplots(2, sharex = True, \
                                 gridspec_kw = {'height_ratios':[2,1]}, \
-                                figsize=(10,4), dpi=150)#Plot fit
-
+                                figsize=(10,5),dpi=150)#Plot fit
         normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
-                           ms=3, ylabel="Norm. Response [$e$]", xlabel="")
+                           ms=5, ylabel="Norm. Response [$e$]", xlabel="")
         normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
-                                 ms=3, ylabel='Resid.', xlabel="Time [s]")
+                                 ms=5, xlabel="Time [s]")
+
+        fit_ylim = axarr[0].get_ylim()
+        for val in fit_ylim:
+            if np.abs(val) > 15.0:
+                fit_majorspace = 5.0
+                break
+            elif np.abs(val) > 4.0:
+                fit_majorspace = 2.0
+                break
+            else:
+                fit_majorspace = 1.0
+
+        resid_ylim = axarr[1].get_ylim()
+
         axarr[1].set_ylim(-1.1, 1.1)
-        normfitobj.setup_discharge_ticks(axarr)
+        resid_majorspace = 1.0
+
+        normfitobj.setup_discharge_ticks(axarr, fit_majorspace=fit_majorspace, \
+                                         resid_majorspace=resid_majorspace)
+        # for x in xfit:
+        #     if not (x-1) % 3:
+        #         axarr[0].axvline(x=x, color='k', linestyle='--', alpha=0.2)
 
         f.tight_layout()
 
@@ -483,18 +476,36 @@ def step_cal(step_cal_vec, nsec=10, amp_gain = 1., new_trap = False, \
 
         plt.show()
 
-        happy = input("does the fit look good? (Y/n): ")
+        f.clf()
+        if plot_residual_histograms:
+            f2.clf()
+
+        happy = input("Does the fit look good? (Y/n): ")
         if happy == 'y' or happy == 'Y':
-            happy_with_fit = True
+            done_with_fit = True
+
         elif happy == 'n' or happy == 'N':
-            f.clf()
-            continue
+            manual = input("Do you want to proceed manually then? (Y/n): ")
+            if manual == 'y' or manual == 'Y':
+                manual_fit = True
+            elif manual == 'n' or manual =='N':
+                manual_fit = False
+            else:
+                manual_fit = False
+                print('that was a yes or no question... assuming you want automated')
+                sys.stdout.flush()
+                time.sleep(5)
         else:
-            f.clf()
+            done_with_fit = False
             print('that was a yes or no question... assuming you are unhappy')
             sys.stdout.flush()
             time.sleep(5)
-            continue
+
+
+    if save_discharge_plot and date:
+        bu.make_all_pardirs( os.path.join(home_directory, 'plots/{:s}/derp'.format(date)) )
+        f.savefig( os.path.join(home_directory, 'plots/{:s}/{:s}_step_cal.svg'.format(date, date)) )
+        f2.savefig( os.path.join(home_directory, 'plots/{:s}/{:s}_step_cal_hists.svg'.format(date, date)) )
 
     plt.close('all')
 

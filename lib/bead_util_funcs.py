@@ -746,38 +746,142 @@ def detrend_poly(arr, order=1.0, plot=False):
 
 
 
-def get_sine_amp_phase(sine, plot=False):
+def zerocross_pos2neg(data):
+    '''Simple zero-crossing detector for 1D data. Returns indices of 
+       crossings as a list.'''
+    pos = data > 0
+    return (pos[:-1] & ~pos[1:]).nonzero()[0]
+
+
+
+
+def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
+                       ncycle_exclude=20, phase_fraction=0.9, \
+                       incoherent=False, plot=False, verbose=True):
+    '''
+    I am a docstring.
+
+    '''
     nsamp = len(sine)
     tvec = np.arange(nsamp)
 
     freqs = np.fft.rfftfreq(nsamp)
-    fft = np.fft.rfft(sine)
+    fft = np.fft.rfft(sine) * fft_norm(nsamp, 1.0)
 
     drive_ind = np.argmax(np.abs(fft[1:])) + 1
+    drive_freq_bin = freqs[drive_ind]
 
-    amp_guess = np.std(sine)
-    freq_guess = freqs[drive_ind]
-    phase_guess = np.angle(fft[drive_ind])
+    fit_func = lambda t, a, f, phi, c: a * np.cos(2.0*np.pi*f*t + phi) + c
 
-    fit_func = lambda t, a, f, phi, c: a * np.sin(2.0*np.pi*f*t + phi) + c
+    if fit:
+        amp_guess = np.std(sine)
+        phase_guess = np.angle(fft[drive_ind])
 
-    p0 = [amp_guess, freq_guess, phase_guess, 0.0]
-    popt, pcov = optimize.curve_fit(fit_func, tvec, sine, p0=p0)
+        if not freq:
+            p0 = [amp_guess, drive_freq_bin, phase_guess, 0.0]
+            popt, pcov = optimize.curve_fit(fit_func, tvec, sine, p0=p0)
+            phase_unc = np.sqrt(pcov[2,2])
+        else:
+            p0 = [amp_guess, phase_guess, 0.0]
+            popt, pcov = \
+                optimize.curve_fit(lambda x,a,b,c: fit_func(x,a,freq,b,c), \
+                                   tvec, sine, p0=p0)
+            popt = np.insert(popt, 1, freq)
+            phase_unc = np.sqrt(pcov[1,1])
+
+        amp_unc = np.sqrt(pcov[0,0])
+
+    else:
+        ### Try to choose an integration band that works for all sampling
+        ### conditions, i.e. very large when we're lacking cycles, or 
+        ### moderate in other conditions.
+        if not int_band:
+            if drive_freq_bin < 2.0 / nsamp:
+                int_band = 2.0*drive_freq_bin
+            else:
+                int_band = 0.1*drive_freq_bin
+        else:
+            if int_band > 1.0:
+                raise ValueError('Integration band must be in digital frequency'
+                                 + 'units, where Fsamp = 1, so int_band < 0.5')
+
+        int_inds = (freqs > drive_freq_bin - 0.5*int_band) \
+                    * (freqs < drive_freq_bin + 0.5*int_band)
+        int_freqs =  freqs[int_inds]
+        int_fft = fft[int_inds]
+
+        if np.sum(int_inds) <= 10 and verbose:
+            print('RuntimeWarning: The number of Fourier bins being' \
+                  + ' integrated for amplitude estimation is less than' \
+                  + ' ten (< 10). Be wary of your result!... This can' \
+                  + ' be due to your bin spacing being large compared to' \
+                  + ' the signal frequency, or an overly narrow' \
+                  + ' integration band. Maybe it is okay if you know' \
+                  + ' what you are doing.')
+
+        weights = np.abs(int_fft)**2 / np.sum(np.abs(int_fft)**2)
+        if not freq:
+            freq = np.sum(int_freqs * weights)
+
+        amp_int = \
+            np.sqrt(2.0 * np.sum((int_fft * int_fft.conj()).real) / nsamp)
+
+        if incoherent:
+            npoints_exclude = int(ncycle_exclude / freq)
+            tvec_phased = (tvec % (1.0 / freq)) * (2.0 * np.pi * freq)
+            tvec_phased_cut = tvec_phased[npoints_exclude:-npoints_exclude]
+            sine_cut = sine[npoints_exclude:-npoints_exclude]
+
+            ### Get phase from weighted mean over some portion of the signal
+            ### near the max value
+            max_ind = np.argmax(sine_cut)
+            max_inds = sine_cut > phase_fraction * sine_cut[max_ind]
+
+            ### Hard-coded number to try to avoid stupid edge effects and 
+            ### outliers skewing data
+            buffer = 0.1  
+
+            max_phase = tvec_phased_cut[max_ind]
+            half_width = np.arcsin(phase_fraction)
+            if ((max_phase - half_width) <= buffer) or \
+                        ((max_phase + half_width) >= 2.0*np.pi - buffer):
+                tvec_phased_cut_rolled = (tvec_phased_cut + np.pi) % (2.0*np.pi)
+                phase_at_max = np.sum(tvec_phased_cut_rolled[max_inds] * \
+                                        np.abs(sine_cut[max_inds]) ) \
+                                    / np.sum(np.abs(sine_cut[max_inds]))
+                phase_at_max = (phase_at_max - np.pi) % (2.0*np.pi)
+            else:
+                phase_at_max = np.sum(tvec_phased_cut[max_inds] * \
+                                        np.abs(sine_cut[max_inds]) ) \
+                                    / np.sum(np.abs(sine_cut[max_inds]))
+            phase = 2.0 * np.pi - phase_at_max 
+
+        else:
+            phase = np.angle(fft[drive_ind])
+
+        popt = [amp_int, freq, phase, np.mean(sine)]
+
+        amp_unc = np.std(np.fft.irfft(fft - fft*int_inds))
+
+        ### Fix this later. Pretty derpy calculation assuming our ability to 
+        ### estimate phase scales purely with FFT bin spacing and the number
+        ### waveform cycles present in the data. Probably a reasonable lower
+        ### limit, but doesn't account for added uncertainty from amplitude
+        ### fluctuations.
+        # phase_unc = 0.0
+        Ncycles = np.max([int(tvec[-1] * freq), 1.0])
+        phase_unc = 2.0 * np.pi * freq / np.sqrt(Ncycles)
 
     if plot:
         plt.plot(tvec, sine)
         plt.plot(tvec, fit_func(tvec, *popt), ls='--', lw=2, color='r')
         plt.tight_layout()
         plt.show()
+        input()
 
-    return popt[0], popt[2]
+    return popt[0], amp_unc, popt[2], phase_unc
 
 
-def zerocross_pos2neg(data):
-    '''Simple zero-crossing detector for 1D data. Returns indices of 
-       crossings as a list.'''
-    pos = data > 0
-    return (pos[:-1] & ~pos[1:]).nonzero()[0]
 
 
 
@@ -1132,11 +1236,16 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], plot=False, \
           notch_freqs=[], notch_qs=[], force_2pi_wrap=False, \
           ncycle_pad=0, detrend=False, detrend_order=1, \
-          tukey=False, tukey_alpha=1e-3):
-    '''Sub-routine to perform a hilbert transformation on a given 
-       signal, filtering it if requested and plotting throughout.
-       Includes a tukey window to remove artifacts at the endpoint
-       of the demodulated phase.'''
+          tukey=False, tukey_alpha=1e-3, debug=False):
+    '''
+    Sub-routine to perform a hilbert transformation on a given 
+    signal, filtering it if requested and plotting throughout.
+    Includes a tukey window to remove artifacts at the endpoint
+    of the demodulated phase.
+    '''
+
+    if debug:
+        debug_dict = {}
 
     npad = int(ncycle_pad * fsamp / fsig)
 
@@ -1156,7 +1265,6 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     # b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
     sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
-
     sig = input_sig - np.mean(input_sig)
 
     if npad:
@@ -1195,19 +1303,6 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     phase = np.unwrap(np.angle(hilbert)) 
     phase_mod = phase - 2.0*np.pi*fc*tvec
 
-    # plt.plot( np.gradient(np.unwrap(np.angle(hilbert))) )
-    # plt.show()
-
-    # plt.plot(np.unwrap(np.angle(hilbert)))
-    # plt.plot(2.0*np.pi*fc*tvec)
-
-    # plt.figure()
-    # plt.plot(phase)
-    # inst_freq = np.gradient(phase, tvec[1]-tvec[0]) / (2.0*np.pi)
-    # plt.plot(inst_freq, zorder=1)
-    # plt.axhline(np.mean(inst_freq), lw=3, color='k', ls='--', zorder=2, \
-    #             label='{:0.1f} Hz'.format(np.mean(inst_freq)))
-
     phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
     phase_mod_unwrap = np.unwrap(phase_mod)
 
@@ -1223,6 +1318,8 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
         # phase_mod = polynomial(phase_mod[good_inds], order=detrend_order, plot=plot)
         phase_mod_unwrap -= inds * popt[0] + popt[1]
+
+        debug_dict['residual_freq'] = popt[0] * fsamp
 
         if plot:
             fig, axarr = plt.subplots(2,1,figsize=(8,6))
@@ -1289,7 +1386,10 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         plt.show()
         input()
 
-    return amp, phase_mod
+    if debug:
+        return amp, phase_mod, debug_dict
+    else:
+        return amp, phase_mod
 
 
 
@@ -1329,13 +1429,13 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
     err =  np.mean([np.abs(soln1 - minparam), np.abs(soln2 - minparam)])
 
     if plot:
-        lab = ('{:0.2e}$\pm${:0.2e}\n'.format(minparam, err)) + \
-                'min$(\chi^2/N_{\mathrm{DOF}})=$' + '{:0.2f}'.format(minval)
+        lab = ('{:0.2e}$\\pm${:0.2e}\n'.format(minparam, err)) + \
+                'min$(\\chi^2/N_{\\mathrm{DOF}})=$' + '{:0.2f}'.format(minval)
         plt.plot(param_arr, nll_arr)
         plt.plot(param_arr, parabola(param_arr, *popt_chi), '--', lw=2, color='r', \
                     label=lab)
         plt.xlabel('Fit Parameter')
-        plt.ylabel('$\chi^2 / N_{\mathrm{DOF}}$')
+        plt.ylabel('$\\chi^2 / N_{\\mathrm{DOF}}$')
         plt.legend(fontsize=12, loc=0)
         plt.tight_layout()
         plt.show()

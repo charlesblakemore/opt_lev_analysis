@@ -56,7 +56,7 @@ def get_mbead(date, verbose=False):
                    verbose, print some shit
 
            OUTPUTS:     Dictionary with keys:
-                    val, the average mass (in kg)) from all measurements
+                    val, the average mass (in kg) from all measurements
                     sterr, the combined statistical uncertainty
                     syserr, the mean of the individual systematic uncertainties
     '''
@@ -246,3 +246,64 @@ def get_kappa(mbead={}, date='', T=Troom, rhobead=rhobead, verbose = False):
         print()
 
     return kappa
+
+
+
+
+
+def get_dipole(date, verbose=False):
+    '''Scrapes standard directory for measured dipoles with dates matching
+       the input string. Computes the combined statistical and systematic
+       uncertainties
+
+           INPUTS: date, string in the format "YYYYMMDD" for the bead of interest
+                   verbose, print some shit
+
+           OUTPUTS:     Dictionary with keys:
+                    val, the average dipole (in C*m) from all measurements
+                    sterr, the combined statistical uncertainty
+                    syserr, the mean of the individual systematic uncertainties
+    '''
+    dirname = os.path.join(calib_path, 'dipoles/')
+    dipole_filenames, lengths = find_all_fnames(dirname, ext='.dipole', verbose=verbose)
+
+    if lengths[0] == 0:
+        raise NameError('Dipoles associated to date "{:s}" not found'.format(date))
+
+    if verbose:
+        print('Finding files in: ', dirname)
+    real_dipole_filenames = []
+    for filename in dipole_filenames:
+        if date not in filename:
+            continue
+        if verbose:
+            print('    ', filename)
+        real_dipole_filenames.append(filename)
+
+    dipoles = []
+    sterrs = []
+    syserrs = []
+    for filename in real_dipole_filenames:
+        dipole_arr = np.load(filename)
+        dipoles.append(dipole_arr[0])
+        sterrs.append(dipole_arr[1])
+        syserrs.append(dipole_arr[2])
+    dipoles = np.array(dipoles)
+    sterrs = np.array(sterrs)
+    syserrs = np.array(syserrs)
+
+    # Compute the standard, weighted arithmetic mean on all datapoints,
+    # as well as combine statistical and systematic uncertainties independently
+    dipole = np.sum(dipoles * (1.0 / (sterrs**2 + syserrs**2))) / \
+                    np.sum( 1.0 / (sterrs**2 + syserrs**2) )
+    sterr = np.sqrt( 1.0 / np.sum(1.0 / sterrs**2 ) )
+    syserr = np.mean(syserrs)
+
+    if verbose:
+        print()
+        print('                    Dipole [C*m] : {:0.4g}'.format(dipole))
+        print('Relative statistical uncertainty : {:0.4g}'.format(sterr/dipole))
+        print(' Relative systematic uncertainty : {:0.4g}'.format(syserr/dipole))
+        print()
+
+    return {'val': dipole, 'sterr': sterr, 'syserr': syserr}

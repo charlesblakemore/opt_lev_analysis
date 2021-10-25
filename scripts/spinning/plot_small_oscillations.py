@@ -13,6 +13,10 @@ from iminuit import Minuit, describe
 plt.rcParams.update({'font.size': 14})
 
 
+dipole_savebase = '/data/old_trap_processed/calibrations/dipoles/'
+
+
+
 #date = '20190626'
 #date = '20190905'
 date = '20191017'
@@ -26,16 +30,28 @@ inds = [1, 2, 3]
 # inds = [1, 2, 3]
 
 
-dipole_savebase = '/data/old_trap_processed/calibrations/dipoles/'
+base_plot_path = '/home/cblakemore/plots/{:s}/pramp/'.format(date)
+savefig = False
 
+
+
+
+#paths = [base_path]
+#one_path = True
+
+one_path = False
+
+remove_outliers = True
+
+include_field_prior = True
+field_prior = 2  # kV/m
+
+
+### Old path definition for spinning rotor paper
 
 # base_path = '/processed_data/spinning/wobble/20190626/'
 # base_path = '/processed_data/spinning/wobble/20190626/long_wobble/'
 base_path = '/data/old_trap_processed/spinning/wobble/{:s}/'.format(date)
-
-base_plot_path = '/home/cblakemore/plots/{:s}/pramp/'.format(date)
-bu.make_all_pardirs(base_plot_path)
-savefig = False
 
 baselen = len(base_path)
 
@@ -53,25 +69,27 @@ for meas in itertools.product(gases, inds):
     path_dict[gas].append(base_path + '{:s}_pramp_{:d}/'.format(gas, pramp_ind))
 
 
-#paths = [base_path]
-#one_path = True
-one_path = False
+
+
+### New path definition for basic dipole data. Still conforms to above
+### because I haven't changed the underlying script
 
 base_path = '/data/old_trap_processed/spinning/wobble/'
 
 date = '20200727'
-# meas = 'wobble_slow_2'
-
-# date = '20200924'
-# meas = 'dipole_meas/initial'
-
 meas_list = [\
-             'wobble_fast', \
-             'wobble_large-step_many-files', \
+             # 'wobble_fast', \
+             # 'wobble_large-step_many-files', \
              'wobble_slow', \
              'wobble_slow_2', \
-             'wobble_slow_after'
+             # 'wobble_slow_after'
             ]
+
+
+# date = '20200924'
+# meas_list = [\
+#              '', \
+#             ]
 
 paths = []
 for meas in meas_list:
@@ -82,9 +100,14 @@ npaths = len(paths)
 gases = ['XX']
 path_dict = {'XX': paths}
 
-print(paths)
-input()
 
+
+
+
+
+
+if savefig:
+    bu.make_all_pardirs(base_plot_path)
 
 
 Ibead = bu.get_Ibead(date=date, verbose=True)
@@ -130,6 +153,7 @@ for gas in gases:
             if one_path:
                 color = colors[fileind]
             field_strength, field_err, wobble_freq, wobble_err = np.load(file)
+            ndata = len(field_strength)
 
             sorter = np.argsort(field_strength)
             field_strength = field_strength[sorter]
@@ -137,16 +161,29 @@ for gas in gases:
             wobble_freq = wobble_freq[sorter]
             wobble_err = wobble_err[sorter]
 
+            inds = np.ones(ndata, dtype=int)
+            if remove_outliers:
+                for i in range(ndata):
+
+                    if (i == 0) or (i == ndata - 1):
+                        continue
+
+                    cond1 = (np.abs(wobble_freq[i] - wobble_freq[i+1]) / 
+                                                wobble_freq[i+1]) > 0.2
+                    cond2 =  (np.abs(wobble_freq[i] - wobble_freq[i-1]) / 
+                                                wobble_freq[i-1]) > 0.2
+                    if cond1 and cond2:
+                        inds[i] = 0
+                inds = inds > 0.5
+
+            field_strength = field_strength[inds]
+            field_err = field_err[inds]
+            wobble_freq = wobble_freq[inds]
+            wobble_err = wobble_err[inds]
+
             wobble_freq *= (2 * np.pi)
             wobble_err *= (2 * np.pi)
-            # plt.errorbar(field_strength, wobble_freq, xerr=field_err, yerr=wobble_err)
-            # plt.show()
 
-
-
-            #field_strength = 100.0 * field_strength * 2.0 
-
-            # try:
             def fitfun(x, A, x0):
                 return sqrt(x, A, x0, 0)
 
@@ -154,11 +191,18 @@ for gas in gases:
 
             #wobble_err *= 40
 
-            def cost(A, x0, xscale=1.0):
-                resid = np.abs(sqrt(xscale * field_strength, A, x0, 0) - wobble_freq)
-                norm = 1. / (len(field_strength) - 1)
-                tot_var = wobble_err**2 #+ wobble_freq**2 * (field_err / field_strength)**2
-                return norm * np.sum( resid**2 / tot_var)
+            if include_field_prior:
+                def cost(A, x0, xscale=1.0):
+                    resid = np.abs(sqrt(xscale * field_strength, A, x0, 0) - wobble_freq)
+                    norm = 1. / (len(field_strength) - 1)
+                    tot_var = wobble_err**2 #+ wobble_freq**2 * (field_err / field_strength)**2
+                    return norm * np.sum( resid**2 / tot_var) + x0**2 / field_prior**2
+            else:
+                def cost(A, x0, xscale=1.0):
+                    resid = np.abs(sqrt(xscale * field_strength, A, x0, 0) - wobble_freq)
+                    norm = 1. / (len(field_strength) - 1)
+                    tot_var = wobble_err**2 #+ wobble_freq**2 * (field_err / field_strength)**2
+                    return norm * np.sum( resid**2 / tot_var)
 
             m=Minuit(cost,
                      A = popt[0], # set start parameter
@@ -168,7 +212,7 @@ for gas in gases:
                      xscale = 1.0,
                      fix_xscale = "True",
                      errordef = 1,
-                     print_level = 1, 
+                     print_level = 0, 
                      pedantic=False)
             m.migrad(ncall=500000)
             minos = m.minos()
@@ -240,7 +284,8 @@ for gas in gases:
             A_val = np.sum( A_arr / (A_sterr_arr**2 + A_syserr_arr**2)) / \
                         np.sum( 1.0 / (A_sterr_arr**2 + A_syserr_arr**2))
             A_sterr = np.sqrt( 1.0 / np.sum( 1.0 / A_sterr_arr**2) )
-            A_syserr = np.sqrt( 1.0 / np.sum( 1.0 / A_syserr_arr**2) )
+            # A_syserr = np.sqrt( 1.0 / np.sum( 1.0 / A_syserr_arr**2) )
+            A_syserr = np.mean(A_syserr_arr)
 
             x0_val = np.sum( x0_arr / x0_err_arr**2) / np.sum( 1.0 / x0_err_arr**2 )
             x0_err = np.sqrt( 1.0 / np.sum( 1.0 / x0_err_arr**2) )
@@ -254,7 +299,7 @@ for gas in gases:
             d_sterr = d * np.sqrt( (A_sterr/A_val)**2 + (Ibead['sterr']/Ibead['val'])**2 )
             d_syserr = d * np.sqrt( (A_syserr/A_val)**2 + (Ibead['syserr']/Ibead['val'])**2 )
 
-            print(A_sterr / A_val, Ibead['sterr'] / Ibead['val'])
+            # print(A_sterr / A_val, Ibead['sterr'] / Ibead['val'])
 
             d_scaled = d * (1.0 / 1.602e-19) * 1e6
             d_sterr_scaled = d_sterr * (1.0 / 1.602e-19) * 1e6
@@ -286,18 +331,15 @@ for gas in gases:
         #     np.save(open(dipole_filename, 'wb'), [np.mean(d_vec), np.std(d_vec)])
 
     ax.set_xlabel('Field [kV/m]')
-    ax.set_ylabel('$\omega_{\phi}$ [rad/s]')
+    ax.set_ylabel('$\\omega_{\\phi}$ [rad/s]')
 
     ax.legend(fontsize=12)
     plt.tight_layout()
 
-    plot_name = '%s_wobble.png' % gas
+    plot_name = '{:s}_{:s}_dipole_meas.svg'.format(date, meas)
     plot_save_path = os.path.join(base_plot_path, plot_name)
-    plot_name_2 = '%s_wobble.svg' % gas
-    plot_save_path_2 = os.path.join(base_plot_path, plot_name)
     if savefig:
         fig.savefig(plot_save_path)
-        fig.savefig(plot_save_path_2)
 
     plt.show()
 

@@ -7,27 +7,25 @@ from obspy.signal.detrend import polynomial
 import bead_util as bu
 import peakdetect as pdet
 
-import scipy.optimize as opti
+import scipy.optimize as optimize
 import scipy.signal as signal
 
 from tqdm import tqdm
 from joblib import Parallel, delayed
 ncore = 20
 
-np.random.seed(12345)
-
 plot_raw_dat = False
 plot_demod = False
 plot_phase = False
 plot_sideband_fit = False
-
-cleanup_outarr = False
+plot_efield_estimation = False
+plot_final_result = True
 
 # fc = 220000.0
 # fc = 110000.0
 # fc = 100000.0
-# fspin = 30000
-fspin = 25000.0
+fspin = 30000   # For 20200727 data
+# fspin = 25000.0
 wspin = 2.0*np.pi*fspin
 bandwidth = 6000.0
 high_pass = 50.0
@@ -111,17 +109,26 @@ tabor_mon_fac = 100 * (1.0 / 0.95)
 invert_order = True
 
 date = '20200727'
-# date = '20200924'
 # date = '20201030'
 # date = '20201113'
-
 meas_list = [\
-             # 'wobble_fast', \
+             'wobble_fast', \
              # 'wobble_large-step_many-files', \
-             'wobble_slow', \
+             # 'wobble_slow', \
              # 'wobble_slow_2', \
+             # 'adiabatic_wobble', \
              # 'wobble_slow_after'
             ]
+
+# date = '20200924'
+# meas_list = [\
+#              'dipole_meas/initial', \
+#             ]
+
+# date = '20201030'
+# meas_list = [\
+#              # 'wobble_fast', \
+#             ]
 
 base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
 savebase = '/data/old_trap_processed/spinning/wobble/'
@@ -132,24 +139,35 @@ for meas in meas_list:
     base_path = os.path.join(base, meas)
     base_save_path = os.path.join(savebase, date, meas)
     for root, dirnames, filenames in os.walk(base_path):
-        for dirname in dirnames:
-            # print(dirname)
-            paths.append(os.path.join(base_path, dirname))
-            save_paths.append(os.path.join(base_save_path, dirname + '.npy'))
+        if len(dirnames):
+            for dirname in dirnames:
+                paths.append(os.path.join(base_path, dirname))
+                save_paths.append(os.path.join(base_save_path, dirname + '.npy'))
+        elif len(filenames) and root not in paths:
+            paths.append(base_path)
+            save_paths.append(base_save_path + '.npy')
 npaths = len(paths)
 
 paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
+print()
+print(paths)
+input()
 
 path_dict = {}
 path_dict['XX'] = {}
-# path_dict['XX'][1] = (paths, save_paths)
-path_dict['XX'][1] = ([paths[0]], [save_paths[0]])
+path_dict['XX'][1] = (paths, save_paths)
+# path_dict['XX'][1] = ([paths[0]], [save_paths[0]])
 gases = ['XX']
 inds = [1]
 
 save = False
 load = False
 
+timer = False
+
+# print(path_dict)
+# input()
+
 
 
 ##########################################################
@@ -157,7 +175,8 @@ load = False
 ##########################################################
 
 
-if plot_raw_dat or plot_demod or plot_phase or plot_sideband_fit:
+if plot_raw_dat or plot_demod or plot_phase or plot_sideband_fit \
+        or plot_efield_estimation:
     ncore = 1
 
 bu.make_all_pardirs(save_paths[0])
@@ -190,7 +209,8 @@ for combination in itertools.product(gases, inds):
     for pathind, path in enumerate(paths):
         if load:
             continue
-        files, lengths = bu.find_all_fnames(path, sort_time=True)
+        files, lengths = bu.find_all_fnames(path, sort_time=True, \
+                                            skip_subdirectories=True)
         if invert_order:
             files = files[::-1]
 
@@ -204,33 +224,43 @@ for combination in itertools.product(gases, inds):
         time_vec = np.arange(nsamp) * (1.0 / fsamp)
         freqs = np.fft.rfftfreq(nsamp, 1.0/fsamp)
 
-        upper1 = (2.0 / fsamp) * (2.0*fspin + 0.5 * bandwidth)
-        lower1 = (2.0 / fsamp) * (2.0*fspin - 0.5 * bandwidth)
+        # upper1 = (2.0 / fsamp) * (2.0*fspin + 0.5 * bandwidth)
+        # lower1 = (2.0 / fsamp) * (2.0*fspin - 0.5 * bandwidth)
+        upper1 = 2.0*fspin + 0.5 * bandwidth
+        lower1 = 2.0*fspin - 0.5 * bandwidth
 
-        upper2 = (2.0 / fsamp) * (fspin + 0.25 * bandwidth)
-        lower2 = (2.0 / fsamp) * (fspin - 0.25 * bandwidth)
+        # upper2 = (2.0 / fsamp) * (fspin + 0.25 * bandwidth)
+        # lower2 = (2.0 / fsamp) * (fspin - 0.25 * bandwidth)
+        upper2 = fspin + 0.25 * bandwidth
+        lower2 = fspin - 0.25 * bandwidth
 
         notch_fit_inds = np.abs(freqs - notch_init) < notch_range
 
 
-        b1, a1 = signal.butter(3, [lower1, upper1], \
-                               btype='bandpass')
-        b2, a2 = signal.butter(3, [lower2, upper2], \
-                               btype='bandpass')
+        sos1 = signal.butter(3, [lower1, upper1], fs=fsamp, \
+                             btype='bandpass', output='sos')
+        sos2 = signal.butter(3, [lower2, upper2], fs=fsamp, \
+                             btype='bandpass', output='sos')
 
-        b3, a3 = signal.butter(3, (2.0/fsamp)*high_pass, btype='high')
+        # sos3 = signal.butter(3, (2.0/fsamp)*high_pass, fs=fsamp, \
+        #                      btype='high', output='sos')
+        sos3 = signal.butter(3, high_pass, fs=fsamp, \
+                             btype='high', output='sos')
+
 
         def proc_file(file):
+            proc_file_start = time.time()
             fobj = bu.hsDat(file, load=True)
 
             vperp = fobj.dat[:,0]
             elec3 = fobj.dat[:,1]
 
-            elec3_filt = signal.filtfilt(b2, a2, elec3)
+            elec3_filt = signal.sosfiltfilt(sos2, elec3)
 
             if plot_raw_dat:
                 fac = bu.fft_norm(nsamp, fsamp)
                 plt.plot(time_vec[:10000], elec3[:10000])
+                plt.plot(time_vec[:10000], elec3_filt[:10000])
                 plt.figure()
                 plt.plot(time_vec[:10000], vperp[:10000])
                 plt.figure()
@@ -242,26 +272,37 @@ for combination in itertools.product(gases, inds):
 
                 input()
 
-            inds = np.abs(freqs - fspin) < 200.0
+            inds = np.abs(freqs - fspin) < 100.0
 
-            elec3_fft = np.fft.rfft(elec3)
-            true_fspin = freqs[np.argmax(np.abs(elec3_fft))]
+            elec3_fft = np.fft.rfft(elec3_filt)[inds]
+            weights = np.abs(elec3_fft)**2
+            true_fspin = freqs[inds][np.argmax(weights)]
+            true_fspin = np.sum(freqs[inds] * weights) / np.sum(weights)
 
-            amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
-                                  filt=True, bandwidth=bandwidth, \
-                                  notch_freqs=notch_freqs, notch_qs=notch_qs, \
-                                  tukey=True, tukey_alpha=5.0e-4, \
-                                  detrend=detrend, detrend_order=1, harmind=2.0, \
-                                  force_2pi_wrap=force_2pi_wrap)
+            demod_start = time.time()
+            amp, phase_mod, demod_debug = \
+                    bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
+                             filt=True, bandwidth=bandwidth, \
+                             notch_freqs=notch_freqs, notch_qs=notch_qs, \
+                             tukey=True, tukey_alpha=5.0e-4, \
+                             detrend=detrend, detrend_order=1, harmind=2.0, \
+                             force_2pi_wrap=force_2pi_wrap, debug=True)
+            demod_end = time.time()
 
-            phase_mod_filt = signal.filtfilt(b3, a3, phase_mod)
-            #phase_mod_filt = phase_mod
+            ### Add back the residual frequency offset that sometimes remains.
+            ### This is observed as a linear trend in the demodulated phase
+            ### and if we detrend, then that value naturally comes out and is
+            ### used to infer the actual spinning frequency
+            # true_fspin += demod_debug['residual_freq']
+
+            extraction_start = time.time()
+            phase_mod_filt = signal.sosfiltfilt(sos3, phase_mod)
 
             amp_asd = np.abs(np.fft.rfft(amp))
             phase_asd = np.abs(np.fft.rfft(phase_mod))
             phase_asd_filt = np.abs(np.fft.rfft(phase_mod_filt))
 
-            # popt_n, pcov_n = opti.curve_fit(gauss, freqs[notch_fit_inds], \
+            # popt_n, pcov_n = optimize.curve_fit(gauss, freqs[notch_fit_inds], \
             #                                     phase_asd_filt[notch_fit_inds], \
             #                                     p0=[10000, notch_init, 2, 0])
 
@@ -282,8 +323,8 @@ for combination in itertools.product(gases, inds):
                 phase_asd_filt_2 = phase_asd_filt_2 * freqs**noise_color_power
 
             if plot_phase:
-                plt.plot(freqs, phase_mod)
-                plt.xlabel('Frequency [Hz]')
+                plt.plot(np.arange(len(phase_mod))/fsamp, phase_mod)
+                plt.xlabel('Time [s]')
                 plt.ylabel('Phase [rad]')
                 plt.tight_layout()
 
@@ -307,9 +348,10 @@ for combination in itertools.product(gases, inds):
             p0 = [10000, max_freq, 5.0, 0]
 
             try:
-                popt, pcov = opti.curve_fit(lorentzian, freqs[max_ind-30:max_ind+30], \
-                                            phase_asd_filt_2[max_ind-30:max_ind+30], p0=p0, \
-                                            maxfev=10000)
+                popt, pcov = \
+                    optimize.curve_fit(lorentzian, freqs[max_ind-30:max_ind+30], \
+                                       phase_asd_filt_2[max_ind-30:max_ind+30], \
+                                       p0=p0, maxfev=10000)
 
                 fit_max = popt[1]
                 fit_std = np.abs(popt[2])
@@ -327,6 +369,7 @@ for combination in itertools.product(gases, inds):
                 plt.show()
 
                 input()
+            extraction_end = time.time()
 
             # if fit_max < 10:
             #     return 
@@ -340,50 +383,32 @@ for combination in itertools.product(gases, inds):
             #         return
 
 
+            drive_data_start = time.time()
             elec3_filt_fft = np.fft.rfft(elec3_filt)
 
             fit_ind = 100000
-            short_freqs = np.fft.rfftfreq(fit_ind, d=1.0/fsamp)
             zeros = np.zeros(fit_ind)
             voltage = np.array([zeros, zeros, zeros, elec3_filt[:fit_ind], \
                        zeros, zeros, zeros, zeros])
             efield = bu.trap_efield(voltage*tabor_mon_fac, only_x=True)
 
-            #efield_mag = np.linalg.norm(efield, axis=0)
+            efield_amp, efield_unc, _, _ = \
+                bu.get_sine_amp_phase(efield[0], int_band=1000.0/fsamp, \
+                                      plot=plot_efield_estimation, \
+                                      freq=true_fspin/fsamp, incoherent=True)
 
-            efield_asd = bu.fft_norm(fit_ind, fsamp) * np.abs(np.fft.rfft(efield[0]))
+            drive_data_end = time.time()
 
-            # max_ind = np.argmax(np.abs(elec3_filt_fft))
-            short_max_ind = np.argmax(efield_asd)
-            # freq_guess = freqs[max_ind]
-            # phase_guess = np.mean(np.angle(elec3_filt_fft[max_ind-2:max_ind+2]))
-            # amp_guess = np.sqrt(2) * np.std(efield[0])
-            # p0 = [amp_guess, freq_guess, phase_guess, 0]
+            proc_file_end = time.time()
 
-            # popt_l, pcov_l = opti.curve_fit(lorentzian, short_freqs[short_max_ind-100:short_max_ind+100], \
-            #                                 efield_asd[short_max_ind-100:short_max_ind+100], \
-            #                                 p0=[amp_guess, freq_guess, 100, 0], maxfev=10000)
+            if timer:
+                print('     Demod : {:0.4f}'.format(demod_end - demod_start))
+                print('Extraction : {:0.4f}'.format(extraction_end - extraction_start))
+                print('Drive data : {:0.4f}'.format(drive_data_end - drive_data_start))
 
-            # start_sine = time.time()
-            # popt, pcov = opti.curve_fit(sine, time_vec[:fit_ind], efield[0], \
-            #                                 sigma=0.01*efield[0], p0=p0)
 
-            # print popt[0], popt_l[0] * (fsamp / fit_ind)
 
-            #print popt[0], np.sqrt(pcov[0,0])
-            # amp_fit = efield_asd[short_max_ind] * np.sqrt(2.0 * fsamp / fit_ind)
-            amp_fit = np.sqrt(2) * np.std(efield[0])
-            # plt.plot(efield[0])
-            # plt.show()
-
-            err_val = np.mean(np.array([efield_asd[short_max_ind-10:short_max_ind], \
-                                efield_asd[short_max_ind+1:short_max_ind+11]]).flatten())
-            amp_err = np.sqrt((err_val * fsamp / fit_ind)**2)# + (0.01*amp_fit)**2)
-            # print amp_fit, amp_err
-            # stop_sine = time.time()
-            # print "Field sampling: ", stop_sine - start_sine
-
-            return [2.0*amp_fit, np.sqrt(2)*amp_err, fit_max, fit_std]
+            return [2.0*efield_amp, np.sqrt(2)*efield_unc, fit_max, fit_std]
 
 
 
@@ -405,34 +430,8 @@ for combination in itertools.product(gases, inds):
         out_arr = np.array(results)
         out_arr = out_arr.T
 
-        if cleanup_outarr:
-            clean = False
-            new_nfiles = nfiles
-            print('Cleaning...', end=' ')
-            while not clean:
-                for i in range(new_nfiles):
-                    if i == 0:
-                        continue
-                    if i == new_nfiles - 1:
-                        clean = True
-                        break
-                    cond1 = (np.abs(out_arr[2][i] - out_arr[2][i-1]) / 
-                                                np.max(out_arr[2][i-1:i+1])) > 0.2
-                    cond2 = out_arr[3][i] > 2.0 * out_arr[2][i]
-                    if cond1 or cond2:
-                        out_arr_1 = out_arr[:,:i]
-                        out_arr_2 = out_arr[:,i+1:]
-                        out_arr = np.concatenate((out_arr_1, out_arr_2), axis=-1)
-                        new_nfiles = len(out_arr[0])
-                        print(i, end=' ')
-                        break
-            print()
-
-        # plt.hist(out_arr[3] / out_arr[2])
-        # plt.show()
-
         if save:
-            print(('Saving: ', save_paths[pathind]))
+            print('Saving: ', save_paths[pathind])
             np.save(save_paths[pathind], out_arr)
             # print('Saving: ', save_path)
             # np.save(save_path, out_arr)
@@ -445,55 +444,53 @@ for combination in itertools.product(gases, inds):
 if load:
     for save_path in save_paths:
         saved_arr = np.load(save_path)
-        #field_strength, field_err, wobble_freq, wobble_err = np.load(save_path)
-        #arr = np.array([field_strength, field_err, wobble_freq, wobble_err])
-        #arr = saved_arr.T
         all_data.append(saved_arr)
 
+if plot_final_result:
+    popt_arr = []
+    colors = bu.get_color_map(len(all_data), cmap='inferno')
+    for arrind, arr in enumerate(all_data):
+        field_strength = arr[0]
+        field_err = arr[1]
+        wobble_freq = arr[2]
+        wobble_err = arr[3]
 
-popt_arr = []
-colors = bu.get_color_map(len(all_data), cmap='inferno')
-for arrind, arr in enumerate(all_data):
-    field_strength = arr[0]
-    field_err = arr[1]
-    wobble_freq = arr[2]
-    wobble_err = arr[3]
+        # plt.scatter(np.arange(arr.shape[1]), field_strength)
 
-    # plt.scatter(np.arange(arr.shape[1]), field_strength)
+        # plt.figure()
+        plt.errorbar(field_strength, 2*np.pi*wobble_freq, fmt='o', ms=5, alpha=0.6, \
+                     yerr=wobble_err, color=colors[arrind])
 
-    # plt.figure()
-    plt.errorbar(field_strength, 2*np.pi*wobble_freq, fmt='o', ms=5, alpha=0.6, \
-                 yerr=wobble_err, color=colors[arrind])
+        p0 = [10, 0, 0]
+        try:
+            popt, pcov = \
+                optimize.curve_fit(sqrt, field_strength, 2*np.pi*wobble_freq, \
+                                   p0=p0, sigma=2*np.pi*wobble_err)
+        except:
+            popt = p0
+            continue
 
-    p0 = [10, 0, 0]
+        popt_arr.append(popt)
+        # print('')
+        # print(popt)
+        # print((1.0 / (len(field_strength) - 1)) * \
+        #     np.sum((2*np.pi*wobble_freq - sqrt(field_strength, *popt))**2 / (2*np.pi*wobble_err)**2))
+        # print('')
+
+        plot_x = np.linspace(0, np.max(field_strength), 100)
+        plot_x[0] = 1.0e-9 * plot_x[1]
+        plot_y = sqrt(plot_x, *popt)
+
+        plt.plot(plot_x, plot_y, '--', lw=2, color=colors[arrind])
+
+    popt = np.mean(np.array(popt_arr), axis=0)
+    popt_err = np.std(np.array(popt_arr), axis=0)
+
+    # 1e-3 to account for 
     try:
-        popt, pcov = opti.curve_fit(sqrt, field_strength, 2*np.pi*wobble_freq, \
-                                    p0=p0, sigma=2*np.pi*wobble_err)
-    except:
-        popt = p0
-        continue
+        d = (popt[0])**2 * Ibead['val']
+        d_err = (popt_err[0])**2 * Ibead['val']
+    except: 
+        2+2
 
-    popt_arr.append(popt)
-    # print('')
-    # print(popt)
-    # print((1.0 / (len(field_strength) - 1)) * \
-    #     np.sum((2*np.pi*wobble_freq - sqrt(field_strength, *popt))**2 / (2*np.pi*wobble_err)**2))
-    # print('')
-
-    plot_x = np.linspace(0, np.max(field_strength), 100)
-    plot_x[0] = 1.0e-9 * plot_x[1]
-    plot_y = sqrt(plot_x, *popt)
-
-    plt.plot(plot_x, plot_y, '--', lw=2, color=colors[arrind])
-
-popt = np.mean(np.array(popt_arr), axis=0)
-popt_err = np.std(np.array(popt_arr), axis=0)
-
-# 1e-3 to account for 
-try:
-    d = (popt[0])**2 * Ibead['val']
-    d_err = (popt_err[0])**2 * Ibead['val']
-except: 
-    2+2
-
-plt.show()
+    plt.show()

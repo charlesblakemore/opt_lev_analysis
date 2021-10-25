@@ -36,19 +36,21 @@ yfilobj.load_other_data()
 '''
 
 
-xprof_dir = '/daq2/20190311/profiling/tele_out_coll/xprof_150cm_init2'
-yprof_dir = '/daq2/20190311/profiling/tele_out_coll/yprof_150cm_init2'
+# xprof_dir = '/daq2/20190311/profiling/tele_out_coll/xprof_150cm_init2'
+# yprof_dir = '/daq2/20190311/profiling/tele_out_coll/yprof_150cm_init2'
+
+xprof_dir = '/data/old_trap/20171025/chopper_profiling/xprof_output'
+yprof_dir = '/data/old_trap/20171025/chopper_profiling/yprof_output'
+
+# xprof_dir = '/data/old_trap/20201204/chopper_profiling/telescope_mid_xprof'
+# yprof_dir = '/data/old_trap/20201204/chopper_profiling/telescope_mid_yprof'
 
 
-xprof_dir = '/data/old_trap/20201204/chopper_profiling/no_telescope_mid_xprof'
-yprof_dir = '/data/old_trap/20201204/chopper_profiling/no_telescope_mid_yprof'
-
-
-x_d, x_prof, x_popt = chopfuncs.profile_directory(xprof_dir, raw_dat_col=0, \
+x_d, x_prof, x_popt = chopfuncs.profile_directory(xprof_dir, raw_dat_col=7, \
                                                   plot_peaks=False, return_pos=True, \
                                                   guess=7e-3)
-y_d, y_prof, y_popt = chopfuncs.profile_directory(yprof_dir, raw_dat_col=0, \
-                                                  plot_peaks=True, return_pos=True, \
+y_d, y_prof, y_popt = chopfuncs.profile_directory(yprof_dir, raw_dat_col=7, \
+                                                  plot_peaks=False, return_pos=True, \
                                                   guess=7e-3)
 
 
@@ -68,8 +70,8 @@ x_popt[0] = 1.0
 y_popt[0] = 1.0
 
 
-binned_x_d, binned_x_prof, x_errs = bu.rebin(x_d, x_prof, nbins=200)
-binned_y_d, binned_y_prof, y_errs = bu.rebin(y_d, y_prof, nbins=200)
+binned_x_d, binned_x_prof, x_errs = bu.rebin(x_d, x_prof, nbin=200)
+binned_y_d, binned_y_prof, y_errs = bu.rebin(y_d, y_prof, nbin=200)
 
 
 

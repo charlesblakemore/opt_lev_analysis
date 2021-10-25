@@ -47,6 +47,7 @@ tabor_ind = 3
 # step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
 # first_file = 0
 # last_file = -1
+# files_to_pop = []
 
 # step_cal_dir = ['/data/old_trap/20200924/bead1/discharge/fine/']
 # first_file = 1
@@ -133,6 +134,9 @@ drive_freq = 41.0
 save_discharge_plot = True
 plot_residual_histograms = True
 
+save_charge = True
+# save_charge = False
+
 
 #####################################
 ### Settings for transfer function
@@ -172,9 +176,22 @@ plot_tf = True
 plot_tf_fits = True
 plot_off_diagonal = False
 
-interps = [[0,1,1], [1,0,1], [1,1,0]]
-derpy_unwrap = [[0,0,0], [0,0,0], [0,0,0]]
-real_unwrap = [[1,0,0], [0,1,0], [0,0,1]]
+### Matrix specifying which elements of the transfer function
+### to interpolate. If not interpolated, fits a simple harmonic
+### oscillator to the response
+interps = [[0,1,1], \
+           [1,0,1], \
+           [1,1,0]]
+
+### Matrices specifying the phase processing behavior, i.e. do
+### we try a real unwrap like np.unwrap(), or do some stupid shit
+### that works sometimes (empirical evidence)
+derpy_unwrap = [[0,0,0], \
+                [0,0,0], \
+                [0,0,0]]
+real_unwrap = [[1,0,0], \
+               [0,1,0], \
+               [0,0,1]]
 
 smoothing = 1
 
@@ -183,14 +200,11 @@ suppress_off_diag = True
 
 
 #####################################
-### Shared settings
+###  Shared settings
 #####################################
 
-save = True
-# save = False
-
-save_charge = True
-# save_charge = False
+save_tf = True
+# save_tf = False
 
 
 
@@ -200,19 +214,12 @@ save_charge = True
 recharge = False
 if type(step_cal_dir) == str:
     step_date = re.search(r"\d{8,}", step_cal_dir)[0]
-    # if 'recharge' in step_cal_dir:
-    #     recharge = True
-    # else:
-    #     recharge = False
 else:
     step_date = re.search(r"\d{8,}", step_cal_dir[0])[0]
-    # for dir in step_cal_dir:
-    #     if 'recharge' in dir:
-    #         recharge = True
 
 tf_date = re.search(r"\d{8,}", tf_cal_dir)[0]
 
-tf_date = step_date
+# tf_date = step_date
 
 
 
@@ -406,10 +413,13 @@ if not fake_step_cal:
 
     vpn, off, err, q0 = cal.step_cal(step_cal_vec_userphase, nsec=nsec, \
                                      new_trap=new_trap, auto_try=auto_try, \
-                                     plot_residual_histograms=plot_residual_histograms)
+                                     plot_residual_histograms=plot_residual_histograms, \
+                                     save_discharge_plot=save_discharge_plot, \
+                                     date=step_date)
     print(vpn)
 
 if save_charge:
+    print('Saving charge file to:\n     {:s}'.format(charge_path))
     if recharge:
         np.save(open(charge_path, 'wb'), [q0])
     else:
@@ -417,7 +427,7 @@ if save_charge:
 
 
 print()
-input('Proceed with transfer function?')
+input('Proceed with transfer function? (ENTER) ')
 
 
 tf_file_objs = []
@@ -474,6 +484,7 @@ if plot_inverse_tf:
     tf.plot_tf_array(freqs, Harr)
 
 ### Save the Hfunc object
-if save:
+if save_tf:
+    print('Saving transfer function:\n     {:s}'.format(savepath))
     pickle.dump( Hfunc, open(savepath, 'wb') )
 

@@ -106,14 +106,14 @@ file_dict['20201030'] = (arr, 2, 1)
 file_dict = {'20201030': (arr, 2, 1)}
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20201222/gbead1/weigh/8Vpp_lowp_neg')
-file_dict['20201222'] = (arr, 2, 0)
+# arr = []  ### 
+# arr.append('/data/old_trap/20201222/gbead1/weigh/8Vpp_lowp_neg')
+# file_dict['20201222'] = (arr, 2, 0)
 
-file_dict = {'20201222': (arr, 2, 0)}
+# file_dict = {'20201222': (arr, 2, 0)}
 
-# xlim = (-10, 100)
-xlim = (-40, 450)
+xlim = (-15, 100)
+# xlim = (-40, 450)
 
 # arr = []  ### 
 # arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
@@ -164,22 +164,23 @@ file_inds = (0, 500)
 userNFFT = 2**12
 diag = False
 
-save = False
+### Boolean to save the "all vs time"
+save_all = False
 
 fullNFFT = False
 
 correct_phase_shift = False
 
-save_mass = False
+save_mass = True
 print_res = True
 plot = True
 
 save_example = False
-example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.png'
+example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.svg'
 
+upper_outlier = 88.5e-15
 # upper_outlier = 95e-15  # in kg
-# upper_outlier = 95e-13
-upper_outlier = 600e-15
+# upper_outlier = 120e-15
 
 lower_outlier = 70e-15
 # lower_outlier = 1e-15
@@ -226,7 +227,9 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     charge_file = '/data/{:s}_processed/calibrations/charges/'.format(trap_str) + date
     save_filename = '/data/{:s}_processed/calibrations/masses/'.format(trap_str) \
                             + date + '_' + suffix + '.mass'
+    plot_save_directory = '/home/cblakemore/plots/{:s}/'.format(date)
     bu.make_all_pardirs(save_filename)
+    bu.make_all_pardirs(os.path.join(plot_save_directory, 'test.svg'))
 
     if pos:
         charge_file += '_recharge.charge'
@@ -505,19 +508,18 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     plot_vec = np.linspace(np.min(all_eforce), mean_lev, 100)
 
     if plot:
-        fig = plt.figure(dpi=200, figsize=(6,4))
-        ax = fig.add_subplot(111)
+        fig, ax = plt.subplots(1, 1, dpi=200, figsize=(6,4))
         ### Plot force (in pN / g = pg) vs power
-        plt.plot(np.array(all_eforce).flatten()[::5]*1e15*(1.0/9.806), \
-                 np.array(all_power).flatten()[::5], \
-                 'o', alpha = 0.5)
+        ax.plot(np.array(all_eforce).flatten()[::5]*1e15*(1.0/9.806), \
+                np.array(all_power).flatten()[::5], \
+                'o', alpha = 0.5)
         #for params in all_param:
         #    plt.plot(plot_vec, line(plot_vec, params[0]*1e13, params[1]), \
         #             '--', color='r', lw=1, alpha=0.05)
-        plt.plot(plot_vec*1e12*(1.0/9.806)*1e3, \
-                 line(plot_vec, mean_popt[0]*1e13, mean_popt[1]), \
-                 '--', color='k', lw=2, \
-                 label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
+        ax.plot(plot_vec*1e12*(1.0/9.806)*1e3, \
+                line(plot_vec, mean_popt[0]*1e13, mean_popt[1]), \
+                '--', color='k', lw=2, \
+                label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
         left, right = ax.get_xlim()
         # ax.set_xlim((left, 500))
         ax.set_xlim(*xlim)
@@ -525,53 +527,63 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         bot, top = ax.get_ylim()
         ax.set_ylim((0, top))
         
-        plt.legend()
-        plt.xlabel('Applied electrostatic force/$g$ (pg)')
-        plt.ylabel('Optical power (arb. units)')
-        plt.grid()
-        plt.tight_layout()
+        ax.legend()
+        ax.set_xlabel('Applied electrostatic force/$g$ (pg)')
+        ax.set_ylabel('Optical power (arb. units)')
+        ax.grid()
+        fig.tight_layout()
+
+        fig.savefig( os.path.join(plot_save_directory, \
+                            '{:s}_{:s}_mass_meas.svg'.format(date, suffix)) )
+
         if save_example:
             fig.savefig(example_filename)
-            fig.savefig(example_filename[:-4]+'.pdf')
-            fig.savefig(example_filename[:-4]+'.svg')
 
 
         x_plotvec = np.array(all_eforce).flatten()
         y_plotvec = np.array(all_power).flatten()
 
-        yresid = (y_plotvec - line(x_plotvec, mean_popt[0]*1e13, mean_popt[1])) / y_plotvec
+        yresid = (y_plotvec - line(x_plotvec, mean_popt[0]*1e13, mean_popt[1])) \
+                        / y_plotvec
 
-        plt.figure(dpi=200, figsize=(3,2))
-        plt.hist(yresid*100, bins=30)
-        plt.legend()
-        plt.xlabel('Resid. Power [%]')
-        plt.ylabel('Counts')
-        plt.grid()
-        plt.tight_layout()
+        fig2, ax2 = plt.subplots(1, 1, dpi=200, figsize=(3,2))
+        ax2.hist(yresid*100, bins=30)
+        ax2.legend()
+        ax2.set_xlabel('Resid. Power [%]')
+        ax2.set_ylabel('Counts')
+        ax2.grid()
+        fig2.tight_layout()
+        fig2.savefig( os.path.join(plot_save_directory, \
+                            '{:s}_{:s}_mass_meas_resid_power_hist.svg'\
+                                .format(date, suffix)) )
+
+        fig3, ax3 = plt.subplots(1, 1, dpi=200, figsize=(3,2))
+        ax3.plot(x_plotvec*1e15, yresid*100, 'o')
+        ax3.legend()
+        ax3.set_xlabel('E-Force [pN]')
+        ax3.set_ylabel('Resid. Pow. [%]')
+        ax3.grid()
+        fig3.tight_layout()
+        fig3.savefig( os.path.join(plot_save_directory, \
+                            '{:s}_{:s}_mass_meas_resid_power.svg'\
+                                .format(date, suffix)) )
 
 
-        plt.figure(dpi=200, figsize=(3,2))
-        plt.plot(x_plotvec*1e15, yresid*100, 'o')
-        plt.legend()
-        plt.xlabel('E-Force [pN]')
-        plt.ylabel('Resid. Pow. [%]')
-        plt.grid()
-        plt.tight_layout()
 
-
-
-        derpfig = plt.figure(dpi=200, figsize=(3,2))
-        #derpfig.patch.set_alpha(0.0)
-        plt.hist(np.array(mass_vec)*1e15, bins=10)
-        plt.xlabel('Mass (pg)')
-        plt.ylabel('Count')
-        plt.grid()
+        fig4, ax4 = plt.subplots(1, 1, dpi=200, figsize=(3,2))
+        ax4.hist(np.array(mass_vec)*1e15, bins=10)
+        ax4.set_xlabel('Mass (pg)')
+        ax4.set_ylabel('Count')
+        ax4.grid()
         #plt.title('Implied Masses, Each from 50s Integration')
         #plt.xlim(0.125, 0.131)
-        plt.tight_layout()
+        fig4.tight_layout()
+        fig4.savefig( os.path.join(plot_save_directory, \
+                            '{:s}_{:s}_mass_meas_hist.svg'\
+                                .format(date, suffix)) )
+
+
         if save_example:
-            derpfig.savefig(example_filename[:-4]+'_hist.png')
-            derpfig.savefig(example_filename[:-4]+'_hist.pdf')
             derpfig.savefig(example_filename[:-4]+'_hist.svg')
 
         plt.show()
@@ -584,6 +596,10 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     final_pressure = np.mean(pressure_vec)  
 
     if save_mass:
+        print()
+        print('Saving mass file:')
+        print('    {:s}'.format(save_filename))
+        print()
         save_arr = [final_mass, final_err_stat, final_err_sys]
         np.save(open(save_filename, 'wb'), save_arr)
 
@@ -688,21 +704,10 @@ for date in dates:
 allres = np.array(allres)
 overall_mass = np.array(overall_mass)
 
-if save:
+if save_all:
     np.save('./allres.npy', allres)
     np.save('./overall_masses.npy', overall_mass)
 
     pickle.dump(allres_dict, open('./allres.p', 'wb'))
     pickle.dump(overall_mass_dict, open('./overall_masses.p', 'wb'))
 
-
-'''
-allfiles, lengths = bu.find_all_fnames(highp_n_dir, sort_time=True)
-highp_n_dat = weigh_bead_efield(allfiles, plot=True)
-
-allfiles, lengths = bu.find_all_fnames(lowp_n_dir, sort_time=True)
-lowp_n_dat = weigh_bead_efield(allfiles, plot=True)
-
-allfiles, lengths = bu.find_all_fnames(lowp_p_dir, sort_time=True)
-lowp_p_dat = weigh_bead_efield(allfiles, plot=True, pos=True)
-'''
