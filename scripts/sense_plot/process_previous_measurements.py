@@ -3,14 +3,17 @@ import os
 import numpy as np
 import scipy.signal as signal
 import scipy.interpolate as interpolate
+
+import matplotlib
+matplotlib.use('Tkagg', force=True)
 import matplotlib.pyplot as plt
 
 import bead_util as bu
 
 
 ### Path to save the best current experimental constraints as a single array
-save = True
-savepath = './prev_meas/master_all.txt'
+save = False
+savepath = './prev_meas/master_all_DERPY_OLD_JUNK.txt'
 
 ### Some arrays for sorting out various mesurements
 min_lambdas = []

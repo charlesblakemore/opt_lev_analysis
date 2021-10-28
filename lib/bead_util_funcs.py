@@ -1235,8 +1235,8 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], plot=False, \
           notch_freqs=[], notch_qs=[], force_2pi_wrap=False, \
-          ncycle_pad=0, detrend=False, detrend_order=1, \
-          tukey=False, tukey_alpha=1e-3, debug=False):
+          detrend=False, tukey=False, tukey_alpha=1e-3, \
+          debug=False):
     '''
     Sub-routine to perform a hilbert transformation on a given 
     signal, filtering it if requested and plotting throughout.
@@ -1246,8 +1246,6 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     if debug:
         debug_dict = {}
-
-    npad = int(ncycle_pad * fsamp / fsig)
 
     nsamp = len(input_sig)
     tvec = np.arange(nsamp) * (1.0 / fsamp)
@@ -1267,35 +1265,20 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
     sig = input_sig - np.mean(input_sig)
 
-    if npad:
-        sig_refl = sig[::-1]
-        sig_padded = np.concatenate((sig_refl[-npad:], \
-                                     sig, sig_refl[:npad]))
-    else:
-        sig_padded = np.copy(sig)
-
     if filt:
         # sig_filt = signal.filtfilt(b1, a1, sig)
         sig_filt = signal.sosfiltfilt(sos, sig)
-        # sig_filt_padded = signal.filtfilt(b1, a1, sig_padded)
-        sig_filt_padded = signal.sosfiltfilt(sos, sig_padded)
 
         if len(notch_freqs):
             for i, notch_freq in enumerate(notch_freqs):
                 notch_q = notch_qs[i]
                 bn, an = signal.iirnotch(notch_freq, notch_q, fs=fsamp)
                 sig_filt = signal.lfilter(bn, an, sig_filt)
-                sig_filt_padded = signal.lfilter(bn, an, sig_filt_padded)
 
-        hilbert_padded = signal.hilbert(sig_filt_padded)
+        hilbert = signal.hilbert(sig_filt)
 
     else:
-        hilbert_padded = signal.hilbert(sig_padded)
-
-    if npad:
-        hilbert = hilbert_padded[npad:-npad]
-    else:
-        hilbert = np.copy(hilbert_padded)
+        hilbert = signal.hilbert(sig)
 
 
     amp = np.abs(hilbert)
@@ -1308,28 +1291,30 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     if detrend:
         good_inds = (phase_mod - phase_mod_unwrap) == 0
+
         inds = np.arange(len(phase_mod))
-        fit_func = lambda x,a,b: a*x + b
-        try:
-            popt, _ = optimize.curve_fit(fit_func, inds[good_inds], phase_mod[good_inds], \
-                                         p0=[0,0], maxfev=10000)
-        except:
-            popt = [0,0]
+        xvec = inds[good_inds]
+        yvec = phase_mod[good_inds]
 
-        # phase_mod = polynomial(phase_mod[good_inds], order=detrend_order, plot=plot)
-        phase_mod_unwrap -= inds * popt[0] + popt[1]
+        xmean = np.mean(xvec)
+        ymean = np.mean(yvec)
 
-        debug_dict['residual_freq'] = popt[0] * fsamp
+        slope = np.sum((xvec-xmean)*(yvec-ymean)) / np.sum((xvec-xmean)**2)
+        offset = ymean - slope * xmean
+
+        phase_mod_unwrap -= inds*slope + offset
+
+        debug_dict['residual_freq'] = slope * fsamp
 
         if plot:
-            fig, axarr = plt.subplots(2,1,figsize=(8,6))
+            fig, axarr = plt.subplots(2,1,figsize=(8,6),sharex=True,sharey=True)
+            axarr[0].set_title('Phase detrending')
             axarr[0].plot(inds, phase_mod, color='k')
-            axarr[0].plot(inds, fit_func(inds, *popt), color='r', lw=2)
+            axarr[0].plot(inds, slope*inds + offset, color='r', lw=2)
             # axarr[1].plot(inds, phase_mod - (inds*popt[0] + popt[1]), color='k')
             axarr[1].plot(inds, phase_mod_unwrap, color='k')
             axarr[1].set_xlabel('Samples')
             fig.tight_layout()
-            plt.show()
 
     if force_2pi_wrap:
         phase_mod = (phase_mod_unwrap + np.pi) % (2.0*np.pi) - np.pi
@@ -1350,6 +1335,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     if plot:
         plt.figure()
+        plt.title('Spin signal (cross-polarized light)')
         plt.plot(tvec, sig, label='signal')
         if filt:
             plt.plot(tvec, sig_filt, label='signal_filt')
@@ -1360,6 +1346,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         plt.tight_layout()
 
         plt.figure()
+        plt.title('Spin signal FFT')
         plt.loglog(freqs, np.abs(np.fft.rfft(sig)), \
                    label='signal')
         if filt:
@@ -1372,12 +1359,14 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         plt.tight_layout()
 
         plt.figure()
+        plt.title('Carrier phase modulation')
         plt.plot(tvec, phase_mod)
         plt.xlabel('Time [s]')
         plt.ylabel('Phase Modulation [rad]')
         plt.tight_layout()
 
         plt.figure()
+        plt.title('Carrier phase modulation FFT')
         plt.loglog(freqs, np.abs(np.fft.rfft(phase_mod)))
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Phase ASD [Arb]')

@@ -12,20 +12,21 @@ import scipy.signal as signal
 
 from tqdm import tqdm
 from joblib import Parallel, delayed
-ncore = 20
+# ncore = 1
+ncore = 25
 
 plot_raw_dat = False
 plot_demod = False
 plot_phase = False
 plot_sideband_fit = False
 plot_efield_estimation = False
-plot_final_result = True
+plot_final_result = False
 
 # fc = 220000.0
 # fc = 110000.0
 # fc = 100000.0
-fspin = 30000   # For 20200727 data
-# fspin = 25000.0
+# fspin = 30000   # For 20200727 data
+fspin = 25000.0
 wspin = 2.0*np.pi*fspin
 bandwidth = 6000.0
 high_pass = 50.0
@@ -108,27 +109,26 @@ tabor_mon_fac = 100 * (1.0 / 0.95)
 ### happens at the end to remove misidentified peaks
 invert_order = True
 
-date = '20200727'
-# date = '20201030'
-# date = '20201113'
-meas_list = [\
-             'wobble_fast', \
-             # 'wobble_large-step_many-files', \
-             # 'wobble_slow', \
-             # 'wobble_slow_2', \
-             # 'adiabatic_wobble', \
-             # 'wobble_slow_after'
-            ]
+# date = '20200727'
+# meas_list = [\
+#              # 'wobble_fast', \
+#              # 'wobble_large-step_many-files', \
+#              # 'wobble_slow', \
+#              # 'wobble_slow_2', \
+#              # 'adiabatic_wobble', \
+#              'wobble_slow_after'
+#             ]
 
 # date = '20200924'
 # meas_list = [\
 #              'dipole_meas/initial', \
 #             ]
 
-# date = '20201030'
-# meas_list = [\
-#              # 'wobble_fast', \
-#             ]
+date = '20201030'
+meas_list = [\
+             'dipole_meas/initial', \
+             'dipole_meas/final', \
+            ]
 
 base = '/data/old_trap/{:s}/bead1/spinning/'.format(date)
 savebase = '/data/old_trap_processed/spinning/wobble/'
@@ -145,13 +145,10 @@ for meas in meas_list:
                 save_paths.append(os.path.join(base_save_path, dirname + '.npy'))
         elif len(filenames) and root not in paths:
             paths.append(base_path)
-            save_paths.append(base_save_path + '.npy')
+            save_paths.append(os.path.join(base_save_path, 'wobble_0.npy'))
 npaths = len(paths)
 
 paths, save_paths = (list(t) for t in zip(*sorted(zip(paths, save_paths))))
-print()
-print(paths)
-input()
 
 path_dict = {}
 path_dict['XX'] = {}
@@ -160,7 +157,7 @@ path_dict['XX'][1] = (paths, save_paths)
 gases = ['XX']
 inds = [1]
 
-save = False
+save = True
 load = False
 
 timer = False
@@ -276,7 +273,7 @@ for combination in itertools.product(gases, inds):
 
             elec3_fft = np.fft.rfft(elec3_filt)[inds]
             weights = np.abs(elec3_fft)**2
-            true_fspin = freqs[inds][np.argmax(weights)]
+            # true_fspin = freqs[inds][np.argmax(weights)]
             true_fspin = np.sum(freqs[inds] * weights) / np.sum(weights)
 
             demod_start = time.time()
@@ -399,12 +396,12 @@ for combination in itertools.product(gases, inds):
 
             drive_data_end = time.time()
 
-            proc_file_end = time.time()
-
             if timer:
+                print()
                 print('     Demod : {:0.4f}'.format(demod_end - demod_start))
                 print('Extraction : {:0.4f}'.format(extraction_end - extraction_start))
                 print('Drive data : {:0.4f}'.format(drive_data_end - drive_data_start))
+                print('     TOTAL : {:0.4f}'.format(drive_data_end - proc_file_start))
 
 
 
@@ -424,15 +421,17 @@ for combination in itertools.product(gases, inds):
         # print ncore
         results = Parallel(n_jobs=ncore)(delayed(proc_file)(file) for file in tqdm(files))
 
-
-
-
         out_arr = np.array(results)
         out_arr = out_arr.T
 
         if save:
-            print('Saving: ', save_paths[pathind])
+            print()
+            print('Saving processed data: ')
+            print('    {:s}'.format(save_paths[pathind]))
+            print()
+            bu.make_all_pardirs(save_paths[pathind])
             np.save(save_paths[pathind], out_arr)
+
             # print('Saving: ', save_path)
             # np.save(save_path, out_arr)
 
