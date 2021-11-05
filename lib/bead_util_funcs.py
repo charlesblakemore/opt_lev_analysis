@@ -4,6 +4,9 @@ import numpy as np
 import datetime as dt
 import dill as pickle 
 
+import matplotlib
+matplotlib.use('Qt5Agg')
+
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as colors
@@ -757,11 +760,16 @@ def zerocross_pos2neg(data):
 
 def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
                        ncycle_exclude=20, phase_fraction=0.9, \
-                       incoherent=False, plot=False, verbose=True):
+                       half_width=np.pi/4, incoherent=False, \
+                       plot=False, plot_nsamp=10000, verbose=True):
     '''
     I am a docstring.
 
     '''
+
+    ncycle_exclude = int(ncycle_exclude)
+    plot_nsamp = int(plot_nsamp)
+
     nsamp = len(sine)
     tvec = np.arange(nsamp)
 
@@ -831,30 +839,57 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
             tvec_phased = (tvec % (1.0 / freq)) * (2.0 * np.pi * freq)
             tvec_phased_cut = tvec_phased[npoints_exclude:-npoints_exclude]
             sine_cut = sine[npoints_exclude:-npoints_exclude]
+            weights = np.abs(sine_cut)
 
             ### Get phase from weighted mean over some portion of the signal
             ### near the max value
             max_ind = np.argmax(sine_cut)
-            max_inds = sine_cut > phase_fraction * sine_cut[max_ind]
+            max_phase = tvec_phased_cut[max_ind]
 
             ### Hard-coded number to try to avoid stupid edge effects and 
             ### outliers skewing data
             buffer = 0.1  
 
-            max_phase = tvec_phased_cut[max_ind]
-            half_width = np.arcsin(phase_fraction)
+            if not half_width:
+                half_width = np.arcsin(phase_fraction)
+
             if ((max_phase - half_width) <= buffer) or \
                         ((max_phase + half_width) >= 2.0*np.pi - buffer):
-                tvec_phased_cut_rolled = (tvec_phased_cut + np.pi) % (2.0*np.pi)
-                phase_at_max = np.sum(tvec_phased_cut_rolled[max_inds] * \
-                                        np.abs(sine_cut[max_inds]) ) \
-                                    / np.sum(np.abs(sine_cut[max_inds]))
+
+                ### Move the data away from the edge so averages make sense
+                ###    tpcr = tvec_phased_cut_rolled
+                tpcr = (tvec_phased_cut + np.pi) % (2.0*np.pi)
+
+                max_inds = np.abs(tpcr - tpcr[max_ind]) < half_width
+                phase_at_max = np.sum(tpcr[max_inds] * weights[max_inds] ) \
+                                    / np.sum(weights[max_inds])
                 phase_at_max = (phase_at_max - np.pi) % (2.0*np.pi)
+
+                if plot:
+                    plot_inds = max_inds * (np.arange(len(sine_cut)) < plot_nsamp)
+                    fig, ax = plt.subplots(1,1)
+                    ax.set_title('Phase Estimation', fontsize=16)
+                    ax.scatter(tpcr[:plot_nsamp], sine_cut[:plot_nsamp])
+                    ax.scatter(tpcr[plot_inds], sine_cut[plot_inds])
+                    fig.tight_layout()
+
             else:
-                phase_at_max = np.sum(tvec_phased_cut[max_inds] * \
-                                        np.abs(sine_cut[max_inds]) ) \
-                                    / np.sum(np.abs(sine_cut[max_inds]))
-            phase = 2.0 * np.pi - phase_at_max 
+                max_inds = np.abs(tvec_phased_cut - tvec_phased_cut[max_ind]) \
+                                < half_width
+                phase_at_max = np.sum(tvec_phased_cut[max_inds] * weights[max_inds]) \
+                                    / np.sum(weights[max_inds])
+
+                if plot:
+                    plot_inds = max_inds * (np.arange(len(sine_cut)) < plot_nsamp)
+                    fig, ax = plt.subplots(1,1)
+                    ax.set_title('Phase Estimation', fontsize=16)
+                    ax.scatter(tvec_phased_cut[:plot_nsamp], sine_cut[:plot_nsamp])
+                    ax.scatter(tvec_phased_cut[plot_inds], sine_cut[plot_inds])
+                    fig.tight_layout()
+
+            ### Compute the actual value of the waveform phase based on the 
+            ### location of the max in the modular 2pi*radian window                        
+            phase = 2.0 * np.pi - phase_at_max
 
         else:
             phase = np.angle(fft[drive_ind])
@@ -873,10 +908,15 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
         phase_unc = 2.0 * np.pi * freq / np.sqrt(Ncycles)
 
     if plot:
-        plt.plot(tvec, sine)
-        plt.plot(tvec, fit_func(tvec, *popt), ls='--', lw=2, color='r')
-        plt.tight_layout()
+        fig2, ax2 = plt.subplots(1,1)
+        ax2.set_title('Recorded Data vs. Inferred Sine', fontsize=16)
+        ax2.plot(tvec[:plot_nsamp], sine[:plot_nsamp])
+        ax2.plot(tvec[:plot_nsamp], fit_func(tvec[:plot_nsamp], *popt), \
+                 ls='--', lw=2, color='r')
+        fig2.tight_layout()
+
         plt.show()
+
         input()
 
     return popt[0], amp_unc, popt[2], phase_unc
@@ -1229,19 +1269,184 @@ def correlation(drive, response, fsamp, fdrive, filt = False, band_width = 1):
 
 
 
+
+
+def detrend_linalg(input_sig, xvec=None, input_unc=None, coeffs=False, \
+                   plot=False):
+    '''
+    Function for rapid detrending using the MLE of a least-squared
+    linear regression. Uses linear algebra to compute the MLE so as
+    not to incur the computational cost of minimization.
+
+    INPUTS:
+
+        input_sig : array-like, signal to be detrended. If 'xvec' is not
+            provided, this assumes the values of input_sig are equally 
+            spaced along the axis of the independent variable
+
+        xvec : array-like with same dimensions as 'input_sig'. Gvies the
+            locations of teh values in input_sig, useful for uneven spacing
+
+        input_unc : array-like uncertainties on the input_sig. Assumes 
+            uniform uncertainties if this is left as None
+
+        coeffs : boolean to just return the slope and offset instead of 
+            the detrended array
+
+        plot : boolean for plotting the result of the detrending
+
+    OUTPUTS:
+
+        output_sig : array-like with same size as 'input_sig'. Contains
+            'input_sig' without the best fit linear component
+
+        coeffs : optional output configuration. tuple with slope and offset
+
+    '''
+
+    if not xvec:
+        xvec = np.arange(len(input_sig))
+    if not input_unc:
+        input_unc = np.ones_like(input_sig)
+
+    xmean = np.mean(xvec)
+    ymean = np.average(input_sig, weights=1.0/input_unc**2)
+
+    ### Do linear regression and maximum likelihood estimation with 
+    ### matrices since it's a trivial problem and we don't care about
+    ### uncertainties in this particular operation
+    slope = np.sum((xvec-xmean)*(input_sig-ymean)) / np.sum((xvec-xmean)**2)
+    offset = ymean - slope * xmean
+
+    if plot:
+        fig, axarr = plt.subplots(2,1,figsize=(8,6),sharex=True,sharey=True)
+        axarr[0].set_title('Signal detrending')
+        axarr[0].plot(xvec, input_sig, color='k')
+        axarr[0].plot(xvec, slope*xvec + offset, color='r', lw=2)
+        axarr[1].plot(xvec, input_sig - (xvec * slope + offset), color='k')
+        axarr[1].set_xlabel('Samples')
+        fig.tight_layout()
+
+    if coeffs:
+        return (slope, offset)
+    else:
+        return input_sig - (xvec * slope + offset)
+
         
 
 
 def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
-          bandwidth=1000.0, filt_band=[], plot=False, \
-          notch_freqs=[], notch_qs=[], force_2pi_wrap=False, \
-          detrend=False, tukey=False, tukey_alpha=1e-3, \
-          debug=False):
+          bandwidth=1000.0, filt_band=[], pad=True, npad=1.0, \
+          pad_mode='constant', optimize_frequency=False, \
+          notch_freqs=[], notch_qs=[], \
+          force_2pi_wrap=False, detrend=False, keep_mean=False, \
+          tukey=False, tukey_alpha=1e-3, debug=False, plot=False):
     '''
     Sub-routine to perform a hilbert transformation on a given 
     signal, filtering it if requested and plotting throughout.
     Includes a tukey window to remove artifacts at the endpoint
     of the demodulated phase.
+
+    Tukey windowing has been disabled by default as new padding
+    routines significantly reduce edge effects.
+
+    INPUTS:
+
+        input_sig : 1D array-like, the signal to be demodulated
+
+        fsig : float, demodulation frequency, fixed to this value
+            by default (see option 'optimize_frequency')
+
+        fsamp : float, signal sampling frequency
+
+        harmind : int or float (but should be an integer unless
+            you're wilding), default=1.0, harmonic of the carrier 
+            to demodulate, useful when demodulating correlated
+            signals from multiple measurements
+
+        filt : boolean, default=False, flag to apply a 3rd order
+            butterworth bandpass filter around the frequency to 
+            be demodulated
+
+        bandwidth : float, default=1000.0, bandwidth of the 
+            butterworth filter optionally applied to the siganl
+
+        filt_band : length 2 list of floats, default=[], explicit 
+            upper and lower cutoffs of the optionally applied
+            filter, overwrites the bandwidth option
+
+        pad : boolean, default=True, whether to pad the signal
+
+        npad : int or float, default=1.0, length of padding in units
+            of the full signal length (i.e. default option triples
+            the length of the signal)
+
+        pad_mode : str, default='constant', padding method. See
+            documentation of the numpy.pad() function.
+
+        optimize_frequency : boolean, default=False, option to 
+            adjust the given signal frequency in the event that it
+            is not precisely known a priori. useful for incoherent 
+            signals. implemented by taking the mean of the 
+            derivative of the initially demodulationed phase of the 
+            input signal in order to better compute the phase
+            modulations of the carrier
+
+        notch_freqs : list, default=[], list of frequencies to 
+            notch prior to demodulation, useful when interfering
+            signals are known. needs to be the same length as the
+            'notch_qs' option
+
+        notch_qs : list, default=[], list of quality factors (Q)
+            of the notch filters applied. indexing and length 
+            should match the 'notch_freqs' option
+
+        force_2pi_wrap : boolean, default=False, option to enable
+            a forced wrapping of the demodulated phase, implented
+            with a naive modular operation (phase=phase%2pi)
+
+        detrend : boolean, default=False, option to enable 
+            detrending of the demodulated phase, again useful for
+            incoherently sampled signals
+
+        keep_mean : boolean, default=False, option to add the mean
+            back after detrending, so only the linear component is
+            removed
+
+        tukey : boolean, default=False, option to apply a tukey 
+            window to the demodulated amplitued and phase in 
+            order to reduce edge effects (deprecated in favor
+            of padding)
+
+        tukey_alpha : float, default=1e-3, alpha value of the 
+            half cosine tukey window, the length of the cosine
+            tapering on the edges in units of the full signal
+            length
+
+        debug : boolean, default=False, if enabled, function 
+            returns an additional dictionary with some numbers
+            that may be useful for external operations
+
+        plot : boolean, default=False, option to turn on some
+            explanative plotting using matplotlib
+
+
+    OUTPUTS:
+        
+        amp : 1D array-like of floats, demodulated amplitude 
+            of the input signal
+
+        phase_mod : 1D array-like of floats, demodulated phase
+            of the input signal, with the carrier frequency
+            component (i.e. phi_carrier = 2 pi fsig tvec) 
+            removed and thus yielding the phase modulations
+            of the carrier
+
+        debug_dict : optional dictionary returned if the 
+            'debug' option is True. read the action function
+            to figure this one out, you may want to add things
+            in your local version
+
     '''
 
     if debug:
@@ -1253,21 +1458,31 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     fc = float(harmind) * fsig
 
-    if len(filt_band):
-        lower, upper = filt_band
-    else:
-        lower = fc - 0.5 * bandwidth
-        upper = fc + 0.5 * bandwidth
+    ### Hilbert transform doesn't work when there is an offset
+    sig_mean = np.mean(input_sig)
+    sig = input_sig - sig_mean
 
-    filt_band_digital = (2.0/fsamp) * np.array([lower, upper])
+    ### Pad the waveform to be demodulated
+    if pad:
+        if not npad:
+            npad_actual = int(nsamp)
+        else:
+            npad_actual = int(npad * nsamp)  ### Force cast, just in case
 
-    # b1, a1 = signal.butter(3, filt_band_digital, btype='bandpass')
-    sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
-    sig = input_sig - np.mean(input_sig)
+        sig = np.pad(sig, npad_actual, mode=pad_mode)
 
     if filt:
-        # sig_filt = signal.filtfilt(b1, a1, sig)
+        if len(filt_band):
+            lower, upper = filt_band
+        else:
+            lower = fc - 0.5 * bandwidth
+            upper = fc + 0.5 * bandwidth
+
+        sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
+
         sig_filt = signal.sosfiltfilt(sos, sig)
+        if debug:
+            debug_dict['sig_filt'] = sig_filt[npad_actual:-npad_actual]
 
         if len(notch_freqs):
             for i, notch_freq in enumerate(notch_freqs):
@@ -1280,10 +1495,17 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     else:
         hilbert = signal.hilbert(sig)
 
+    if pad:
+        sig = sig[npad_actual:-npad_actual]
+        sig_filt = sig_filt[npad_actual:-npad_actual]
+        hilbert = hilbert[npad_actual:-npad_actual]
 
     amp = np.abs(hilbert)
-
     phase = np.unwrap(np.angle(hilbert)) 
+
+    if optimize_frequency:
+        fc = np.mean(np.gradient(phase, tvec[1]-tvec[0])) / (2.0*np.pi)
+
     phase_mod = phase - 2.0*np.pi*fc*tvec
 
     phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
@@ -1291,40 +1513,34 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     if detrend:
         good_inds = (phase_mod - phase_mod_unwrap) == 0
-
         inds = np.arange(len(phase_mod))
-        xvec = inds[good_inds]
-        yvec = phase_mod[good_inds]
+        slope, offset = \
+            detrend_linalg(phase_mod[good_inds], xvec=inds[good_inds], coeffs=True)
 
-        xmean = np.mean(xvec)
-        ymean = np.mean(yvec)
+        if debug:
+            debug_dict['residual_freq'] = slope * fsamp
 
-        slope = np.sum((xvec-xmean)*(yvec-ymean)) / np.sum((xvec-xmean)**2)
-        offset = ymean - slope * xmean
+            print(fsig*float(harmind), fc, fc+debug_dict['residual_freq'])
+            sys.stdout.flush()
 
         phase_mod_unwrap -= inds*slope + offset
-
-        debug_dict['residual_freq'] = slope * fsamp
 
         if plot:
             fig, axarr = plt.subplots(2,1,figsize=(8,6),sharex=True,sharey=True)
             axarr[0].set_title('Phase detrending')
             axarr[0].plot(inds, phase_mod, color='k')
             axarr[0].plot(inds, slope*inds + offset, color='r', lw=2)
-            # axarr[1].plot(inds, phase_mod - (inds*popt[0] + popt[1]), color='k')
             axarr[1].plot(inds, phase_mod_unwrap, color='k')
             axarr[1].set_xlabel('Samples')
             fig.tight_layout()
+
+        if keep_mean:
+            phase_mod_unwrap += offset + slope*np.mean(inds)
 
     if force_2pi_wrap:
         phase_mod = (phase_mod_unwrap + np.pi) % (2.0*np.pi) - np.pi
     else:
         phase_mod = np.copy(phase_mod_unwrap)
-
-    # plt.legend()
-    # plt.show()
-    # input()
-
 
     if tukey:
         window = signal.tukey(len(phase), alpha=tukey_alpha)
@@ -1335,7 +1551,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     if plot:
         plt.figure()
-        plt.title('Spin signal (cross-polarized light)')
+        plt.title('Carrier signal')
         plt.plot(tvec, sig, label='signal')
         if filt:
             plt.plot(tvec, sig_filt, label='signal_filt')
@@ -1346,7 +1562,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         plt.tight_layout()
 
         plt.figure()
-        plt.title('Spin signal FFT')
+        plt.title('Carrier signal FFT')
         plt.loglog(freqs, np.abs(np.fft.rfft(sig)), \
                    label='signal')
         if filt:
