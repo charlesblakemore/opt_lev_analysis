@@ -1,12 +1,11 @@
 ################################################################################
-#Set of utilities for determing the displacement
-#of the picomotors from images.
+# Set of utilities for determing the displacement
+# of the picomotors from images.
 ###############################################################################
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 import bead_util as bu
-import bead_util_funcs as buf
 import os
 import configuration
 import glob
@@ -16,7 +15,6 @@ from scipy.optimize import curve_fit
 import scipy.stats
 import beam_profile as bf
 import scipy.ndimage.filters as ndf
-import cv2
 from scipy.signal import argrelextrema
 #Functions for use in the class representing image data.
 
@@ -264,7 +262,7 @@ class ImageGrid:
     def __init__(self, path):
         '''loads images from path into list of image objects'''
         imArr = []
-        imFnames = buf.find_all_fnames(path, ext = '.npy')
+        imFnames = bu.find_all_fnames(path, ext = '.npy')
         #print imFnames
         for fname in imFnames:
             imArr.append(Image(fname))
