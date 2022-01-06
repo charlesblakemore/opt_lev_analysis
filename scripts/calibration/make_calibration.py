@@ -44,10 +44,10 @@ plot_raw_dat = False
 using_tabor = True
 tabor_ind = 3
 
-# step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
-# first_file = 0
-# last_file = -1
-# files_to_pop = []
+step_cal_dir = ['/data/old_trap/20200727/bead1/discharge/fine/']
+first_file = 0
+last_file = -1
+files_to_pop = []
 
 # step_cal_dir = ['/data/old_trap/20200924/bead1/discharge/fine/']
 # first_file = 1
@@ -56,10 +56,10 @@ tabor_ind = 3
 #                 174, 175, 185, 186, 194, 204, 228, 229, 230, \
 #                 231, 235, 279, 282]
 
-step_cal_dir = ['/data/old_trap/20201030/bead1/discharge/fine/']
-first_file = 0
-last_file = 550
-files_to_pop = [46, 133, 209]
+# step_cal_dir = ['/data/old_trap/20201030/bead1/discharge/fine/']
+# first_file = 0
+# last_file = 550
+# files_to_pop = [46, 133, 209]
 
 # step_cal_dir = ['/data/old_trap/20201222/gbead1/discharge/fine/']
 # first_file = 0

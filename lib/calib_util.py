@@ -2,8 +2,6 @@ import sys, time, traceback, os
 
 import numpy as np
 
-import matplotlib
-#matplotlib.use('gtk3agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, NullFormatter
 
@@ -476,15 +474,14 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
 
         plt.show()
 
-        f.clf()
-        if plot_residual_histograms:
-            f2.clf()
-
         happy = input("Does the fit look good? (Y/n): ")
         if happy == 'y' or happy == 'Y':
             done_with_fit = True
 
         elif happy == 'n' or happy == 'N':
+            f.clf()
+            if plot_residual_histograms:
+                f2.clf()
             manual = input("Do you want to proceed manually then? (Y/n): ")
             if manual == 'y' or manual == 'Y':
                 manual_fit = True
@@ -496,6 +493,9 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
                 sys.stdout.flush()
                 time.sleep(5)
         else:
+            f.clf()
+            if plot_residual_histograms:
+                f2.clf()
             done_with_fit = False
             print('that was a yes or no question... assuming you are unhappy')
             sys.stdout.flush()

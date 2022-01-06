@@ -19,7 +19,6 @@ import transfer_func_util as tf
 from bead_util_funcs import *
 from bead_data_funcs import *
 from bead_properties import *
-from stats_util import *
 from plot_util import *
 
 #######################################################

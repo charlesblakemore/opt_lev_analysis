@@ -80,8 +80,8 @@ class ECDF:
         ### Extend the limits of the interpolator beyond the limits of the sample
         ### to avoid edge effects (assumes stuff about the moments of the 
         ### underlying distribution, but I'm not a statistician)
-        lower = limfacs[0]**(-1.0*np.sign(self.minval)) * minval
-        upper = limfacs[1]**(1.0*np.sign(self.maxval)) * maxval
+        lower = limfacs[0]**(-1.0*np.sign(self.minval)) * self.minval
+        upper = limfacs[1]**(1.0*np.sign(self.maxval)) * self.maxval
 
         ### Contruct the explicit ECDF
         x_arr = np.linspace(lower, upper, int(np.max(limfacs)*npts))
@@ -94,10 +94,35 @@ class ECDF:
         return func
 
 
+
     def PDF(self, npts=100, limfacs=(2.0,2.0), smoothing=0.0):
         interp_func = self.build_interpolator(npts=npts, limfacs=limfacs, \
                                                 smoothing=smoothing)
         return interp_func.derivative(n=1)
+
+
+
+
+    def get_variance(self, npts=100, limfacs=(2.0,2.0), smoothing=0.0):
+
+        ### Build the PDF from the underlying data
+        pdf_func = self.PDF(npts=npts, limfacs=limfacs, smoothing=smoothing)
+
+        ### Compute the mean of the sample population. Maybe this should be 
+        ### done by integrating over the PDF as well...?
+        mean = np.mean(self.samples)
+
+        ### Vector of coordinates within the random variable space that will
+        ### used as the integration domain
+        vec = np.linspace(self.minval, self.maxval, npts)
+
+        ### Compute the variance based on the formal definition, assuming a 
+        ### continuous PDF and lots of other things I'm too lazy and stupid
+        ### to remember properly
+        variance = np.sum((vec - mean)**2 * pdf_func(vec)) * (vec[1] - vec[0])
+        self.variance = variance
+
+        return variance
         
 
 

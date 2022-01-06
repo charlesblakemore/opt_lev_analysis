@@ -1,11 +1,17 @@
-import h5py, os, re, glob, time, sys, fnmatch, inspect
+import h5py, os, re, glob, time, sys, fnmatch, inspect, colorsys
 import subprocess, math, xmltodict, traceback
 import numpy as np
 import datetime as dt
 import dill as pickle 
 
 import matplotlib
-matplotlib.use('Qt5Agg')
+backends = ['Qt5Agg', 'TkAgg', 'Agg']
+for backend in backends:
+    try:
+        matplotlib.use(backend)
+        break
+    except:
+        continue
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -15,12 +21,13 @@ import matplotlib.mlab as mlab
 import scipy.interpolate as interpolate
 import scipy.optimize as optimize
 import scipy.signal as signal
+import scipy.special as special
 import scipy.stats as stats
 import scipy.constants as constants
 import scipy
 
+from iminuit import Minuit, describe
 from obspy.signal.detrend import polynomial
-
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
@@ -29,6 +36,8 @@ import configuration
 import warnings
 
 from bead_data_funcs import get_hdf5_time
+
+from stats_util import *
 
 #######################################################
 # This module has basic utility functions for analyzing bead
@@ -250,6 +259,28 @@ def get_color_map( n, cmap='plasma', log=False, invert=False):
 
 
 
+def lighten_color(color, fac=1.0):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+
+    From:
+    https://gist.github.com/ihincks/6a420b599f43fcd7dbd79d56798c4e5a
+    """
+    try:
+        c = colors.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*colors.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - fac * (1 - c[1]), c[2])
+
+
+
 
 
 def round_sig(x, sig=2):
@@ -311,7 +342,7 @@ def get_scivals(num, base=10.0):
 
 def fft_norm(N, fsamp):
     "Factor to normalize FFT to ASD units"
-    return np.sqrt(2 / (N * fsamp))
+    return np.sqrt(2.0 / (N * fsamp))
 
 
 
@@ -333,7 +364,7 @@ def count_dirs(path):
     return count
     
 
-def make_all_pardirs(path):
+def make_all_pardirs(path, confirm=True):
     '''Function to help pickle from being shit. Takes a path
        and looks at all the parent directories etc and tries 
        making them if they don't exist.
@@ -352,7 +383,17 @@ def make_all_pardirs(path):
         parent_dir += part
         parent_dir += '/'
         if not os.path.isdir(parent_dir):
-            os.mkdir(parent_dir)
+            if confirm:
+                print()
+                print('Make this directory?')
+                print(f'    {parent_dir}')
+                print()
+                answer = input('(Y/N): ')
+            else:
+                answer = 'Y'
+
+            if ('y' in answer) or ('Y' in answer):
+                os.mkdir(parent_dir)
 
 
 
@@ -441,6 +482,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=False, exclude_fpga=True, \
 
     if len(files) == 0:
         print("DIDN'T FIND ANY FILES :(")
+        return [], [0]
 
     if 'new_trap' in files[0]:
         new_trap = True
@@ -1122,9 +1164,13 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
 
 
 
-def rebin(xvec, yvec, errs=[], nbin=500, plot=False, correlated_errs=False):
+def rebin(xvec, yvec, errs=[], nbin=500, plot=False, correlated_errs=False, \
+          correlation_fac=1.0):
     '''Slow and derpy function to re-bin based on averaging. Works
        with any value of nbins, but can be slow since it's a for loop.'''
+
+    # print(len(xvec), nbin)
+
     if len(errs):
         assert len(errs) == len(yvec), 'error vec is not the right length'
 
@@ -1137,6 +1183,7 @@ def rebin(xvec, yvec, errs=[], nbin=500, plot=False, correlated_errs=False):
     xvec_new = np.linspace(np.min(xvec)+0.5*dx, np.max(xvec)-0.5*dx, nbin)
     yvec_new = np.zeros_like(xvec_new)
     errs_new = np.zeros_like(xvec_new)
+    errs_new_2 = np.zeros_like(xvec_new)
 
     for xind, x in enumerate(xvec_new):
         if x != xvec_new[-1]:
@@ -1145,19 +1192,28 @@ def rebin(xvec, yvec, errs=[], nbin=500, plot=False, correlated_errs=False):
             inds = (xvec >= x - 0.5*dx) * (xvec <= x + 0.5*dx)
 
         if len(errs):
-            errs_new[xind] = np.sqrt( np.mean(errs[inds]**2))
+            weights = 1.0 / errs[inds]**2
+            errs_new[xind] = np.sqrt(1.0/np.sum(weights))
+            yvec_new[xind] = np.average(yvec[inds], weights=weights)
         else:
+            npts = np.sum(inds)
+            yvec_new[xind] = np.mean(yvec[inds])
+            errs_new[xind] = np.std(yvec[inds]) / np.sqrt(npts)
             if correlated_errs:
-                errs_new[xind] = np.std(yvec[inds])
-            else:
-                errs_new[xind] = np.std(yvec[inds]) / np.sqrt(np.sum(inds))
-
-        yvec_new[xind] = np.mean(yvec[inds])
+                # ecdf = ECDF(yvec[inds])
+                # errs_new[xind] = np.sqrt(ecdf.get_variance(npts=npts))
+                errs_new[xind] *= correlation_fac * np.sqrt(npts)
 
     if plot:
-        plt.scatter(xvec, yvec, color='C0')
-        plt.errorbar(xvec_new, yvec_new, yerr=errs_new, fmt='o', color='C1')
+        fig, ax = plt.subplots(1,1)
+        ax.scatter(xvec, yvec, color='C0', label='Original')
+        ax.errorbar(xvec_new, yvec_new, yerr=errs_new, fmt='o', color='C1',\
+                     label='Re-binned, with uncertainties')
+        ax.set_title('Derpy Re-binning')
+
+        fig.tight_layout()
         plt.show()
+        input()
 
     return xvec_new, yvec_new, errs_new
 
@@ -1304,9 +1360,9 @@ def detrend_linalg(input_sig, xvec=None, input_unc=None, coeffs=False, \
 
     '''
 
-    if not xvec:
+    if xvec is None:
         xvec = np.arange(len(input_sig))
-    if not input_unc:
+    if input_unc is None:
         input_unc = np.ones_like(input_sig)
 
     xmean = np.mean(xvec)
@@ -1480,7 +1536,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
         sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
 
-        sig_filt = signal.sosfiltfilt(sos, sig)
+        sig_filt = signal.sosfiltfilt(sos, sig, padlen=int(0.1*nsamp))
         if debug:
             debug_dict['sig_filt'] = sig_filt[npad_actual:-npad_actual]
 
@@ -1497,14 +1553,17 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     if pad:
         sig = sig[npad_actual:-npad_actual]
-        sig_filt = sig_filt[npad_actual:-npad_actual]
         hilbert = hilbert[npad_actual:-npad_actual]
+        if filt:
+            sig_filt = sig_filt[npad_actual:-npad_actual]
 
     amp = np.abs(hilbert)
     phase = np.unwrap(np.angle(hilbert)) 
 
     if optimize_frequency:
         fc = np.mean(np.gradient(phase, tvec[1]-tvec[0])) / (2.0*np.pi)
+        if debug:
+            debug_dict['optimized_frequency'] = fc
 
     phase_mod = phase - 2.0*np.pi*fc*tvec
 
@@ -1563,12 +1622,12 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
         plt.figure()
         plt.title('Carrier signal FFT')
-        plt.loglog(freqs, np.abs(np.fft.rfft(sig)), \
+        plt.loglog(freqs[1:], np.abs(np.fft.rfft(sig)[1:]), \
                    label='signal')
         if filt:
-            plt.loglog(freqs, np.abs(np.fft.rfft(sig_filt)), \
+            plt.loglog(freqs[1:], np.abs(np.fft.rfft(sig_filt)[1:]), \
                        label='signal_filt')
-            # plt.axvline(fc, ls='--', lw=3, color='r')
+        plt.axvline(fc, ls='--', lw=3, color='r')
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Signal ASD [Arb]')
         plt.legend()
@@ -1583,7 +1642,7 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
         plt.figure()
         plt.title('Carrier phase modulation FFT')
-        plt.loglog(freqs, np.abs(np.fft.rfft(phase_mod)))
+        plt.loglog(freqs[1:], np.abs(np.fft.rfft(phase_mod)[1:]))
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Phase ASD [Arb]')
         plt.tight_layout()
@@ -1787,12 +1846,13 @@ def damped_osc_amp(f, A, f0, g):
                    A, amplitude
                    f0 [Hz], resonant frequency
                    g [Hz], damping factor
+                   c, constant offset, default 0
 
            OUTPUTS: Lorentzian amplitude'''
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
     gamma = 2. * np.pi * g
-    denom = np.sqrt((w0**2 - w**2)**2 + w**2 * gamma**2)
+    denom = np.sqrt( (w0**2 - w**2)**2 + w**2 * gamma**2 )
     return A / denom
 
 
@@ -1815,26 +1875,60 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
 
 
 
+def damped_osc_amp_squash(f, A, f0, g, noise, deriv_gain, deriv_phase):
+    '''Fitting function for AMPLITUDE of a damped harmonic oscillator
+           INPUTS: f [Hz], frequency 
+                   A, amplitude
+                   f0 [Hz], resonant frequency
+                   g [Hz], damping factor
+                   c, constant offset, default 0
 
-def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
-                       sig_asd=False, linearize=False, asd_errs=[], \
-                       gamma_guess=0, freq_guess=0, weight_lowf=False, \
-                       weight_lowf_val=1.0, weight_lowf_thresh=100.0, \
-                       maxfev=100000):
-    '''Routine to fit the above defined damped HO amplitude spectrum
-       to the ASD of some input signal, assumed to have a single
-       resonance etc etc
-           INPUTS: sig, signal to analyze 
-                   fsamp [Hz], sampling frequency of input signal
-                   fit_band [Hz], array-like with upper/lower limits
-                   plot, boolean flag for plotting of fit results
-                   sig_asd, boolean indicating if 'sig' is already an
-                                an amplitude spectral density
-                   linearize, try linearizing the fit
-                   asd_errs, uncertainties to use in fitting
+           OUTPUTS: Lorentzian amplitude'''
+    w = 2. * np.pi * f
+    w0 = 2. * np.pi * f0
+    gamma = 2. * np.pi * g
+    num = np.sqrt( A**2 + noise*((w0**2 + w**2)**2 + w**2 * gamma**2) )
+    denom = np.sqrt( (w0**2 - w**2 - w0*deriv_gain*np.cos(deriv_phase*w/w0))**2 \
+                        + (w*gamma + w0*deriv_gain*np.sin(deriv_phase*w/w0))**2 )
 
-           OUTPUTS: popt, optimal parameters from curve_fit
-                    pcov, covariance matrix from curve_fit'''
+    return num / denom
+
+
+
+def fit_damped_osc_amp(sig, fsamp, fit_band=[], optimize_fit_band=False, \
+                       ngamma=5.0, plot=False, sig_asd=False, linearize=False, \
+                       asd_errs=[], gamma_guess=0, freq_guess=0, \
+                       constant_guess = 0, \
+                       weight_lowf=False, weight_lowf_val=1.0, \
+                       weight_lowf_thresh=100.0, maxfev=100000, \
+                       return_func=False, verbose=False):
+    '''
+    Routine to fit the above defined damped HO amplitude spectrum
+    to the ASD of some input signal, assumed to have a single
+    resonance etc etc
+
+    INPUTS: 
+
+        sig - signal to analyze 
+                   
+        fsamp [Hz] - sampling frequency of input signal
+                   
+        fit_band [Hz] - array-like with upper/lower limits
+                   
+        plot - boolean flag for plotting of fit results
+                   
+        sig_asd - boolean indicating if 'sig' is already an
+            an amplitude spectral density
+                   
+        linearize, try linearizing the fit
+                   
+        asd_errs, uncertainties to use in fitting
+
+    OUTPUTS: 
+
+        popt, optimal parameters from curve_fit
+                    
+        pcov, covariance matrix from curve_fit'''
 
     ### Generate the frequencies and ASD values from the given time
     ### domain signal, or given ASD
@@ -1846,31 +1940,47 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
         asd = np.abs(sig)
         freqs = np.linspace(0, 0.5*fsamp, len(asd))
 
+    df = freqs[1] - freqs[0]
     derp_inds = np.arange(len(freqs))
 
     ### Define some indicies for fitting and plotting
     if len(fit_band):
         inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
-        plot_inds = (freqs > 0.5 * fit_band[0]) * (freqs < 2.0 * fit_band[1])
     else:
         inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
-        plot_inds = (freqs > 0.05 * freq_guess) * (freqs < 20.0 * freq_guess)
 
     first_ind = np.min(derp_inds[inds])
+    last_ind = np.max(derp_inds[inds])
 
     ### Generate some initial guesses
     maxind = np.argmax(asd[inds])   # Look for max within fit_band
     if not freq_guess:
         freq_guess = (freqs[inds])[maxind]
     if not gamma_guess:
-        gamma_guess = 5e-2 * freq_guess
+        for i in range(int(0.5*np.sum(inds))):
+            if i == maxind:
+                continue
+            if asd[inds][i] >= 0.5*asd[inds][maxind]:
+                gamma_guess = freqs[inds][maxind] - freqs[inds][i]
+                break
+        if not gamma_guess:
+            gamma_guess = df / np.log10(asd[inds][maxind]**2/asd[inds][maxind-1]**2)
+
+    ### Adjust the fit band for a certain number of gamma factors
+    if optimize_fit_band:
+        delta_band = np.max([0.5*ngamma*gamma_guess, 21*df])
+        fit_band = [freq_guess - delta_band, \
+                    freq_guess + delta_band]
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+        maxind = np.argmax(asd[inds])
+
     amp_guess = (asd[inds])[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
 
     ### Define the fitting function to use. Keeping this modular in case
     ### we ever want to make more changes/linearization attempts
     fit_x = freqs[inds]
     if linearize:
-        fit_func = lambda f,A,f0,g: np.log(damped_osc_amp(f,A,f0,g))
+        fit_func = lambda f,A,f0,g,c: np.log(np.sqrt(damped_osc_amp(f,A,f0,g)**2 + c**2))
         fit_y = np.log(asd[inds])
         if not len(asd_errs):
             errs = np.ones(len(fit_x))
@@ -1879,56 +1989,487 @@ def fit_damped_osc_amp(sig, fsamp, fit_band=[], plot=False, \
             errs = asd_errs[inds] / asd[inds]
             absolute_sigma = True
     else:
-        fit_func = lambda f,A,f0,g: damped_osc_amp(f,A,f0,g)
+        fit_func = lambda f,A,f0,g,c: np.sqrt(damped_osc_amp(f,A,f0,g)**2 + c**2)
         fit_y = asd[inds]
         if not len(asd_errs):
-            errs = np.ones(len(fit_x))
+            errs = np.ones(len(fit_x)) * np.mean(fit_y)
             absolute_sigma = False
         else:
             errs = asd_errs[inds]
             absolute_sigma = True
+
+    if not constant_guess:
+        constant_guess = \
+            np.sqrt(np.mean(np.concatenate( (asd[first_ind-20:first_ind], \
+                                             asd[last_ind:last_ind+20]) )**2))
 
     if weight_lowf:
         weight_inds = fit_x < weight_lowf_thresh
         errs[weight_inds] *= weight_lowf_val
 
     ### Fit the data
-    p0 = [amp_guess, freq_guess, gamma_guess]
-    # try:
-    popt, pcov = optimize.curve_fit(fit_func, fit_x, fit_y, maxfev=maxfev,\
-                                    p0=p0, absolute_sigma=absolute_sigma, sigma=errs)
-    # except:
-    #     print('BAD FIT')
-    #     popt = p0
-    #     pcov = np.zeros( (len(p0), len(p0)) )
+    p0 = [amp_guess, freq_guess, gamma_guess, constant_guess]
 
-    ### We know the parameters should be positive so enforce that here since
-    ### the fit occasionally finds negative values (sign degeneracy in the 
-    ### damped HO response function)
-    popt = np.abs(popt)
+    ndof = len(fit_x) - 4
+    def cost(A, f, g, c):
+        resid = (fit_y - fit_func(fit_x, A, f, g, c))**2
+        variance = errs**2
+        return (1.0 / ndof) * np.sum(resid / variance)
+
+    m = Minuit(cost, \
+               A = p0[0], \
+               f = p0[1], \
+               g = p0[2],
+               c = p0[3])
+
+    ### Apply some limits to help keep the fitting well behaved
+    m.limits['A'] = (0, np.inf)
+    m.limits['f'] = (0, np.inf)
+    m.limits['g'] = (1e-6, np.inf)
+    m.limits['c'] = (np.min(fit_y), np.inf)
+
+    m.errordef = 1
+    m.print_level = 0
+
+    ### Do the actual minimization
+    m.migrad(ncall=500000)
+    popt = np.array(m.values)
+    pcov = np.array(m.covariance)
 
     ### Plot!
     if plot:
-        fit_freqs = np.linspace((freqs[inds])[0], (freqs[inds])[-1], \
-                                10*len(freqs[inds])) 
-        init_mag = damped_osc_amp(fit_freqs, *p0)
-        fit_mag = damped_osc_amp(fit_freqs, *popt)
+        fit_mult_span = fit_band[1] / fit_band[0]
+        lower_plot_freq = fit_band[0] / (0.2 * (fit_mult_span - 1) + 1)
+        upper_plot_freq = fit_band[1] * (0.2 * (fit_mult_span - 1) + 1)
+        plot_inds = (freqs > lower_plot_freq) * (freqs < upper_plot_freq)
 
-        print('Initial parameter guess:')
-        print('    {:0.3g}, {:0.3g}, {:0.3g}'.format(p0[0], p0[1], p0[2]))
-        print(popt)
+        # fit_freqs = np.linspace((freqs[inds])[0], (freqs[inds])[-1], \
+        #                         10*len(freqs[inds])) 
+        fit_freqs = np.linspace(fit_band[0], fit_band[1], 10*len(freqs[inds]))
+        init_mag = fit_func(fit_freqs, *p0)
+        fit_mag = fit_func(fit_freqs, *popt)
 
-        plt.loglog(freqs[plot_inds], asd[plot_inds])
-        plt.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
-        plt.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
-        plt.xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
-        plt.ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
-        plt.legend()
+        if verbose:
+            print()
+            print('Initial parameter guess:')
+            print(f'    {p0[0]:0.3g}, {p0[1]:0.3g}, {p0[2]:0.3g}, {p0[3]:0.3g}')
+            print()
+            print('Fit result:')
+            print(f'    {popt[0]:0.3g}, {popt[1]:0.3g}, {popt[2]:0.3g}, {popt[3]:0.3g}')
+            print()
+
+        fig, ax = plt.subplots(1,1)
+        ax.loglog(freqs[plot_inds], asd[plot_inds])
+        ax.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
+        ax.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
+        ax.set_xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
+        ax.set_ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
+        ax.legend()
+        ax.set_title('Damped HO Fitting')
+        ax.xaxis.set_major_formatter(lambda x, pos: f'{x:0.1f}')
+        ax.xaxis.set_minor_formatter(lambda x, pos: f'{x:0.1f}')
+        fig.tight_layout()
         plt.show()
 
-        input()
+        # input()
 
-    return popt, pcov
+    if return_func:
+        return popt, pcov, fit_func
+    else:
+        return popt, pcov
+
+
+
+
+def fit_damped_osc_amp_squash(\
+        sig, fsamp, fit_band=[], optimize_fit_band=False, \
+        ngamma=5.0, plot=False, sig_asd=False, linearize=False, \
+        asd_errs=[], amp_guess=0, gamma_guess=0, freq_guess=0, \
+        constant_guess=0, noise_guess=0,
+        deriv_gain_guess=0, deriv_phase_guess=np.pi/2,
+        weight_lowf=False, weight_lowf_val=1.0, \
+        weight_lowf_thresh=100.0, maxfev=100000, \
+        return_func=False, verbose=False):
+    '''
+    Routine to fit the above defined damped HO amplitude spectrum
+    to the ASD of some input signal, assumed to have a single
+    resonance etc etc
+
+    INPUTS: 
+
+        sig - signal to analyze 
+                   
+        fsamp [Hz] - sampling frequency of input signal
+                   
+        fit_band [Hz] - array-like with upper/lower limits
+                   
+        plot - boolean flag for plotting of fit results
+                   
+        sig_asd - boolean indicating if 'sig' is already an
+            an amplitude spectral density
+                   
+        linearize, try linearizing the fit
+                   
+        asd_errs, uncertainties to use in fitting
+
+    OUTPUTS: 
+
+        popt, optimal parameters from curve_fit
+                    
+        pcov, covariance matrix from curve_fit'''
+
+    ### Generate the frequencies and ASD values from the given time
+    ### domain signal, or given ASD
+    if not sig_asd:
+        nsamp = len(sig)
+        freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+        asd = np.abs( np.fft.rfft(sig) ) * fft_norm(nsamp, fsamp)
+    else:
+        asd = np.abs(sig)
+        freqs = np.linspace(0, 0.5*fsamp, len(asd))
+
+    df = freqs[1] - freqs[0]
+    derp_inds = np.arange(len(freqs))
+
+    ### Define some indicies for fitting and plotting
+    if len(fit_band):
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+    else:
+        inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
+
+    first_ind = np.min(derp_inds[inds])
+    last_ind = np.max(derp_inds[inds])
+
+    ### Generate some initial guesses
+    maxind = np.argmax(asd[inds])   # Look for max within fit_band
+    if not freq_guess:
+        freq_guess = (freqs[inds])[maxind]
+    if not gamma_guess:
+        for i in range(int(0.5*np.sum(inds))):
+            if i == maxind:
+                continue
+            if asd[inds][i] >= 0.5*asd[inds][maxind]:
+                gamma_guess = freqs[inds][maxind] - freqs[inds][i]
+                break
+        if not gamma_guess:
+            gamma_guess = df / np.log10(asd[inds][maxind]**2/asd[inds][maxind-1]**2)
+
+    ### Adjust the fit band for a certain number of gamma factors
+    if optimize_fit_band:
+        delta_band = np.max([0.5*ngamma*gamma_guess, 21*df])
+        fit_band = [freq_guess - delta_band, \
+                    freq_guess + delta_band]
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+        maxind = np.argmax(asd[inds])
+
+    if not amp_guess:
+        amp_guess = (asd[inds])[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+
+    fit_x = freqs[inds]
+    fit_y = asd[inds]
+    if not len(asd_errs):
+        errs = np.ones(len(fit_x)) * np.mean(fit_y)
+        absolute_sigma = False
+    else:
+        errs = asd_errs[inds]
+        absolute_sigma = True
+
+    if not constant_guess:
+        constant_guess = \
+            np.sqrt(np.mean(np.concatenate( (asd[first_ind-20:first_ind], \
+                                             asd[last_ind:last_ind+20]) )**2))
+        # constant_guess *= 0.1
+
+    if not noise_guess:
+        noise_guess = constant_guess / 10.0
+
+    if not deriv_gain_guess:
+        deriv_gain_guess = 1.0
+
+    if weight_lowf:
+        weight_inds = fit_x < weight_lowf_thresh
+        errs[weight_inds] *= weight_lowf_val
+
+    ### Fit the data
+    p0 = [np.log10(amp_guess), freq_guess, gamma_guess, np.log10(noise_guess), \
+            np.log10(deriv_gain_guess), deriv_phase_guess, np.log10(constant_guess)]
+
+    ### Define the fitting function to use. Keeping this modular in case
+    ### we ever want to make more changes/linearization attempts
+    fit_func = lambda f,A,f0,g,noise,dg,dphi,c: \
+                    np.sqrt( damped_osc_amp_squash(f,10**A,f0,g,\
+                                                   10**noise,10**dg,dphi)**2 \
+                                + 10**(2*c) )
+
+    ndof = len(fit_x) - 7
+    def cost(A, f, g, noise, dg, dphi, c):
+        resid = (fit_y - fit_func(fit_x, A, f, g, noise, dg, dphi, c))**2
+        variance = errs**2
+        return (1.0 / ndof) * np.sum(resid / variance)
+
+    m = Minuit(cost, \
+               A = p0[0], f = p0[1], g = p0[2], noise = p0[3], \
+               dg = p0[4], dphi = p0[5], c = p0[6])
+
+    ### Apply some limits to help keep the fitting well behaved
+    m.limits['A'] = (-10, 10)
+    m.limits['f'] = (p0[1]-0.1*p0[1], p0[1]+0.1*p0[1])
+    m.limits['g'] = (1e-6, 10.0*gamma_guess)
+    m.limits['noise'] = (-20.0, 20.0)
+    m.limits['dg'] = (-10.0, 10.0)
+    m.limits['dphi'] = (np.pi/2, np.pi)
+    m.limits['c'] = (-10, 10)
+
+    m.fixed['g'] = True
+
+    m.errordef = 1
+    m.print_level = 0
+
+    ### Do the actual minimization
+    m.migrad(ncall=5000000)
+    popt = np.array(m.values)
+    pcov = np.array(m.covariance)
+
+    ### Plot!
+    if plot:
+        fit_mult_span = fit_band[1] / fit_band[0]
+        lower_plot_freq = fit_band[0] / (0.2 * (fit_mult_span - 1) + 1)
+        upper_plot_freq = fit_band[1] * (0.2 * (fit_mult_span - 1) + 1)
+        plot_inds = (freqs > lower_plot_freq) * (freqs < upper_plot_freq)
+
+        # fit_freqs = np.linspace((freqs[inds])[0], (freqs[inds])[-1], \
+        #                         10*len(freqs[inds])) 
+        fit_freqs = np.linspace(fit_band[0], fit_band[1], 10*len(freqs[inds]))
+        init_mag = fit_func(fit_freqs, *p0)
+        fit_mag = fit_func(fit_freqs, *popt)
+
+        if verbose:
+            print()
+            print('Initial parameter guess:')
+            my_str = '    '
+            for i in range(7):
+                my_str += f'{p0[i]:0.3g}, '
+            print(my_str)
+            print()
+            print('Fit result:')
+            my_str = '    '
+            for i in range(7):
+                my_str += f'{popt[i]:0.3g}, '
+            print(my_str)
+            print()
+
+        # p0 = [np.log10(amp_guess), freq_guess, gamma_guess, np.log10(noise_guess), \
+        #         np.log10(deriv_gain_guess), deriv_phase_guess, np.log10(constant_guess)]
+
+        fig, ax = plt.subplots(1,1)
+        ax.loglog(freqs[plot_inds], asd[plot_inds])
+        # ax.axhline(10**p0[-1], color='magenta', lw=3)
+        ax.loglog(fit_freqs, init_mag, ls=':', color='k', label='init')
+        # facs = np.array([1e-3, 1e-2, 0.05, 0.1, 0.5, 1.0, 2.0, 10.0, 20.0, 100.0, 1000.0])
+        # facs = np.array([1e-9, 1e-6, 1e-3, 1.0, 1e3, 1e6, 1e9])
+        # colors = get_color_map(len(facs), cmap='plasma')
+        # for fac_ind, fac in enumerate(facs):
+        #     new_p0 = np.copy(p0)
+        #     # new_p0[3] *= fac
+        #     new_p0[0] += np.log10(fac)
+        #     new_p0[3] += np.log10(fac)
+        #     ax.loglog(fit_freqs, fit_func(fit_freqs, *new_p0), color=colors[fac_ind], \
+        #               label=f'{new_p0[0]:0.3g}')
+
+        ax.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
+        ax.set_xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
+        # ax.set_ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
+        ax.legend()
+        ax.set_title('Damped HO Fitting')
+        ax.xaxis.set_major_formatter(lambda x, pos: f'{x:0.1f}')
+        ax.xaxis.set_minor_formatter(lambda x, pos: f'{x:0.1f}')
+        fig.tight_layout()
+        plt.show()
+
+        # input()
+
+    if return_func:
+        return popt, pcov, fit_func
+    else:
+        return popt, pcov
+
+
+
+
+
+
+
+
+
+def fit_voigt_profile(sig, fsamp, fit_band=[], optimize_fit_band=False, \
+                      ngamma=5.0, plot=False, sig_asd=False, linearize=False, \
+                      asd_errs=[], gamma_guess=0, freq_guess=0, sigma_guess=0, \
+                      weight_lowf=False, weight_lowf_val=1.0, \
+                      weight_lowf_thresh=100.0, maxfev=100000, \
+                      return_func=False, verbose=False):
+    '''
+    Routine to fit the above defined damped HO amplitude spectrum
+    to the ASD of some input signal, assumed to have a single
+    resonance etc etc
+
+    INPUTS: 
+
+        sig - signal to analyze 
+                   
+        fsamp [Hz] - sampling frequency of input signal
+                   
+        fit_band [Hz] - array-like with upper/lower limits
+                   
+        plot - boolean flag for plotting of fit results
+                   
+        sig_asd - boolean indicating if 'sig' is already an
+            an amplitude spectral density
+                   
+        linearize, try linearizing the fit
+                   
+        asd_errs, uncertainties to use in fitting
+
+    OUTPUTS: 
+
+        popt, optimal parameters from curve_fit
+                    
+        pcov, covariance matrix from curve_fit'''
+
+    ### Generate the frequencies and ASD values from the given time
+    ### domain signal, or given ASD
+    if not sig_asd:
+        nsamp = len(sig)
+        freqs = np.fft.rfftfreq(nsamp, d=1.0/fsamp)
+        asd = np.abs( np.fft.rfft(sig) ) * fft_norm(nsamp, fsamp)
+    else:
+        asd = np.abs(sig)
+        freqs = np.linspace(0, 0.5*fsamp, len(asd))
+
+    df = freqs[1] - freqs[0]
+    derp_inds = np.arange(len(freqs))
+
+    ### Define some indicies for fitting and plotting
+    if len(fit_band):
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+    else:
+        inds = (freqs > 0.1 * freq_guess) * (freqs < 10.0 * freq_guess)
+
+    first_ind = np.min(derp_inds[inds])
+
+    ### Generate some initial guesses
+    maxind = np.argmax(asd[inds])   # Look for max within fit_band
+    if not freq_guess:
+        freq_guess = (freqs[inds])[maxind]
+    if not gamma_guess:
+        for i in range(int(0.5*np.sum(inds))):
+            if asd[inds][i] >= 0.5*asd[inds][maxind]:
+                gamma_guess = freqs[inds][maxind] - freqs[inds][i]
+                break
+        if gamma_guess == 0.0:
+            gamma_guess = df / np.log10(asd[inds][maxind]**2/asd[inds][maxind-1]**2)
+
+    ### Adjust the fit band for a certain number of gamma factors
+    if optimize_fit_band:
+        delta_band = np.max([0.5*ngamma*gamma_guess, 21*df])
+        fit_band = [freq_guess - delta_band, \
+                    freq_guess + delta_band]
+        inds = (freqs > fit_band[0]) * (freqs < fit_band[1])
+        maxind = np.argmax(asd[inds])
+
+    amp_guess = 1e-4*(asd[inds])[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+
+    ### Define the fitting function to use. Keeping this modular in case
+    ### we ever want to make more changes/linearization attempts
+    fit_x = freqs[inds]
+
+    fit_func = lambda f,A,f0,s,g,c: \
+        np.sqrt( (A*special.voigt_profile((f-f0),s,g))**2 + c**2 )
+    fit_y = asd[inds]
+    if not len(asd_errs):
+        errs = np.ones(len(fit_x)) * np.mean(fit_y)
+        absolute_sigma = False
+    else:
+        errs = asd_errs[inds]
+        absolute_sigma = True
+
+    if weight_lowf:
+        weight_inds = fit_x < weight_lowf_thresh
+        errs[weight_inds] *= weight_lowf_val
+
+    ### Fit the data
+    p0 = [amp_guess, freq_guess, 0.1*gamma_guess, gamma_guess, np.min(fit_y)]
+
+    ndof = len(fit_x) - 4
+    def cost(A, f, s, g, c):
+        resid = (fit_y - fit_func(fit_x, A, f, s, g, c))**2
+        variance = errs**2
+        return (1.0 / ndof) * np.sum(resid / variance)
+
+    m = Minuit(cost, \
+               A = p0[0], \
+               f = p0[1], \
+               s = p0[2], \
+               g = p0[3], \
+               c = p0[4])
+
+    ### Apply some limits to help keep the fitting well behaved
+    m.limits['A'] = (0, np.inf)
+    m.limits['f'] = (0, np.inf)
+    m.limits['s'] = (1e-6, np.inf)
+    m.limits['g'] = (1e-6, np.inf)
+    m.limits['c'] = (np.min(fit_y), np.inf)
+
+    m.errordef = 1
+    m.print_level = 0
+
+    ### Do the actual minimization
+    m.migrad(ncall=500000)
+    popt = np.array(m.values)
+    pcov = np.array(m.covariance)
+
+    ### Plot!
+    if plot:
+        fit_mult_span = fit_band[1] / fit_band[0]
+        lower_plot_freq = fit_band[0] / (0.2 * (fit_mult_span - 1) + 1)
+        upper_plot_freq = fit_band[1] * (0.2 * (fit_mult_span - 1) + 1)
+        plot_inds = (freqs > lower_plot_freq) * (freqs < upper_plot_freq)
+
+        # fit_freqs = np.linspace((freqs[inds])[0], (freqs[inds])[-1], \
+        #                         10*len(freqs[inds])) 
+        fit_freqs = np.linspace(fit_band[0], fit_band[1], 10*len(freqs[inds]))
+        init_mag = fit_func(fit_freqs, *p0)
+        fit_mag = fit_func(fit_freqs, *popt)
+
+        if verbose:
+            print()
+            print('Initial Voigt parameter guess [A, f0, sigma, gamma, c]:')
+            print(f'    {p0[0]:0.3g}, {p0[1]:0.3g}, {p0[2]:0.3g}, '
+                    + f'{p0[3]:0.3g}, {p0[4]:0.3g}')
+            print()
+            print('Fit result:')
+            print(f'    {popt[0]:0.3g}, {popt[1]:0.3g}, {popt[2]:0.3g}, '
+                    + f'{popt[3]:0.3g}, {popt[4]:0.3g}')
+            print()
+
+        fig, ax = plt.subplots(1,1)
+        ax.loglog(freqs[plot_inds], asd[plot_inds])
+        ax.loglog(fit_freqs, init_mag, ls='--', color='k', label='init')
+        ax.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
+        ax.set_xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
+        ax.set_ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
+        ax.legend()
+        ax.set_title('Voigt Profile Fitting')
+        ax.xaxis.set_major_formatter(lambda x, pos: f'{x:0.1f}')
+        ax.xaxis.set_minor_formatter(lambda x, pos: f'{x:0.1f}')
+        fig.tight_layout()
+        plt.show()
+
+        # input()
+
+    if return_func:
+        return popt, pcov, fit_func
+    else:
+        return popt, pcov
 
 
 
@@ -2031,6 +2572,89 @@ def find_fft_peaks(freqs, fft, window=100, delta_fac=5.0, \
 
     if plot:
         plot_pdet([peaks, []], freqs, asd, loglog=True)
+
+    return np.array(peaks)
+
+
+
+
+
+
+def select_largest_n_fft_peaks(freqs, fft, npeak=1, exclude_df=10, \
+                               band=[], adjust_baseline=False, plot=False):
+    '''Function to scan the ASD associated to an input FFT, looking for 
+       values above the baseline of the ASD, and then attempting to fit
+       a gaussian to the region around the above-baseline feature. It 
+       should avoid fitting the same feature multiple times.
+
+            freqs : the array of frequencies associated to the input
+                FFT. Assumed to be in Hz
+
+            fft : the FFT in which we are trying to find peaks
+
+            npeak : the number of peaks to search for
+
+            exclude_df : the number of frequency bins to exclude 
+                redundant peak finding around a feature that was already
+                found and fit with a gaussian
+
+            band : the frequenncy band (if any) in which to limit the search
+       '''
+
+    ### Make sure the provided frequency band is right
+    band = list(band)
+    band.sort()
+
+    ### Determine the frequency spacing
+    df = freqs[1] - freqs[0]
+    nfreq = len(freqs)
+
+    ### Compute the ASD
+    asd = np.abs(fft)
+
+    start = np.mean(asd[:20])
+    end = np.mean(asd[-20:])
+    if np.abs(start - end) / np.mean([start, end]) < 10.0:
+        adjust_baseline = False
+
+    if adjust_baseline:
+        power_law = lambda f,a,n,c: a * f**n + c
+        p0 = [0.0, 0.1, np.mean(asd)]
+        popt, pcov = optimize.curve_fit(power_law, freqs, asd, p0=p0, maxfev=10000, \
+                                        bounds=([0, -3, 0], [np.inf, 3, np.inf]))
+        asd /= popt[0] * freqs**popt[1] + popt[2]
+
+    mag_sorter = np.argsort(asd)[::-1]
+
+    peaks = []
+    found_peaks = 0
+    search_index = 0
+    while found_peaks < npeak and search_index < nfreq:
+        too_close = False
+
+        freq_val = freqs[mag_sorter[search_index]]
+        if len(band):
+            if freq_val < band[0] or freq_val > band[1]:
+                search_index += 1
+                continue
+
+        for peak in peaks:
+            peak_loc = peak[0]
+            if np.abs(freq_val - peak_loc) < exclude_df*df:
+                too_close = True
+                break
+
+        if not too_close:
+            asd_val = asd[mag_sorter[search_index]]
+            if adjust_baseline:
+                asd_val *= popt[0] * freq_val**popt[1] + popt[2]
+            peaks.append([freq_val, asd_val])
+            found_peaks += 1
+
+        search_index += 1
+
+    if plot:
+        plot_pdet([peaks, []], freqs, np.abs(fft), loglog=True)
 
     return np.array(peaks)
 

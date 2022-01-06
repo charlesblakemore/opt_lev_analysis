@@ -3,14 +3,6 @@ import numpy as np
 import datetime as dt
 import dill as pickle 
 
-import matplotlib
-matplotlib.use('Qt5Agg')
-
-import matplotlib.pyplot as plt
-import matplotlib.cm as cmx
-import matplotlib.colors as colors
-import matplotlib.mlab as mlab
-
 import scipy.interpolate as interp
 import scipy.optimize as optimize
 import scipy.signal as signal
