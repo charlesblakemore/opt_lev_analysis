@@ -5,7 +5,7 @@ import datetime as dt
 import dill as pickle 
 
 import matplotlib
-backends = ['Qt5Agg', 'TkAgg', 'Agg']
+backends = ['MacOSX', 'Qt5Agg', 'GTK3Agg', 'TkAgg', 'Agg']
 for backend in backends:
     try:
         matplotlib.use(backend)
