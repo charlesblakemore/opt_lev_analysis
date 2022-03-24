@@ -85,6 +85,15 @@ def formatter20200924(measString, voltage, dg, ind, trial):
 
 
 
+# files_to_plot = [0, 4, 8, 12, 16]
+files_to_plot = [0, 4, 16]
+
+save_dir = '/home/cblakemore/plots/libration_paper_2022'
+# plot_name = 'libration_spectra_drift_example.svg'
+plot_name = 'fig5_libration_spectra_drift_example_v3.svg'
+
+save = True
+show = True
 
 
 
@@ -125,9 +134,25 @@ file_length = 10.0
 
 ### Adjust empirically as needed for individual datasets
 
+envelope_color = bu.lighten_color('k', 0.35)
+# envelope_ls = 'none'
+# envelope_lw = 5
+# envelope_marker = '.'
+# envelope_ms = 7
+envelope_ls = '-'
+envelope_lw = 4
+envelope_marker = ''
+envelope_ms = 5
+
+line_alpha = 0.9
+plot_lw = 2.5
+plot_zorder = 5
+
 ### for 20200727, 8Vpp data
 plot_freq_width = 5.0
 xticks = [1.277e3, 1.278e3, 1.279e3, 1.280e3, 1.281e3]
+
+ylim = [3e-8, 5e-3]
 
 lower = 1275
 upper = 1281
@@ -137,6 +162,7 @@ xticks = np.linspace(lower, upper, int((upper-lower)/spacing) + 1)
 xticklabels = [f'{int(tick):d}' for tick in xticks]
 
 legend_loc = 'upper left'
+
 
 
 
@@ -226,30 +252,22 @@ def proc_spectra(spectra_file, fig, axarr, axind):
     freqs = np.fft.rfftfreq(nsamp, d=dt)
     fac = bu.fft_norm(nsamp, fsamp)
 
-    colors = bu.get_color_map(impulse_start_file, cmap='plasma')
+    colors = bu.get_color_map(len(files_to_plot), cmap='plasma')
     lib_freqs = []
-    for i in range(impulse_start_file):
+    for ind, file in enumerate(files_to_plot):
 
-        fft = np.fft.rfft(lib_arr[i,:])
+        fft = np.fft.rfft(lib_arr[file,:])
         asd = np.abs(fft)
         lib_freq = freqs[np.argmax(asd)]
 
         lib_freqs.append(lib_freq)
 
-        if i == 9:
-            plot_alpha = 1.0
-            plot_lw = 3
-            plot_zorder = 6
-            plot_label = 'One 10-s integration'
-        else:
-            plot_alpha = 0.5
-            plot_lw = 1.0
-            plot_zorder = 5
-            plot_label = ''
+        plot_label = ''
 
-        axarr[axind].loglog(freqs, fac*asd, color=colors[i], alpha=plot_alpha, \
-                  zorder=plot_zorder, lw=plot_lw, label=plot_label)
-        axarr[axind].axvline(lib_freqs[i], color=colors[i])
+        axarr[axind].loglog(freqs, (fac*asd)**2, color=colors[ind], \
+                            alpha=line_alpha, zorder=plot_zorder, \
+                            lw=plot_lw, label=plot_label)
+        # axarr[axind].axvline(lib_freqs[i], color=colors[i])
         # ax.semilogy(freqs-lib_freq, fac*asd, color=colors[i], alpha=plot_alpha, \
         #             zorder=plot_zorder, lw=plot_lw)
 
@@ -257,11 +275,13 @@ def proc_spectra(spectra_file, fig, axarr, axind):
     long_arr = lib_arr[:impulse_start_file,:].flatten()
     long_fac = bu.fft_norm(nsamp*impulse_start_file, fsamp)
 
-    all_label = f'${impulse_start_file:d}\\times$(10-s integration)'
-    axarr[axind].loglog(long_freqs, long_fac*np.abs(np.fft.rfft(long_arr)), \
-              color='k', lw=2, zorder=4, label=all_label)
+    all_label = f'{impulse_start_file*10:d}-s integration'
+    axarr[axind].loglog(long_freqs, (long_fac*np.abs(np.fft.rfft(long_arr)))**2, \
+                        color=envelope_color, ls=envelope_ls, ms=envelope_ms, \
+                        lw=envelope_lw, marker=envelope_marker, \
+                        zorder=4, label=all_label)
 
-    return None
+    return t0
 
 
 
@@ -273,24 +293,30 @@ for date in input_dict.keys():
         new_filename = os.path.join(processed_base, date, meas+'.h5')
         if os.path.exists(new_filename):
             spectra_file_paths.append( new_filename )
+            print(new_filename)
 
 
 nfile = len(spectra_file_paths)
-fig, axarr = plt.subplots(nfile,1, figsize=(7,3*nfile+1), \
+fig, axarr = plt.subplots(nfile,1, figsize=(6.5,2.75*nfile+1), \
                           sharex=True, sharey=True)
 if nfile == 1:
     axarr = [axarr]
 
 
+times = []
 for file_ind, filename in enumerate(spectra_file_paths):
-    proc_spectra(filename, fig, axarr, file_ind)
+    tstart = proc_spectra(filename, fig, axarr, file_ind)
+    times.append(tstart)
+
+delay = (times[-1] - times[0]) / 3600.0
 
 
 for file_ind in range(nfile):
-    axarr[file_ind].set_ylim(2e-4, 1e-1)
+    axarr[file_ind].set_ylim(*ylim)
+    axarr[file_ind].grid(which='major', axis='y')
     # axarr[file_ind].set_ylabel('Libration ASD [rad/$\\sqrt{\\rm Hz}$]')
 
-fig.supylabel('       Libration ASD [rad/$\\sqrt{\\rm Hz}$]', fontsize=14)
+fig.supylabel('       Libration PSD [rad$^2$/Hz]', fontsize=14)
 
 axarr[0].set_xlim(lower - 0.2*spacing, upper + 0.2*spacing)
 
@@ -298,16 +324,22 @@ axarr[0].set_xticks(xticks)
 axarr[0].set_xticklabels(xticklabels)
 axarr[0].set_xticks([], minor=True)
 axarr[0].set_xticklabels([], minor=True)
-axarr[0].legend(loc=legend_loc, fontsize=12)
+axarr[0].legend(loc=legend_loc, fontsize=12, framealpha=1.0)
 axarr[-1].set_xlabel('Frequency [Hz]')
 
-axarr[-1].text(1279.5, 1.5e-2, 'Same MS, same $E$-field,\nbut many hours later', \
+# axarr[-1].text(1279.5, 10e-4, f'Same MS, same $E$-field,\n{delay:0.1f} hours later', \
+#                ha='center', va='center', fontsize=14)
+axarr[-1].text(1279.5, 3.16e-4, f'{delay:0.1f} hours later', \
                ha='center', va='center', fontsize=14)
 
 fig.tight_layout()
 fig.subplots_adjust(left=0.15)
 
-plt.show()
+if save:
+    fig.savefig(os.path.join(save_dir, plot_name))
+
+if show:
+    plt.show()
 
 
 

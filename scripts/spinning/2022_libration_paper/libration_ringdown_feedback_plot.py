@@ -32,10 +32,6 @@ bad_paths = [ \
              '20200727/bead1/spinning/dds_phase_impulse_high_dg/trial_0008.h5', \
             ]
 
-save_dir = '/home/cblakemore/plots/libration_paper_2021'
-plot_name = 'libration_ringdown_summary.svg'
-zero_plot_name = 'libration_ringdown_zero_feedback.svg'
-
 beadtype = 'bangs5'
 
 # colors = bu.get_color_map(3, cmap='plasma')
@@ -58,16 +54,11 @@ min_phi_dg = np.inf
 
 normalize = False
 
-save = True
-show = False
 
 
 
-
-fig, ax = plt.subplots(1,figsize=(7.5,4.5))
-zero_fig, zero_ax = plt.subplots(1,figsize=(7.5,4.5))
-
-ax_list = [zero_ax, ax]
+fig, axarr = plt.subplots(1,2,figsize=(7.5,4.5),sharey=True, \
+                          gridspec_kw={'width_ratios': [1,8]})
 
 nfiles = len(filenames)
 
@@ -108,9 +99,9 @@ max_amp = 1e-3*max_amp
 
 span = max_amp - min_amp
 vmin = min_amp - colorpad*span
-vmax = max_amp + colorpad*span
+vmax = max_amp + colorpad*span 
 
-derp_vmax = 1.5*vmax
+vmax *= 1.3
 
 
 nzeros = np.sum(zeros_list)
@@ -170,17 +161,23 @@ for fileind, filename in enumerate(filenames):
 
             if phi_dg != 0.0:
                 ind = 1
+                c_phi_dg = phi_dg
             else:
+                if not found_zero:
+                    found_zero = True
                 ind = 0
+                c_phi_dg = zeroplot_ind - (nzeros-1.0)/2.0 
 
             paths[fileind][ind].append(path)
             drive_amps[fileind][ind].append(round(drive_amp, 0))
-            phi_dgs[fileind][ind].append(phi_dg)
+            phi_dgs[fileind][ind].append(c_phi_dg*fac)
             taus[fileind][ind].append(tau)
             tau_uncs[fileind][ind].append(tau_unc)
             markercolors[fileind][ind].append(color)
 
 
+    if found_zero:
+        zeroplot_ind += 1
 
 for fileind, filename in enumerate(filenames):
     date = re.search(r"\d{8,}", filename)[0]
@@ -198,7 +195,8 @@ for fileind, filename in enumerate(filenames):
         for unique_phi_dg in unique_phi_dgs:
 
             for unique_ind, unique_drive_amp in enumerate(unique_drive_amps):
-
+                color = bu.get_single_color(unique_drive_amp, vmin=vmin, \
+                                            vmax=vmax, cmap='plasma')
                 vals = []
                 for meas_ind, phi_dg in enumerate(phi_dgs[fileind][ind]):
                     if phi_dg != unique_phi_dg:
@@ -207,28 +205,26 @@ for fileind, filename in enumerate(filenames):
                         continue
                     vals.append(taus[fileind][ind][meas_ind]) 
 
-                if ind == 0:
-                    color = 'k'
-                    xval = unique_drive_amp
-                else:
-                    color = bu.get_single_color(unique_drive_amp, vmin=vmin, \
-                                            vmax=vmax, cmap='plasma')
-                    xval = unique_phi_dg
-
                 if not len(vals):
                     continue
+
+                offset = 0.0
+                if not ind:
+                    offset = 0.05*(unique_ind - (n_unique_amp-1.0)/2)
 
                 if normalize:
                     fac = (Ibead * unique_drive_amp)
                 else:
                     fac = 1.0
 
-                ax_list[ind].errorbar([xval], [fac*np.mean(vals)], \
-                                      yerr=[fac*np.std(vals)], ecolor=color, \
-                                      ls='None', zorder=4)
-                ax_list[ind].scatter([xval], [fac*np.mean(vals)], \
-                                     color=color, s=markersize, marker=marker, \
-                                     zorder=5)
+                axarr[ind].errorbar([unique_phi_dg+offset], [fac*np.mean(vals)], \
+                                    yerr=[fac*np.std(vals)], ecolor=color, \
+                                    ls='None', zorder=4)
+                axarr[ind].scatter([unique_phi_dg+offset], [fac*np.mean(vals)], \
+                                   color=color, s=markersize, marker=marker, \
+                                   zorder=5)
+    if found_zero:
+        zeroplot_ind += 1
 
 
         ### Plot all the measurements with an alpha
@@ -241,29 +237,32 @@ for fileind, filename in enumerate(filenames):
         #             s=markersize*0.75, marker=marker, zorder=3)
 
 
-ax_list[0].set_xlabel('Drive Amplitude [kV/m]')
-ax_list[1].set_xlabel('Derivative gain [arb]')
+axarr[1].set_xlabel('Derivative gain [arb]')
 
 if normalize:
-    ax_list[0].set_ylabel('$\\tau \\, E_0 \\, d_{ms}$ [arb]')
+    axarr[0].set_ylabel('$\\tau \\, E_0 \\, d_{ms}$ [arb]')
 else:
-    ax_list[0].set_ylabel('Libration damping time [s]')
+    axarr[0].set_ylabel('Libration damping time [s]')
+axarr[0].set_yscale('log')
 
-for ind in [0,1]:
-    ax_list[ind].set_yscale('log')
-    ax_list[ind].set_xscale('log')
+axarr[0].set_xscale('linear')
+axarr[1].set_xscale('log')
 
-ax_list[0].grid(axis='y', which='major', lw=.75, color='k', ls='-', alpha=0.2)
-# ax_list[0].grid(axis='y', which='minor', lw=.75, color='k', ls='--', alpha=0.2)
-ax_list[1].grid(axis='both', which='major', lw=1, color='k', ls='-', alpha=0.2)
-# ax_list[1].grid(axis='both', which='minor', lw=1, color='k', ls='--', alpha=0.2)
+axarr[0].set_xticks([0.0])
+axarr[0].set_xticklabels(['0'])
+zero_xlim = axarr[0].get_xlim()
+zero_half_span = 0.5*(zero_xlim[1] - zero_xlim[0])
+axarr[0].set_xlim(-2.0*zero_half_span, 2.0*zero_half_span)
 
-ax_list[0].xaxis.set_minor_formatter(lambda x, pos: f'{int(x):d}')
+axarr[0].grid(axis='y', which='major', lw=.75, color='k', ls='-', alpha=0.2)
+# axarr[0].grid(axis='y', which='minor', lw=.75, color='k', ls='--', alpha=0.2)
+axarr[1].grid(axis='both', which='major', lw=1, color='k', ls='-', alpha=0.2)
+# axarr[1].grid(axis='both', which='minor', lw=1, color='k', ls='--', alpha=0.2)
 
 # xlim = ax.get_xlim()
 # ylim = ax.get_ylim()
 # ax.set_xscale('log')
-# ax_list[0].set_xscale('symlog', linthresh=linthresh)
+# axarr[0].set_xscale('symlog', linthresh=linthresh)
 # ax.xaxis.set_minor_locator(bu.MinorSymLogLocator(linthresh))
 # ax.set_xlim(-0.1*linthresh, xlim[1])]
 # ax.set_ylim(*ylim)
@@ -272,16 +271,11 @@ ax_list[0].xaxis.set_minor_formatter(lambda x, pos: f'{int(x):d}')
 
 # ax.legend(loc='upper right', markerscale=1.0, scatterpoints=1)
 
-ax_cb, cb = bu.add_colorbar(fig, ax_list[1], size=0.1, pad=0.025, vmin=vmin, \
+ax_cb, cb = bu.add_colorbar(fig, axarr[1], size=0.1, pad=0.025, vmin=vmin, \
                           vmax=vmax, label='Drive voltage [kV/m]', labelpad=7, fontsize=14)
 # fig.add_axes(ax_cb)
 
 fig.tight_layout()
-zero_fig.tight_layout()
+plt.subplots_adjust(wspace=0.05)
 
-if save:
-    fig.savefig( os.path.join(save_dir, plot_name) )
-    zero_fig.savefig( os.path.join(save_dir, zero_plot_name) )
-
-if show:
-    plt.show()
+plt.show()

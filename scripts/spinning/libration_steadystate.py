@@ -20,7 +20,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 # ncore = 1
 # ncore = 5
-ncore = 12
+ncore = 30
 
 warnings.filterwarnings('ignore')
 
@@ -52,16 +52,20 @@ def formatter20200727(measString, ind, trial):
     else:
         return os.path.join(measString + f'_{ind}', f'trial_{trial:04d}')
 
-
-meas_base = 'bead1/spinning/dds_phase_impulse_'
-input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
-              for meas in ['mid_dg'] \
-              for ind in [1] for trial in range(10) ]
+# meas_base = 'bead1/spinning/dds_phase_impulse_'
+# input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
+#               for meas in ['many'] \
+#               for ind in [1] for trial in range(10) ]
 
 # meas_base = 'bead1/spinning/dds_phase_impulse_'
 # input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
-#               for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-#               for ind in [1, 2, 3] for trial in range(10) ]
+#               for meas in ['lower_dg'] \
+#               for ind in [1] for trial in range(10) ]
+
+meas_base = 'bead1/spinning/dds_phase_impulse_'
+input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
+              for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'many', ''] \
+              for ind in [1, 2, 3] for trial in range(10) ]
 
 
 
@@ -74,21 +78,27 @@ def formatter20200924(measString, voltage, dg, ind, trial):
         parent_str += f'_{ind}'
     return os.path.join(parent_str, trial_str)
 
-# meas_base = 'bead1/spinning/dds_phase_impulse'
-# input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-#               for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
-#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-#               for ind in [1, 2, 3] for trial in range(10) ]
+meas_base = 'bead1/spinning/dds_phase_impulse'
+input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+              for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
+              for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
+              for ind in [1, 2, 3] for trial in range(10) ]
+
+meas_base = 'bead1/spinning/dds_phase_impulse'
+input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+              for voltage in [3, 6, 8] \
+              for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
+              for ind in [1, 2, 3] for trial in range(10) ]
 
 # meas_base = 'bead1/spinning/dds_phase_impulse'
 # input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-#               for voltage in [3, 6, 8] \
-#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
+#               for voltage in [8] \
+#               for dg in ['high_dg'] \
 #               for ind in [1, 2, 3] for trial in range(10) ]
 
 
 
-save_spectra = False
+save_spectra = True
 
 
 ####################################
@@ -100,6 +110,12 @@ save_spectra = False
 ### Just useful for plotting really
 impulse_magnitude = np.pi / 2.0
 
+delta_t = 1.0 / 20000.0
+
+delay = 4.0*delta_t
+fix_delay = False
+
+gamma0 = 0.01
 
 
 
@@ -120,11 +136,10 @@ file_length = 10.0
 
 libration_fit_width = 5.0
 
-gamma_to_fit = 100
-
+kd_to_fit = 6.0
 
 # opt_ext = ''
-opt_ext = f'_{int(gamma_to_fit):d}gamma'
+opt_ext = f'_{int(kd_to_fit):d}kd'
 
 
 
@@ -140,11 +155,13 @@ plot_individual_fits = False
 plot_concatenation_fit = False
 plot_concatenation_compensated_fit = False
 plot_avg_fit = False
-plot_squash_fit = True
+plot_squash_fit = False
 plot_avg_fit_voigt = False
 
-save_spectra_fit_plot = False
+save_spectra_fit_plot = True
 show_spectra_fit = False
+
+save_only_squash = True
 
 plot_base = '/home/cblakemore/plots/'
 
@@ -208,8 +225,9 @@ def proc_spectra(spectra_file):
             print()
 
             return spectra_file, np.mean(attrs['phi_dgs']), \
-                    np.mean(attrs['drive_amps']), [], [], [], \
-                    [], [], [], lambda *args: None, lambda *args: None
+                    np.mean(attrs['drive_amps']), [], [], [], [], \
+                    [], [], [], lambda *args: None, lambda *args: None, \
+                    [], []
 
         time_arr = np.copy(fobj['all_time'])
         lib_arr = np.copy(fobj['all_lib'])
@@ -225,6 +243,9 @@ def proc_spectra(spectra_file):
             else:
                 lib_off = 0
             lib_arr[i,:] += lib_off
+
+    meas_phi_dg = np.mean(attrs['phi_dgs'])
+    meas_drive_amp = np.mean(attrs['drive_amps'])
 
     ### Cropping indices to remove Gibbs phenomena
     cut_inds = [False for i in range(out_cut)] + \
@@ -281,10 +302,6 @@ def proc_spectra(spectra_file):
 
     fits = []
     fit_funcs = []
-    lib_arr_shifted = []
-
-    mean_lib_freq = np.mean(lib_freqs[:impulse_start_file])
-
     for i in range(impulse_start_file):
 
         # init_gamma = (fsamp / nsamp)
@@ -318,14 +335,23 @@ def proc_spectra(spectra_file):
         fits.append(popt)
         fit_funcs.append(fit_func)
 
-        delta_f = popt[1] - mean_lib_freq
+    fits = np.array(fits)
+    # mean_lib_freq = np.mean(fits[:,1])
+    mean_lib_freq = np.mean(lib_freqs[:impulse_start_file])
+
+    kd = ( meas_phi_dg / 1024.0) * \
+            (5.0*np.pi*delta_t * (2.0*np.pi*mean_lib_freq)**2)
+    thermal_amp = np.sqrt(2*constants.k*300.0*gamma0/Ibead['val'])
+
+    lib_arr_shifted = []
+    for i in range(impulse_start_file):
+        delta_f = mean_lib_freq - fits[i,1]
 
         hilbert = signal.hilbert(lib_arr[i,:])
-        shifted = hilbert * np.exp(-1.0j * 2.0*np.pi*delta_f * time_arr[i,:])
+        shifted = hilbert * np.exp(1.0j * 2.0*np.pi*delta_f * time_arr[i,:])
 
         lib_arr_shifted.append(shifted.real)
 
-    fits = np.array(fits)
     lib_arr_shifted = np.array(lib_arr_shifted)
 
     # print(impulse_start_file, nsamp, fsamp)
@@ -339,14 +365,19 @@ def proc_spectra(spectra_file):
 
     avg_shifted_asd = \
         fac * np.sqrt(np.mean(np.abs(np.fft.rfft(lib_arr_shifted, axis=1))**2, axis=0))
-    avg_shifted_unc = \
+    avg_shifted_unc = (1.0 / np.sqrt(impulse_start_file)) * \
         fac * np.sqrt(np.std(np.abs(np.fft.rfft(lib_arr_shifted, axis=1))**2, axis=0))
 
     mean_gamma = np.mean(fits, axis=0)[2]
-    width = np.min([gamma_to_fit*mean_gamma, 50])
+    if not kd:
+        width = np.max([kd_to_fit*mean_gamma, 50])
+    else:
+        width = np.max([kd_to_fit*kd/(2.0*np.pi), 50])
     fit_band = [mean_lib_freq - 0.5*width, mean_lib_freq + 0.5*width]
     p0 = [1.0, mean_lib_freq, mean_gamma, 0.0]
     pcov0 = np.zeros( (len(p0), len(p0)) )
+
+
     try:
         popt_long, pcov_long = \
             bu.fit_damped_osc_amp(long_sig, fsamp, fit_band=fit_band, \
@@ -356,6 +387,9 @@ def proc_spectra(spectra_file):
         popt_long = p0
         pcov_long = pcov0
 
+
+
+
     try:
         popt_long_shifted, pcov_long_shifted = \
             bu.fit_damped_osc_amp(long_sig_shifted, fsamp, fit_band=fit_band, \
@@ -364,6 +398,8 @@ def proc_spectra(spectra_file):
     except:
         popt_long_shifted = p0
         pcov_long_shifted = pcov0
+
+
 
 
     try:
@@ -379,56 +415,62 @@ def proc_spectra(spectra_file):
         popt_avg = p0
         pcov_avg = pcov0
         fit_func_avg = lambda f,A,f0,g,c: \
-                            np.sqrt(damped_osc_amp(f,A,f0,g)**2 + c**2)
-
-
-    # try:
-    diff = fit_band[1] - fit_band[0]
-    squash_fit_band = [fit_band[0]-0.5*diff, fit_band[1]+0.5*diff]
-
-    gamma0 = 0.01
-
-    thermal_amp = np.sqrt(2*constants.k*300.0*gamma0/Ibead['val'])
-    popt_squash, pcov_squash, fit_func_squash = \
-        bu.fit_damped_osc_amp_squash(\
-                              avg_shifted_asd, fsamp, \
-                              fit_band=fit_band, \
-                              plot=plot_squash_fit, \
-                              # amp_guess=0.01*thermal_amp, \
-                              amp_guess=52, \
-                              freq_guess=1280.0, \
-                              gamma_guess=0.01, \
-                              noise_guess=3e-7, \
-                              deriv_gain_guess=25.0, \
-                              deriv_phase_guess=2.887, \
-                              constant_guess=3e-4, \
-                              sig_asd=True, asd_errs=avg_shifted_unc, \
-                              return_func=True, verbose=True)
-    # except:
-    #     popt_avg = p0
-    #     pcov_avg = pcov0
-    #     fit_func_avg = lambda f,A,f0,g,c: \
-    #                         np.sqrt(damped_osc_amp(f,A,f0,g)**2 + c**2)
+                            np.sqrt(bu.damped_osc_amp(f,A,f0,g)**2 + c**2)
 
 
     try:
-        popt_avg_voigt, pcov_avg_voigt, fit_func_voigt = \
-            bu.fit_voigt_profile(avg_shifted_asd, fsamp, fit_band=fit_band, \
-                                  plot=plot_avg_fit_voigt, \
-                                  freq_guess=mean_lib_freq, gamma_guess=mean_gamma, \
+        diff = fit_band[1] - fit_band[0]
+        squash_fit_band = [fit_band[0]-0.5*diff, fit_band[1]+0.5*diff]
+
+        half_width = np.min([np.max([0.5*kd_to_fit*kd / (2.0*np.pi), 25]), 500])
+        squash_fit_band = [mean_lib_freq-half_width, \
+                           mean_lib_freq+half_width ]
+
+        popt_squash, popt_squash_unc, fit_func_squash = \
+            bu.fit_damped_osc_amp_squash(\
+                                  avg_shifted_asd, fsamp, \
+                                  fit_band=squash_fit_band, \
+                                  plot=plot_squash_fit, \
+                                  amp_guess=thermal_amp, \
+                                  freq_guess=mean_lib_freq, \
+                                  gamma_guess=gamma0, \
+                                  noise_guess=1e-7, \
+                                  deriv_gain_guess=kd, \
+                                  deriv_delay_guess=delay, \
+                                  fix_delay=fix_delay, \
+                                  constant_guess=0.0, \
+                                  # constant_guess=1e-7, \
                                   sig_asd=True, asd_errs=avg_shifted_unc, \
-                                  return_func=True)
-    except:
-        popt_avg_voigt = [1.0, mean_lib_freq, mean_gamma, mean_gamma, 0.0]
-        pcov_avg_voigt = np.zeros( (len(popt_avg_voigt), len(popt_avg_voigt)) )
-        fit_func_voigt = lambda f,A,f0,s,g,c: \
-                            np.sqrt( (A*special.voigt_profile((f-f0),s,g))**2 + c**2 )
+                                  return_func=True, verbose=True)
+
+        # print(popt_squash[4], popt_squash[5])
+
+    except: 
+        popt_squash = [1.0, mean_lib_freq, mean_gamma, 0.0, 0.0, 0.0, 0.0]
+        popt_squash_unc = np.zeros( len(popt_squash) )
+        fit_func_squash = lambda f,A,f0,g,noise,kd,tfb,c: \
+                            np.sqrt( bu.damped_osc_amp_squash(f,A,f0,g,\
+                                                       noise,kd,tfb)**2 + c )
 
 
-    meas_phi_dg = np.mean(attrs['phi_dgs'])
-    meas_drive_amp = np.mean(attrs['drive_amps'])
+    # try:
+    #     popt_avg_voigt, pcov_avg_voigt, fit_func_voigt = \
+    #         bu.fit_voigt_profile(avg_shifted_asd, fsamp, fit_band=fit_band, \
+    #                               plot=plot_avg_fit_voigt, \
+    #                               freq_guess=mean_lib_freq, gamma_guess=mean_gamma, \
+    #                               sig_asd=True, asd_errs=avg_shifted_unc, \
+    #                               return_func=True)
+    # except:
+    #     popt_avg_voigt = [1.0, mean_lib_freq, mean_gamma, mean_gamma, 0.0]
+    #     pcov_avg_voigt = np.zeros( (len(popt_avg_voigt), len(popt_avg_voigt)) )
+    #     fit_func_voigt = lambda f,A,f0,s,g,c: \
+    #                         np.sqrt( (A*special.voigt_profile((f-f0),s,g))**2 + c**2 )
+
+
 
     if show_spectra_fit or save_spectra_fit_plot:
+
+        fit_band = squash_fit_band
 
         fit_freqs = np.linspace(fit_band[0], fit_band[1], 1000)
 
@@ -441,11 +483,12 @@ def proc_spectra(spectra_file):
         plot_inds[0] = False
         plot_inds_long[0] = False
 
-        title_base = f'Deriv. gain: {meas_phi_dg:0.3g}, ' \
-                        + f'Drive amp: {1e-3*meas_drive_amp:0.1f} kV/m'
+        title_base = f'FPGA gain setting: {meas_phi_dg:0.3g},  '\
+                        + f'$k_d$: {kd:0.3g} s$^{{-1}}$,' \
+                        + f'\nDrive amp: {1e-3*meas_drive_amp:0.1f} kV/m'
 
         save_ext_plot_arr = ['_ho_appended', '_ho_appended_shifted', \
-                             '_ho_shifted_average', '_voigt_shifted_average']
+                             '_ho_shifted_average', '_ho_shifted_average_squash']
 
         annotation_plot_arr = ['Concatentation without\ndrift compensation', \
                                'Concatentation WITH\ndrift compensation', \
@@ -461,79 +504,94 @@ def proc_spectra(spectra_file):
              avg_shifted_asd[plot_inds], \
              avg_shifted_asd[plot_inds]]
 
-        fit_plot_arr = [popt_long, popt_long_shifted, popt_avg, popt_avg_voigt]
+        fit_plot_arr = [popt_long, popt_long_shifted, popt_avg, popt_squash]
 
-        func_plot_arr = [fit_func_avg, fit_func_avg, fit_func_avg, fit_func_voigt]
+        func_plot_arr = [fit_func_avg, fit_func_avg, fit_func_avg, fit_func_squash]
 
         figs = []
         axes = []
         savenames = []
 
-        try:
-            for i in range(4):
-                if i != 3:
-                    title = title_base + ', HO fit'
-                    label = f'Fit: $\\gamma = {fit_plot_arr[i][2]:0.3g}$ Hz'
-                else:
-                    title = title_base + ', Voigt profile'
-                    label = f'Fit: $\\gamma = {fit_plot_arr[i][2]:0.3g}$ Hz\n' \
-                                + f'      $\\sigma = {fit_plot_arr[i][3]:0.3g}$ Hz'
+        # try:
+        for i in range(4):
 
-                fig, ax = plt.subplots(1,1,figsize=(8,5))
+            if save_only_squash and i != 3:
+                continue
 
-                ax.set_title(title)
+            gamma_val = 2.0*np.pi*fit_plot_arr[i][2]
+            if i != 3:
+                title = title_base + ',  HO fit'
+                label = f'Fit: $\\hat{{\\gamma}} = {gamma_val:0.3g}$ s$^{{-1}}$'
+            else:
+                title = title_base + ',  Noise-squashed HO'
+                kd_val = fit_plot_arr[i][4]
+                label = f'Fit: $\\hat{{\\gamma}} = {gamma_val:0.3g}$ s$^{{-1}}$\n' \
+                            + f'      $\\hat{{k}}_d = {kd_val:0.3g}$ s$^{{-1}}$'
 
-                ax.loglog(freq_plot_arr[i], data_plot_arr[i], zorder=3, lw=2)
-                ax.loglog(fit_freqs, func_plot_arr[i](fit_freqs, *fit_plot_arr[i]), \
-                          color='r', ls='--', lw=3, alpha=0.8, zorder=4, label=label)
-                ax.set_xlabel('Frequency [Hz]')
-                ax.set_ylabel('Libration ASD [rad/$\\sqrt{\\rm Hz}$]')
+            fig, ax = plt.subplots(1,1,figsize=(8,5))
+
+            ax.set_title(title)
+
+            ax.loglog(freq_plot_arr[i], data_plot_arr[i]**2, zorder=3, lw=2)
+            ax.loglog(fit_freqs, func_plot_arr[i](fit_freqs, *fit_plot_arr[i])**2, \
+                      color='r', ls='--', lw=3, alpha=0.8, zorder=4, label=label)
+            ax.set_xlabel('Frequency [Hz]')
+            ax.set_ylabel('Libration PSD [rad$^2$/Hz]')
+            try:
                 ax.set_xlim(freq_plot_arr[i][0], freq_plot_arr[i][-1])
-                ax.xaxis.set_major_formatter(lambda x, pos: f'{x:0.1f}')
-                ax.xaxis.set_minor_formatter(lambda x, pos: f'{x:0.1f}')
+            except:
+                print()
+                print('kd : ', kd)
+                print(freq_plot_arr[i])
+                print()
+            ax.xaxis.set_major_formatter(lambda x, pos: f'{x:0.1f}')
+            ax.xaxis.set_minor_formatter(lambda x, pos: f'{x:0.1f}')
 
-                ax.legend(loc='upper right', fontsize=13)
-                ax.text(0.05, 0.95, annotation_plot_arr[i], ha='left', va='top', \
-                        transform=ax.transAxes, fontsize=12)
+            ax.legend(loc='upper right', fontsize=13)
+            ax.text(0.05, 0.95, annotation_plot_arr[i], ha='left', va='top', \
+                    transform=ax.transAxes, fontsize=12)
 
-                ylim = ax.get_ylim()
-                if ylim[0] < 0.1*fit_plot_arr[i][-1]:
-                    ax.set_ylim(0.1*fit_plot_arr[i][-1], ylim[1])
+            ylim = ax.get_ylim()
+            if ylim[0] < 0.1*fit_plot_arr[i][-1]:
+                ax.set_ylim(0.1*fit_plot_arr[i][-1], ylim[1])
 
-                fig.tight_layout()
+            fig.tight_layout()
 
-                date = re.search(r"\d{8,}", spectra_file)[0]
-                meas_file = 'dds_phase_impulse' + spectra_file.split('dds_phase_impulse')[-1]
-                meas_name, trial = (os.path.splitext(meas_file)[0]).split('/')
+            date = re.search(r"\d{8,}", spectra_file)[0]
+            meas_file = 'dds_phase_impulse' + spectra_file.split('dds_phase_impulse')[-1]
+            meas_name, trial = (os.path.splitext(meas_file)[0]).split('/')
 
-                plot_name = date + '_' + meas_name + '_' + trial \
-                                + save_ext_plot_arr[i] + '.svg'
-                plot_path = os.path.join(plot_base, date, 'spinning', \
-                                         meas_name, 'spectra', plot_name)
-                bu.make_all_pardirs(plot_path, confirm=False)
+            plot_name = date + '_' + meas_name + '_' + trial \
+                            + save_ext_plot_arr[i] + '.svg'
+            plot_path = os.path.join(plot_base, date, 'spinning', \
+                                     meas_name, 'spectra', plot_name)
+            bu.make_all_pardirs(plot_path, confirm=False)
 
-                figs.append(fig)
-                axes.append(ax)
-                savenames.append(plot_path)
+            figs.append(fig)
+            axes.append(ax)
+            savenames.append(plot_path)
 
-            if save_spectra_fit_plot:
-                for fig_ind, fig in enumerate(figs):
-                    fig.savefig(savenames[fig_ind])
+        if save_spectra_fit_plot:
+            for fig_ind, fig in enumerate(figs):
+                fig.savefig(savenames[fig_ind])
 
-            if show_spectra_fit:
-                plt.show()
+        if show_spectra_fit:
+            plt.show()
 
-            for fig in figs:
-                plt.close(fig)
-        except:
-            print()
-            print('THIS ONE FUCKED UP: ')
-            print(f'    {spectra_file:s}')
-            print()
+        for fig in figs:
+            plt.close(fig)
+        # except:
+        #     print()
+        #     print('THIS ONE FUCKED UP: ')
+        #     print(f'    {spectra_file:s}')
+        #     print()
+
+    save_inds = (freqs >= 10.0) * (freqs <= 3000.0)
 
     return spectra_file, meas_phi_dg, meas_drive_amp, fits, fit_funcs, \
-            popt_long, popt_long_shifted, popt_avg, popt_avg_voigt, \
-            fit_func_avg, fit_func_voigt
+            popt_long, popt_long_shifted, popt_avg, popt_squash, \
+            popt_squash_unc, fit_func_avg, fit_func_squash, \
+            freqs[save_inds], avg_shifted_asd[save_inds]
 
 
 
@@ -555,8 +613,8 @@ all_spectra = Parallel(n_jobs=ncore)(delayed(proc_spectra)(file) \
 
 ### Unpack the result from the fitting
 filenames, phi_dgs, drive_amps, fits, fit_funcs, \
-    popt_long, popt_long_shifted, popt_avg, popt_avg_voigt, \
-    fit_func_avg, fit_func_voigt = \
+    popt_long, popt_long_shifted, popt_avg, popt_squash, \
+    popt_squash_unc, fit_func_avg, fit_func_squash, freqs, asd = \
             [list(result) for result in zip(*all_spectra)]
 
 
@@ -619,7 +677,10 @@ if save_spectra:
             spectra_dict[meas_phi_dg]['long_fit'] = []
             spectra_dict[meas_phi_dg]['long_shifted_fit'] = []
             spectra_dict[meas_phi_dg]['avg_shifted_fit'] = []
-            spectra_dict[meas_phi_dg]['avg_shifted_voigt_fit'] = []
+            spectra_dict[meas_phi_dg]['avg_shifted_squash_fit'] = []
+            spectra_dict[meas_phi_dg]['avg_shifted_squash_fit_unc'] = []
+            spectra_dict[meas_phi_dg]['freqs'] = []
+            spectra_dict[meas_phi_dg]['asd'] = []
 
         saved = False
         for pathind, path in enumerate(spectra_dict[meas_phi_dg]['paths']):
@@ -634,7 +695,10 @@ if save_spectra:
             spectra_dict[meas_phi_dg]['long_fit'][pathind] = popt_long[ind]
             spectra_dict[meas_phi_dg]['long_shifted_fit'][pathind] = popt_long_shifted[ind]
             spectra_dict[meas_phi_dg]['avg_shifted_fit'][pathind] = popt_avg[ind]
-            spectra_dict[meas_phi_dg]['avg_shifted_voigt_fit'][pathind] = popt_avg_voigt[ind]
+            spectra_dict[meas_phi_dg]['avg_shifted_squash_fit'][pathind] = popt_squash[ind]
+            spectra_dict[meas_phi_dg]['avg_shifted_squash_fit_unc'][pathind] = popt_squash_unc[ind]
+            spectra_dict[meas_phi_dg]['freqs'][pathind] = freqs[ind]
+            spectra_dict[meas_phi_dg]['asd'][pathind] = asd[ind]
 
         else:
             spectra_dict[meas_phi_dg]['paths'].append( filename )
@@ -643,7 +707,10 @@ if save_spectra:
             spectra_dict[meas_phi_dg]['long_fit'].append( popt_long[ind] )
             spectra_dict[meas_phi_dg]['long_shifted_fit'].append( popt_long_shifted[ind] )
             spectra_dict[meas_phi_dg]['avg_shifted_fit'].append( popt_avg[ind] )
-            spectra_dict[meas_phi_dg]['avg_shifted_voigt_fit'].append( popt_avg_voigt[ind] )
+            spectra_dict[meas_phi_dg]['avg_shifted_squash_fit'].append( popt_squash[ind] )
+            spectra_dict[meas_phi_dg]['avg_shifted_squash_fit_unc'].append( popt_squash_unc[ind] )
+            spectra_dict[meas_phi_dg]['freqs'].append( freqs[ind] )
+            spectra_dict[meas_phi_dg]['asd'].append( asd[ind] )
 
         pickle.dump(spectra_dict, open(spectra_data_path, 'wb'))
 

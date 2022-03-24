@@ -129,10 +129,10 @@ def line(x, a, b):
 #### Generic Helper functions
 
 
-
 def iterable(obj):
-    '''Simple function to check if an object is iterable. Helps with
-       exception handling when checking arguments in other functions.
+    '''
+    Simple function to check if an object is iterable. Helps with
+    exception handling when checking arguments in other functions.
     '''
     try:
         iter(obj)
@@ -187,75 +187,7 @@ def progress_bar(count, total, suffix='', bar_len=50, newline=True):
         print()
 
 
-def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
-    '''Gets a single color from a colormap. Useful when the values
-       span a continuous range with uneven spacing.
 
-        INPUTS:
-
-            val - value between vmin and vmax, which represent
-              the ends of the colormap
-
-            cmap - color map for final output
-
-            vmin - minimum value for the colormap
-
-            vmax - maximum value for the colormap
-
-        OUTPUTS: 
-
-           color - single color in rgba format
-    '''
-
-    if (val > vmax) or (val < vmin):
-        raise ValueError("Input value doesn't conform to limits")
-
-    if log:
-        norm = colors.LogNorm(vmin=vmin, vmax=vmax)
-    else:
-        norm = colors.Normalize(vmin=vmin, vmax=vmax)
-
-    my_cmap = cm.get_cmap(cmap)
-
-    return my_cmap(norm(val))
-
-
-
-
-def get_color_map( n, cmap='plasma', log=False, invert=False):
-    '''Gets a map of n colors from cold to hot for use in
-       plotting many curves.
-       
-        INPUTS: 
-
-            n - length of color array to make
-            
-            cmap - color map for final output
-
-            invert - option to invert
-
-        OUTPUTS: 
-
-            outmap - color map in rgba format
-    '''
-
-    n = int(n)
-    outmap = []
-
-    if log:
-        cNorm = colors.LogNorm(vmin=0, vmax=2*n)
-    else:
-        cNorm = colors.Normalize(vmin=0, vmax=2*n)
-
-    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
-
-    for i in range(n):
-        outmap.append( scalarMap.to_rgba(2*i + 1) )
-
-    if invert:
-        outmap = outmap[::-1]
-
-    return outmap
 
 
 
@@ -305,6 +237,34 @@ def round_sig(x, sig=2):
             return num
 
 
+
+
+
+def format_multiple_float_string(*args, sig_figs=3, extra=0):
+    '''
+    Takes an arbitrary number of floats as non-keyword arguments,
+    rounds each to a certain number of significant figures, formats
+    the result as a float (i.e. no scientific notation), then builds 
+    a single string of the values as a comma-separated list, adding
+    extra white space between values so that they take up the same
+    horizontal space and multiple float strings can be aligned in 
+    a sort of column like format.
+    '''
+    length = int(sig_figs + 2 + extra)
+    out_str = ''
+    for arg in args:
+        arg_str = np.format_float_positional( \
+                    round_sig(arg, sig_figs), trim='-')
+        arg_len = len(arg_str)
+        for i in range( int(length-arg_len) ):
+            out_str += ' '
+        out_str += arg_str
+        if arg != args[-1]:
+            out_str += ', '
+    return out_str
+
+
+
 def weighted_mean(vals, errs, correct_dispersion=False):
     '''Compute the weighted mean, and the standard error on the weighted mean
        accounting for for over- or under-dispersion
@@ -314,6 +274,15 @@ def weighted_mean(vals, errs, correct_dispersion=False):
                    correct_dispersion, scale variance by chi^2
 
            OUTPUTS: mean, mean_err'''
+    vals = np.array(vals)
+    errs = np.array(errs)
+
+    if len(vals) != len(errs):
+        raise ValueError
+
+    if len(vals) == 1:
+        return vals[0], errs[0]
+
     variance = errs**2
     weights = 1.0 / variance
     mean = np.sum(weights * vals) / np.sum(weights)
@@ -801,6 +770,7 @@ def zerocross_pos2neg(data):
 
 
 def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
+                       cosine_fit=True, \
                        ncycle_exclude=20, phase_fraction=0.9, \
                        half_width=np.pi/4, incoherent=False, \
                        plot=False, plot_nsamp=10000, verbose=True):
@@ -821,11 +791,16 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
     drive_ind = np.argmax(np.abs(fft[1:])) + 1
     drive_freq_bin = freqs[drive_ind]
 
-    fit_func = lambda t, a, f, phi, c: a * np.cos(2.0*np.pi*f*t + phi) + c
+    if cosine_fit:
+        fit_func = lambda t, a, f, phi, c: a * np.cos(2.0*np.pi*f*t + phi) + c
+    else:
+        fit_func = lambda t, a, f, phi, c: a * np.sin(2.0*np.pi*f*t + phi) + c
 
     if fit:
-        amp_guess = np.std(sine)
+        amp_guess = np.std(sine)*np.sqrt(2)
         phase_guess = np.angle(fft[drive_ind])
+        if not cosine_fit:
+            phase_guess += np.pi/2.0
 
         if not freq:
             p0 = [amp_guess, drive_freq_bin, phase_guess, 0.0]
@@ -834,9 +809,11 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
         else:
             p0 = [amp_guess, phase_guess, 0.0]
             popt, pcov = \
-                optimize.curve_fit(lambda x,a,b,c: fit_func(x,a,freq,b,c), \
+                optimize.curve_fit(lambda x,a,b,c: \
+                                    fit_func(x,a,drive_freq_bin,b,c), \
                                    tvec, sine, p0=p0)
-            popt = np.insert(popt, 1, freq)
+            popt = np.insert(popt, 1, drive_freq_bin)
+            p0 = np.insert(p0, 1, drive_freq_bin)
             phase_unc = np.sqrt(pcov[1,1])
 
         amp_unc = np.sqrt(pcov[0,0])
@@ -888,6 +865,8 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
             max_ind = np.argmax(sine_cut)
             max_phase = tvec_phased_cut[max_ind]
 
+
+
             ### Hard-coded number to try to avoid stupid edge effects and 
             ### outliers skewing data
             buffer = 0.1  
@@ -913,6 +892,7 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
                     ax.set_title('Phase Estimation', fontsize=16)
                     ax.scatter(tpcr[:plot_nsamp], sine_cut[:plot_nsamp])
                     ax.scatter(tpcr[plot_inds], sine_cut[plot_inds])
+                    ax.axvline(tpcr[max_ind])
                     fig.tight_layout()
 
             else:
@@ -927,6 +907,7 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
                     ax.set_title('Phase Estimation', fontsize=16)
                     ax.scatter(tvec_phased_cut[:plot_nsamp], sine_cut[:plot_nsamp])
                     ax.scatter(tvec_phased_cut[plot_inds], sine_cut[plot_inds])
+                    ax.axvline(tpcr[max_ind])
                     fig.tight_layout()
 
             ### Compute the actual value of the waveform phase based on the 
@@ -935,6 +916,9 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
 
         else:
             phase = np.angle(fft[drive_ind])
+
+        if not cosine_fit:
+            phase += np.pi /2
 
         popt = [amp_int, freq, phase, np.mean(sine)]
 
@@ -955,6 +939,9 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
         ax2.plot(tvec[:plot_nsamp], sine[:plot_nsamp])
         ax2.plot(tvec[:plot_nsamp], fit_func(tvec[:plot_nsamp], *popt), \
                  ls='--', lw=2, color='r')
+        if fit:
+            ax2.plot(tvec[:plot_nsamp], fit_func(tvec[:plot_nsamp], *p0), \
+                     ls='--', lw=2, color='r', alpha=0.5)
         fig2.tight_layout()
 
         plt.show()
@@ -1382,6 +1369,7 @@ def detrend_linalg(input_sig, xvec=None, input_unc=None, coeffs=False, \
         axarr[1].plot(xvec, input_sig - (xvec * slope + offset), color='k')
         axarr[1].set_xlabel('Samples')
         fig.tight_layout()
+        plt.show()
 
     if coeffs:
         return (slope, offset)
@@ -1561,7 +1549,9 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     phase = np.unwrap(np.angle(hilbert)) 
 
     if optimize_frequency:
-        fc = np.mean(np.gradient(phase, tvec[1]-tvec[0])) / (2.0*np.pi)
+        old_fc = fc
+        wc, _ = detrend_linalg(phase, xvec=tvec, coeffs=True)
+        fc = wc / (2.0*np.pi)
         if debug:
             debug_dict['optimized_frequency'] = fc
 
@@ -1627,6 +1617,8 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
         if filt:
             plt.loglog(freqs[1:], np.abs(np.fft.rfft(sig_filt)[1:]), \
                        label='signal_filt')
+        if optimize_frequency:
+            plt.axvline(old_fc, ls='--', lw=3, color='r', alpha=0.5)
         plt.axvline(fc, ls='--', lw=3, color='r')
         plt.xlabel('Frequency [Hz]')
         plt.ylabel('Signal ASD [Arb]')
@@ -1875,7 +1867,7 @@ def damped_osc_phase(f, A, f0, g, phase0 = 0.):
 
 
 
-def damped_osc_amp_squash(f, A, f0, g, noise, deriv_gain, deriv_phase):
+def damped_osc_amp_squash(f, A, f0, g0, noise, deriv_gain, tfb):
     '''Fitting function for AMPLITUDE of a damped harmonic oscillator
            INPUTS: f [Hz], frequency 
                    A, amplitude
@@ -1884,12 +1876,13 @@ def damped_osc_amp_squash(f, A, f0, g, noise, deriv_gain, deriv_phase):
                    c, constant offset, default 0
 
            OUTPUTS: Lorentzian amplitude'''
+
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
-    gamma = 2. * np.pi * g
-    num = np.sqrt( A**2 + noise*((w0**2 + w**2)**2 + w**2 * gamma**2) )
-    denom = np.sqrt( (w0**2 - w**2 - w0*deriv_gain*np.cos(deriv_phase*w/w0))**2 \
-                        + (w*gamma + w0*deriv_gain*np.sin(deriv_phase*w/w0))**2 )
+    gamma0 = 2. * np.pi * g0
+    num = np.sqrt( A**2 + noise*((w0**2 - w**2)**2 + w0**2 * gamma0**2) )
+    denom = np.sqrt( (w0**2 - w**2 + w * deriv_gain * np.sin(w * tfb))**2 \
+                        + w**2 * (gamma0 + deriv_gain * np.cos(w * tfb))**2 )
 
     return num / denom
 
@@ -2085,8 +2078,9 @@ def fit_damped_osc_amp_squash(\
         sig, fsamp, fit_band=[], optimize_fit_band=False, \
         ngamma=5.0, plot=False, sig_asd=False, linearize=False, \
         asd_errs=[], amp_guess=0, gamma_guess=0, freq_guess=0, \
-        constant_guess=0, noise_guess=0,
-        deriv_gain_guess=0, deriv_phase_guess=np.pi/2,
+        constant_guess=0, noise_guess=0, \
+        deriv_gain_guess=0, deriv_delay_guess=1.0/50000.0, \
+        fix_delay=False, \
         weight_lowf=False, weight_lowf_val=1.0, \
         weight_lowf_thresh=100.0, maxfev=100000, \
         return_func=False, verbose=False):
@@ -2139,6 +2133,7 @@ def fit_damped_osc_amp_squash(\
 
     first_ind = np.min(derp_inds[inds])
     last_ind = np.max(derp_inds[inds])
+    gap = int(last_ind-first_ind)
 
     ### Generate some initial guesses
     maxind = np.argmax(asd[inds])   # Look for max within fit_band
@@ -2163,7 +2158,7 @@ def fit_damped_osc_amp_squash(\
         maxind = np.argmax(asd[inds])
 
     if not amp_guess:
-        amp_guess = (asd[inds])[maxind] * gamma_guess * freq_guess * (2.0 * np.pi)**2
+        amp_guess = (asd[inds])[maxind]*gamma_guess*freq_guess * (2.0*np.pi)**2
 
     fit_x = freqs[inds]
     fit_y = asd[inds]
@@ -2175,10 +2170,12 @@ def fit_damped_osc_amp_squash(\
         absolute_sigma = True
 
     if not constant_guess:
-        constant_guess = \
-            np.sqrt(np.mean(np.concatenate( (asd[first_ind-20:first_ind], \
-                                             asd[last_ind:last_ind+20]) )**2))
+        # constant_guess = np.mean( \
+        #         np.concatenate( (asd[maxind-gap-20:maxind-gap], \
+        #                          asd[maxind+gap:maxind+gap+20]) ) )
+        # constant_guess = constant_guess**2
         # constant_guess *= 0.1
+        constant_guess = np.min(fit_y)**2
 
     if not noise_guess:
         noise_guess = constant_guess / 10.0
@@ -2186,49 +2183,89 @@ def fit_damped_osc_amp_squash(\
     if not deriv_gain_guess:
         deriv_gain_guess = 1.0
 
+    # print(deriv_gain_guess, fit_x[0], fit_x[-1])
+
     if weight_lowf:
         weight_inds = fit_x < weight_lowf_thresh
         errs[weight_inds] *= weight_lowf_val
 
+    # ### Fit the data
+    # p0 = [np.log10(amp_guess), freq_guess, gamma_guess, np.log10(noise_guess), \
+    #         deriv_gain_guess, deriv_delay_guess, np.log10(constant_guess)]
+
+    # ### Define the fitting function to use. Keeping this modular in case
+    # ### we ever want to make more changes/linearization attempts
+    # fit_func = lambda f,A,f0,g,noise,kd,tfb,c: \
+    #                 np.sqrt( damped_osc_amp_squash(f,10**A,f0,g,\
+    #                                                10**noise,kd,tfb)**2 \
+    #                             + 10**c )
+
     ### Fit the data
-    p0 = [np.log10(amp_guess), freq_guess, gamma_guess, np.log10(noise_guess), \
-            np.log10(deriv_gain_guess), deriv_phase_guess, np.log10(constant_guess)]
+    p0 = [amp_guess, freq_guess, gamma_guess, noise_guess, \
+            deriv_gain_guess, deriv_delay_guess, constant_guess]
 
     ### Define the fitting function to use. Keeping this modular in case
     ### we ever want to make more changes/linearization attempts
-    fit_func = lambda f,A,f0,g,noise,dg,dphi,c: \
-                    np.sqrt( damped_osc_amp_squash(f,10**A,f0,g,\
-                                                   10**noise,10**dg,dphi)**2 \
-                                + 10**(2*c) )
+    fit_func = lambda f,A,f0,g,noise,kd,tfb,c: \
+                    np.sqrt( damped_osc_amp_squash(f,A,f0,g,\
+                                                   noise,kd,tfb)**2 + c )
 
     ndof = len(fit_x) - 7
-    def cost(A, f, g, noise, dg, dphi, c):
-        resid = (fit_y - fit_func(fit_x, A, f, g, noise, dg, dphi, c))**2
+    def cost(A, f, g, noise, kd, tfb, c):
+        resid = (fit_y - fit_func(fit_x, A, f, g, noise, kd, tfb, c))**2
         variance = errs**2
         return (1.0 / ndof) * np.sum(resid / variance)
 
     m = Minuit(cost, \
                A = p0[0], f = p0[1], g = p0[2], noise = p0[3], \
-               dg = p0[4], dphi = p0[5], c = p0[6])
+               kd = p0[4], tfb = p0[5], c = p0[6])
 
     ### Apply some limits to help keep the fitting well behaved
-    m.limits['A'] = (-10, 10)
-    m.limits['f'] = (p0[1]-0.1*p0[1], p0[1]+0.1*p0[1])
-    m.limits['g'] = (1e-6, 10.0*gamma_guess)
-    m.limits['noise'] = (-20.0, 20.0)
-    m.limits['dg'] = (-10.0, 10.0)
-    m.limits['dphi'] = (np.pi/2, np.pi)
-    m.limits['c'] = (-10, 10)
+    m.limits['A'] = (0.1*p0[0], 10.0*p0[0])
+    m.limits['f'] = (p0[1]-p0[4]/10.0, p0[1]+p0[4]/10.0)
+    m.limits['g'] = (1e-3, 0.1)
+    m.limits['noise'] = (p0[3]*0.1, p0[3]*10.0)
+    m.limits['kd'] = (0.5*p0[4], 2.0*p0[4])
+    m.limits['tfb'] = (1e-6, 1e-3)
+    m.limits['c'] = (p0[6]*0.01, p0[6]*100.0)
 
-    m.fixed['g'] = True
+    if fix_delay:
+        m.fixed['tfb'] = True
+
+    # print(m.values['kd'])
 
     m.errordef = 1
     m.print_level = 0
 
     ### Do the actual minimization
     m.migrad(ncall=5000000)
+    # print(m.values['kd'])
+
+    m.minos()
+
     popt = np.array(m.values)
+
+    popt_unc = np.zeros_like(popt)
+    i = 0
+    for param in m.parameters:
+        unc = np.mean( np.abs([m.merrors[param].lower, m.merrors[param].upper]) )
+        popt_unc[i] = unc
+        i += 1
+
     pcov = np.array(m.covariance)
+
+    # m.draw_profile('g')
+    # plt.tight_layout()
+    # plt.show()
+
+    # for param in m.parameters:
+    #     plt.figure()
+    #     m.draw_profile(param)
+    #     plt.axvline(m.limits[param][0])
+    #     plt.axvline(m.limits[param][1])
+    #     plt.tight_layout()
+    # plt.show()
+
 
     ### Plot!
     if plot:
@@ -2248,15 +2285,29 @@ def fit_damped_osc_amp_squash(\
             print('Initial parameter guess:')
             my_str = '    '
             for i in range(7):
-                my_str += f'{p0[i]:0.3g}, '
+                my_str += f'{p0[i]:0.4g}, '
             print(my_str)
             print()
             print('Fit result:')
             my_str = '    '
             for i in range(7):
-                my_str += f'{popt[i]:0.3g}, '
+                my_str += f'{popt[i]:0.4g}, '
             print(my_str)
             print()
+
+            # print(m.params)
+            # print()
+
+            print(f'VALID? {str(m.valid)}')
+            print()
+
+            # print('Gamma: ')
+            # print('    ', p0[2], ' : ', \
+            #       f'{popt[2]:0.3g} +- {np.sqrt(pcov[2,2]):0.3g}')
+
+            # print('kd: ')
+            # print('    ', p0[4], ' : ', \
+            #       f'{popt[4]:0.3g} +- {np.sqrt(pcov[4,4]):0.3g}')
 
         # p0 = [np.log10(amp_guess), freq_guess, gamma_guess, np.log10(noise_guess), \
         #         np.log10(deriv_gain_guess), deriv_phase_guess, np.log10(constant_guess)]
@@ -2277,6 +2328,7 @@ def fit_damped_osc_amp_squash(\
         #               label=f'{new_p0[0]:0.3g}')
 
         ax.loglog(fit_freqs, fit_mag, ls='--', color='r', label='fit')
+        ax.axhline(np.sqrt(constant_guess))
         ax.set_xlim((freqs[plot_inds])[0], (freqs[plot_inds])[-1])
         # ax.set_ylim(0.5 * np.min(asd[plot_inds]), 2.0 * np.max(asd[plot_inds]))
         ax.legend()
@@ -2289,9 +2341,9 @@ def fit_damped_osc_amp_squash(\
         # input()
 
     if return_func:
-        return popt, pcov, fit_func
+        return popt, popt_unc, fit_func
     else:
-        return popt, pcov
+        return popt, popt_unc
 
 
 

@@ -17,7 +17,7 @@ import scipy.signal as signal
 from tqdm import tqdm
 from joblib import Parallel, delayed
 # ncore = 1
-ncore = 12
+ncore = 30
 
 warnings.filterwarnings('ignore')
 
@@ -49,14 +49,19 @@ def formatter20200727(measString, ind, trial):
     else:
         return os.path.join(measString + f'_{ind}', f'trial_{trial:04d}')
 
-meas_base = 'bead1/spinning/dds_phase_impulse_'
-input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
-              for meas in ['high_dg'] \
-              for ind in [1] for trial in range(10) ]
+# meas_base = 'bead1/spinning/dds_phase_impulse_'
+# input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
+#               for meas in ['mid_dg'] \
+#               for ind in [1] for trial in [4] ]
 
 meas_base = 'bead1/spinning/dds_phase_impulse_'
 input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
               for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg'] \
+              for ind in [1, 2, 3] for trial in range(10) ]
+
+meas_base = 'bead1/spinning/dds_phase_impulse_'
+input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
+              for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'many'] \
               for ind in [1, 2, 3] for trial in range(10) ]
 
 
@@ -70,11 +75,11 @@ def formatter20200924(measString, voltage, dg, ind, trial):
         parent_str += f'_{ind}'
     return os.path.join(parent_str, trial_str)
 
-meas_base = 'bead1/spinning/dds_phase_impulse'
-input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-              for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
-              for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-              for ind in [1, 2, 3] for trial in range(10) ]
+# meas_base = 'bead1/spinning/dds_phase_impulse'
+# input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+#               for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
+#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
+#               for ind in [1, 2, 3] for trial in range(10) ]
 
 # meas_base = 'bead1/spinning/dds_phase_impulse'
 # input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
@@ -82,11 +87,11 @@ input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial)
 #               for dg in ['high_dg'] \
 #               for ind in [1] for trial in [3,4,5,6,7]]#range(10) ]
 
-meas_base = 'bead1/spinning/dds_phase_impulse'
-input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-              for voltage in [3, 6, 8] \
-              for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
-              for ind in [1, 2, 3] for trial in range(10) ]
+# meas_base = 'bead1/spinning/dds_phase_impulse'
+# input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+#               for voltage in [3, 6, 8] \
+#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
+#               for ind in [1, 2, 3] for trial in range(10) ]
 
 
 
@@ -119,7 +124,7 @@ out_cut = 100
 
 ### Efoldings to cut from the beginning of the impulse given the
 ### filtering artifacts that appear despite my best attempts at
-### contstructing the filters
+### contstructing the filters faithfully
 impulse_efolding_buffer = 0.1
 
 efoldings_to_fit = 2.0
@@ -127,6 +132,7 @@ opt_ext = ''
 opt_ext = f'_{int(efoldings_to_fit):d}efoldings'
 
 bins_per_file = 1000
+correlation_fac = 0.6
 
 ### Integration time in seconds for each contiguous file. Should probably
 ### have this automatically detected eventually
@@ -192,6 +198,10 @@ def proc_ringdown(ringdown_file):
     ### and measurement parameters from the file
     with h5py.File(ringdown_file, 'r') as fobj:
 
+        time_arr = np.copy(fobj['all_time'])
+        lib_arr = np.copy(fobj['all_lib'])
+        lib_amp_arr = np.copy(fobj['all_lib_amp'])
+
         ### Unpack the hdf5 attributes into local memory
         attrs = {}
         for key in fobj.attrs.keys():
@@ -202,9 +212,21 @@ def proc_ringdown(ringdown_file):
         ### All times will be relative to this timestamp
         t0 = attrs['file_times'][0]*1e-9
 
+        # test_ind = 0
+        # check = False
+        # n = 0
+        # while (not check) and (n <= lib_arr.shape[0]):
+        #     attrs['impulse_vec'][test_ind] = 0.0
+        #     test_ind = np.argmax(np.abs(attrs['impulse_vec']))
+        #     first = np.mean(lib_arr[test_ind][out_cut:out_cut+20])
+        #     last = np.mean(lib_arr[test_ind][-out_cut-20:-out_cut])
+        #     check = np.abs(first - last) > np.pi / 4
+        #     n += 1
+
         ### Find the impulse file to offset the libration vector (but 
         ### not the libration AMPLITUDE vector)
         impulse_start_file = np.argmax(np.abs(attrs['impulse_vec']))
+
         if impulse_start_file < files_for_std:
             print()
             print(f'Early impulse found in: {ringdown_file}')
@@ -213,13 +235,12 @@ def proc_ringdown(ringdown_file):
             print(attrs['impulse_index'])
             print()
             return ringdown_file, np.mean(attrs['phi_dgs']), \
-                    np.mean(attrs['drive_amps']), [0.0, 0.0, 0.0, 0.0], \
-                    [0.0, 0.0, 0.0, 0.0], 0.0, [0.0, 0.0], [], []
+                    np.mean(attrs['lib_freqs']), \
+                    np.mean(attrs['drive_amps']), \
+                    [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], \
+                    0.0, [0.0, 0.0], [], []
             # exit()
 
-        time_arr = np.copy(fobj['all_time'])
-        lib_arr = np.copy(fobj['all_lib'])
-        lib_amp_arr = np.copy(fobj['all_lib_amp'])
 
         for i in range(attrs['nfile']):
             ctime = attrs['file_times'][i]*1e-9 - t0
@@ -241,6 +262,9 @@ def proc_ringdown(ringdown_file):
     cut_inds = np.array(cut_inds)
     cut_inds_all = np.array(cut_inds_all)
 
+    # print(attrs['impulse_vec'])
+    # input()
+
     ### Index of the impulse within the full time vector
     impulse_start_time = time_arr[impulse_start_file,
                                   attrs['impulse_index'][impulse_start_file]]
@@ -257,8 +281,10 @@ def proc_ringdown(ringdown_file):
     if not len(efolding_times):
         print('DID NOT DETECT A RINGDOWN!' + f' - {ringdown_file}')
         return ringdown_file, np.mean(attrs['phi_dgs']), \
-                np.mean(attrs['drive_amps']), [0.0, 0.0, 0.0, 0.0], \
-                [0.0, 0.0, 0.0, 0.0], 0.0, [0.0, 0.0], [], []
+                np.mean(attrs['lib_freqs']), \
+                np.mean(attrs['drive_amps']), \
+                [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], \
+                0.0, [0.0, 0.0], [], []
 
     efolding_times = efolding_times[efolding_times > impulse_start_time]
     efolding_inds = ((efolding_times - impulse_start_time) \
@@ -296,7 +322,7 @@ def proc_ringdown(ringdown_file):
         ax.set_xlabel('Time [s]')
         ax.set_ylabel('Libration [rad]')
 
-        ax.set_xlim(impulse_start_time-efolding_time, impulse_end_time+efolding_time)
+        # ax.set_xlim(impulse_start_time-efolding_time, impulse_end_time+efolding_time)
 
         fig.tight_layout()
         plt.show()
@@ -342,7 +368,7 @@ def proc_ringdown(ringdown_file):
         fit_time, fit_amp, fit_unc = \
                 bu.rebin(time_arr[i,fit_inds], lib_amp_arr[i,fit_inds], \
                          nbin=nbin, plot=plot_rebin, correlated_errs=True, \
-                         correlation_fac=0.25)
+                         correlation_fac=correlation_fac)
 
         fit_times.append(fit_time)
         fit_amps.append(fit_amp)
@@ -417,6 +443,7 @@ def proc_ringdown(ringdown_file):
 
     meas_phi_dg = np.mean(attrs['phi_dgs'])
     meas_drive_amp = np.mean(attrs['drive_amps'])
+    meas_lib_freq = np.mean(np.array(attrs['lib_freqs'])[:impulse_start_file])
 
     impulse_time = np.array([impulse_start_time, impulse_end_time])
 
@@ -522,7 +549,9 @@ def proc_ringdown(ringdown_file):
 
         plt.close(fig)
 
-    return ringdown_file, meas_phi_dg, meas_drive_amp, \
+    # print('Done with: ', ringdown_file)
+
+    return ringdown_file, meas_phi_dg, meas_drive_amp, meas_lib_freq, \
                 ringdown_fit, ringdown_unc, min_chisq, impulse_time, \
                 fit_x, fit_y
 
@@ -545,8 +574,8 @@ all_ringdowns = Parallel(n_jobs=ncore)(delayed(proc_ringdown)(file) \
                                       for file in tqdm(ringdown_file_paths))
 
 ### Unpack the result from the fitting
-filenames, phi_dgs, drive_amps, fits, uncs, min_chisqs, \
-    impulse_times, xvecs, yvecs = \
+filenames, phi_dgs, drive_amps, lib_freqs, fits, uncs, \
+    min_chisqs, impulse_times, xvecs, yvecs = \
             [list(result) for result in zip(*all_ringdowns)]
 
 
@@ -596,6 +625,7 @@ if save_ringdowns:
 
         meas_phi_dg = phi_dgs[ind]
         meas_drive_amp = drive_amps[ind]
+        meas_lib_freq = lib_freqs[ind]
         fit = fits[ind]
         unc = uncs[ind]
         min_chisq = min_chisqs[ind]
@@ -614,6 +644,7 @@ if save_ringdowns:
             ringdown_dict[meas_phi_dg]['unc'] = []
             ringdown_dict[meas_phi_dg]['chi_sq'] = []
             ringdown_dict[meas_phi_dg]['drive_amp'] = []
+            ringdown_dict[meas_phi_dg]['lib_freq'] = []
             ringdown_dict[meas_phi_dg]['impulse_time'] = []
             ringdown_dict[meas_phi_dg]['data'] = []
 
@@ -629,6 +660,7 @@ if save_ringdowns:
             ringdown_dict[meas_phi_dg]['unc'][pathind] = unc
             ringdown_dict[meas_phi_dg]['chi_sq'][pathind] = min_chisq
             ringdown_dict[meas_phi_dg]['drive_amp'][pathind] = meas_drive_amp
+            ringdown_dict[meas_phi_dg]['lib_freq'][pathind] = meas_lib_freq
             ringdown_dict[meas_phi_dg]['impulse_time'][pathind] = impulse_time
             ringdown_dict[meas_phi_dg]['data'][pathind] = data
 
@@ -638,6 +670,7 @@ if save_ringdowns:
             ringdown_dict[meas_phi_dg]['unc'].append( unc )
             ringdown_dict[meas_phi_dg]['chi_sq'].append( min_chisq )
             ringdown_dict[meas_phi_dg]['drive_amp'].append( meas_drive_amp )
+            ringdown_dict[meas_phi_dg]['lib_freq'].append( meas_lib_freq )
             ringdown_dict[meas_phi_dg]['impulse_time'].append( impulse_time )
             ringdown_dict[meas_phi_dg]['data'].append( data )
 

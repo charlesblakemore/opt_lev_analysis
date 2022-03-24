@@ -16,8 +16,8 @@ import scipy.signal as signal
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-# ncore = 1
-ncore = 24
+ncore = 1
+# ncore = 25
 
 plt.rcParams.update({'font.size': 14})
 warnings.filterwarnings('ignore')
@@ -51,13 +51,18 @@ def formatter20200727(measString, ind, trial):
 
 # meas_base = 'bead1/spinning/dds_phase_impulse_'
 # input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
-#               for meas in ['mid_dg', 'high_dg'] \
-#               for ind in [1] for trial in range(10) ]
+#               for meas in ['mid_dg'] \
+#               for ind in [1] for trial in [4] ]
 
 meas_base = 'bead1/spinning/dds_phase_impulse_'
 input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
-              for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-              for ind in [1, 2, 3] for trial in range(10) ]
+              for meas in ['many'] \
+              for ind in [1] for trial in range(10) ]
+
+# meas_base = 'bead1/spinning/dds_phase_impulse_'
+# input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
+#               for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
+#               for ind in [1, 2, 3] for trial in range(10) ]
 
 
 
@@ -70,11 +75,17 @@ def formatter20200924(measString, voltage, dg, ind, trial):
         parent_str += f'_{ind}'
     return os.path.join(parent_str, trial_str)
 
-meas_base = 'bead1/spinning/dds_phase_impulse'
-input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-              for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
-              for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-              for ind in [1, 2, 3] for trial in range(10) ]
+# meas_base = 'bead1/spinning/dds_phase_impulse'
+# input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+#               for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
+#               for dg in ['lower_dg', 'low_dg']#, 'mid_dg', 'high_dg', ''] \
+#               for ind in [1, 2, 3] for trial in range(10) ]
+
+# meas_base = 'bead1/spinning/dds_phase_impulse'
+# input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+#               for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
+#               for dg in ['mid_dg', 'high_dg', ''] \
+#               for ind in [1, 2, 3] for trial in range(10) ]
 
 # meas_base = 'bead1/spinning/dds_phase_impulse'
 # input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
@@ -83,14 +94,14 @@ input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial)
 #               for ind in [1] for trial in [4,5,6,7,8,9] ] #range(10) ]
 
 
-### The same formatter for 20200924 works for 20201030 as the same convention
-### for naming was followed. The values of voltage and ranges on 'dg' were different
-### though so we have our own path constructor statement here
-meas_base = 'bead1/spinning/dds_phase_impulse'
-input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-              for voltage in [3, 6, 8] \
-              for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
-              for ind in [1, 2, 3] for trial in range(10) ]
+# ### The same formatter for 20200924 works for 20201030 as the same convention
+# ### for naming was followed. The values of voltage and ranges on 'dg' were different
+# ### though so we have our own path constructor statement here
+# meas_base = 'bead1/spinning/dds_phase_impulse'
+# input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
+#               for voltage in [3, 6, 8] \
+#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
+#               for ind in [1, 2, 3] for trial in range(10) ]
 
 
 dipole_substrs = { '20200727': [''], \
@@ -98,11 +109,11 @@ dipole_substrs = { '20200727': [''], \
                    '20201030': ['initial'] }
 
 file_step = 1
-file_inds = (0, 100)
-# file_inds = (18, 23)
-# file_inds = (20, 100)
+# file_inds = (0, 100)
+# file_inds = (14, 23)
+file_inds = (20, 100)
 
-save_downsampled_data = True
+save_downsampled_data = False
 
 
 
@@ -149,7 +160,8 @@ tabor_mon_fac = 100.0 * (53000.0 / 50000.0)
 
 
 ### Carrier filter stuff
-drive_bandwidth = 1000.0
+# drive_bandwidth = 1000.0
+drive_bandwidth = 50000.0
 signal_bandwidth = 10000.0
 
 ### Hard lower limit on libration to cut out misidentified libration features
@@ -188,11 +200,12 @@ out_fsamps = [2000.0, 5000.0, 10000.0, 15000.0, 20000.0]
 
 ### Boolean flags for various sorts of plotting (used for debugging usually)
 plot_efield_estimation = False
-plot_nsamp = 1000
+plot_nsamp = 10000
 
+plot_drive_demod = True
 plot_carrier_demod = False
-plot_libration_demod = False
 plot_libration_peak_finding = False
+plot_libration_demod = False
 plot_downsample = False
 
 plot_final_result = False
@@ -224,8 +237,9 @@ plot_debug = False
 
 
 
-if plot_carrier_demod or plot_libration_demod or plot_downsample \
-    or plot_efield_estimation or plot_libration_peak_finding:# or plot_debug:
+if plot_drive_demod or plot_carrier_demod or plot_libration_demod\
+    or plot_downsample or plot_efield_estimation \
+    or plot_libration_peak_finding:# or plot_debug:
     ncore = 1 
 
 
@@ -244,6 +258,8 @@ for date in input_dict.keys():
         if not len(files):
             print()
             continue
+
+        all_delay = []
 
         ringdown_data_path = os.path.join(processed_base, date, meas + '.h5')
         bu.make_all_pardirs(ringdown_data_path, confirm=False)
@@ -287,7 +303,6 @@ for date in input_dict.keys():
             bu.get_sine_amp_phase(efield, plot=plot_efield_estimation, \
                                   incoherent=True, plot_nsamp=plot_nsamp, \
                                   half_width=np.pi/3)
-        efield_amp *= 2.0
 
         libration_guess = np.sqrt(efield_amp * dipole['val'] / Ibead['val']) \
                                     / (2.0 * np.pi)
@@ -356,30 +371,51 @@ for date in input_dict.keys():
             zeros = np.zeros_like(elec3)
             voltages = [zeros, zeros, zeros, elec3, zeros, zeros, zeros, zeros]
             efield = bu.trap_efield(voltages, only_x=True)[0]
+            efield *= 2.0
 
             drive_amp, drive_phase, drive_debug = \
-                    bu.demod(efield, true_fspin, fsamp, plot=plot_carrier_demod, \
+                    bu.demod(efield, true_fspin, fsamp, plot=plot_drive_demod, \
                              filt=True, bandwidth=drive_bandwidth, harmind=1.0, \
                              pad=pad, npad=npad, pad_mode=pad_mode, debug=True,\
                              optimize_frequency=True)
 
             true_fspin = drive_debug['optimized_frequency']
 
+            ### Look for a phase impulse in the drive, given that's the type
+            ### of data we're usually processing
             deriv = np.gradient(drive_phase, time_vec[1]-time_vec[0]) \
                                 / (2.0 * np.pi)
-            impulse_inds = np.abs(deriv) > 100.0 * np.std(deriv)
 
+            ### Threshold determined empirically by plotting. Should probably
+            ### depend on the magnitude of the impulse so we've bootstrapped
+            ### that in using the magnitude of impulse for which the empirical
+            ### threshold was determined
+            impulse_inds = np.abs(deriv) > \
+                100.0*(impulse_magnitude/(np.pi/2)) * np.std(deriv)
+            impulse_inds[:int(0.001*nsamp)] = 0.0
+            impulse_inds[int(0.999*nsamp):] = 0.0
             yes_impulse = np.sum(impulse_inds)
+
             if yes_impulse:
+                ### Find the middle of the impulse. With the filtering 
+                ### applied, the derivative is very smooth (no HF terms)
                 impulse_ind = int(np.mean( np.arange(nsamp)[impulse_inds] ))
+
+                ### It's "bad" if it's too close to the ends, where there may 
+                ### residual artifacts from the hilbert transform
                 bad_impulse = (impulse_ind < 50) or (nsamp - impulse_ind < 50)
             else:
                 bad_impulse = True
 
+
             if yes_impulse and not bad_impulse:
+                ### Define some indices to fit the phase of the digitized
+                ### drive signal, in order to extract any residual frequency
+                ### offset between digitizer and source
                 lower_inds = [int(0.002*nsamp), int(0.96*impulse_ind)]
                 upper_inds = [int(1.04*impulse_ind), int(0.998*nsamp)]
 
+                ### Phase impulse were applied in both directions
                 impulse_sign = np.sign(deriv[impulse_ind])
 
                 fit_x = np.concatenate(\
@@ -395,21 +431,32 @@ for date in input_dict.keys():
             else:
                 impulse_ind = 0
                 impulse_sign = 0.0
-                slope, offset = bu.detrend_linalg(drive_phase, xvec=time_vec, \
+                temp_inds = [int(0.005*nsamp), int(0.995*nsamp)]
+                slope, offset = bu.detrend_linalg(drive_phase[temp_inds], \
+                                                  xvec=time_vec[temp_inds], \
                                                   coeffs=True)
 
-            carrier_amp, carrier_phase_mod, carrier_debug = \
+            carrier_amp, carrier_phase, carrier_debug = \
                     bu.demod(vperp, true_fspin, fsamp, plot=plot_carrier_demod, \
                              filt=True, bandwidth=signal_bandwidth,
                              notch_freqs=notch_freqs, notch_qs=notch_qs, \
                              tukey=False, tukey_alpha=5.0e-4, \
                              detrend=False, keep_mean=False, harmind=2.0, \
                              pad=pad, npad=npad, pad_mode=pad_mode, \
-                             debug=True)
+                             optimize_frequency=False, debug=True)
 
-            carrier_phase_mod -= time_vec*slope + offset
+            carrier_phase_mod = carrier_phase - (time_vec*slope + offset)
+            drive_phase_mod = drive_phase - (time_vec*slope + offset)
 
             phase_mod_fft = np.fft.rfft(carrier_phase_mod) * fft_fac
+            drive_phase_mod_fft = np.fft.rfft(drive_phase_mod) * fft_fac
+
+            plt.plot(drive_phase_mod)
+            plt.figure()
+            plt.loglog(full_freqs, np.abs(drive_phase_mod_fft)**2, 'o')
+            plt.figure()
+            plt.loglog(full_freqs, np.abs(phase_mod_fft)**2, 'o')
+            plt.show()
 
             lib_fit_x = full_freqs[libration_inds]
             lib_fit_y = np.abs(phase_mod_fft[libration_inds])
@@ -440,6 +487,7 @@ for date in input_dict.keys():
                     plt.show()
 
                 true_libration_freq = lib_fit_x[np.argmax(lib_fit_y)]
+            
 
             new_libration_filt_band = [0.5*true_libration_freq, 2.0*true_libration_freq]
             sos = signal.butter(3, new_libration_filt_band, btype='bandpass', \
@@ -477,13 +525,12 @@ for date in input_dict.keys():
                              plot=plot_libration_demod, filt=False, \
                              filt_band=new_libration_filt_band, \
                              bandwidth=libration_bandwidth, \
-                             optimize_frequency=True, \
+                             optimize_frequency=False, \
                              tukey=False, tukey_alpha=5.0e-4, \
                              detrend=False, harmind=1.0, debug=True, \
                              pad=pad, npad=npad, pad_mode=pad_mode)
 
             # true_libration_freq = lib_debug['optimized_frequency']
-
 
             libration_ds, time_vec_ds = \
                     signal.resample(carrier_phase_mod_filt, t=time_vec, num=out_nsamp)

@@ -12,6 +12,89 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 
+def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
+    '''Gets a single color from a colormap. Useful when the values
+       span a continuous range with uneven spacing.
+
+        INPUTS:
+
+            val - value between vmin and vmax, which represent
+              the ends of the colormap
+
+            cmap - color map for final output
+
+            vmin - minimum value for the colormap
+
+            vmax - maximum value for the colormap
+
+        OUTPUTS: 
+
+           color - single color in rgba format
+    '''
+
+    if (val > vmax) or (val < vmin):
+        raise ValueError("Input value doesn't conform to limits")
+
+    if log:
+        norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+
+
+    if type(cmap) == str:
+        cmap = plt.get_cmap(cmap)
+
+    return cmap(norm(val))
+
+
+
+def get_color_map( n, cmap='plasma', log=False, invert=False):
+    '''Gets a map of n colors from cold to hot for use in
+       plotting many curves.
+       
+        INPUTS: 
+
+            n - length of color array to make
+            
+            cmap - color map for final output
+
+            invert - option to invert
+
+        OUTPUTS: 
+
+            outmap - color map in rgba format
+    '''
+
+    n = int(n)
+    outmap = []
+
+    if log:
+        cNorm = colors.LogNorm(vmin=0, vmax=2*n)
+    else:
+        cNorm = colors.Normalize(vmin=0, vmax=2*n)
+
+    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
+
+    for i in range(n):
+        outmap.append( scalarMap.to_rgba(2*i + 1) )
+
+    if invert:
+        outmap = outmap[::-1]
+
+    return outmap
+
+
+
+def truncate_colormap(cmap, vmax=0.0, vmin=1.0, n=256):
+
+    if type(cmap) == str:
+        cmap = plt.get_cmap(cmap)
+
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=vmin, b=vmax),
+        cmap(np.linspace(vmin, vmax, n)))
+    return new_cmap
+
 
 
 
@@ -81,7 +164,7 @@ def add_colorbar(fig, ax, size=0.1, pad=0.05, vmin=0.0, vmax=1.0, \
 
     ax_cb = divider.append_axes(position, size, pad=pad)
     cb = mpl.colorbar.ColorbarBase(ax_cb, cmap=cmap, norm=norm, \
-                                    orientation=orientation)
+                                   orientation=orientation)
     cb.set_label(label, labelpad=labelpad)
 
     fig.add_axes(ax_cb)
