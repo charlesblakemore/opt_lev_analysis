@@ -75,7 +75,7 @@ min_phi_dg = np.inf
 
 normalize = False
 
-save = True
+save = False
 show = True
 
 

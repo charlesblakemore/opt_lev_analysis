@@ -55,42 +55,11 @@ input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
               for meas in ['lower_dg'] \
               for ind in [1,2] for trial in [0] ]
 
-# meas_base = 'bead1/spinning/dds_phase_impulse_'
-# input_dict['20200727'] = [ formatter20200727(meas_base + meas, ind, trial) \
-#               for meas in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-#               for ind in [1, 2, 3] for trial in range(10) ]
 
-
-
-def formatter20200924(measString, voltage, dg, ind, trial):
-    trial_str = f'trial_{trial:04d}'
-    parent_str = f'{measString}_{voltage}Vpp'
-    if dg:
-        parent_str += f'_{dg}'
-    if ind > 1:
-        parent_str += f'_{ind}'
-    return os.path.join(parent_str, trial_str)
-
-# meas_base = 'bead1/spinning/dds_phase_impulse'
-# input_dict['20200924'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-#               for voltage in [1, 2, 3, 4, 5, 6, 7, 8] \
-#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', ''] \
-#               for ind in [1, 2, 3] for trial in range(10) ]
-
-# meas_base = 'bead1/spinning/dds_phase_impulse'
-# input_dict['20201030'] = [ formatter20200924(meas_base, voltage, dg, ind, trial) \
-#               for voltage in [3, 6, 8] \
-#               for dg in ['lower_dg', 'low_dg', 'mid_dg', 'high_dg', 'higher_dg', ''] \
-#               for ind in [1, 2, 3] for trial in range(10) ]
-
-
-
-# files_to_plot = [0, 4, 8, 12, 16]
 files_to_plot = [0, 4, 16]
 
 save_dir = '/home/cblakemore/plots/libration_paper_2022'
-# plot_name = 'libration_spectra_drift_example.svg'
-plot_name = 'fig5_libration_spectra_drift_example_v3.svg'
+plot_name = 'fig5_libration_spectra_drift_example_v2.svg'
 
 save = True
 show = True
@@ -134,7 +103,7 @@ file_length = 10.0
 
 ### Adjust empirically as needed for individual datasets
 
-envelope_color = bu.lighten_color('k', 0.35)
+envelope_color = bu.lighten_color('k', 0.2)
 # envelope_ls = 'none'
 # envelope_lw = 5
 # envelope_marker = '.'
@@ -154,6 +123,7 @@ xticks = [1.277e3, 1.278e3, 1.279e3, 1.280e3, 1.281e3]
 
 ylim = [3e-8, 5e-3]
 
+###
 lower = 1275
 upper = 1281
 spacing = 2

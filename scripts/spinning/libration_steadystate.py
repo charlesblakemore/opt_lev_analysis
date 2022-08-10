@@ -139,7 +139,7 @@ libration_fit_width = 5.0
 kd_to_fit = 6.0
 
 # opt_ext = ''
-opt_ext = f'_{int(kd_to_fit):d}kd'
+opt_ext = f'_{int(kd_to_fit):d}kd_v3'
 
 
 
@@ -161,12 +161,14 @@ plot_avg_fit_voigt = False
 save_spectra_fit_plot = True
 show_spectra_fit = False
 
-save_only_squash = True
+### 0 = basic HO fit, concatenated data
+### 1 = basic HO fit, concatenated with drift compensation
+### 2 = basic HO fit, averaged with drift compensation
+### 3 = squashed HO fit, averaged with drift compensation
+plot_types_to_save = [2, 3]
+
 
 plot_base = '/home/cblakemore/plots/'
-
-
-
 
 
 
@@ -226,7 +228,7 @@ def proc_spectra(spectra_file):
 
             return spectra_file, np.mean(attrs['phi_dgs']), \
                     np.mean(attrs['drive_amps']), [], [], [], [], \
-                    [], [], [], lambda *args: None, lambda *args: None, \
+                    [], [], [], [], lambda *args: None, lambda *args: None, \
                     [], []
 
         time_arr = np.copy(fobj['all_time'])
@@ -353,6 +355,7 @@ def proc_spectra(spectra_file):
         lib_arr_shifted.append(shifted.real)
 
     lib_arr_shifted = np.array(lib_arr_shifted)
+    fft_arr_shifted = np.fft.rfft(lib_arr_shifted, axis=1)
 
     # print(impulse_start_file, nsamp, fsamp)
 
@@ -364,9 +367,9 @@ def proc_spectra(spectra_file):
     long_sig_shifted = lib_arr_shifted[:impulse_start_file,:].flatten()
 
     avg_shifted_asd = \
-        fac * np.sqrt(np.mean(np.abs(np.fft.rfft(lib_arr_shifted, axis=1))**2, axis=0))
+        fac * np.sqrt(np.mean(np.abs(fft_arr_shifted)**2, axis=0))
     avg_shifted_unc = (1.0 / np.sqrt(impulse_start_file)) * \
-        fac * np.sqrt(np.std(np.abs(np.fft.rfft(lib_arr_shifted, axis=1))**2, axis=0))
+        fac * np.sqrt(np.std(np.abs(fft_arr_shifted)**2, axis=0))
 
     mean_gamma = np.mean(fits, axis=0)[2]
     if not kd:
@@ -411,11 +414,13 @@ def proc_spectra(spectra_file):
                                   gamma_guess=mean_gamma, \
                                   sig_asd=True, asd_errs=avg_shifted_unc, \
                                   return_func=True)
+        popt_avg_unc = np.sqrt(np.diagonal(pcov_avg))
     except:
         popt_avg = p0
         pcov_avg = pcov0
+        popt_avg_unc = np.sqrt(np.diagonal(pcov_avg))
         fit_func_avg = lambda f,A,f0,g,c: \
-                            np.sqrt(bu.damped_osc_amp(f,A,f0,g)**2 + c**2)
+                            np.sqrt(bu.damped_osc_amp(f,A,f0,g)**2 + c)
 
 
     try:
@@ -515,7 +520,7 @@ def proc_spectra(spectra_file):
         # try:
         for i in range(4):
 
-            if save_only_squash and i != 3:
+            if i not in plot_types_to_save:
                 continue
 
             gamma_val = 2.0*np.pi*fit_plot_arr[i][2]
@@ -551,9 +556,9 @@ def proc_spectra(spectra_file):
             ax.text(0.05, 0.95, annotation_plot_arr[i], ha='left', va='top', \
                     transform=ax.transAxes, fontsize=12)
 
-            ylim = ax.get_ylim()
-            if ylim[0] < 0.1*fit_plot_arr[i][-1]:
-                ax.set_ylim(0.1*fit_plot_arr[i][-1], ylim[1])
+            # ylim = ax.get_ylim()
+            # if ylim[0] < 0.1*fit_plot_arr[i][-1]:
+            #     ax.set_ylim(0.1*fit_plot_arr[i][-1], ylim[1])
 
             fig.tight_layout()
 
@@ -562,7 +567,7 @@ def proc_spectra(spectra_file):
             meas_name, trial = (os.path.splitext(meas_file)[0]).split('/')
 
             plot_name = date + '_' + meas_name + '_' + trial \
-                            + save_ext_plot_arr[i] + '.svg'
+                            + save_ext_plot_arr[i] + f'{opt_ext}.svg'
             plot_path = os.path.join(plot_base, date, 'spinning', \
                                      meas_name, 'spectra', plot_name)
             bu.make_all_pardirs(plot_path, confirm=False)
@@ -589,9 +594,9 @@ def proc_spectra(spectra_file):
     save_inds = (freqs >= 10.0) * (freqs <= 3000.0)
 
     return spectra_file, meas_phi_dg, meas_drive_amp, fits, fit_funcs, \
-            popt_long, popt_long_shifted, popt_avg, popt_squash, \
-            popt_squash_unc, fit_func_avg, fit_func_squash, \
-            freqs[save_inds], avg_shifted_asd[save_inds]
+            popt_long, popt_long_shifted, popt_avg, popt_avg_unc, \
+            popt_squash, popt_squash_unc, fit_func_avg, fit_func_squash, \
+            freqs[save_inds], avg_shifted_asd[save_inds], 
 
 
 
@@ -612,8 +617,8 @@ all_spectra = Parallel(n_jobs=ncore)(delayed(proc_spectra)(file) \
                                       for file in tqdm(spectra_file_paths))
 
 ### Unpack the result from the fitting
-filenames, phi_dgs, drive_amps, fits, fit_funcs, \
-    popt_long, popt_long_shifted, popt_avg, popt_squash, \
+filenames, phi_dgs, drive_amps, fits, fit_funcs, popt_long, \
+    popt_long_shifted, popt_avg, popt_avg_unc, popt_squash, \
     popt_squash_unc, fit_func_avg, fit_func_squash, freqs, asd = \
             [list(result) for result in zip(*all_spectra)]
 
@@ -638,14 +643,14 @@ if save_spectra:
         #         os.path.join(processed_base, date, \
         #                      date+f'_libration_spectras{opt_ext}_failed.p')
 
-        if ind == 0:
-            print()
-            print('Saving data to file: ')
-            print(f'    {spectra_data_path:s}')
-            print()
-            # print('Saving failed filenames: ')
-            # print(f'    {failed_spectra_data_path:s}')
-            # print()
+        # if ind == 0:
+        print()
+        print('Saving data to file: ')
+        print(f'    {spectra_data_path:s}')
+        print()
+        # print('Saving failed filenames: ')
+        # print(f'    {failed_spectra_data_path:s}')
+        # print()
 
 
         # if not np.sum(fits[ind]):
@@ -677,6 +682,7 @@ if save_spectra:
             spectra_dict[meas_phi_dg]['long_fit'] = []
             spectra_dict[meas_phi_dg]['long_shifted_fit'] = []
             spectra_dict[meas_phi_dg]['avg_shifted_fit'] = []
+            spectra_dict[meas_phi_dg]['avg_shifted_fit_unc'] = []
             spectra_dict[meas_phi_dg]['avg_shifted_squash_fit'] = []
             spectra_dict[meas_phi_dg]['avg_shifted_squash_fit_unc'] = []
             spectra_dict[meas_phi_dg]['freqs'] = []
@@ -695,6 +701,7 @@ if save_spectra:
             spectra_dict[meas_phi_dg]['long_fit'][pathind] = popt_long[ind]
             spectra_dict[meas_phi_dg]['long_shifted_fit'][pathind] = popt_long_shifted[ind]
             spectra_dict[meas_phi_dg]['avg_shifted_fit'][pathind] = popt_avg[ind]
+            spectra_dict[meas_phi_dg]['avg_shifted_fit_unc'][pathind] = popt_avg_unc[ind]
             spectra_dict[meas_phi_dg]['avg_shifted_squash_fit'][pathind] = popt_squash[ind]
             spectra_dict[meas_phi_dg]['avg_shifted_squash_fit_unc'][pathind] = popt_squash_unc[ind]
             spectra_dict[meas_phi_dg]['freqs'][pathind] = freqs[ind]
@@ -707,6 +714,7 @@ if save_spectra:
             spectra_dict[meas_phi_dg]['long_fit'].append( popt_long[ind] )
             spectra_dict[meas_phi_dg]['long_shifted_fit'].append( popt_long_shifted[ind] )
             spectra_dict[meas_phi_dg]['avg_shifted_fit'].append( popt_avg[ind] )
+            spectra_dict[meas_phi_dg]['avg_shifted_fit_unc'].append( popt_avg_unc[ind] )
             spectra_dict[meas_phi_dg]['avg_shifted_squash_fit'].append( popt_squash[ind] )
             spectra_dict[meas_phi_dg]['avg_shifted_squash_fit_unc'].append( popt_squash_unc[ind] )
             spectra_dict[meas_phi_dg]['freqs'].append( freqs[ind] )

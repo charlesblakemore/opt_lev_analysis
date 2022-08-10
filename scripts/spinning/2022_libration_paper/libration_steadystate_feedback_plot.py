@@ -4,15 +4,20 @@ import numpy as np
 import dill as pickle
 
 import scipy.constants as constants
+import scipy.interpolate as interp
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib.markers as markers
 from mpl_toolkits.axes_grid1 import ImageGrid, make_axes_locatable
 
 from matplotlib import cm
 
 from iminuit import Minuit, describe
+
+from uncertainties import ufloat
+import uncertainties
 
 import bead_util as bu
 
@@ -20,23 +25,26 @@ plt.rcParams.update({'font.size': 14})
 
 
 
-min_markersize = 2
-max_markersize = 10
-
 
 processed_base = '/data/old_trap_processed/spinning/'
 
-filenames = [ \
-             '20200727/20200727_libration_ringdowns_2efoldings.p', \
-             '20200924/20200924_libration_ringdowns_2efoldings.p', \
-             '20201030/20201030_libration_ringdowns_2efoldings.p', \
-            ]
+# filenames = [ \
+#              '20200727/20200727_libration_ringdowns_2efoldings.p', \
+#              '20200924/20200924_libration_ringdowns_2efoldings.p', \
+#              '20201030/20201030_libration_ringdowns_2efoldings.p', \
+#             ]
 
 spectra_fit_filenames \
         = [ \
-           '20200727/20200727_libration_spectra_6kd.p', \
-           '20200924/20200924_libration_spectra_6kd.p', \
-           '20201030/20201030_libration_spectra_6kd.p', \
+           # '20200727/20200727_libration_spectra_6kd.p', \
+           # '20200924/20200924_libration_spectra_6kd.p', \
+           # '20201030/20201030_libration_spectra_6kd.p', \
+           # '20200727/20200727_libration_spectra_6kd_v2.p', \
+           # '20200924/20200924_libration_spectra_6kd_v2.p', \
+           # '20201030/20201030_libration_spectra_6kd_v2.p', \
+           '20200727/20200727_libration_spectra_6kd_v3.p', \
+           '20200924/20200924_libration_spectra_6kd_v3.p', \
+           '20201030/20201030_libration_spectra_6kd_v3.p', \
           ]
 
 bad_paths = [ \
@@ -47,7 +55,7 @@ bad_paths = [ \
 zero_panel_offsets = {'20200727': -1.0, '20200924': 0.0, '20201030': 1.0}
 
 save_dir = '/home/cblakemore/plots/libration_paper_2022'
-plot_name = 'fig7_libration_spectra_summary_v2.svg'
+plot_name = 'fig7_libration_spectra_summary_v3.svg'
 
 beadtype = 'bangs5'
 
@@ -55,7 +63,7 @@ beadtype = 'bangs5'
 # markers = ['o', 'o', 'o']
 
 voltage_cmap = 'plasma'
-markers = ['o', 's', 'x']
+directory_markers = ['o', 's', 'x']
 markersize = 6
 # markersize = 35
 markeralpha = 0.5
@@ -72,23 +80,16 @@ min_phi_dg = np.inf
 save = True
 show = True
 
-max_fit_kd = 1400
 
+kd_to_fit = 6.0
 
 delta_t = 1.0 / 20000.0
-nonlinear_fac = 1.1
 
-Troom = 300.0
 
 
 # fig, ax = plt.subplots(1,figsize=(7.5,4.5))
 # zero_fig, zero_ax = plt.subplots(1,figsize=(7.5,4.5))
 # ax_list = [zero_ax, ax]
-
-
-fig, ax_list = plt.subplots(2,1,figsize=(6.5,5.0),sharex=True, \
-                          gridspec_kw={'height_ratios': [8,3]})
-
 
 
 
@@ -141,6 +142,8 @@ drive_amps_rounded = []
 phi_dgs = []
 fits = []
 fit_uncs = []
+basic_fits = []
+basic_fit_uncs = []
 markercolors = []
 for i in range(nfiles):
     paths.append([[], []])
@@ -149,11 +152,18 @@ for i in range(nfiles):
     phi_dgs.append([[], []])
     fits.append([[], []])
     fit_uncs.append([[], []])
+    basic_fits.append([[], []])
+    basic_fit_uncs.append([[], []])
     markercolors.append([[], []])
 
 
+gamma0_dict = {}
+
 for fileind, filename in enumerate(spectra_fit_filenames):
-    marker = markers[fileind]
+    date = re.search(r"\d{8,}", filename)[0]
+    marker = directory_markers[fileind]
+    rhobead = bu.rhobead[beadtype]
+    Ibead = bu.get_Ibead(date=date, rhobead=rhobead)
 
     spectra_file = os.path.join(processed_base, spectra_fit_filenames[fileind])
     spectra_dict = pickle.load( open(spectra_file, 'rb') )
@@ -161,6 +171,7 @@ for fileind, filename in enumerate(spectra_fit_filenames):
     phi_dg_keys = list(spectra_dict.keys())
     phi_dg_keys.sort(key=float)
 
+    gamma0_arr = [[], [], [], []]
     found_zero = False
     for phi_dg in phi_dg_keys:
 
@@ -192,18 +203,44 @@ for fileind, filename in enumerate(spectra_fit_filenames):
 
             # lib_freq = ringdown_dict[phi_dg]['lib_freq'][drive_ind]
 
+            basic_fit = spectra_dict[phi_dg]['avg_shifted_fit'][drive_ind]
+            basic_fit_unc = spectra_dict[phi_dg]['avg_shifted_fit_unc'][drive_ind]
+
             spectra_fit = spectra_dict[phi_dg]\
                                     ['avg_shifted_squash_fit'][drive_ind]
             spectra_fit_unc = spectra_dict[phi_dg]\
                                     ['avg_shifted_squash_fit_unc'][drive_ind]
 
+            if not phi_dg:
+                ind = 0
+
+                freqs = spectra_dict[phi_dg]['freqs'][drive_ind]
+                asd = spectra_dict[phi_dg]['asd'][drive_ind]
+
+                gamma0_arr[0].append(round(drive_amp, 0))
+                gamma0_arr[1].append(2.0*np.pi*basic_fit[2])
+                gamma0_arr[2].append(2.0*np.pi*basic_fit_unc[2])
+
+
+                f_lib = basic_fit[1]
+                omega_lib = 2.0 * np.pi * f_lib
+                kd = ( phi_dg / 1024.0) * \
+                        (5.0*np.pi*delta_t * omega_lib**2)
+                half_width = np.min([np.max([0.5*kd_to_fit*kd / (2.0*np.pi), 25]), 500])
+
+                int_inds = (freqs > f_lib-half_width) * (freqs < f_lib+half_width)
+                integral = np.sum( (asd**2)[int_inds] ) * (freqs[1] - freqs[0])
+                Tguess = Ibead['val'] * omega_lib**2 * integral / constants.k
+
+                gamma0_arr[3].append(Tguess)
+                # Troom_arr[1].append(Tguess)
+
+            else:
+                ind = 1
+
+
             if not len(spectra_fit):
                 continue
-
-            if phi_dg != 0.0:
-                ind = 1
-            else:
-                ind = 0
 
             paths[fileind][ind].append(path)
             drive_amps[fileind][ind].append(drive_amp)
@@ -211,17 +248,54 @@ for fileind, filename in enumerate(spectra_fit_filenames):
             phi_dgs[fileind][ind].append(phi_dg)
             fits[fileind][ind].append(spectra_fit)
             fit_uncs[fileind][ind].append(spectra_fit_unc)
+            basic_fits[fileind][ind].append(basic_fit)
+            basic_fit_uncs[fileind][ind].append(basic_fit_unc)
             markercolors[fileind][ind].append(color)
 
     if found_zero:
         zeroplot_ind += 1
 
+    gamma0_arr = np.array(gamma0_arr)
+
+    gamma0_dict[filename] = {}
+    unique_drive_amps = np.unique(gamma0_arr[0])
+    for amp in unique_drive_amps:
+        inds = (gamma0_arr[0] == amp)
+        # val, unc = bu.weighted_mean(gamma0_arr[1], gamma0_arr[2])
+        val = np.mean( gamma0_arr[1][inds] )
+        unc = np.std( gamma0_arr[1][inds] )
+        Troom = np.mean( gamma0_arr[3][inds] )
+
+        gamma0_dict[filename][amp] = (val, unc, Troom)
+
+# for filename in spectra_fit_filenames:
+#     print()
+#     print(filename)
+#     print(gamma0_dict[filename])
+#     print()
+#     input()
+
 curves_to_fit = {}
 
+
+
+
+
+fig, ax_list = plt.subplots(2,1,figsize=(6.5,5.0),sharex=True, \
+                          gridspec_kw={'height_ratios': [8,3]})
+
+plot_x = []
+plot_y_upper = []
+plot_y_lower = []
+plot_color = []
+plot_marker = []
+
+
 min_val = np.inf
-for fileind, filename in enumerate(filenames):
+for fileind, filename in enumerate(spectra_fit_filenames):
+
     date = re.search(r"\d{8,}", filename)[0]
-    marker = markers[fileind]
+    marker = directory_markers[fileind]
     rhobead = bu.rhobead[beadtype]
     Ibead = bu.get_Ibead(date=date, rhobead=rhobead)
 
@@ -247,6 +321,7 @@ for fileind, filename in enumerate(filenames):
                 drive_vals = []
                 freq_vals = []
                 Tvals = []
+                Tuncs = []
                 gamma_vals = []
                 for meas_ind, phi_dg in enumerate(phi_dgs[fileind][ind]):
                     if phi_dg != unique_phi_dg:
@@ -260,28 +335,83 @@ for fileind, filename in enumerate(filenames):
                     fit = fits[fileind][ind][meas_ind]
                     fit_unc = fit_uncs[fileind][ind][meas_ind]
 
+                    basic_fit = basic_fits[fileind][ind][meas_ind]
+                    basic_fit_unc = basic_fit_uncs[fileind][ind][meas_ind]
+
                     # print(fit)
 
-                    gamma0 = 2.0*np.pi*fit[2]
+                    # if phi_dg:
+                    #     gamma0 = 2.0*np.pi*fit[2]
+                    #     ugamma0 = ufloat(gamma0, 2.0*np.pi*fit_unc[2])
+                    # else:
+                    #     gamma0 = 2.0*np.pi*basic_fit[2]
+                    #     ugamma0 = ufloat(gamma0, 2.0*np.pi*basic_fit_unc[2])
+
+                    gamma0 = gamma0_dict[filename][unique_drive_amp][0]
+                    ugamma0 = ufloat( gamma0_dict[filename][unique_drive_amp][0], \
+                                      gamma0_dict[filename][unique_drive_amp][1] )
+
+                    Troom = gamma0_dict[filename][unique_drive_amp][2]
+
                     Sth = 4.0 * constants.k * Troom * Ibead['val'] * gamma0
 
-                    if phi_dg:
-                        gamma_d = 2.0*np.pi*fit[2] + fit[4]
-                        Teff = ( Ibead['val'] * (2.0*np.pi*fit[1])**2 / constants.k ) \
-                                * ( ( (Sth / Ibead['val']**2) \
-                                    / ( 2.0 * (2.0*np.pi*fit[1])**2 * gamma_d ) ) \
-                                  + ( (fit[4]**2 * fit[3])  / ( 2.0 * gamma_d ) ) )
-                        Teff *= 0.5
-                    else:
-                        Teff = 300.0
+                    uIbead = ufloat(Ibead['val'], \
+                                    np.sqrt(Ibead['sterr']**2 + \
+                                            Ibead['syserr']**2) )
+                    uSth = 4.0 * constants.k * Troom * uIbead * ugamma0
 
-                    Tvals.append(Teff)
+                    if phi_dg:
+                        uSxixi = ufloat(fit[3], fit_unc[3])
+                        ukd = ufloat(fit[4], fit_unc[4])
+                        uomegaphi = 2.0*np.pi*ufloat(fit[1], fit_unc[1])
+
+                        # print(ugamma0)
+                        # print(uSth)
+                        # print(uSxixi)
+                        # print(ukd)
+                        # print(uIbead)
+                        # print(uomegaphi)
+                        # input()
+
+                        uTeff = ( (uIbead * uomegaphi**2) \
+                                   / (4.0 * constants.k * (ukd + ugamma0)) ) \
+                                 * ( ( (uSth / uIbead**2) / (uomegaphi**2 ) ) \
+                                   +  (ukd**2 * uSxixi)  )
+
+                        # gamma_d = 2.0*np.pi*fit[2] + fit[4]
+                        # Teff = ( Ibead['val'] * (2.0*np.pi*fit[1])**2 \
+                        #             / (4.0 * constants.k) ) \
+                        #         * ( ( (Sth / Ibead['val']**2) \
+                        #             / ( (2.0*np.pi*fit[1])**2 * gamma_d ) ) \
+                        #           + ( (fit[4]**2 * fit[3])  / gamma_d  ) )
+                    else:
+                        uomegaphi = 2.0*np.pi*ufloat(basic_fit[1], \
+                                                     basic_fit_unc[1])
+
+                        uTeff = ( (uIbead * uomegaphi**2) \
+                                   / (4.0 * constants.k * ugamma0) ) \
+                                 * ( ( (uSth / uIbead**2) / (uomegaphi**2 ) ) )
+
+                        # gamma_d = 2.0*np.pi*basic_fit[2]
+                        # Teff = ( Ibead['val'] * (2.0*np.pi*fit[1])**2 \
+                        #             / (4.0 * constants.k) ) \
+                        #         * ( (Sth / Ibead['val']**2) \
+                        #             / ( (2.0*np.pi*basic_fit[1])**2 * gamma_d ) )
+                        # Teff = 300.0
+
+                    # Tvals.append(Teff)
+                    Tvals.append(uTeff.n)
+                    Tuncs.append(uTeff.s)
 
                     vals.append(fit[4]) 
                     uncs.append(fit_unc[4])
 
                     freq_vals.append(fit[1])
 
+                ### First value is some bit-shifting done in the FPGA.
+                ### Second value is related to unit casting since many of
+                ### of the FPGA algorithms work in units of pi-radians instead
+                ### of radians.
                 kd = (unique_phi_dg / 1024.0) * \
                         (5.0*np.pi*delta_t * (2.0*np.pi*np.mean(freq_vals))**2) 
 
@@ -305,8 +435,9 @@ for fileind, filename in enumerate(filenames):
                     print(vals, uncs)
                     input()
 
-                Tmean = np.mean(Tvals)
-                Tunc = np.std(Tvals)
+                # Tmean = np.mean(Tvals)
+                # Tunc = np.std(Tvals)
+                Tmean, Tunc = bu.weighted_mean(Tvals, Tuncs)
 
                 freqmean = np.mean(freq_vals)
                 frequnc = np.std(freq_vals)
@@ -335,93 +466,68 @@ for fileind, filename in enumerate(filenames):
                 if Tunc > 0.5 * Tmean:
                     Tunc = 0.5 * Tmean
 
-                ax_list[0].errorbar([xval], [Tmean], \
-                                    yerr=[Tunc], \
-                                    color=color, ecolor=color, \
-                                    ls='None', zorder=4)
-                ax_list[0].plot([xval], [Tmean], \
-                                markeredgecolor=color, \
-                                markerfacecolor='none', ms=markersize,\
-                                marker=marker, markeredgewidth=1.5,\
-                                zorder=5)
+                # ax_list[0].errorbar([xval], [Tmean], \
+                #                     yerr=[Tunc], marker='', \
+                #                     ecolor=color, color='None', \
+                #                     mec='None', mfc='None', \
+                #                     ls='None', zorder=4)
+                # ax_list[0].plot([xval], [Tmean], \
+                #                 markeredgecolor=color, \
+                #                 markerfacecolor='None', ms=markersize,\
+                #                 marker=marker, markeredgewidth=1.5,\
+                #                 zorder=5)
+                # ax_list[0].plot([xval], [Tmean/Troom], \
+                #                 markeredgecolor=color, \
+                #                 markerfacecolor='None', ms=markersize,\
+                #                 marker=marker, markeredgewidth=1.5,\
+                #                 zorder=5)
 
 
                 ratio = mean / xval
                 ratio_unc = ratio * np.sqrt((unc / mean)**2 + \
                                             4.0*(frequnc / freqmean)**2)
  
-                ax_list[1].errorbar([xval], [ratio], \
-                                    yerr=[ratio_unc], \
-                                    color=color, ecolor=color, \
-                                    ls='None', zorder=4)
-                ax_list[1].plot([xval], [ratio], \
-                                markeredgecolor=color, \
-                                markerfacecolor='none', ms=markersize,\
-                                marker=marker, markeredgewidth=1.5,\
-                                zorder=5)
+                # ax_list[1].errorbar([xval], [ratio], \
+                #                     yerr=[ratio_unc], marker='', \
+                #                     ecolor=color, color='None', \
+                #                     mec='None', mfc='None', \
+                #                     ls='None', zorder=4)
+                # ax_list[1].plot([xval], [ratio], \
+                #                 markeredgecolor=color, \
+                #                 markerfacecolor='none', ms=markersize,\
+                #                 marker=marker, markeredgewidth=1.5,\
+                #                 zorder=5)
+
+                plot_x.append(xval)
+                plot_y_upper.append(Tmean/Troom)
+                plot_y_lower.append(ratio)
+                plot_color.append(color)
+                plot_marker.append(marker)
 
 
+plot_x = np.array(plot_x)
+plot_y_upper = np.array(plot_y_upper) * 100.0   # Convert to a percent
+plot_y_lower = np.array(plot_y_lower)
+plot_color = np.array(plot_color)
+plot_marker = np.array(plot_marker)
 
-# for date in fits.keys():
-#     n_feedback_amp = len(fits[date])
 
-#     for i in range(n_feedback_amp):
-#         data = np.array(fits[date][i])
-#         data = data[:,np.argsort(data[0])]
+for marker in directory_markers:
+    inds = plot_marker == marker
 
-#         inds = data[0] < max_fit_kd
-#         zero_inds = data[2][inds] == 0.0
+    if markers.MarkerStyle(marker).is_filled():
+        edgecolors = plot_color[inds]
+        facecolors = 'none'
+    else:
+        edgecolors = 'none'
+        facecolors = plot_color[inds]
 
-#         offset = 0.1*data[1][inds] * zero_inds
-
-#         def fit_func(kd, gamma0, C):
-#             return 2.0 / (gamma0 + C*kd)
-
-#         ndof = np.sum(inds) - 2
-#         def cost(gamma0, C):
-#             resid = (data[1][inds] - fit_func(data[0][inds], gamma0, C))**2
-#             variance = data[2][inds]**2 + offset**2
-#             return (1.0 / ndof) * np.sum(resid / variance)
-
-#         gamma_guess = 2.0/np.max(data[1][inds])
-#         C_guess = 2.0/(np.min(data[1][inds])*np.max(data[0][inds]))
-#         # C_guess = 1.0
-#         m = Minuit(cost, gamma0=gamma_guess, C=C_guess ) 
-
-#         ### Apply some limits to help keep the fitting well behaved
-#         m.limits['gamma0'] = (0, np.inf )
-#         # m.limits['C'] = (, )
-
-#         # m.values["C"] =  1.0
-#         # m.fixed["C"] = True
-#         # print(m.params)
-
-#         m.errordef = 1
-#         m.print_level = 0
-
-#         ### Do the actual minimization
-#         m.migrad(ncall=5000000)
-#         m.minos()
-#         C_unc = np.mean(np.abs([m.merrors['C'].lower, m.merrors['C'].upper]))
-
-#         popt = np.array(m.values)
-#         pcov = np.array(m.covariance)
-
-#         mean_drive = np.mean(data[3])
-
-#         color = bu.get_single_color(mean_drive, vmin=vmin, \
-#                                     vmax=vmax, cmap=my_cmap)
-
-#         print()
-#         print(date, mean_drive)
-#         print('kd scaling param', popt[1], C_unc)
-#         print()
-
-#         plot_x = np.logspace(np.log10(min_val/2.0), np.log10(data[0,-1]), 1000)
-#         ax_list[1].plot(plot_x, fit_func(plot_x, *popt), color=color, \
-#                         lw=2, ls='--', alpha=0.5)
-#         # ax_list[0].axhline(2.0/popt[0], color=color, lw=2, ls='--', alpha=0.5)
-
+    ax_list[0].scatter(plot_x[inds], plot_y_upper[inds], marker=marker, \
+                       edgecolors=edgecolors, facecolors=facecolors, \
+                       s=markersize**2, linewidths=1.5, zorder=5)
+    ax_list[1].scatter(plot_x[inds], plot_y_lower[inds], marker=marker, \
+                       edgecolors=edgecolors, facecolors=facecolors, \
+                       s=markersize**2, linewidths=1.5, zorder=5)
 
 
 # ax_list[0].set_xlabel('Drive Amplitude [kV/m]')
@@ -434,7 +540,8 @@ full_kd_vec = np.logspace(np.log10(min_val/2), np.log10(xlim[1]), 10)
 
 ax_list[0].set_xlim(min_val/2, xlim[1])
 
-ylabel = '$T_{\\rm eff}$ [K]'
+# ylabel = '$T_{\\rm eff}$ [K]'
+ylabel = '$T_{\\rm eff} \\, / \\, T_0$ [%]'
 ylabel_ratio = '$\\hat{k}_d \\,  / \\, k_d$'
 
 ax_list[0].set_ylabel(ylabel)

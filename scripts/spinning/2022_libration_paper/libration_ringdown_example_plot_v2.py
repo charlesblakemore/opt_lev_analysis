@@ -45,7 +45,7 @@ bad_paths = [ \
             ]
 
 save_dir = '/home/cblakemore/plots/libration_paper_2022'
-plot_name = 'fig3_libration_ringdown_examples_log.svg'
+plot_name = 'fig3_libration_ringdown_examples_log_v2.svg'
 
 save = True
 show = True
@@ -77,7 +77,7 @@ colorpad = 0.1
 # amp_to_plot = 9.0
 # amp_to_plot = 27.0
 amp_to_plot = 71.0  # in kV/m
-trial_select = 0
+trial_select = 1
 
 impulse_magnitude = np.pi/2
 
@@ -281,12 +281,12 @@ for fileind, filename in enumerate(filenames):
         special_plot_x = plot_x[plot_x > 0]
         special_plot_y_amp = plot_y_amp[plot_x > 0]
 
-        kd_str = np.format_float_positional(bu.round_sig(kd,3),trim='-')
-        tau_str = np.format_float_positional(bu.round_sig(tau,3),trim='-')
+        kd_str = np.format_float_positional(bu.round_sig(kd,2),trim='-')
+        tau_str = np.format_float_positional(bu.round_sig(tau,2),trim='-')
         special_label = f'$k_d = {kd_str:s}$ s$^{{-1}}$'
         label = f'{kd_str:s},  {tau_str:s}'
         label = bu.format_multiple_float_string( \
-                        kd, tau, sig_figs=3, extra=2)
+                        kd, tau, sig_figs=2, extra=2)
 
         ax.plot(special_plot_x, fit_func(special_plot_x+start_time, *fit), \
                 color=color, lw=4, ls='--', zorder=5+2*int(n_dg-phi_dg_ind), \

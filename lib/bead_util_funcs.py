@@ -250,11 +250,16 @@ def format_multiple_float_string(*args, sig_figs=3, extra=0):
     horizontal space and multiple float strings can be aligned in 
     a sort of column like format.
     '''
-    length = int(sig_figs + 2 + extra)
     out_str = ''
-    for arg in args:
+    for arg_ind, arg in enumerate(args):
+        if iterable(sig_figs):
+            u_sig_figs = sig_figs[arg_ind]
+        else:
+            u_sig_figs = sig_figs
+
+        length = int(u_sig_figs + 2 + extra)
         arg_str = np.format_float_positional( \
-                    round_sig(arg, sig_figs), trim='-')
+                    round_sig(arg, u_sig_figs), trim='-')
         arg_len = len(arg_str)
         for i in range( int(length-arg_len) ):
             out_str += ' '
@@ -293,6 +298,8 @@ def weighted_mean(vals, errs, correct_dispersion=False):
     return mean, mean_err
 
 
+
+
 def get_scivals(num, base=10.0):
     '''Return a tuple with factor and base X exponent of the input number.
        Useful for custom formatting of scientific numbers in labels.
@@ -310,8 +317,28 @@ def get_scivals(num, base=10.0):
 
 
 def fft_norm(N, fsamp):
-    "Factor to normalize FFT to ASD units"
+    '''Factor to normalize FFT to ASD units'''
     return np.sqrt(2.0 / (N * fsamp))
+
+
+
+
+def remove_outliers(data, m=2.0, return_mask=False):
+    '''Take a data array and chop out the outliers. Alternatively returns
+       a boolean array that can be used to index and/or mask.
+    '''
+    dist = np.abs(data - np.median(data))
+    median_dist = np.median(dist)
+    s = dist / (median_dist if median_dist else 1.)
+    mask = s < m
+    if return_mask:
+        return mask
+    else:
+        return data[mask]
+
+
+
+
 
 
 
@@ -1880,7 +1907,13 @@ def damped_osc_amp_squash(f, A, f0, g0, noise, deriv_gain, tfb):
     w = 2. * np.pi * f
     w0 = 2. * np.pi * f0
     gamma0 = 2. * np.pi * g0
-    num = np.sqrt( A**2 + noise*((w0**2 - w**2)**2 + w0**2 * gamma0**2) )
+
+    ### Libration paper referee correctly caught this error where I used
+    ### the resonant frequency, not the frequency argument, in the second
+    ### term, which was derived from a mistake in handling the equations
+    # num = np.sqrt( A**2 + noise*((w0**2 - w**2)**2 + w0**2 * gamma0**2) )
+    num = np.sqrt( A**2 + noise*((w0**2 - w**2)**2 + w**2 * gamma0**2) )
+    
     denom = np.sqrt( (w0**2 - w**2 + w * deriv_gain * np.sin(w * tfb))**2 \
                         + w**2 * (gamma0 + deriv_gain * np.cos(w * tfb))**2 )
 
