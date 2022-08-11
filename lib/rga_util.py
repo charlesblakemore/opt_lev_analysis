@@ -310,7 +310,7 @@ def get_rga_data(rga_data_file, many_scans=True, last_nscans=1000, scan_ind=0, \
         else:
             ncolors = nscans
 
-        colors = bu.get_color_map(ncolors, cmap='inferno')
+        colors = bu.get_colormap(ncolors, cmap='inferno')
         fig2, ax2 = plt.subplots(1,1,dpi=150,figsize=(10,3))
         for i in range(nscans):
             newind = i - (nscans-plot_nscans)

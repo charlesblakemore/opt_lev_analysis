@@ -118,7 +118,7 @@ for i, lamb_val in enumerate(master_lambda):
 
 
 ### Plot all the constraints individually and the extracted best curve
-colors = bu.get_color_map(len(alldata))
+colors = bu.get_colormap(len(alldata))
 for i, data in enumerate(alldata):
     plt.loglog(data[:,0], data[:,1], color=colors[i], label=allfiles[i])
 plt.legend(fontsize=10)

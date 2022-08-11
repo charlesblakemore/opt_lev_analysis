@@ -95,7 +95,7 @@ print('Optical torque estimate: ', Ibead * 20.0e3 / 1500.0)
 kappa = 6.09e11
 kappa_err = 0.03e11
 
-colors = bu.get_color_map(len(newpaths)*2 + 1, cmap='plasma')
+colors = bu.get_colormap(len(newpaths)*2 + 1, cmap='plasma')
 
 for fileind, file in enumerate(newpaths):
     color = 'C{:d}'.format(fileind)

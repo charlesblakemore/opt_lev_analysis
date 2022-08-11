@@ -74,7 +74,7 @@ def plot_vs_time(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], \
     if invert_order:
         files = files[::-1]
 
-    colors = bu.get_color_map(len(files), cmap=colormap)
+    colors = bu.get_colormap(len(files), cmap=colormap)
 
     old_per = 0
     print("Processing %i files..." % len(files))

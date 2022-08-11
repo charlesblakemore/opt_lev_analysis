@@ -339,7 +339,7 @@ for biasind, bias in enumerate(cantV):
     if nsettings < 10:
         colors = ['C' + str(i) for i in range(nsettings)]
     else:
-        colors = bu.get_color_map(nsettings, cmap='jet')
+        colors = bu.get_colormap(nsettings, cmap='jet')
 
     for posind, pos in enumerate(stage_settings):
         color = colors[posind]

@@ -269,7 +269,7 @@ def proc_spectra(spectra_file):
         freqs = np.fft.rfftfreq(nsamp, d=dt)
         fac = bu.fft_norm(nsamp, fsamp)
 
-        colors = bu.get_color_map(impulse_start_file, cmap='plasma')
+        colors = bu.get_colormap(impulse_start_file, cmap='plasma')
         for i in range(impulse_start_file):
 
             fft = np.fft.rfft(lib_arr[i,:])

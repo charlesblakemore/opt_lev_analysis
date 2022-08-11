@@ -77,8 +77,8 @@ for fobj in fil_objs:
 times = list(time_dict.keys())
 times.sort()
 
-colors_yeay = bu.get_color_map( len(times) )
-colors_elecs = bu.get_color_map( 8 )
+colors_yeay = bu.get_colormap( len(times) )
+colors_elecs = bu.get_colormap( 8 )
 #colors_yeay = ['b', 'r', 'g']
 
 #if plot:

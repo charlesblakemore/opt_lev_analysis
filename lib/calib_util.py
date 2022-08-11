@@ -82,7 +82,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         if plot:
             fig, axarr = plt.subplots(2,1,sharex=True)
             tvec = np.arange(file_obj.nsamp) * (1.0 / file_obj.fsamp)
-            colors = bu.get_color_map(len(file_obj.electrode_data), cmap='plasma')
+            colors = bu.get_colormap(len(file_obj.electrode_data), cmap='plasma')
             for i in range(len(file_obj.electrode_data)):
                 try:
                     if file_obj.electrode_settings['driven'][i]:
@@ -118,7 +118,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
         zeros = np.zeros(len(v3))
 
         if plot:
-            colors = bu.get_color_map(2, cmap='plasma')
+            colors = bu.get_colormap(2, cmap='plasma')
             plt.figure()
             plt.plot(v3, color=colors[0], label='Elec. {:s}'.format(str(tabor_ind)))
             plt.plot(v4, color=colors[1], label='Elec. {:s}'.format(str(tabor_ind+1)))

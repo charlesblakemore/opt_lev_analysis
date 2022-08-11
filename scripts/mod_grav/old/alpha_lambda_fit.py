@@ -147,7 +147,7 @@ chi2dist = stats.chi2(1)
 # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
 con_val = 0.5 * chi2dist.ppf(confidence_level) 
 
-colors = bu.get_color_map(len(lambdas))
+colors = bu.get_colormap(len(lambdas))
 
 for ind, yuklambda in enumerate(lambdas):
     fcurve = fcurve_obj.mod_grav_force(bins*1e-6, sep=SEP, alpha=1., \

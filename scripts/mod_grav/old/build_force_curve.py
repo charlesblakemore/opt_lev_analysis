@@ -167,7 +167,7 @@ def generate_alpha_lambda_limit(data_manifold, gfuncs, yukfuncs, lambdas, \
     #lambdas = lambdas[::-1]
     # HARDCODED NUMBERS BEWARE
 
-    colors = bu.get_color_map(len(lambdas))
+    colors = bu.get_colormap(len(lambdas))
 
     xarr = np.sort( np.array(list(data_manifold.keys())) )
     zarr = np.sort( np.array(list(data_manifold[xarr[0]].keys())) )

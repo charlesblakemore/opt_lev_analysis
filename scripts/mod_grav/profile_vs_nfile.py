@@ -92,7 +92,7 @@ for ddir in data_dirs:
         print('{:d} total...'.format(len(filenums)))
 
         show = False
-        colors = bu.get_color_map(len(filenums), cmap='BuPu')
+        colors = bu.get_colormap(len(filenums), cmap='BuPu')
         lambind = np.argmin(np.abs(agg_dat.gfuncs_class.lambdas - yuklambda))
 
         best = np.zeros(len(filenums))

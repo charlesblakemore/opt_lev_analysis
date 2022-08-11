@@ -59,7 +59,7 @@ plot_name = 'fig7_libration_spectra_summary_v3.svg'
 
 beadtype = 'bangs5'
 
-# colors = bu.get_color_map(3, cmap=my_cmap)
+# colors = bu.get_colormap(3, cmap=my_cmap)
 # markers = ['o', 'o', 'o']
 
 voltage_cmap = 'plasma'

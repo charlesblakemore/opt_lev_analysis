@@ -56,7 +56,7 @@ for obj in dir_objs:
             pos_dict[cpos] = []
         pos_dict[cpos].append(fobj.fname)
 
-colors = bu.get_color_map(len(list(pos_dict.keys())))
+colors = bu.get_colormap(len(list(pos_dict.keys())))
 
 pos_keys = list(pos_dict.keys())
 pos_keys.sort()

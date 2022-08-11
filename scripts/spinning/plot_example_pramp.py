@@ -59,7 +59,7 @@ stuff = [[He_pmax, He_dat, He_lab_str, 'C0'],\
          [SF6_pmax, SF6_dat, SF6_lab_str, 'C2'] ]
 
 maxp = 0
-colors = bu.get_color_map(7, cmap='inferno')[::-1]
+colors = bu.get_colormap(7, cmap='inferno')[::-1]
 for i in [0,1,2]:
     pmax = stuff[i][0]
     dat = stuff[i][1]

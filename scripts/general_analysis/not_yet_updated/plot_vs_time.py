@@ -59,7 +59,7 @@ for obj in dir_objs:
 
 times = list(time_dict.keys())
 
-colors_yeay = bu.get_color_map( len(times) )
+colors_yeay = bu.get_colormap( len(times) )
 f, axarr = plt.subplots(len(axes_to_plot),2,sharey='row',sharex='all',figsize=(10,12),dpi=100)
 
 for i, time in enumerate(times):

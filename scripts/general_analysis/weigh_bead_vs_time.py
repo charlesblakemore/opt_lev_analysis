@@ -90,7 +90,7 @@ def weigh_bead(files, colormap='jet', sort='time', file_inds=(0,10000)):
     q_bead = 25.0 * 1.602e-19
 
     nfiles = len(files)
-    colors = bu.get_color_map(nfiles, cmap=colormap)
+    colors = bu.get_colormap(nfiles, cmap=colormap)
 
     avg_fft = []
 

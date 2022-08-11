@@ -76,7 +76,7 @@ for i, obj in enumerate(dir_objs):
     keys = list(obj.avg_force_v_pos.keys())
     keys.sort()
 
-    colors_yeay = bu.get_color_map( len(keys) )
+    colors_yeay = bu.get_colormap( len(keys) )
 
     for keyind, key in enumerate(keys):
         lab = str(key) + ' V'

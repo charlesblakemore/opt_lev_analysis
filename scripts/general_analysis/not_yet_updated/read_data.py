@@ -71,7 +71,7 @@ dir_objs = list(map(proc_dir, dirs))
 thermal_cal_file_path = '/data/20160720/bead3/1_5mbar_nocool.h5'
 
 
-colors_yeay = bu.get_color_map( len(dir_objs) )
+colors_yeay = bu.get_colormap( len(dir_objs) )
 f, axarr = plt.subplots(3,2,sharey='all',sharex='all',figsize=(10,12),dpi=100)
 for i, obj in enumerate(dir_objs):
     col = colors_yeay[i]

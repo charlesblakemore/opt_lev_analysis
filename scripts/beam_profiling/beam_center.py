@@ -291,7 +291,7 @@ def proc_dir(dir, data_column=0, plot=False):
 def plot_profs(fp_arr, title='', show=True):
     #plots average profile from different heights
     i = 1
-    colors = bu.get_color_map(len(fp_arr), cmap='plasma')
+    colors = bu.get_colormap(len(fp_arr), cmap='plasma')
 
     fp_arr_sort = sorted(fp_arr, key = lambda fp: fp.cant_height)
 

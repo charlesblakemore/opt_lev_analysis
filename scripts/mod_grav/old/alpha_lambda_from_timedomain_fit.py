@@ -344,7 +344,7 @@ def get_alpha_lambda(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=Fa
     # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
     con_val = 0.5 * chi2dist.ppf(confidence_level)
 
-    colors = bu.get_color_map(len(lambdas))
+    colors = bu.get_colormap(len(lambdas))
 
     alphas = np.zeros_like(lambdas)
     diagalphas = np.zeros_like(lambdas)
@@ -591,7 +591,7 @@ def get_alpha_vs_file(fildat, diag=True, ignoreX=False, ignoreY=False, ignoreZ=F
     # factor of 0.5 from Wilks's theorem: -2 log (Liklihood) ~ chi^2(1)
     con_val = 0.5 * chi2dist.ppf(confidence_level)
 
-    colors = bu.get_color_map(len(lambdas))
+    colors = bu.get_colormap(len(lambdas))
 
     alphas = np.zeros_like(lambdas)
     diagalphas = np.zeros_like(lambdas)

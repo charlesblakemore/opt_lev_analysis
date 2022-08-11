@@ -104,7 +104,7 @@ def sqrt(x, A, x0, b):
 for key in keys:
     paths = path_dict[key]
     date_fig, date_ax = plt.subplots(1,1,figsize=(7,4))
-    meas_colors = bu.get_color_map(len(paths), cmap='plasma')
+    meas_colors = bu.get_colormap(len(paths), cmap='plasma')
 
     date_max_field = 0
 
@@ -118,7 +118,7 @@ for key in keys:
             meas = parts[-1]
 
         files, lengths = bu.find_all_fnames(path, ext='.npy')
-        wobble_colors = bu.get_color_map(len(files), cmap='viridis')
+        wobble_colors = bu.get_colormap(len(files), cmap='viridis')
 
         popt_arr = []
         pcov_arr = []

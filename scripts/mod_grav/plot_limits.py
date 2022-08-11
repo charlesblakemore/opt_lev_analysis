@@ -92,7 +92,7 @@ for ddir in data_dirs:
 
 
     Ncomp = alpha_arr.shape[-2]
-    comp_colors = bu.get_color_map(Ncomp, cmap='viridis')
+    comp_colors = bu.get_colormap(Ncomp, cmap='viridis')
 
     alpha_w = np.sum(alpha_arr[:,0:2,:,data_ind]*alpha_arr[:,0:2,:,err_ind]**(-2), axis=1) / \
                   np.sum(alpha_arr[:,0:2,:,err_ind]**(-2), axis=1)

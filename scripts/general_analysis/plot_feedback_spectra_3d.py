@@ -119,7 +119,7 @@ def plot_spectra_3d(files, ax_to_plot=0, diag=False, colormap='plasma'):
 
     files = files
 
-    colors = bu.get_color_map(len(files_to_plot), cmap=colormap)
+    colors = bu.get_colormap(len(files_to_plot), cmap=colormap)
     i = 0
     #colors = ['C0', 'C1', 'C2']
 

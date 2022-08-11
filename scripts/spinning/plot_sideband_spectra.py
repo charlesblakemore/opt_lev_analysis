@@ -529,7 +529,7 @@ elif average_spectra:
 
 else:
 
-    colors = bu.get_color_map(len(phase_results), cmap='plasma')
+    colors = bu.get_colormap(len(phase_results), cmap='plasma')
 
     plt.figure(figsize=(10,5))
 

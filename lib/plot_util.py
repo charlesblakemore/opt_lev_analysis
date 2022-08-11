@@ -47,7 +47,7 @@ def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
 
 
 
-def get_color_map( n, cmap='plasma', log=False, invert=False, buffer=True):
+def get_colormap( n, cmap='plasma', log=False, invert=False, buffer=True):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
        

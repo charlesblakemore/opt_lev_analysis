@@ -222,7 +222,7 @@ def proc_spectra(spectra_file, fig, axarr, axind):
     freqs = np.fft.rfftfreq(nsamp, d=dt)
     fac = bu.fft_norm(nsamp, fsamp)
 
-    colors = bu.get_color_map(len(files_to_plot), cmap='plasma')
+    colors = bu.get_colormap(len(files_to_plot), cmap='plasma')
     lib_freqs = []
     for ind, file in enumerate(files_to_plot):
 

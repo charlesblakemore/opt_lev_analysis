@@ -48,7 +48,7 @@ base_plot_path = '/home/cblakemore/plots/20191017/pramp/combined_reverse'.format
 
 # base_plot_path = '/home/cblakemore/plots/20190905/pramp'
 
-colors = bu.get_color_map(3, cmap='plasma')
+colors = bu.get_colormap(3, cmap='plasma')
 
 
 include_other_beads = True
@@ -127,7 +127,7 @@ for pathind, path in enumerate(other_paths):
 
 
 fig_ex, ax_ex = plt.subplots(1,1,figsize=(6,3),dpi=200)
-temp_colors = bu.get_color_map(len(example_gases), cmap='plasma')[::-1]
+temp_colors = bu.get_colormap(len(example_gases), cmap='plasma')[::-1]
 example_colors = {}
 for gasind, gas in enumerate(example_gases):
     example_colors[gas] = temp_colors[gasind]

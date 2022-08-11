@@ -177,7 +177,7 @@ class Background:
         nax = len(data_axes)
         nfiles = len(files)
     
-        colors = bu.get_color_map(nfiles, cmap=colormap)
+        colors = bu.get_colormap(nfiles, cmap=colormap)
 
         avg_asd = [[]] * nax
         diag_avg_asd = [[]] * nax

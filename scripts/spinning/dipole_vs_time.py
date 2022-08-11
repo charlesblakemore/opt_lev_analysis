@@ -159,7 +159,7 @@ def sqrt(x, A, x0, b):
 for key in keys:
     paths = path_dict[key]
     all_fig, all_ax = plt.subplots(1,1,figsize=(7,4))
-    colors = bu.get_color_map(len(paths))
+    colors = bu.get_colormap(len(paths))
 
     for pathind, path in enumerate(paths):
         fig, ax = plt.subplots(1,1,figsize=(7,4))
@@ -175,7 +175,7 @@ for key in keys:
 
         files, lengths = bu.find_all_fnames(path, ext='.npy')
         if one_path:
-            colors = bu.get_color_map(len(files), cmap='inferno')
+            colors = bu.get_colormap(len(files), cmap='inferno')
 
         popt_arr = []
         pcov_arr = []

@@ -62,7 +62,7 @@ modamp_fig, modamp_ax = plt.subplots(1,1)
 
 minsep = np.min(seps)
 
-colors = bu.get_color_map(len(seps), cmap='plasma')
+colors = bu.get_colormap(len(seps), cmap='plasma')
 for sepind, sep in enumerate(seps):
 
     ones = np.ones_like(posvec)
@@ -91,7 +91,7 @@ sep_fig.tight_layout()
 
 modamps = [[], [], []]
 
-colors = bu.get_color_map(len(heights), cmap='coolwarm')
+colors = bu.get_colormap(len(heights), cmap='coolwarm')
 for heightind, height in enumerate(heights):
 
     ones = np.ones_like(posvec)

@@ -75,7 +75,7 @@ for obj in dir_objs:
 
 times = list(time_dict.keys())
 
-colors_yeay = bu.get_color_map( len(times) )
+colors_yeay = bu.get_colormap( len(times) )
 
 for i, time in enumerate(times):
     if i not in files:

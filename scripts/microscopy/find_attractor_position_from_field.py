@@ -836,8 +836,8 @@ for ddir in data_dirs:
     plot_inds = [1,3,5,7,9]
     #plot_inds = range(len(yposvec))
 
-    #noise_colors = bu.get_color_map(len(yposvec), cmap='jet')
-    noise_colors = bu.get_color_map(len(plot_inds), cmap='inferno')
+    #noise_colors = bu.get_colormap(len(yposvec), cmap='jet')
+    noise_colors = bu.get_colormap(len(plot_inds), cmap='inferno')
     noise_colors = noise_colors[::-1]
     #noise_colors = []
     #for i in range(9):

@@ -46,7 +46,7 @@ def exponential(x, a, b, c):
 # plt.figure(figsize=(10,8))
 
 ### Colors for plotting
-colors = bu.get_color_map(len(results_cut), cmap='plasma')
+colors = bu.get_colormap(len(results_cut), cmap='plasma')
 
 # fig = plt.figure(figsize=(8,5))
 ### Loop over the simulation results and fit each one

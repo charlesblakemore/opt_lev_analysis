@@ -131,7 +131,7 @@ diagmin_chisq = []
 lambdas = lambdas[::-1]
 testalphas = np.linspace(0, 12, 1000)
 
-colors = bu.get_color_map(len(lambdas))
+colors = bu.get_colormap(len(lambdas))
 
 per = 0.0
 for ind, yuklambda in enumerate(lambdas):

@@ -217,8 +217,8 @@ kappa['syserr'] = 0.25e11
 
 kappa_calc = bu.get_kappa(mbead)
 
-#colors = bu.get_color_map(len(newpaths)*2 + 1, cmap='plasma')
-colors = bu.get_color_map(len(newpaths), cmap='plasma')
+#colors = bu.get_colormap(len(newpaths)*2 + 1, cmap='plasma')
+colors = bu.get_colormap(len(newpaths), cmap='plasma')
 
 two_point_times = []
 two_point_estimates = []
@@ -641,7 +641,7 @@ two_point_errors_2 = np.array(two_point_errors_2)
 linear_estimates = np.array(linear_estimates)
 linear_errors = np.array(linear_errors)
 
-colors = bu.get_color_map(len(two_point_times), cmap='plasma')
+colors = bu.get_colormap(len(two_point_times), cmap='plasma')
 for sublist_ind, sublist in enumerate(two_point_times):
     # lab1 = 'Two-point: {:d}'.format(sublist_ind)
     # lab2 = 'Linear: {:d}'.format(sublist_ind)

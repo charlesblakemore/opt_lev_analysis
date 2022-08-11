@@ -135,11 +135,11 @@ times = list(time_dict.keys())
 times.sort()
 
 if plot_vs_time:
-    colors_yeay = bu.get_color_map( len(times) )
+    colors_yeay = bu.get_colormap( len(times) )
     iterlist = times
 
 if plot_vs_sep:
-    colors_yeay = bu.get_color_map( len(seps) )
+    colors_yeay = bu.get_colormap( len(seps) )
     iterlist = seps
 
 

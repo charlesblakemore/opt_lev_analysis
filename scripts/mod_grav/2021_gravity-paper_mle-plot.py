@@ -37,7 +37,7 @@ full_mles = {12.0: [-6.23e7, 1.2e7], 18.0: [8.48e7, 2.4e7], 21.0: [7.91e8, 2.3e7
 mle_dat = pickle.load( open(file_path, 'rb') )
 
 freqs = mle_dat['naive_freqs']
-colors = bu.get_color_map(2*len(freqs)+1, cmap='plasma')
+colors = bu.get_colormap(2*len(freqs)+1, cmap='plasma')
 
 naive = mle_dat['naive']
 rand1 = mle_dat['rand1']

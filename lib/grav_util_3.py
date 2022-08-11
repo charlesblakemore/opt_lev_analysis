@@ -2427,7 +2427,7 @@ class AggregateData:
         yukind = np.argmin( np.abs(self.gfuncs_class.lambdas - yuklambda) )
         yuklambda = self.gfuncs_class.lambdas[yukind]
 
-        colors = bu.get_color_map(len(plot_freqs))
+        colors = bu.get_colormap(len(plot_freqs))
 
         for bias, ax0, ax1 in itertools.product(list(self.likelihoods.keys()), self.ax0vec, self.ax1vec):
             figs = []
@@ -2437,7 +2437,7 @@ class AggregateData:
                 nfreq = len(plot_freqs)
             else:
                 nfreq = len(freqs)
-            colors = bu.get_color_map(nfreq)
+            colors = bu.get_colormap(nfreq)
             for resp in [0,1,2]:
                 main_fig, main_ax = plt.subplots(1,1,figsize=(9.6,4.8))
                 if len(zoom_limits):
@@ -3282,7 +3282,7 @@ class AggregateData:
         yukind = np.argmin( np.abs(self.gfuncs_class.lambdas - yuklambda) )
         yuklambda = self.gfuncs_class.lambdas[yukind]
 
-        colors = bu.get_color_map(len(plot_freqs))
+        colors = bu.get_colormap(len(plot_freqs))
 
         if derp_save:
             try:
@@ -3300,7 +3300,7 @@ class AggregateData:
                 nfreq = len(plot_freqs)
             else:
                 nfreq = len(freqs)
-            colors = bu.get_color_map(nfreq)
+            colors = bu.get_colormap(nfreq)
             for resp in [0,1,2]:
                 fig, ax = plt.subplots(1,1,figsize=(9.6,4.8))
                 i = 0

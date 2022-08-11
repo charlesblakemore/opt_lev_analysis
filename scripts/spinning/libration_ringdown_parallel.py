@@ -152,7 +152,7 @@ plot_selection_criteria = False
 plot_rebin = False
 
 ### Colors and alpha values for libration / libration amp curves
-plot_colors = bu.get_color_map(3, cmap='plasma')[1::-1]
+plot_colors = bu.get_colormap(3, cmap='plasma')[1::-1]
 plot_colors = ['C0', 'C1']
 plot_alphas = [1.0, 1.0]
 

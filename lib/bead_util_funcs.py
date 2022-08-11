@@ -2351,7 +2351,7 @@ def fit_damped_osc_amp_squash(\
         ax.loglog(fit_freqs, init_mag, ls=':', color='k', label='init')
         # facs = np.array([1e-3, 1e-2, 0.05, 0.1, 0.5, 1.0, 2.0, 10.0, 20.0, 100.0, 1000.0])
         # facs = np.array([1e-9, 1e-6, 1e-3, 1.0, 1e3, 1e6, 1e9])
-        # colors = get_color_map(len(facs), cmap='plasma')
+        # colors = get_colormap(len(facs), cmap='plasma')
         # for fac_ind, fac in enumerate(facs):
         #     new_p0 = np.copy(p0)
         #     # new_p0[3] *= fac

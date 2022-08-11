@@ -144,7 +144,7 @@ def fit_monochromatic_line(files, data_axes=[0,1], drive_axes=[6], diag=True, \
     errs = []
     drive_errs = []
 
-    colors = bu.get_color_map(len(files), cmap=colormap)
+    colors = bu.get_colormap(len(files), cmap=colormap)
 
     bad_inds = []
 

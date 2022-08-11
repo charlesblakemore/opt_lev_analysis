@@ -85,7 +85,7 @@ def proc_dir(d):
 
 dir_objs = list(map(proc_dir, dirs))
 
-colors_yeay = bu.get_color_map( len(dir_objs) )
+colors_yeay = bu.get_colormap( len(dir_objs) )
 
 psds = {}
 pows = {}

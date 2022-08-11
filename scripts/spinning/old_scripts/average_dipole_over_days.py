@@ -36,7 +36,7 @@ gases = ['wobble']
 
 wobble = ['/wobble_many_slow/']
 #gas_ = ['after-highp_slow_later.npy']#,'after-highp_slow_later.npy'
-colors = buf.get_color_map(len(gases),cmap='Set1')
+colors = buf.get_colormap(len(gases),cmap='Set1')
 
 def get_dipoles_and_times(gas,wobble_file):
     
@@ -86,8 +86,8 @@ def get_dipoles_and_times(gas,wobble_file):
     return {'gas': gas, 'dipole_files': dipole_files,'time_files': time_files, 'dipoles': dipoles, 'times':times}
 
 def plot_dipole_v_time():
-    colors = buf.get_color_map(len(load_files),cmap='plasma')
-    colors = buf.get_color_map(7,cmap='plasma')
+    colors = buf.get_colormap(len(load_files),cmap='plasma')
+    colors = buf.get_colormap(7,cmap='plasma')
     print(len(colors))
     fig, ax = plt.subplots(1,1,figsize=(6,3),dpi=200)
     for i in range(len(load_files)):

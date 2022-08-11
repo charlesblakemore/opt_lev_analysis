@@ -645,7 +645,7 @@ def build_Hfuncs(Hout_cal, fit_freqs = [10.,600.], fpeaks=[400.,400.,200.], \
         f1, axarr1 = plt.subplots(3,3, sharex=True, sharey='row', figsize=figsize)
         f2, axarr2 = plt.subplots(3,3, sharex=True, sharey='row', figsize=figsize)
 
-        # colors = bu.get_color_map(5, cmap='inferno')
+        # colors = bu.get_colormap(5, cmap='inferno')
         data_color, fit_color = ['k', 'C1']
 
     for drive in [0,1,2]:

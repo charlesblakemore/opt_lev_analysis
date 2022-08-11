@@ -251,7 +251,7 @@ if plot:
 
     fig, axarr = plt.subplots(3,2,sharex=True,sharey=True,figsize=(6,8),dpi=150)
 
-    colors = bu.get_color_map(len(cantVvec))
+    colors = bu.get_colormap(len(cantVvec))
 
     for cantind, cantV in enumerate(cantVvec):
         color = colors[cantind]

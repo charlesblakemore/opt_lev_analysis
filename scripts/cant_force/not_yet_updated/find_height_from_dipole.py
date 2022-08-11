@@ -143,7 +143,7 @@ for objind, obj in enumerate(dir_objs):
     cal_facs = obj.conv_facs
     #cal_facs = [1.,1.,1.]
 
-    keycolors = bu.get_color_map(len(keys))
+    keycolors = bu.get_colormap(len(keys))
     keys.sort(key = lambda x: float(x))
 
     for keyind, key in enumerate(keys):

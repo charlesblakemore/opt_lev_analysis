@@ -124,7 +124,7 @@ def proc_dir(d):
 
 dir_objs = list(map(proc_dir, dirs))
 
-colors_yeay = bu.get_color_map( len(dir_objs) )
+colors_yeay = bu.get_colormap( len(dir_objs) )
 f, axarr = plt.subplots(3,2,sharey='all',sharex='all',figsize=(10,12),dpi=100)
 
 

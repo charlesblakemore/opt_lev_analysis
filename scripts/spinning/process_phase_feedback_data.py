@@ -84,7 +84,7 @@ save = True
 # spectra_dict = pickle.load( open(spectra_save_path, 'rb') )
 
 
-ringdown_colors = bu.get_color_map(len(ringdown_paths), cmap='plasma')
+ringdown_colors = bu.get_colormap(len(ringdown_paths), cmap='plasma')
 fig, ax = plt.subplots(1,1,figsize=(6,4))
 for ringdown_ind, ringdown_path in enumerate(ringdown_paths):
 

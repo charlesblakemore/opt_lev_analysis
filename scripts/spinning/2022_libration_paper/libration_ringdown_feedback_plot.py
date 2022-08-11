@@ -34,7 +34,7 @@ bad_paths = [ \
 
 beadtype = 'bangs5'
 
-# colors = bu.get_color_map(3, cmap='plasma')
+# colors = bu.get_colormap(3, cmap='plasma')
 # markers = ['o', 'o', 'o']
 
 voltage_cmap = 'plasma'

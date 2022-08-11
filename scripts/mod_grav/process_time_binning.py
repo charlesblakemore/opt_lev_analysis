@@ -83,8 +83,8 @@ binning_result0 = pickle.load( open(os.path.join(base_result_path, filenames[0])
 dict_keys0 = list(binning_result0.keys())
 
 freqs = binning_result0['freqs']
-colors = bu.get_color_map(len(freqs), cmap='plasma')
-colors = bu.get_color_map(len(freqs_to_plot), cmap='plasma')
+colors = bu.get_colormap(len(freqs), cmap='plasma')
+colors = bu.get_colormap(len(freqs_to_plot), cmap='plasma')
 
 
 fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,6))

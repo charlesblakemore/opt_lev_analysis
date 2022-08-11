@@ -77,7 +77,7 @@ mbead = mbead_dic['val']
 ############################################################################
 ############################################################################
 
-colors = bu.get_color_map(n_mc, cmap='plasma')[::-1]
+colors = bu.get_colormap(n_mc, cmap='plasma')[::-1]
 
 
 def proc_mc(i):
@@ -329,7 +329,7 @@ results = Parallel(n_jobs=ncore)( delayed(proc_mc)(ind) for ind in list(range(n_
 
 ### Loop over the results and plot each one
 plt.figure(figsize=(12,6))
-colors = bu.get_color_map(len(results), cmap='plasma')
+colors = bu.get_colormap(len(results), cmap='plasma')
 pressures = []
 gammas = [[], [], []]
 for resultind, result in enumerate(results[::-1]):

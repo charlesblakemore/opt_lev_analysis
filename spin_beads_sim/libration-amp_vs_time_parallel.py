@@ -67,7 +67,7 @@ m0 = 18.0 * constants.atomic_mass
 ############################################################################
 ############################################################################
 
-colors = bu.get_color_map(n_mc, cmap='plasma')[::1]
+colors = bu.get_colormap(n_mc, cmap='plasma')[::1]
 
 
 def proc_mc(i):

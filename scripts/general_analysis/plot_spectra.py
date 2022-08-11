@@ -225,7 +225,7 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
     if invert_order:
         files = files[::-1]
 
-    colors = bu.get_color_map(len(files), cmap=colormap)
+    colors = bu.get_colormap(len(files), cmap=colormap)
     #colors = ['C0', 'C1', 'C2']
 
     old_per = 0

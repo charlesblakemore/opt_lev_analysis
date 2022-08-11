@@ -447,7 +447,7 @@ if load:
 
 if plot_final_result:
     popt_arr = []
-    colors = bu.get_color_map(len(all_data), cmap='inferno')
+    colors = bu.get_colormap(len(all_data), cmap='inferno')
     for arrind, arr in enumerate(all_data):
         field_strength = arr[0]
         field_err = arr[1]

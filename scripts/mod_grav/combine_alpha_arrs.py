@@ -53,7 +53,7 @@ for ind, path in enumerate(arr_paths):
     lambdas = np.load( open(path[:-4] + '_lambdas.arr', 'rb') )
 
     Ncomp = alpha_arr.shape[-2]
-    comp_colors = bu.get_color_map(Ncomp, cmap='viridis')
+    comp_colors = bu.get_colormap(Ncomp, cmap='viridis')
 
 
     ### Compute the weighted mean of the X and Y projections of the data onto signal template
