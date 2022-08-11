@@ -47,7 +47,7 @@ def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
 
 
 
-def get_color_map( n, cmap='plasma', log=False, invert=False):
+def get_color_map( n, cmap='plasma', log=False, invert=False, buffer=True):
     '''Gets a map of n colors from cold to hot for use in
        plotting many curves.
        
@@ -67,15 +67,24 @@ def get_color_map( n, cmap='plasma', log=False, invert=False):
     n = int(n)
     outmap = []
 
-    if log:
-        cNorm = colors.LogNorm(vmin=0, vmax=2*n)
+    if buffer:
+        vmax = 2*n
     else:
-        cNorm = colors.Normalize(vmin=0, vmax=2*n)
+        vmax = n-1
+
+    if log:
+        cNorm = colors.LogNorm(vmin=0, vmax=vmax)
+    else:
+        cNorm = colors.Normalize(vmin=0, vmax=vmax)
 
     scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
 
     for i in range(n):
-        outmap.append( scalarMap.to_rgba(2*i + 1) )
+        if buffer:
+            index = 2*i + 1
+        else:
+            index = i
+        outmap.append( scalarMap.to_rgba(index) )
 
     if invert:
         outmap = outmap[::-1]
@@ -84,7 +93,7 @@ def get_color_map( n, cmap='plasma', log=False, invert=False):
 
 
 
-def truncate_colormap(cmap, vmax=0.0, vmin=1.0, n=256):
+def truncate_colormap(cmap, vmin=0.0, vmax=1.0, n=256):
 
     if type(cmap) == str:
         cmap = plt.get_cmap(cmap)

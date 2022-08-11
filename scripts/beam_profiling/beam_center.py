@@ -47,32 +47,36 @@ ysign = 0
 # data_dir2 = '/data/old_trap/20201202/profiling/xsweep_init'
 
 
-bu.configuration.col_labels["stage_pos"] = [2, 3, 4]
+bu.configuration.col_labels["stage_pos"] = [1, 2, 3]
 # data_dir1 = '/data/old_trap/20210624/profiling/xsweep_centered'
-data_dir1 = '/data/old_trap/20210624/profiling/ysweep_centered'
+# data_dir1 = '/data/old_trap/20210624/profiling/ysweep_centered'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj1'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj4'
 # data_dir1 = '/data/old_trap/20210624/profiling/xsweep_adj4'
 # data_dir1 = '/data/old_trap/20210624/profiling/xsweep_adj8'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj11'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj12'
+data_dir1 = '/data/old_trap/20220810/beam_profiling/xsweep_3Hz_init'
 
 # data_dir1 = '/data/old_trap/20210628/profiling/ysweep_afterclean'
 # data_dir2 = '/data/old_trap/20210628/profiling/ysweep_afterclean_nolights'
 data_dir2 = '/data/old_trap/20210628/profiling/ysweep_adj9'
 # data_dir1 = '/data/old_trap/20210628/profiling/xsweep_adj10'
 # data_dir2 = '/data/old_trap/20210628/profiling/xsweep_adj11'
-data_column = 1
+data_column = 0
 data_column2 = data_column
 ysign = 1.0
 
+
+ideal_waist1 = 2.5   # um
+ideal_waist2 = 2.5   # um
 
 
 # debug_plot = True
 debug_plot = False
 
-multi_dir = True
-# multi_dir = False
+# multi_dir = True
+multi_dir = False
 
 height_to_plot = 0.
 
@@ -90,19 +94,37 @@ gauss_fit = True
 
 vec_inds = (100, -100)
 
-nbins = 200
+nbin = 200
 
 
 sigmasq_cutoff = 1e-3
 
-baseline_fit = False
+baseline_fit = True
 baseline_edge = 30.0
+
+
+
+
+
+
+def Szsq(z, s0, M, z0, lam = 1.064):
+    #function giving propigation of W=2sig parameter. See Seegman
+    W0 = 2.*s0
+    Wzsq = W0**2 + M**4 * (lam/(np.pi*W0))**2 * (z-z0)**2
+    return Wzsq/4.
+
+def gauss_wconst(x, A, x0, w0, C):
+    return A * np.exp( -2 * (x-x0)**2 / (w0**2) ) + C
+    
+def gauss(x, A, x0, w0):
+    return A * np.exp( -2 * (x-x0)**2 / (w0**2) )
+    
 
     
 
 
 
-def profile(fname, data_column = 0, plot=False, nbins=200):
+def profile(fname, data_column = 0, plot=False, nbin=200):
     df = bu.DataFile()
     df.load(fname, skip_fpga=True)
     df.load_other_data()
@@ -165,10 +187,10 @@ def profile(fname, data_column = 0, plot=False, nbins=200):
 
     # sort_inds = np.argsort(xvec)
 
-    # b, y, e = bu.spatial_bin(xvec, yvec, dt, nbins=300, nharmonics=300, add_mean=True)
+    # b, y, e = bu.spatial_bin(xvec, yvec, dt, nbin=300, nharmonics=300, add_mean=True)
     b, y, e = bu.rebin(xvec[vec_inds[0]:vec_inds[1]], \
                        yvec[vec_inds[0]:vec_inds[1]], \
-                       nbins=nbins, plot=False, correlated_errs=True)
+                       nbin=nbin, plot=False, correlated_errs=True)
 
     return b, y, e, h_round
 
@@ -216,7 +238,7 @@ def proc_dir(dir, data_column=0, plot=False):
     file_profs = []
     hs = []
     for fi in files:
-        b, y, e, h = profile(fi, nbins=nbins, plot=plot, data_column=data_column)
+        b, y, e, h = profile(fi, nbin=nbin, plot=plot, data_column=data_column)
         #print h
         if h not in hs:
             #if new height then create new profile object
@@ -241,8 +263,8 @@ def proc_dir(dir, data_column=0, plot=False):
         fp.errors = fp.errors[sorter]
         fp.dxs = np.append(np.diff(fp.bins), 0)
 
-        # if len(fp.bins) > nbins:
-        #     b, y, e = bu.rebin(fp.bins, fp.y, nbins=nbins, correlated_errs=True)
+        # if len(fp.bins) > nbin:
+        #     b, y, e = bu.rebin(fp.bins, fp.y, nbin=nbin, correlated_errs=True)
         #     fp.bins = b
         #     fp.y = y
         #     fp.errors = e
@@ -313,13 +335,6 @@ def plot_profs(fp_arr, title='', show=True):
         plt.show()
 
 
-def Szsq(z, s0, M, z0, lam = 1.064):
-    #function giving propigation of W=2sig parameter. See Seegman
-    W0 = 2.*s0
-    Wzsq = W0**2 + M**4 * (lam/(np.pi*W0))**2 * (z-z0)**2
-    return Wzsq/4.
-    
-
 #def compute_msquared(hs, sigmasqs):
     #fits beam profile data to extract M^2 value 
 
@@ -371,7 +386,7 @@ if msq_fit:
         maxsig = np.max(sigmasqs)
     
     popt_ideal = np.copy(popt)
-    popt_ideal[0] = 2.5 / 2
+    popt_ideal[0] = ideal_waist1 / 2
     popt_ideal[1] = 1.0
     # popt_ideal[2] = 40.0
 
@@ -388,7 +403,7 @@ if msq_fit:
     if multi_dir:
     
         popt2_ideal = np.copy(popt2)
-        popt2_ideal[0] = 2.5 / 2
+        popt2_ideal[0] = ideal_waist2 / 2
         popt2_ideal[1] = 1.0
         # popt2_ideal[2] = 40.0
 
@@ -402,6 +417,9 @@ if msq_fit:
         ax2.set_xlabel("Knife-edge height along optical axis [$\\mu$m]")
         ax2.set_ylim(0, maxsig*1.2)
         ax2.legend(loc=0)
+
+    else:
+        ax1.set_xlabel("Knife-edge height along optical axis [$\\mu$m]")
 
     fig.tight_layout()
 
@@ -417,12 +435,6 @@ if gauss_fit:
     else:
         f2, axarr2 = plt.subplots(1, sharex=True)
         ax1 = axarr2
-
-    def gauss_wconst(x, A, x0, w0, C):
-        return A * np.exp( -2 * (x-x0)**2 / (w0**2) ) + C
-        
-    def gauss(x, A, x0, w0):
-        return A * np.exp( -2 * (x-x0)**2 / (w0**2) )
     
     if msq_fit:
         bestfit = np.argmin(np.abs(np.array(hs) - popt[-1]))
@@ -498,6 +510,9 @@ if gauss_fit:
         ax2.set_ylim(popt4[0] * 1e-4, popt4[0] * 1.5)
         ax2.set_yscale('log')
         ax2.legend(loc=0)
+
+    else:
+        ax1.set_xlabel("Knife-edge position along beam [$\\mu$m]")
     
     f2.tight_layout()
 
