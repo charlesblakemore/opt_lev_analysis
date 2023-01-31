@@ -1,4 +1,4 @@
-import os, fnmatch
+import os, sys, fnmatch
 
 import numpy as np
 
@@ -140,17 +140,6 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
     tot_prof = []
     tot_t = []
 
-    if plot_peaks:
-        for peakind, pos_peak in enumerate(pos_peaks):
-            try:
-                neg_peak = neg_peaks[peakind]
-            except:
-                continue
-            plt.plot(t[pos_peak[0]], pos_peak[1], 'x', color='r')
-            plt.plot(t[neg_peak[0]], neg_peak[1], 'x', color='b')
-        plt.plot(t, grad)
-        plt.show()
-
     # since the chopper and ADC aren't triggered together and don't
     # have the same timebase, need to make sure only have nice pairs 
     # of peaks so we can look at forward going and backward going
@@ -168,9 +157,21 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
         neg_peaks = neg_peaks[1:]
 
     if len(pos_peaks) > len(neg_peaks):
-        pos_peaks = pos_peaks[:-1]
+        pos_peaks = pos_peaks[1:]
     elif len(neg_peaks) > len(pos_peaks):
-        neg_peaks = neg_peaks[1:]
+        neg_peaks = neg_peaks[:-1]
+
+    if plot_peaks:
+        plt.figure()
+        for peakind, pos_peak in enumerate(pos_peaks):
+            try:
+                neg_peak = neg_peaks[peakind]
+            except:
+                continue
+            plt.plot(t[pos_peak[0]], pos_peak[1], 'x', color='r')
+            plt.plot(t[neg_peak[0]], neg_peak[1], 'x', color='b')
+        plt.plot(t, grad)
+        plt.show()
 
     for ind, pos_peak in enumerate(pos_peaks):
         neg_peak = neg_peaks[ind]
@@ -233,8 +234,9 @@ def profile(df, raw_dat_col = 0, drum_diam=3.17e-2, return_pos=False, \
 
 
 
-def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
-                      return_pos=False, plot_peaks=False, guess=3e-3):
+def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.2004e-2, \
+                      return_pos=False, plot_peaks=False, guess=3e-3, \
+                      plot_raw_dat=False, plot_result=False):
     ''' Takes a directory path and profiles each file, and averages 
         for a final result
     
@@ -255,11 +257,21 @@ def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
     tot_x = []
     tor_prof = []
     nfiles = len(prof_files)
+
+    print(prof_files)
+
     for fil_ind, fil_path in enumerate(prof_files):
         bu.progress_bar(fil_ind, nfiles)
         prof_df = bu.DataFile()
         prof_df.load(fil_path, skip_fpga=True)
         prof_df.load_other_data()
+
+        if plot_raw_dat:
+            for i in range(prof_df.other_data.shape[0]):
+                plt.plot(prof_df.other_data[i,:], label=f'Ch. {i}')
+            plt.legend()
+            plt.show()
+            input()
 
         x, prof, popt = profile(prof_df, raw_dat_col = raw_dat_col, \
                                 drum_diam = drum_diam, return_pos = return_pos, \
@@ -271,8 +283,6 @@ def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
         #plt.show()
 
         #x, prof, errs = bu.rebin(x, prof, numbins=5000)
-        #plt.plot(x, prof)
-        #plt.show()
 
         if not len(tot_x):
             tot_x = x
@@ -282,6 +292,13 @@ def profile_directory(prof_dir, raw_dat_col = 0, drum_diam=3.25e-2, \
             tot_x = np.block([tot_x, x]) # = np.hstack((tot_x, x))
             tot_prof = np.block([tot_prof, prof]) # = np.hstack((tot_prof, prof))
             tot_popt.append(popt) # = np.concatenate((tot_popt, popt), axis=0)
+
+        if plot_result:
+            plt.figure()
+            plt.scatter(tot_x, tot_prof, alpha=0.01, marker='+', s=20)
+            plt.scatter(x, prof, alpha=0.01, marker='x', s=20)
+            plt.show()
+            input()
 
     #tot_x = np.concatenate(tot_x)
     #tot_prof = np.concatenate(tot_x)

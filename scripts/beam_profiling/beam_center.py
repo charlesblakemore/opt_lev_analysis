@@ -19,21 +19,21 @@ ysign = 0
 # bu.configuration.col_labels["stage_pos"] = [17, 18, 19]
 # data_dir1 = '/data/old_trap/20171026/profiling/xsweep_in2_5t_down1t_gf'
 # data_dir2 = '/data/old_trap/20171026/profiling/ysweep_in2_5t_down1t'
-# data_column = 5
-# data_column2 = data_column
+# data_column1 = 5
+# data_column2 = data_column1
 # ysign = 1.0
 
 
 # data_dir1 = '/data/old_trap/20180514/profiling/xsweep_final'
 # data_dir2 = '/data/old_trap/20180514/profiling/ysweep_final'
-# data_column = 3
-# data_column2 = data_column
+# data_column1 = 3
+# data_column2 = data_column1
 # ysign = -1.0
 
 # data_dir1 = '/data/old_trap/20190315/profiling/xsweep_adj13_atm'
 # data_dir2 = '/data/old_trap/20190315/profiling/ysweep_right_adj13_atm'
-# data_column = 1
-# data_column2 = data_column
+# data_column1 = 1
+# data_column2 = data_column1
 
 
 # data_dir1 = '/data/old_trap/20190902/profiling/post_trans/xsweep_vac_init'
@@ -47,7 +47,6 @@ ysign = 0
 # data_dir2 = '/data/old_trap/20201202/profiling/xsweep_init'
 
 
-bu.configuration.col_labels["stage_pos"] = [1, 2, 3]
 # data_dir1 = '/data/old_trap/20210624/profiling/xsweep_centered'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_centered'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj1'
@@ -56,15 +55,25 @@ bu.configuration.col_labels["stage_pos"] = [1, 2, 3]
 # data_dir1 = '/data/old_trap/20210624/profiling/xsweep_adj8'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj11'
 # data_dir1 = '/data/old_trap/20210624/profiling/ysweep_adj12'
-data_dir1 = '/data/old_trap/20220810/beam_profiling/xsweep_3Hz_init'
+data_dir1 = '/data/old_trap/20220810/beam_profiling/xsweep_y0um_3Hz_init'
+data_dir2 = '/data/old_trap/20220810/beam_profiling/ysweep_x30um_3_7Hz'
 
-# data_dir1 = '/data/old_trap/20210628/profiling/ysweep_afterclean'
+# data_dir2 = '/data/old_trap/20210628/profiling/ysweep_afterclean'
 # data_dir2 = '/data/old_trap/20210628/profiling/ysweep_afterclean_nolights'
-data_dir2 = '/data/old_trap/20210628/profiling/ysweep_adj9'
+# data_dir2 = '/data/old_trap/20210628/profiling/ysweep_adj9'
 # data_dir1 = '/data/old_trap/20210628/profiling/xsweep_adj10'
-# data_dir2 = '/data/old_trap/20210628/profiling/xsweep_adj11'
-data_column = 0
-data_column2 = data_column
+# data_dir1 = '/data/old_trap/20210628/profiling/xsweep_adj10'
+
+
+stage_cols1 = [1, 2, 3]
+stage_cols2 = [1, 2, 3]
+data_column1 = 0
+data_column2 = 0
+
+### For legacy data
+# data_column1 = 1
+# stage_cols1 = [2, 3, 4]
+
 ysign = 1.0
 
 
@@ -75,8 +84,8 @@ ideal_waist2 = 2.5   # um
 # debug_plot = True
 debug_plot = False
 
-# multi_dir = True
-multi_dir = False
+multi_dir = True
+# multi_dir = False
 
 height_to_plot = 0.
 
@@ -88,6 +97,9 @@ OFFSET = 0
 
 msq_fit = True
 gauss_fit = True
+gauss_fit_limits = [-2.5, 2.5]
+
+msq_with_gauss = True
 
 
 
@@ -117,6 +129,7 @@ def gauss_wconst(x, A, x0, w0, C):
     return A * np.exp( -2 * (x-x0)**2 / (w0**2) ) + C
     
 def gauss(x, A, x0, w0):
+    ### factor of two comes from INTENSITY vs EFIELD
     return A * np.exp( -2 * (x-x0)**2 / (w0**2) )
     
 
@@ -172,11 +185,6 @@ def profile(fname, data_column = 0, plot=False, nbin=200):
     int_filt = sig.filtfilt(b, a, df.other_data[data_column])
     proft = np.gradient(int_filt)
 
-    # proft = np.gradient(df.other_data[data_column])
-
-    #plt.plot(df.other_data[0])
-    #plt.show()
-
     stage_filt = sig.filtfilt(b, a, df.cant_data[stage_column, :])
     dir_sign = np.sign(np.gradient(stage_filt)) * sign
 
@@ -191,6 +199,12 @@ def profile(fname, data_column = 0, plot=False, nbin=200):
     b, y, e = bu.rebin(xvec[vec_inds[0]:vec_inds[1]], \
                        yvec[vec_inds[0]:vec_inds[1]], \
                        nbin=nbin, plot=False, correlated_errs=True)
+
+    plt.scatter(xvec[vec_inds[0]:vec_inds[1]], \
+                       yvec[vec_inds[0]:vec_inds[1]], \
+                       alpha=0.01)
+    plt.scatter(b, y)
+    plt.show()
 
     return b, y, e, h_round
 
@@ -233,7 +247,10 @@ class File_prof:
         #self.sigmasq = np.sum(self.bins**2*self.y)/norm
          
 
-def proc_dir(dir, data_column=0, plot=False):
+def proc_dir(dir, data_column=0, plot=False, stage_cols=[1,2,3]):
+
+    bu.configuration.col_labels["stage_pos"] = stage_cols
+
     files, lengths = bu.find_all_fnames(dir)
     file_profs = []
     hs = []
@@ -339,14 +356,14 @@ def plot_profs(fp_arr, title='', show=True):
     #fits beam profile data to extract M^2 value 
 
 
-file_profs, hs, sigmasqs = proc_dir(data_dir1, data_column=data_column, plot=debug_plot)
-
-
-
+file_profs, hs, sigmasqs = proc_dir(data_dir1, data_column=data_column1, plot=debug_plot, \
+                                    stage_cols=stage_cols1)
 
 
 if multi_dir:
-    fp2, hs2, sigsq2 = proc_dir(data_dir2, data_column=data_column2, plot=debug_plot)
+    fp2, hs2, sigsq2 = proc_dir(data_dir2, data_column=data_column2, \
+                                plot=debug_plot, \
+                                stage_cols=stage_cols2)
     ind = np.argmin(np.abs(hs - height_to_plot))
     ind2 = np.argmin(np.abs(hs2 - height_to_plot))
     # plot_profs([file_profs[ind]] + [fp2[ind2]])
@@ -385,14 +402,30 @@ if msq_fit:
     else:
         maxsig = np.max(sigmasqs)
     
+    n_ideal = 100
+    fit_colors = bu.get_colormap(n_ideal, bu.truncate_colormap('inferno', vmax=0.5), \
+                                 buffer=False, invert=True)
+    waist_arr1 = np.linspace(ideal_waist1, 2.0*popt[0], n_ideal)
+
     popt_ideal = np.copy(popt)
-    popt_ideal[0] = ideal_waist1 / 2
+    popt_ideal[0] = waist_arr1[0] / 2.0
     popt_ideal[1] = 1.0
-    # popt_ideal[2] = 40.0
 
     ax1.plot(hs, sigmasqs, 'o')
     ax1.plot(hplt, Szsq(hplt, *popt), 'r', linewidth=2, label="$M^2={:0.2g}$".format(popt[1]**2))
     ax1.plot(hplt, Szsq(hplt, *popt_ideal), 'r', linewidth=2, ls='--', alpha=0.6)
+
+    # ax1.plot(hplt, Szsq(hplt, *popt), color=fit_colors[0], linewidth=2, \
+    #          label="$M^2={:0.2g}$".format(popt[1]**2))
+    # for ideal_ind, color in enumerate(fit_colors):
+    #     if ideal_ind == n_ideal - 1:
+    #         break
+    #     popt_ideal = np.copy(popt)
+    #     popt_ideal[0] = waist_arr1[ideal_ind] / 2.0
+    #     popt_ideal[1] = 1.0
+    #     ax1.plot(hplt, Szsq(hplt, *popt_ideal), linewidth=2, \
+    #              color=bu.lighten_color(fit_colors[ideal_ind], 1.0))
+
     ax1.set_title("Focus at $h = {:0.3g}~\\mu$m, 'Waist' $W_0 = {:0.2g}~\\mu$m"\
                         .format(popt[-1], 2*popt[0]), fontsize=14)
     # ax1.set_ylabel("$\\sigma_x^2$ [$\\mu{\\rm m}^2$]")
@@ -401,6 +434,8 @@ if msq_fit:
     ax1.legend(loc=0)
 
     if multi_dir:
+
+        waist_arr2 = np.linspace(ideal_waist2, 2.0*popt2[0], 100)
     
         popt2_ideal = np.copy(popt2)
         popt2_ideal[0] = ideal_waist2 / 2

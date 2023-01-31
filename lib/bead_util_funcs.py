@@ -1126,7 +1126,8 @@ def spatial_bin(drive, resp, dt, nbins=100, nharmonics=10, harms=[], \
         ginds = np.ones(len(grad[sortinds]), dtype=np.bool)
 
     bin_spacing = (maxdrive - mindrive) * (1.0 / nbins)
-    drivevec = np.linspace(mindrive+0.5*bin_spacing, maxdrive-0.5*bin_spacing, nbins)
+    drivevec = np.linspace(mindrive+0.5*bin_spacing, \
+                           maxdrive-0.5*bin_spacing, nbins)
     
     ### This part is slow, don't really know the best way to fix that....
     respvec = []

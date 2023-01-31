@@ -39,19 +39,37 @@ yfilobj.load_other_data()
 # xprof_dir = '/daq2/20190311/profiling/tele_out_coll/xprof_150cm_init2'
 # yprof_dir = '/daq2/20190311/profiling/tele_out_coll/yprof_150cm_init2'
 
-xprof_dir = '/data/old_trap/20171025/chopper_profiling/xprof_output'
-yprof_dir = '/data/old_trap/20171025/chopper_profiling/yprof_output'
+xprof_dir = '/data/old_trap/20171024/alignment/objective_coll_x_dummy'
+yprof_dir = '/data/old_trap/20171024/alignment/objective_coll_y_dummy'
 
-# xprof_dir = '/data/old_trap/20201204/chopper_profiling/telescope_mid_xprof'
-# yprof_dir = '/data/old_trap/20201204/chopper_profiling/telescope_mid_yprof'
+# xprof_dir = '/data/old_trap/20171025/chopper_profiling/xprof_output'
+# yprof_dir = '/data/old_trap/20171025/chopper_profiling/yprof_output'
+raw_dat_col=7
+
+# xprof_dir = '/data/old_trap/20201204/chopper_profiling/no_telescope_near_xprof'
+# yprof_dir = '/data/old_trap/20201204/chopper_profiling/no_telescope_near_yprof'
 
 
-x_d, x_prof, x_popt = chopfuncs.profile_directory(xprof_dir, raw_dat_col=7, \
-                                                  plot_peaks=False, return_pos=True, \
-                                                  guess=7e-3)
-y_d, y_prof, y_popt = chopfuncs.profile_directory(yprof_dir, raw_dat_col=7, \
-                                                  plot_peaks=False, return_pos=True, \
-                                                  guess=7e-3)
+# plot_raw_dat = True
+plot_raw_dat = False
+# plot_result = True
+plot_result = False
+# plot_rebin = True
+plot_rebin = False
+
+
+
+
+x_d, x_prof, x_popt = chopfuncs.profile_directory(\
+                            xprof_dir, raw_dat_col=raw_dat_col, \
+                            plot_peaks=False, return_pos=True, \
+                            guess=3.0e-3, plot_raw_dat=plot_raw_dat, \
+                            plot_result=plot_result)
+y_d, y_prof, y_popt = chopfuncs.profile_directory(\
+                            yprof_dir, raw_dat_col=raw_dat_col, \
+                            plot_peaks=False, return_pos=True, \
+                            guess=3.0e-3, plot_raw_dat=plot_raw_dat, \
+                            plot_result=plot_result)
 
 
 #x_d, x_prof, x_popt = chopfuncs.profile(xfilobj, raw_dat_col = 0, \
@@ -70,8 +88,10 @@ x_popt[0] = 1.0
 y_popt[0] = 1.0
 
 
-binned_x_d, binned_x_prof, x_errs = bu.rebin(x_d, x_prof, nbin=200)
-binned_y_d, binned_y_prof, y_errs = bu.rebin(y_d, y_prof, nbin=200)
+binned_x_d, binned_x_prof, x_errs = \
+    bu.rebin(x_d, x_prof, nbin=1000, plot=plot_rebin)
+binned_y_d, binned_y_prof, y_errs = \
+    bu.rebin(y_d, y_prof, nbin=1000, plot=plot_rebin)
 
 
 
@@ -117,7 +137,7 @@ axarr1[1].set_ylabel("Y Intensity [arb]", fontsize=fontsize)
 plt.setp(axarr1[1].get_xticklabels(), fontsize=fontsize, visible=True)
 plt.setp(axarr1[1].get_yticklabels(), fontsize=fontsize, visible=True)
 
-plt.tight_layout(pad=1.0, w_pad=1.0, h_pad=1.0)
+fig1.tight_layout(pad=1.0, w_pad=1.0, h_pad=1.0)
 
 if plot_title:
     plt.suptitle(plot_title, fontsize=20)
@@ -152,7 +172,7 @@ axarr2[0].set_ylim(1e-4,3)
 plt.setp(axarr2[1].get_xticklabels(), fontsize=fontsize, visible=True)
 plt.setp(axarr2[1].get_yticklabels(), fontsize=fontsize, visible=True)
 
-plt.tight_layout(pad=1.0, w_pad=1.0, h_pad=1.0)
+fig2.tight_layout(pad=1.0, w_pad=1.0, h_pad=1.0)
 
 if plot_title:
     plt.suptitle(plot_title, fontsize=20)
@@ -178,7 +198,7 @@ axarr3[1].set_ylabel("Y Intensity [arb]", fontsize=fontsize)
 plt.setp(axarr3[1].get_xticklabels(), fontsize=fontsize, visible=True)
 plt.setp(axarr3[1].get_yticklabels(), fontsize=fontsize, visible=True)
 
-plt.tight_layout(pad=1.0, w_pad=1.0, h_pad=0.5)
+fig3.tight_layout(pad=1.0, w_pad=1.0, h_pad=0.5)
 
 if plot_title:
     plt.suptitle(plot_title, fontsize=20)

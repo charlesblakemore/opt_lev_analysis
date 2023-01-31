@@ -24,6 +24,7 @@ maxfiles = 500
 dir1 = '/data/old_trap/20200307/gbead1/junk/elec5/'
 dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init/'
 
+dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init/'
 
 use_dir = False
 
@@ -70,27 +71,40 @@ use_dir = False
 #             ]
 
 
-allfiles  = [
-             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool.h5',
-             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low1.h5',
-             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low2.h5',
-             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low3.h5',
-             '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low4.h5',
-            ]
+# allfiles  = [
+#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool.h5',
+#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low1.h5',
+#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low2.h5',
+#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low3.h5',
+#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low4.h5',
+#             ]
+
+
+
+# allfiles  = [
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-pid.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low1.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low2.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low3.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low4.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low5.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low6.h5',
+#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low7.h5',
+#             ]
 
 
 
 allfiles  = [
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-pid.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low1.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low2.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low3.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low4.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low5.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low6.h5',
-             '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low7.h5',
+             '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff15000.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff10000.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff5000.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff2500.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0.h5',
+             '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_zalign.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_refl_blocked.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_last.h5',
+             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_zdisc.h5',
             ]
-
 
 
 # allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
@@ -103,6 +117,7 @@ tfdate = '20190619'  # Bangs bead
 tfdate = '20200327'  # gbead
 tfdate = ''
 tf_plot = False
+diag = False
 
 # filename_labels = True 
 filename_labels = False
@@ -123,7 +138,7 @@ cant_axes = []
 #cant_axes = [0,1,2]
 #other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
-plot_power = False
+plot_power = True
 
 drive_ax = 1
 
@@ -147,12 +162,10 @@ lpf = 2500   # Hz
 #file_inds = (0, 3)
 file_inds = (0, 100)
 
+fullNFFT = False
 userNFFT = 2**12
-diag = False
 
-fullNFFT = True
-
-cascade = True
+cascade = False
 cascade_fac = 0.1
 
 #window = mlab.window_hanning

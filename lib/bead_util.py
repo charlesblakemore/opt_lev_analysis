@@ -399,7 +399,7 @@ class DataFile:
 
         fname = os.path.abspath(fname)
 
-        dat1, dat2, dat3, dat4, dat5, dat6, attribs = getdata_new(fname)
+        data_dict, attribs = getdata_new(fname)
 
         # if plot_raw_dat:
         #     for n in range(20):
@@ -413,12 +413,15 @@ class DataFile:
 
         self.fsamp = attribs['Fsamp'] / attribs['downsamp']
 
-        self.pos_time, self.pos_data, self.pos_data_2, self.pos_fb, self.sync_data \
-                    = extract_xyz_new(dat1)
-        self.quad_time, self.amp, self.phase = extract_quad_new(dat2)
-        self.other_data = dat3
-        self.cant_data = dat4
-        self.power = dat6
+        self.pos_time, self.pos_data, self.pos_data_2, \
+                self.pos_fb, self.sync_data \
+            = extract_xyz_new(data_dict['pos_data'])
+        self.quad_time, self.amp, self.phase \
+            = extract_quad_new(data_dict['quad_data'])
+        self.spin_data = data_dict['spin_data']
+        self.cant_data = data_dict['cant_data']
+        self.power = data_dict['laser_power']
+        self.p_trans = data_dict['p_trans']
 
         self.nsamp = len(self.pos_data[0])
 
@@ -432,7 +435,7 @@ class DataFile:
         self.electrode_settings['frequencies'] = np.zeros(8)
         self.electrode_settings['dc_settings'] = np.zeros(8)
 
-        if len(dat5):
+        if len(data_dict['electrode_data']):
 
             ### Since the actual electrode data isn't saved (only 1-s portions because
             ### that totally makes sense, but hey I'm not in charge in the new setup)
@@ -445,7 +448,7 @@ class DataFile:
             trans_func = False
             if 'Discharge' in self.fname:
                 discharge = True
-                amp = np.sqrt(2) * np.std(dat5[0])
+                amp = np.sqrt(2) * np.std(data_dict['electrode_data'][0])
             elif 'TransFunc' in self.fname:
                 trans_func = True
                 amp = 0.65
@@ -453,10 +456,12 @@ class DataFile:
                 amp = 1.0
 
             tarr = np.arange(self.nsamp) * (1.0 / self.fsamp)
-            dumb_tarr = np.arange(dat5.shape[1]) * (1.0 / self.fsamp)
+            dumb_tarr = np.arange(data_dict['electrode_data'].shape[1]) \
+                            * (1.0 / self.fsamp)
 
             freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
-            dumb_freqs = np.fft.rfftfreq(dat5.shape[1], d=1.0/self.fsamp)
+            dumb_freqs = np.fft.rfftfreq(data_dict['electrode_data'].shape[1], \
+                                         d=1.0/self.fsamp)
             #elec_data = np.zeros((8,self.nsamp))
             elec_data = (1.0e-9) * amp * np.random.randn(8,self.nsamp)
 
@@ -471,7 +476,7 @@ class DataFile:
 
                 self.electrode_settings['driven'][elec_ind] = 1.0
                 self.electrode_settings['amplitudes'][elec_ind] = amp
-                fft = np.fft.rfft(dat5[ind])
+                fft = np.fft.rfft(data_dict['electrode_data'][ind])
 
                 if discharge:
                     max_freq = dumb_freqs[np.argmax(np.abs(fft[1:])) + 1]

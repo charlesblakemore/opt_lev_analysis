@@ -8,24 +8,30 @@ import scipy.signal as signal
 from scipy.special import erf
 from scipy.optimize import curve_fit
 
-
+plt.rcParams.update({'font.size': 14})
 
 
 data_dir = '/data/new_trap/20200320/Bead1/Shaking/'
 
-xfiles, _ = bu.find_all_fnames(data_dir, ext='.h5', substr='_X_', \
-                               skip_subdirectories=True)
-yfiles, _ = bu.find_all_fnames(data_dir, ext='.h5', substr='_Y_', \
+data_dir = '/data/new_trap/20220830/BeamProfile_Y_device0/'
+
+xfiles = []
+# xfiles, _ = bu.find_all_fnames(data_dir, ext='.h5', substr='_X_', \
+#                                skip_subdirectories=True)
+yfiles, _ = bu.find_all_fnames(data_dir, ext='.h5', substr='Y_', \
                                skip_subdirectories=True)
 
-nbins = 300
+nbin = 1000
 
-plot_raw_data = False
+plot_raw_data = True
 log_profs = True
 
 gauss_fit = True
 
-use_quad_sum = True
+use_quad_sum = False
+
+
+exclude_points = 500
 
 
 
@@ -47,7 +53,8 @@ class Profile:
     '''Class storing information from a single file, with methods to add
        data from other files and compute average profiles.'''
     
-    def __init__(self, fname, load=True, nbins=300):
+    def __init__(self, fname, load=True, nbin=300, \
+                 exclude_points=0, plot_raw_data=False):
         self.fname = fname
         self.mean = "mean not computed"
         self.sigmasq = "std dev not computed"
@@ -55,7 +62,10 @@ class Profile:
         self.date = re.search(r"\d{8,}", fname)[0]
 
         if load:
-            profile_data = self.get_profile(self.fname, nbins=nbins)
+            profile_data = self.get_profile(\
+                self.fname, nbin=nbin, \
+                exclude_points=exclude_points, \
+                plot_raw_data=plot_raw_data)
 
             self.profile = profile_data['profile']
             self.integral = profile_data['integral']
@@ -64,10 +74,13 @@ class Profile:
             self.int_dx = np.abs(self.integral[0][1] - self.integral[0][0])
 
 
-    def get_profile(self, fname, nbins=300, plot_raw_data=False):
+    def get_profile(self, fname, nbin=300, exclude_points=0, \
+                    plot_raw_data=False):
 
         df = bu.DataFile()
         df.load_new(fname)
+
+        print(fname)
 
         df.calibrate_stage_position()
 
@@ -80,18 +93,37 @@ class Profile:
             elif 'right' in fname:
                 sign = 1.0
             else:
-                sign = -1.0
+                sign = 1.0
         else:
             stage_column = 0
             sign = 1.0
 
         if plot_raw_data:
-            plt.plot(np.sum(df.amp[:4], axis=0))
+
+            tvec = (df.pos_time - df.time)*1e-9
+
+            try:
+                plt.plot(tvec, df.p_trans, label='P. Trans.')
+            except:
+                if use_quad_sum:
+                    plt.plot(tvec, np.sum(df.amp[:4], axis=0), \
+                             label='Quad sum')
+                else:
+                    plt.plot(df.spin_data, label='Spin PD')
+
+            plt.xlabel('Time [s]')
+            plt.ylabel('Photodiode signal [V]')
+            plt.legend()
+            plt.tight_layout()
 
             plt.figure()
             for j in range(3):
-                plt.plot(df.cant_data[j,:], label=str(j))
+                plt.plot(tvec, df.cant_data[j,:], label=str(j))
+
+            plt.xlabel('Time [s]')
+            plt.ylabel('Knife-edge position [$\\mu$m]')
             plt.legend()
+            plt.tight_layout()
 
             plt.show()
 
@@ -101,31 +133,46 @@ class Profile:
         if h_round < 10.0:
             h_round = bu.round_sig(h_round, sig=1)
 
-        if use_quad_sum:
-            sig = np.sum(df.amp[:4], axis=0)
-        else:
-            sig_hf = df.other_data
-            sig_ds = signal.resample(sig_hf, len(df.cant_data[stage_column]), window=None)
-            sig = -1.0 * sig_ds + np.max(sig_ds)
+        try:
+            sig = df.p_trans
+            if not(len(sig)):
+                raise ValueError('No "p_trans" attribute...')
+        except ValueError:
+            if use_quad_sum:
+                sig = np.sum(df.amp[:4], axis=0)
+            else:
+                sig_hf = df.spin_data
+                sig_ds = signal.resample(sig_hf, \
+                                         len(df.cant_data[stage_column]), \
+                                         window=None)
+                sig = -1.0 * sig_ds + np.max(sig_ds)
 
-            # plt.plot(sig)
-            # plt.show()
 
-            # input()
+        xvec = df.cant_data[stage_column,:]
+
+        if exclude_points:
+            sig = sig[exclude_points:-1*exclude_points]
+            xvec = xvec[exclude_points:-1*exclude_points]
 
         proft = np.gradient(sig)
+        dir_sign = np.sign(np.gradient(xvec)) * sign
 
-        dir_sign = np.sign(np.gradient(df.cant_data[stage_column])) * sign
+        yvec = (proft - proft * dir_sign) * 0.5 \
+                    - (proft + proft * dir_sign) * 0.5
 
-        xvec = df.cant_data[stage_column, :]
-        yvec = (proft - proft * dir_sign) * 0.5 - (proft + proft * dir_sign) * 0.5
+        b_int, y_int, e_int = bu.rebin(xvec, sig, nbin=nbin,\
+                                       plot=False)
 
-        b_int, y_int, e_int = bu.spatial_bin(xvec, sig, dt, nbins=nbins,\
-                                             nharmonics=300, \
-                                             add_mean=True, plot=False)
+        plt.scatter(xvec, sig)
+        plt.scatter(b_int, y_int)
+        # plt.show()
 
-        b, y, e = bu.spatial_bin(xvec, yvec, dt, nbins=nbins, nharmonics=300, \
-                                 add_mean=True, plot=False)
+        b, y, e = bu.rebin(xvec, yvec, nbin=nbin, plot=False)
+
+        plt.figure()
+        plt.scatter(xvec, yvec)
+        plt.scatter(b, y)
+        plt.show()
 
         self.profile = [b, y, e]
         self.integral = [b_int, y_int, e_int]
@@ -165,16 +212,16 @@ class Profile:
 
 
 
-    def rebin_profile(self, nbins=300, plot=False):
+    def rebin_profile(self, nbin=300, plot=False):
 
         x, y, e = bu.rebin(self.profile[0], self.profile[1], \
-                           errs=self.profile[2], nbins=nbins, \
+                           errs=self.profile[2], nbin=nbin, \
                            plot=plot)
         self.profile = [x, y, e]
         self.prof_dx = np.abs(x[1] - x[0])
 
         x2, y2, e2 = bu.rebin(self.integral[0], self.integral[1], \
-                              errs=self.integral[2], nbins=nbins, \
+                              errs=self.integral[2], nbin=nbin, \
                               plot=plot)
         self.integral = [x2, y2, e2]
         self.int_dx = np.abs(x2[1] - x2[0])
@@ -204,11 +251,13 @@ class Profile:
          
 
 
-    def fit_integral(self, plot=False):
+    def fit_integral(self, flatten_errs=False, plot=False):
 
         xvec = self.integral[0]
         yvec = self.integral[1]
         errs = self.integral[2]
+        if flatten_errs:
+            errs = 0.01 * yvec
 
         if yvec[0] > yvec[-1]:
             def fit_func(x, a, b, c, d):
@@ -220,7 +269,7 @@ class Profile:
                 return a * erf( b * (x - c) ) + d
 
         a_guess = 0.5 * np.max(yvec)
-        b_guess = 0.005 * np.abs(xvec[-1] - xvec[0])
+        b_guess = 1.0 / (0.02 * np.abs(xvec[-1] - xvec[0]))
         c_guess = xvec[np.argmin(np.abs(yvec - 0.5*a_guess))]
         d_guess = np.min(yvec)
         p0 = [a_guess, b_guess, c_guess, d_guess]
@@ -249,12 +298,13 @@ class Profile:
 
 
 
-def proc_dir(files, nbins=300, plot_raw_data=False):
+def proc_dir(files, nbin=300, exclude_points=0, plot_raw_data=False):
 
     avg_profs = []
     hs = []
     for fi in files:
-        prof = Profile(fi)
+        prof = Profile(fi, exclude_points=exclude_points, \
+                       plot_raw_data=plot_raw_data)
         h = prof.cant_height
         if h not in hs:
             ### if new height then create new profile object
@@ -269,9 +319,9 @@ def proc_dir(files, nbins=300, plot_raw_data=False):
             
     #now rebin all profiles
     for fp in avg_profs:
-        if len(fp.profile[0]) <= nbins:
+        if len(fp.profile[0]) <= nbin:
             continue
-        fp.rebin_profile(nbins=nbins, plot=False)
+        fp.rebin_profile(nbin=nbin, plot=False)
         fp.fit_integral(plot=True)
 
     sigmasqs = []
@@ -297,6 +347,7 @@ def plot_profs(fp_arr):
     fp_arr_sort = sorted(fp_arr, key = lambda fp: fp.cant_height)
 
     for fp_ind, fp in enumerate(fp_arr_sort):
+        max_val = np.max(fp.profile[1])
         color = colors[fp_ind]
         #plt.errorbar(fp.bins, fp.y, fp.errors, label = str(np.round(fp.cant_height)) + 'um')
         # if multi_dir:
@@ -308,7 +359,8 @@ def plot_profs(fp_arr):
         #     plt.plot(fp.bins, fp.y / np.max(fp.y), 'o', label = lab, color=color)
         #     plt.ylim(10**(-5), 10)
         # else:
-        plt.plot(fp.profile[0], fp.profile[1], 'o', label=lab, color=color)
+        plt.plot(fp.profile[0], fp.profile[1]/max_val, 'o', \
+                 label=lab, color=color)
     plt.xlabel("Position [um]")
     plt.ylabel("margenalized irradiance ~[W/m]")
     if log_profs:
@@ -329,12 +381,24 @@ def Szsq(z, s0, M, z0, lam = 1.064):
 
 
 
+x_profs = None; y_profs = None
+if len(xfiles):
+    x_profs, x_hs, x_sigmasqs = proc_dir(xfiles, nbin=nbin, \
+                                         exclude_points=exclude_points, \
+                                         plot_raw_data=plot_raw_data)
+if len(yfiles):
+    y_profs, y_hs, y_sigmasqs = proc_dir(yfiles, nbin=nbin, \
+                                         exclude_points=exclude_points, \
+                                         plot_raw_data=plot_raw_data)
 
-x_profs, x_hs, x_sigmasqs = proc_dir(xfiles, plot_raw_data=plot_raw_data)
-y_profs, y_hs, y_sigmasqs = proc_dir(yfiles, plot_raw_data=plot_raw_data)
-
-plot_profs(x_profs)
-plot_profs(y_profs)
+if x_profs is not None:
+    plot_profs(x_profs)
+    for profile in x_profs:
+        profile.fit_integral(flatten_errs=True, plot=True)
+if y_profs is not None:
+    plot_profs(y_profs)
+    for profile in y_profs:
+        profile.fit_integral(flatten_errs=True, plot=True)
 
 
 

@@ -81,6 +81,7 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
        attribs dictionary, converting ADC bits into 
        volatage. The h5 file is closed.'''
 
+    outdic = {}
     message = ''
     try:
         try:
@@ -91,33 +92,39 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
             raise
 
         try:
-            dset1 = np.copy(f['pos_data'])
-            dset2 = np.copy(f['quad_data'])
+            outdic['pos_data'] = np.copy(f['pos_data'])
+            outdic['quad_data'] = np.copy(f['quad_data'])
 
             try:
-                dset3 = np.copy(f['spin_data'])
+                outdic['spin_data'] = np.copy(f['spin_data'])
             except Exception:
-                dset3 = []
+                outdic['spin_data'] = []
                 print('No spin data')
 
             try:
-                dset4 = np.copy(f['cant_data'])
+                outdic['cant_data'] = np.copy(f['cant_data'])
                 cant_settings = np.copy(f['cantilever_settings'])
             except Exception:
-                dset4 = []
+                outdic['cat_data'] = []
                 print('No attractor data')
 
             try:
-                dset5 = np.copy(f['electrode_data'])
+                outdic['electrode_data'] = np.copy(f['electrode_data'])
             except Exception:
-                dset5 = []
+                outdic['electrode_data'] = []
                 print('No electrode data')
 
             try:
-                dset6 = np.copy(f['laser_power'])
+                outdic['laser_power'] = np.copy(f['laser_power'])
             except Exception:
-                dset6 = []
+                outdic['laser_power'] = []
                 print('No power data')
+
+            try:
+                outdic['p_trans'] = np.copy(f['p_trans'])
+            except Exception:
+                outdic['p_trans'] = []
+                print('No transmitted power data')
 
             attribs = copy_attribs(f.attrs)
 
@@ -145,7 +152,7 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
         f = []
         traceback.print_exc()
 
-    return dset1, dset2, dset3, dset4, dset5, dset6, attribs
+    return outdic, attribs
 
 
 
