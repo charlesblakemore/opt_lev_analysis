@@ -1,7 +1,7 @@
 import h5py, os, sys, re, traceback
 import numpy as np
 
-import configuration as config
+import configuration
 
 import warnings
 

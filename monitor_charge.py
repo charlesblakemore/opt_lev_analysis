@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import bead_util as bu
 
 
-dirname = '/data/20230306/bead2/discharge/'
+# dirname = '/data/20230306/bead2/discharge/'
+dirname = '/data/old_trap/20200727/bead1/discharge/fine/'
 
-bu.config.col_labels['electrodes'] = [0, 1, 2, 3, 4, 5, 6, 7]
+bu.configuration.col_labels['electrodes'] = [0, 1, 2, 3, 4, 5, 6, 7]
 
 elec_ind = 3
 pos_ind = 0  # {0: x, 1: y, 2: z}
