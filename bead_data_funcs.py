@@ -1,4 +1,5 @@
-import h5py, os, sys, re
+import h5py, os, sys, re, traceback
+import numpy as np
 
 import configuration as config
 
@@ -39,7 +40,7 @@ def getdata(fname, gain_error=1.0, verbose=False):
             f.close()
             traceback.print_exc()
             raise
-
+            
         dat = np.transpose(dset)
         dat = dat / adc_fac
         attribs = copy_attribs(dset.attrs)
