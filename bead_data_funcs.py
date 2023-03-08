@@ -1,4 +1,4 @@
-import h5py, os, sys, re, traceback
+import h5py, os, sys, re, traceback, xmltodict
 import numpy as np
 
 import configuration
@@ -541,9 +541,10 @@ def get_fpga_data(fname, timestamp=0.0, verbose=False):
     if len(dat1):
         # Use subroutines to handle each type of data
         # raw_time, raw_dat = extract_raw(dat0, timestamp)
-        quad_time, amp, phase = extract_quad(dat1, timestamp, verbose=verbose)
-        xyz_time, xyz, xy_2, xyz_fb, sync = extract_xyz(dat2, timestamp, verbose=verbose, \
-                                                        plot_raw_xyz_dat=False)
+        quad_time, amp, phase = \
+            extract_quad(dat1, timestamp, verbose=verbose)
+        xyz_time, xyz, xy_2, xyz_fb, sync = \
+            extract_xyz(dat2, timestamp, verbose=verbose)
         if len(dat3):
             pow_time, power, power_fb = extract_power(dat3, timestamp, verbose=verbose)
     else:

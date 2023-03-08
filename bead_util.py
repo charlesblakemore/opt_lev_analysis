@@ -102,7 +102,7 @@ class DataFile:
 
 
         # If it's not an imgrid file, process all the fpga data
-        if (not imgrid) and (not skip_fpga):
+        if not skip_fpga:
             fpga_fname = fname[:-3] + '_fpga.h5'
 
             ### This date isn't final yet. Haven't looked over all the relevant data 
@@ -110,9 +110,13 @@ class DataFile:
             ### output FIFOs, but it was relatively soon after the initial implementation
             ### of the FPGA data readout on 20180601
             if int(self.date) < 20180701:
-                fpga_dat = get_fpga_data_2018(fpga_fname, verbose=verbose, timestamp=self.time)
+                fpga_dat = get_fpga_data_2018(fpga_fname, \
+                                              verbose=verbose, \
+                                              timestamp=self.time)
             else:
-                fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
+                fpga_dat = get_fpga_data(fpga_fname, \
+                                         verbose=verbose, \
+                                         timestamp=self.time)
 
             try:
                 encode = attribs["encode_bits"]

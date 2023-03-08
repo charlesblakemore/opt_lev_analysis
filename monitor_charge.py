@@ -1,4 +1,4 @@
-import os
+import os, time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ bu.configuration.col_labels['electrodes'] = [0, 1, 2, 3, 4, 5, 6, 7]
 elec_ind = 3
 pos_ind = 0  # {0: x, 1: y, 2: z}
 
-ts = 0.5
+ts = 10.0
 
 
 ########
@@ -67,7 +67,8 @@ while True:
         max_corr.append(corr)
         inphase_corr.append( (corr * np.exp( 1.0j * (phase[ind] - dphase[ind]) )).real )
 
-        ax.clear()
+        ax.cla()
+        ax2.cla()
 
         ax.plot(max_corr)
         plt.pause(0.001)
@@ -82,7 +83,12 @@ while True:
         plt.draw()
 
         old_mrf = mrf
-        np.savetxt(os.path.join(dirname, "current_corr.txt"), inphase_corr[-1])
+        try:
+            np.savetxt(os.path.join(dirname, "current_corr.txt"), \
+                       inphase_corr[-1])
+        except:
+            print("Can't save current correlation to: ")
+            print(f"    <{dirname}>")
 
     time.sleep(ts)
 
