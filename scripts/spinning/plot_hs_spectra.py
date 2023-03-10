@@ -69,6 +69,8 @@ plt.rcParams.update({'font.size': 16})
 # dirname = '/data/old_trap/20200924/bead1/spinning/junk/110kHz_start_2'
 
 dirname  = '/data/old_trap/20201113/bead1/spinning/dipole_meas/initial'
+dirname  = '/data/old_trap/20230306/bead4/spinning/spinup2'
+dirname  = '/data/old_trap/20230306/bead4/spinning/25kHz_steady_state'
 
 use_dir = True
 #use_dir = False
@@ -100,10 +102,10 @@ labels = []
 
 #file_inds = (-10,-1)
 file_inds = (0, 100)
-file_step = 10
+file_step = 1
 
 userNFFT = 2**20
-fullNFFT = False
+fullNFFT = True
 
 # plot_freqs = (55000.0, 65000.0)
 plot_freqs = (10.0, 250000.0)
@@ -170,7 +172,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
     old_per = 0
     print("Processing %i files..." % len(files))
     for fil_ind, fil in enumerate(files):
-        print(fil)
 
         color = colors[fil_ind]
         

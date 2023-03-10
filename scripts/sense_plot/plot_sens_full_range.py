@@ -16,7 +16,7 @@ xlim = (5e-8, 1e15) # limit in meter
 ylim = (1e-12, 1e12)
 
 
-savefig = True
+savefig = False
 fig_path = '/home/cblakemore/plots/thesis/alpha_lambda_full_range.svg'
 
 

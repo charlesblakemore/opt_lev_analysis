@@ -155,7 +155,6 @@ class DataFile:
         self.new_trap = False
 
         fname = os.path.abspath(fname)
-
         dat, attribs = getdata(fname)
 
         if plot_raw_dat:
@@ -167,13 +166,19 @@ class DataFile:
 
         self.fname = fname
         self.date = re.search(r"\d{8,}", fname)[0]
-        #print fname
 
-        # self.time = np.uint64(attribs["time"])   # unix epoch time in ns (time.time() * 10**9)
         try:
-            self.time = attribs["time"]
+            try:
+                self.time = attribs["time"]
+            except:
+                self.time = attribs["Time"]
         except:
-            self.time = attribs["Time"]
+            try:
+                ### Convert the system time to nanoseconds to be
+                ### consistent with the other data
+                self.time = os.stat(fname).st_ctime * 1e9
+            except:
+                self.time = 0
 
 
         if self.time == 0:
@@ -213,14 +218,19 @@ class DataFile:
         if (not imgrid) and (not skip_fpga):
             fpga_fname = fname[:-3] + '_fpga.h5'
 
-            ### This date isn't final yet. Haven't looked over all the relevant data 
-            ### folders to see exactly when we added the feedback signals into the
-            ### output FIFOs, but it was relatively soon after the initial implementation
-            ### of the FPGA data readout on 20180601
+            ### This date isn't final yet. Haven't looked over all the  
+            ### relevant data folders to see exactly when we added the 
+            ### feedback signals into the output FIFOs, but it was 
+            ### relatively soon after the initial implementation of the
+            ### FPGA data readout on 20180601
             if int(self.date) < 20180701:
-                fpga_dat = get_fpga_data_2018(fpga_fname, verbose=verbose, timestamp=self.time)
+                fpga_dat = get_fpga_data_2018(\
+                                fpga_fname, verbose=verbose, \
+                                timestamp=self.time)
             else:
-                fpga_dat = get_fpga_data(fpga_fname, verbose=verbose, timestamp=self.time)
+                fpga_dat = get_fpga_data(\
+                                fpga_fname, verbose=verbose, \
+                                timestamp=self.time)
 
             try:
                 encode = attribs["encode_bits"]
@@ -232,8 +242,9 @@ class DataFile:
                 self.encode_bits = []
                 traceback.print_exc()
 
-            fpga_dat = sync_and_crop_fpga_data(fpga_dat, self.time, self.nsamp, \
-                                                   self.encode_bits, plot_sync=plot_sync)
+            fpga_dat = sync_and_crop_fpga_data(\
+                            fpga_dat, self.time, self.nsamp, \
+                            self.encode_bits, plot_sync=plot_sync)
 
             # IT CAN ONLY FIX THE TIME ATTRIB IF THE PARENT SCRIPT IS EXECUTED
             # AS ROOT OR ANY SUPERUSER
@@ -389,8 +400,7 @@ class DataFile:
 
 
 
-    def load_new(self, fname, plot_raw_dat=False, skip_mon=False, \
-                    verbose=False):
+    def load_new(self, fname, skip_mon=False, verbose=False):
 
         '''Loads the data from file with fname into DataFile object. 
            Does not perform any calibrations.  
@@ -398,26 +408,37 @@ class DataFile:
         self.new_trap = True
 
         fname = os.path.abspath(fname)
-
         data_dict, attribs = getdata_new(fname)
 
-        # if plot_raw_dat:
-        #     for n in range(20):
-        #         plt.plot(dat[:,n], label=str(n))
-        #     plt.legend()
-        #     plt.show()
-        
+        try:
+            try:
+                self.time = attribs["time"]
+            except:
+                self.time = attribs["Time"]
+        except:
+            try:
+                ### Convert the system time to nanoseconds to be
+                ### consistent with the other data
+                self.time = os.stat(fname).st_ctime * 1e9
+            except:
+                self.time = 0
+
+        if self.time == 0:
+            #print 'Bad time...', self.time
+            self.FIX_TIME = True
+        else:
+            self.FIX_TIME = False
+
         self.fname = fname
         self.date = re.search(r"\d{8,}", fname)[0]
-        #print fname
 
         self.fsamp = attribs['Fsamp'] / attribs['downsamp']
 
         self.pos_time, self.pos_data, self.pos_data_2, \
                 self.pos_fb, self.sync_data \
-            = extract_xyz_new(data_dict['pos_data'])
+            = extract_xyz_new(data_dict['pos_data'], self.time)
         self.quad_time, self.amp, self.phase \
-            = extract_quad_new(data_dict['quad_data'])
+            = extract_quad_new(data_dict['quad_data'], self.time)
         self.spin_data = data_dict['spin_data']
         self.cant_data = data_dict['cant_data']
         self.power = data_dict['laser_power']
@@ -427,6 +448,26 @@ class DataFile:
 
         self.time = self.pos_time[0]
 
+
+        plt.figure()
+        plt.plot(self.pos_time)
+        plt.figure()
+        plt.plot(self.pos_data[2])
+        plt.show()
+
+        ### Check for the weird scrambling that sometimes
+        ### happens from the new trap fpga
+        timesteps = np.diff(self.pos_time)*1e-9
+        if np.sum( timesteps > 2.0/self.fsamp ):
+            self.scrambled = True
+            print(self.fname)
+            # plt.figure()
+            # plt.plot(self.pos_time)
+            # plt.figure()
+            # plt.plot(self.pos_data[0])
+            # plt.show()
+        else:
+            self.scrambled = False
 
         ### Reconstruct the elctrode_settings array as it's saved in the old trap
         self.electrode_settings = {}

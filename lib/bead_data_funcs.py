@@ -30,7 +30,7 @@ def copy_attribs(attribs):
     return new_dict
 
 
-def getdata(fname, gain_error=1.0, verbose=False):
+def getdata(fname, verbose=False):
     '''loads a .h5 file from a path into data array and 
        attribs dictionary, converting ADC bits into 
        volatage. The h5 file is closed.'''
@@ -76,7 +76,7 @@ def getdata(fname, gain_error=1.0, verbose=False):
 
 
 
-def getdata_new(fname, gain_error=1.0, verbose=False):
+def getdata_new(fname, verbose=False):
     '''loads a .h5 file from a path into data array and 
        attribs dictionary, converting ADC bits into 
        volatage. The h5 file is closed.'''
@@ -151,7 +151,7 @@ def getdata_new(fname, gain_error=1.0, verbose=False):
         attribs = {}
         f = []
         traceback.print_exc()
-
+        
     return outdic, attribs
 
 
@@ -259,23 +259,41 @@ def load_xml_attribs(fname, types=['DBL', 'Array', 'Boolean', 'String']):
     return new_attr_dict
 
 
+def _get_time_diff_thresh(timestamp_ns):
+    '''
+    A little utility function to avoid this appearing like 5 
+    unique times. Basically just a naive function to return
+    a timing threshold based on a timestamp, which may be 0 for
+    some files with acquisition errors.
+    '''
+
+    if timestamp_ns == 0.0:
+        ### if no timestamp given, use current time
+        ### and set the timing threshold for 10 years.
+        ### This threshold is used to identify the timestamp 
+        ### in the stream of I32s
+        timestamp = time.time()
+        diff_thresh = 365.0 * 24.0 * 3600.0 * 10.0
+    else:
+        timestamp = timestamp_ns * (10.0**(-9))
+        ### 1-hour difference allowed for longer integrations, as well
+        ### as the time it takes to copy from acquision computer to the
+        ### dataserver, since we occasionally have to use the file 
+        ### origin timestamp
+        diff_thresh = 3600.0
+
+    return timestamp, diff_thresh
 
 
-def extract_quad(quad_dat, timestamp, verbose=False):
+def extract_quad(quad_dat, timestamp_ns, verbose=False, \
+                 interleave_offset=0):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
-    
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 month.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        diff_thresh = 60.0
+
+    ndata = 12
+
+    timestamp, diff_thresh = _get_time_diff_thresh(timestamp_ns)
 
     for ind, dat in enumerate(quad_dat): ## % 12
         # Assemble time stamp from successive I32s, since
@@ -290,25 +308,36 @@ def extract_quad(quad_dat, timestamp, verbose=False):
         # Time stamp from FPGA is a U64 with the UNIX epoch 
         # time in nanoseconds, synced to the host's clock
         if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
             if verbose:
                 print("found timestamp  : ", float(dattime) * 10**(-9))
                 print("comparison time  : ", timestamp) 
             break
 
+    tind = int(tind + interleave_offset*ndata)
+
     # Once the timestamp has been found, select each dataset
     # wit thhe appropriate decimation of the primary array
-    quad_time_high = np.uint32(quad_dat[ind::12])
-    quad_time_low = np.uint32(quad_dat[ind+1::12])
+    quad_time_high = np.uint32(quad_dat[tind::ndata])
+    quad_time_low = np.uint32(quad_dat[tind+1::ndata])
     if len(quad_time_low) != len(quad_time_high):
         quad_time_high = quad_time_high[:-1]
     quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
                   + quad_time_low.astype(np.uint64)
 
-    amp = [quad_dat[ind+2::12], quad_dat[ind+3::12], quad_dat[ind+4::12], \
-           quad_dat[ind+5::12], quad_dat[ind+6::12]]
-    phase = [quad_dat[ind+7::12], quad_dat[ind+8::12], quad_dat[ind+9::12], \
-             quad_dat[ind+10::12], quad_dat[ind+11::12]]
-            
+    # amp = [quad_dat[tind+2::ndata], quad_dat[tind+3::ndata], \
+    #        quad_dat[tind+4::ndata], quad_dat[tind+5::ndata], \
+    #        quad_dat[tind+6::ndata]]
+    # phase = [quad_dat[tind+7::ndata], quad_dat[tind+8::ndata], \
+    #          quad_dat[tind+9::ndata], quad_dat[tind+10::ndata], \
+    #          quad_dat[tind+11::ndata]]
+
+    amp = [quad_dat[tind-10::ndata], quad_dat[tind-9::ndata], \
+           quad_dat[tind-8::ndata], quad_dat[tind-7::ndata], \
+           quad_dat[tind-6::ndata]]
+    phase = [quad_dat[tind-5::ndata], quad_dat[tind-4::ndata], \
+             quad_dat[tind-3::ndata], quad_dat[tind-2::ndata], \
+             quad_dat[tind-1::ndata]]    
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
@@ -339,23 +368,55 @@ def extract_quad(quad_dat, timestamp, verbose=False):
 
 
 
-def extract_quad_new(quad_dat, verbose=False):
+def extract_quad_new(quad_dat, timestamp_ns, verbose=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
 
-    quad_time_high = np.uint32(quad_dat[10::12])
-    quad_time_low = np.uint32(quad_dat[11::12])
+    timestamp, diff_thresh = _get_time_diff_thresh(timestamp_ns)
+
+    for ind, dat in enumerate(quad_dat): ## % 12
+        # Assemble time stamp from successive I32s, since
+        # it's a 64 bit object
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.uint32(quad_dat[ind])
+            low = np.uint32(quad_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
+
+        # Time stamp from FPGA is a U64 with the UNIX epoch 
+        # time in nanoseconds, synced to the host's clock
+        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
+            if verbose:
+                print("found timestamp  : ", float(dattime) * 10**(-9))
+                print("comparison time  : ", timestamp) 
+            break
+
+    # quad_time_high = np.uint32(quad_dat[10::12])
+    # quad_time_low = np.uint32(quad_dat[11::12])
+    # if len(quad_time_low) != len(quad_time_high):
+    #     quad_time_high = quad_time_high[:-1]
+    # quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
+    #               + quad_time_low.astype(np.uint64)
+
+    # amp = [quad_dat[0::12], quad_dat[1::12], quad_dat[2::12], \
+    #        quad_dat[3::12], quad_dat[4::12]]
+    # phase = [quad_dat[5::12], quad_dat[6::12], quad_dat[7::12], \
+    #          quad_dat[8::12], quad_dat[9::12]]
+
+    quad_time_high = np.uint32(quad_dat[tind::12])
+    quad_time_low = np.uint32(quad_dat[tind+1::12])
     if len(quad_time_low) != len(quad_time_high):
         quad_time_high = quad_time_high[:-1]
     quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
                   + quad_time_low.astype(np.uint64)
 
-    amp = [quad_dat[0::12], quad_dat[1::12], quad_dat[2::12], \
-           quad_dat[3::12], quad_dat[4::12]]
-    phase = [quad_dat[5::12], quad_dat[6::12], quad_dat[7::12], \
-             quad_dat[8::12], quad_dat[9::12]]
-            
+    amp = [quad_dat[tind-10::12], quad_dat[tind-9::12], quad_dat[tind-8::12], \
+           quad_dat[tind-7::12], quad_dat[tind-6::12]]
+    phase = [quad_dat[tind-5::12], quad_dat[tind-4::12], quad_dat[tind-3::12], \
+             quad_dat[tind-2::12], quad_dat[tind-1::12]]
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
@@ -388,25 +449,15 @@ def extract_quad_new(quad_dat, verbose=False):
 
 
 
-def extract_xyz(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
+def extract_xyz(xyz_dat, timestamp_ns, verbose=False, \
+                plot_raw_xyz_dat=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
     
     ndata = 11
 
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 year.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        # 2-minute difference allowed for longer integrations
-        diff_thresh = 120.0
-
+    timestamp, diff_thresh = _get_time_diff_thresh(timestamp_ns)
 
     for ind, dat in enumerate(xyz_dat):
         # Assemble time stamp from successive I32s, since
@@ -436,6 +487,10 @@ def extract_xyz(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
 
     xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
+
+    # xyz = [xyz_dat[tind+4::ndata], xyz_dat[tind+5::ndata], xyz_dat[tind+6::ndata]]
+    # xy_2 = [xyz_dat[tind+2::ndata], xyz_dat[tind+3::ndata]]
+    # xyz_fb = [xyz_dat[tind+8::ndata], xyz_dat[tind+9::ndata], xyz_dat[tind+10::ndata]]
 
     xyz = [xyz_dat[tind+4::ndata], xyz_dat[tind+5::ndata], xyz_dat[tind+6::ndata]]
     xy_2 = [xyz_dat[tind+2::ndata], xyz_dat[tind+3::ndata]]
@@ -527,25 +582,15 @@ def extract_xyz(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
 
 
 
-def extract_xyz_2018(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
+def extract_xyz_2018(xyz_dat, timestamp_ns, verbose=False, \
+                     plot_raw_xyz_dat=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
 
     ndata = 9
-    
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 year.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0 * 5.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        # 2-minute difference allowed for longer integrations
-        diff_thresh = 120.0
 
+    timestamp, diff_thresh = _get_time_diff_thresh(timestamp_ns)
 
     for ind, dat in enumerate(xyz_dat):
         # Assemble time stamp from successive I32s, since
@@ -659,23 +704,61 @@ def extract_xyz_2018(xyz_dat, timestamp, verbose=False, plot_raw_xyz_dat=False):
 
 
 
-def extract_xyz_new(xyz_dat, verbose=False):
+def extract_xyz_new(xyz_dat, timestamp_ns, verbose=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
+
+    timestamp, diff_thresh = _get_time_diff_thresh(timestamp_ns)
+
+    for ind, dat in enumerate(xyz_dat):
+        # Assemble time stamp from successive I32s, since
+        # it's a 64 bit object
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            high = np.uint32(xyz_dat[ind])
+            low = np.uint32(xyz_dat[ind+1])
+            dattime = (high.astype(np.uint64) << np.uint64(32)) \
+                      + low.astype(np.uint64)
+
+        # Time stamp from FPGA is a U64 with the UNIX epoch 
+        # time in nanoseconds, synced to the host's clock
+        if (np.abs(timestamp - float(dattime) * 10**(-9)) < diff_thresh):
+            tind = ind
+            if verbose:
+                print("found timestamp  : ", float(dattime) * 10**(-9))
+                print("comparison time  : ", timestamp) 
+            break
     
-    xyz_time_high = np.uint32(xyz_dat[9::11])
-    xyz_time_low = np.uint32(xyz_dat[10::11])
+    # xyz_time_high = np.uint32(xyz_dat[9::11])
+    # xyz_time_low = np.uint32(xyz_dat[10::11])
+    # if len(xyz_time_low) != len(xyz_time_high):
+    #     xyz_time_high = xyz_time_high[:-1]   
+
+    # xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
+    #               + xyz_time_low.astype(np.uint64)
+
+    # xyz = [xyz_dat[2::11], xyz_dat[3::11], xyz_dat[4::11]]
+    # xy_2 = [xyz_dat[0::11], xyz_dat[1::11]]
+    # sync = np.int32(xyz_dat[5::11])
+    # xyz_fb = [xyz_dat[6::11], xyz_dat[7::11], xyz_dat[8::11]]
+
+    xyz_time_high = np.uint32(xyz_dat[tind::11])
+    xyz_time_low = np.uint32(xyz_dat[tind+1::11])
     if len(xyz_time_low) != len(xyz_time_high):
         xyz_time_high = xyz_time_high[:-1]
 
     xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
 
-    xyz = [xyz_dat[2::11], xyz_dat[3::11], xyz_dat[4::11]]
-    xy_2 = [xyz_dat[0::11], xyz_dat[1::11]]
-    sync = np.int32(xyz_dat[5::11])
-    xyz_fb = [xyz_dat[6::11], xyz_dat[7::11], xyz_dat[8::11]]
+    xyz = [xyz_dat[tind-7::11], xyz_dat[tind-6::11], xyz_dat[tind-5::11]]
+    xy_2 = [xyz_dat[tind-9::11], xyz_dat[tind-8::11]]
+    sync = np.int32(xyz_dat[tind-4::11])
+    xyz_fb = [xyz_dat[tind-3::11], xyz_dat[tind-2::11], xyz_dat[tind-1::11]]
+    # xyz = [xyz_dat[tind+4::11], xyz_dat[tind+5::11], xyz_dat[tind+6::11]]
+    # xy_2 = [xyz_dat[tind+2::11], xyz_dat[tind+3::11]]
+    # sync = np.int32(xyz_dat[tind+7::11])
+    # xyz_fb = [xyz_dat[tind+8::11], xyz_dat[tind+9::11], xyz_dat[tind+10::11]]
     
     #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
     #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
@@ -686,7 +769,6 @@ def extract_xyz_new(xyz_dat, verbose=False):
     # read out is a multiple of 5 (2 time + X + Y + Z) so the Z
     # channel usually  ends up with less samples.
     # The following is coded very generally
-
     min_len = 10.0**9  # Assumes we never more than 1 billion samples
     for ind in [0,1,2]:
         if len(xyz[ind]) < min_len:
@@ -709,6 +791,10 @@ def extract_xyz_new(xyz_dat, verbose=False):
     xyz_fb = np.array(xyz_fb)
     xy_2 = np.array(xy_2)
 
+    # plt.figure()
+    # plt.plot(xyz_time)
+    # plt.show()
+
     return xyz_time, xyz, xy_2, xyz_fb, sync
 
 
@@ -718,25 +804,14 @@ def extract_xyz_new(xyz_dat, verbose=False):
 
 
 
-def extract_power(pow_dat, timestamp, verbose=False):
+def extract_power(pow_dat, timestamp_ns, verbose=False):
     '''Reads a stream of I32s, finds the first timestamp,
        then starts de-interleaving the demodulated data
        from the FPGA'''
 
     interleave_num = 4
-    
-    if timestamp == 0.0:
-        # if no timestamp given, use current time
-        # and set the timing threshold for 1 year.
-        # This threshold is used to identify the timestamp 
-        # in the stream of I32s
-        timestamp = time.time()
-        diff_thresh = 365.0 * 24.0 * 3600.0
-    else:
-        timestamp = timestamp * (10.0**(-9))
-        # 2-minute difference allowed for longer integrations
-        diff_thresh = 120.0
 
+    timestamp, diff_thresh = _get_time_diff_thresh(timestamp_ns)
 
     for ind, dat in enumerate(pow_dat):
         # Assemble time stamp from successive I32s, since

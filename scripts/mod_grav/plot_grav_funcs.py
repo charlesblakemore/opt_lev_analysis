@@ -1,11 +1,12 @@
 import numpy as np
 import bead_util as bu
-import grav_util_2 as gu2
+import grav_util_2 as gu
 import matplotlib.pyplot as plt
 
-theory_data_dir = "/data/grav_sim_data/2um_spacing_data/"
+# theory_data_dir = "/data/grav_sim_data/2um_spacing_data/"
+theory_data_dir = "/data/grav_sim_data/1um_spacing_x-0-p80_y-m250-p250_z-m20-p20/"
 
-outdic = gu2.build_mod_grav_funcs(theory_data_dir)
+outdic = gu.build_mod_grav_funcs(theory_data_dir)
 
 xdc = 20E-6 #x dc position in m
 zdc = -10E-6 #z dc position in m

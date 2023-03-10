@@ -26,86 +26,45 @@ dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init/'
 
 dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init/'
 
-use_dir = False
+dir1 = '/data/old_trap/20230208/bead1/long_monitor/'
+dir1 = '/data/old_trap/20230306/bead4/trans_func/20230308/freqcomb_elec3_10V'
 
+use_dir = True
+# use_dir = False
 
+# step10 = True
+step10 = False
 
-# allfiles = [#'/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_init.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low1.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low2.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool_low3.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_zcool.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xzcool.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_yzcool.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool.h5',
-#             # '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool_2.h5',
-#             '/data/old_trap/20200322/gbead1/1_5mbar_powfb_xyzcool_3.h5',
-#             '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged.h5',
-#             '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged_2.h5',
-#             '/data/old_trap/20200322/gbead1/turbombar_powfb_xyzcool_discharged_3.h5',
-#             ]
-
-
-# allfiles = [
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_nocool.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool_i.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-id.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool_low1.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool_low2.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_2.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_3.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_4.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_5.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_6.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_7.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_8.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_9.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_10.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_11.h5',
-#             # '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool-pid_12.h5',
-#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_zcool.h5',
-#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_xzcool.h5',
-#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_yzcool.h5',
-#             '/data/old_trap/20201030/bead1/1_5mbar_powfb_xyzcool.h5',
-#             ]
-
-
-# allfiles  = [
-#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool.h5',
-#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low1.h5',
-#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low2.h5',
-#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low3.h5',
-#              '/data/old_trap/20201215/bead1/10mbar_nofb_nocool-low4.h5',
-#             ]
+invert_order = False
 
 
 
 # allfiles  = [
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-pid.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low1.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low2.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low3.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low4.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low5.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low6.h5',
-#              '/data/old_trap/20201113/bead1/1_5mbar_powfb_zcool-low7.h5',
+#              # '/data/old_trap/20230208/bead1/3mbar_nocool.h5',
+#              # '/data/old_trap/20230208/bead1/3mbar_nocool_z-5000.h5',
+#              # '/data/old_trap/20230208/bead1/3mbar_nocool_with_zsig.h5',
+#              '/data/old_trap/20230208/bead1/3mbar_nopowfb_nocool.h5',
+#              # '/data/old_trap/20230208/bead1/3mbar_powfb_nocool.h5',
+#              # '/data/old_trap/20230208/bead1/3mbar_powfb_zcool_d.h5',
+#              '/data/old_trap/20230208/bead1/3mbar_powfb_zcool_pd.h5',
+#              # '/data/old_trap/20230208/bead1//long_monitor/3mbar_powfb_zcool_pd_0.h5',
+#              '/data/old_trap/20230208/bead1//long_monitor/3mbar_powfb_zcool_pd_92.h5',
+#              # '/data/old_trap/20230208/bead1//long_monitor/3mbar_powfb_zcool_pd_93.h5',
+#              '/data/old_trap/20230208/bead1//long_monitor/3mbar_powfb_zcool_pd_94.h5',
 #             ]
-
 
 
 allfiles  = [
-             '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff15000.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff10000.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff5000.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff2500.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0.h5',
-             '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_zalign.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_refl_blocked.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_last.h5',
-             # '/data/old_trap/20221026/bead2/lowering/5mbar_nofb_zoff0_zdisc.h5',
+             # '/data/old_trap/20230221/bead1/powerfb/powerfb.h5',
+             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb.h5',
+             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_2.h5',
+             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_3.h5',
+             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_4.h5',
+             '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_6.h5',
+             '/data/old_trap/20230221/bead1/powerfb/xfb.h5',
+             # '/data/old_trap/20230221/bead1/powerfb/yfb_4.h5',
+             '/data/old_trap/20230221/bead1/powerfb/yfb_5.h5',
             ]
-
 
 # allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
 #             ]
@@ -129,25 +88,22 @@ figsize = (6,7)
 data_axes = [0,1,2]
 
 fb_axes = []
-#fb_axes = [0,1,2]
+# fb_axes = [0,1,2]
 
 other_axes = []
 #other_axes = [5,6,7]
+# other_axes = [1,2,3,4,5,6]
+
+# elec_axes = []
+elec_axes = [0, 1, 2, 3, 4, 5, 6, 7]
 
 cant_axes = []
 #cant_axes = [0,1,2]
-#other_axes = [0,1,2,3,4,5,6,7]
 #other_axes = [5,7]
-plot_power = True
+# plot_power = True
+plot_power = False
 
 drive_ax = 1
-
-step10 = False #True
-invert_order = False
-
-#### HACKED SHITTTT
-savefigs = False
-title_pre = '/home/charles/plots/20180105_precession/test1_100V_muchlater3'
 
 xlim = ()
 # xlim = (1, 1000)
@@ -162,7 +118,7 @@ lpf = 2500   # Hz
 #file_inds = (0, 3)
 file_inds = (0, 100)
 
-fullNFFT = False
+fullNFFT = True
 userNFFT = 2**12
 
 cascade = False
@@ -421,25 +377,8 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         fbaxarr[-1].set_xlabel('Frequency [Hz]')
         fbfig.tight_layout()
         fbfig.subplots_adjust(top=0.91)
-
-
-    if savefigs:
-        plt.savefig(title_pre + '.png')
-
-        daxarr[0].set_xlim(2000, 25000)
-        plt.tight_layout()
-
-        plt.savefig(title_pre + '_zoomhf.png')
-
-        daxarr[0].set_xlim(1, 80)
-        plt.tight_layout()
-
-        plt.savefig(title_pre + '_zoomlf.png')
-
-        daxarr[0].set_xlim(0.5, 25000)
     
-    if not savefigs:
-        plt.show()
+    plt.show()
 
 
 if use_dir:
@@ -451,4 +390,5 @@ allfiles = allfiles[:maxfiles]
 plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
                   fb_axes=fb_axes, cant_axes=cant_axes, \
-                  plot_power=plot_power, colormap=cmap)
+                  elec_axes=elec_axes, plot_power=plot_power, \
+                  colormap=cmap)
