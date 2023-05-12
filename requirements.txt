@@ -10,5 +10,5 @@ dill
 h5py
 opencv-python
 peakdetect
-sklearn
+scikit-learn
 #(maybe others, need to check better)

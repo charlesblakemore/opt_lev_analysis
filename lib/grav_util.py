@@ -1048,7 +1048,8 @@ class AggregateData:
                  harms=[], plot_harm_extraction=False, \
                  elec_drive=False, elec_ind=0, maxfreq=2500, noisebins=10,\
                  dim3=False, extract_resonant_freq=False, noiselim=(10.0,100.0), \
-                 tfdate='', tf_interp=False, step_cal_drive_freq=41.0, \
+                 tfdate='', tf_interp=False, plot_tf=False, \
+                 step_cal_drive_freq=41.0, \
                  new_trap=False, ncore=1, aux_data=[], suppress_off_diag=False, \
                  fake_attractor_data=False, fake_attractor_data_axis=1, \
                  fake_attractor_data_freq=3.0, fake_attractor_data_dc=200.0, \
@@ -1095,7 +1096,8 @@ class AggregateData:
         def process_file(name):
 
             # Initialize FileData obj, extract the data, then close the big file
-            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, new_trap=new_trap, \
+            new_obj = FileData(name, tophatf=tophatf, tfdate=tfdate, \
+                                plot_tf=plot_tf, new_trap=new_trap, \
                                 step_cal_drive_freq=step_cal_drive_freq, \
                                 suppress_off_diag=suppress_off_diag, \
                                 adjust_phase=adjust_phase, \
@@ -1822,7 +1824,7 @@ class AggregateData:
 
 
 
-    def find_alpha_xyz_from_templates(self, plot=False, plot_basis=False, ncore=1, \
+    def find_alpha_xyz_from_templates(self, plot=False, ncore=1, \
                                         alpha_scale=1e8, add_fake_data=False, \
                                         fake_alpha=1e13, plot_bad_alphas=False, \
                                         plot_templates=False, n_largest_harms=100, \
@@ -1911,16 +1913,17 @@ class AggregateData:
                     out_subarr_2 = np.zeros((2, 3))
                             
                     # start = time.time()
-                    templates = gfunc.make_templates(posvec, drivevec, ax0, ax1, \
-                                                        obj.ginds, p0_bead_new, obj.fsamp, \
-                                                        single_lambda=True, \
-                                                        single_lambind=lambind, \
-                                                        new_trap=new_trap, \
-                                                        plot=plot_templates, \
-                                                        n_largest_harms=n_largest_harms, \
-                                                        fix_sep=fix_sep, fix_sep_val=fix_sep_val, \
-                                                        fix_height=fix_height, \
-                                                        fix_height_val=fix_height_val)
+                    templates = gfunc.make_templates(\
+                            posvec, drivevec, ax0, ax1, \
+                            obj.ginds, p0_bead_new, obj.fsamp, \
+                            single_lambda=True, \
+                            single_lambind=lambind, \
+                            new_trap=new_trap, \
+                            plot=plot_templates, \
+                            n_largest_harms=n_largest_harms, \
+                            fix_sep=fix_sep, fix_sep_val=fix_sep_val, \
+                            fix_height=fix_height, \
+                            fix_height_val=fix_height_val)
                     # stop = time.time()
                     # print('Template time : {:0.4f}'.format(stop - start))
 
@@ -2055,7 +2058,7 @@ class AggregateData:
 
 
 
-    def find_alpha_likelihoods_every_harm(self, plot=False, plot_basis=False, ncore=1, \
+    def find_alpha_likelihoods_every_harm(self, ncore=1, \
                                           alpha_scale=1e8, add_fake_data=False, \
                                           fake_alpha=1e13, plot_bad_alphas=False, \
                                           plot_templates=False, n_testalpha=11, \
@@ -2169,9 +2172,6 @@ class AggregateData:
                     # stop = time.time()
                     # print('Template time : {:0.4f}'.format(stop - start))
 
-                    if plot and lambind == 0:
-                        fig, axarr = plt.subplots(3,1,sharex=True,sharey=False,figsize=(10,8))
-
                     for resp in [0,1,2]:
 
                         ### Get the modified gravity fft template, with alpha = 1
@@ -2212,13 +2212,9 @@ class AggregateData:
                                 return (1.0 / ndof) * np.sum(num / var)
 
 
-                            m = Minuit(alphacost,
-                                       alpha = 1.0, # set start parameter
-                                       #fix_param = "True", # you can also fix it
-                                       # limit_param = (0.0, 10000.0),
-                                       errordef = 1,
-                                       print_level = 0, 
-                                       pedantic=False)
+                            m = Minuit(alphacost, 1.0)
+                            m.errordef = 1.0
+                            m.print_level = 0
                             m.migrad(ncall=500000)
 
                             alpha_best = m.values['alpha'] * alpha_scale
@@ -2572,7 +2568,8 @@ class AggregateData:
             mle_dict = {}
             likelihood_dict = {}
 
-            ### Define some arrays to make the last likelihood sum easier to execute
+            ### Define some arrays to make the last likelihood 
+            ### sum easier to execute
             all_mle = np.zeros((3,nlambda,nfreq,2))
             all_coeff = np.zeros((3,nlambda,nfreq,2,3))
 
@@ -3620,9 +3617,10 @@ class AggregateData:
                     prof_alpha = self.likelihoods_sum_by_axis[resp,k,0]
                     prof_val = self.likelihoods_sum_by_axis[resp,k,1]
 
-                limit = bu.get_limit_from_general_profile(prof_alpha, prof_val, ss=ss,\
-                                                          no_discovery=no_discovery, \
-                                                          confidence_level=confidence_level)
+                limit = bu.get_limit_from_general_profile(\
+                            prof_alpha, prof_val, ss=ss,\
+                            no_discovery=no_discovery, \
+                            confidence_level=confidence_level)
 
                 if resp == 3:
                     if no_discovery:

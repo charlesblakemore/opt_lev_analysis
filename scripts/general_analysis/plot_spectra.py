@@ -29,11 +29,24 @@ dir1 = '/data/old_trap/20200312/beam_profiling/xprof_init/'
 dir1 = '/data/old_trap/20230208/bead1/long_monitor/'
 dir1 = '/data/old_trap/20230306/bead4/trans_func/20230308/freqcomb_elec3_10V'
 
+dir1 = '/data/old_trap/20230322/bead1/zphase_test'
+
+dir1 = '/data/old_trap/20230327/bead1/zoffset_step_5mbar_down'
+dir1 = '/data/old_trap/20230327/bead1/imaging_realignment/lower_hysteresis_point'
+
+dir1 = '/data/old_trap/20230410/bead1/zoffset_sweep/1_5mbar_down'
+dir1 = '/data/old_trap/20230410/bead1/pumpdown_2'
+dir1 = '/data/old_trap/20230410/bead1/discharge/high_pressure_test'
+dir1 = '/data/old_trap/20230410/bead1/discharge/low_pressure_test'
+dir1 = '/data/old_trap/20230410/bead1/discharge/low_pressure_test_no_drive'
+dir1 = '/data/old_trap/20230410/bead1/discharge/low_pressure_test_no_drive_later'
+dir1 = '/data/old_trap/20230410/bead1/discharge/low_pressure_test_no_drive_lessfb'
+dir1 = '/data/old_trap/20230410/bead1/spinning/initial_test_slow_DAQ'
+dir1 = '/data/old_trap/20230410/bead1/spinning/moderate_spinup_slow_DAQ'
+dir1 = '/data/old_trap/20230410/bead1/discharge/spinning_test'
+
 use_dir = True
 # use_dir = False
-
-# step10 = True
-step10 = False
 
 invert_order = False
 
@@ -54,16 +67,49 @@ invert_order = False
 #             ]
 
 
+# allfiles  = [
+#              # '/data/old_trap/20230221/bead1/powerfb/powerfb.h5',
+#              # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb.h5',
+#              # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_2.h5',
+#              # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_3.h5',
+#              # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_4.h5',
+#              '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_6.h5',
+#              '/data/old_trap/20230221/bead1/powerfb/xfb.h5',
+#              # '/data/old_trap/20230221/bead1/powerfb/yfb_4.h5',
+#              '/data/old_trap/20230221/bead1/powerfb/yfb_5.h5',
+#             ]
+
+
+# allfiles  = [
+#              '/data/old_trap/20230327/bead1/imaging_realignment/initial/5mbar_nocool_0.h5',
+#              '/data/old_trap/20230327/bead1/imaging_realignment/initial/5mbar_nocool_1.h5',
+#              '/data/old_trap/20230327/bead1/imaging_realignment/adjust1/5mbar_nocool_0.h5',
+#              '/data/old_trap/20230327/bead1/imaging_realignment/adjust1/5mbar_nocool_1.h5'
+#             ]
+
+
 allfiles  = [
-             # '/data/old_trap/20230221/bead1/powerfb/powerfb.h5',
-             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb.h5',
-             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_2.h5',
-             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_3.h5',
-             # '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_4.h5',
-             '/data/old_trap/20230221/bead1/powerfb/powerfb_and_zfb_6.h5',
-             '/data/old_trap/20230221/bead1/powerfb/xfb.h5',
-             # '/data/old_trap/20230221/bead1/powerfb/yfb_4.h5',
-             '/data/old_trap/20230221/bead1/powerfb/yfb_5.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_nocool.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_izcool.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pizcool.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pidzcool.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pidzcool_2.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_xzcool.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_yzcool.h5',
+             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_xyzcool.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m0.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m100k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m200k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m300k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m400k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m500k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m600k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_2.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_3.h5',
+             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_4.h5',
+             '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_morelight.h5',
+             '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m800k.h5',
             ]
 
 # allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
@@ -87,21 +133,27 @@ figsize = (6,7)
 
 data_axes = [0,1,2]
 
-fb_axes = []
-# fb_axes = [0,1,2]
+amp_axes = []
+# amp_axes = [0, 1, 2, 3, 4]
+
+phase_axes = []
+# phase_axes = [0, 1, 2, 3, 4]
+
+# fb_axes = []
+fb_axes = [0,1,2]
 
 other_axes = []
-#other_axes = [5,6,7]
+# other_axes = [3]
 # other_axes = [1,2,3,4,5,6]
 
-# elec_axes = []
-elec_axes = [0, 1, 2, 3, 4, 5, 6, 7]
+elec_axes = []
+# elec_axes = [0, 1, 2, 3, 4, 5, 6, 7]
 
 cant_axes = []
 #cant_axes = [0,1,2]
 #other_axes = [5,7]
-# plot_power = True
-plot_power = False
+plot_power = True
+# plot_power = False
 
 drive_ax = 1
 
@@ -117,6 +169,8 @@ lpf = 2500   # Hz
 
 #file_inds = (0, 3)
 file_inds = (0, 100)
+
+file_step = 1
 
 fullNFFT = True
 userNFFT = 2**12
@@ -139,7 +193,7 @@ posdic = {0: 'x', 1: 'y', 2: 'z'}
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
                       fb_axes=[], plot_power=False, diag=True, colormap='plasma', \
-                      sort='time', file_inds=(0,10000)):
+                      sort='time', file_inds=(0,10000), file_step=1):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -161,6 +215,16 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                                     figsize=figsize)
     dfig.suptitle('XYZ Data', fontsize=18)
 
+    if len(amp_axes):
+        ampfig, ampaxarr = plt.subplots(len(amp_axes),1,sharex=True,sharey=True)
+        if len(amp_axes) == 1:
+            ampaxarr = [ampaxarr]
+        ampfig.suptitle('Amp Data', fontsize=18)
+    if len(phase_axes):
+        phasefig, phaseaxarr = plt.subplots(len(phase_axes),1,sharex=True,sharey=True)
+        if len(phase_axes) == 1:
+            phaseaxarr = [phaseaxarr]
+        phasefig.suptitle('Phase Data', fontsize=18)
     if len(cant_axes):
         cfig, caxarr = plt.subplots(len(data_axes),1,sharex=True,sharey=True)
         if len(cant_axes) == 1:
@@ -186,11 +250,9 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         pfig, paxarr = plt.subplots(2,1,sharex=True,figsize=(6,6))
         pfig.suptitle('Power/Power Feedback Data', fontsize=18)
 
-    kludge_fig, kludge_ax = plt.subplots(1,1)
+    # kludge_fig, kludge_ax = plt.subplots(1,1)
 
-    files = files[file_inds[0]:file_inds[1]]
-    if step10:
-        files = files[::10]
+    files = files[file_inds[0]:file_inds[1]:file_step]
     if invert_order:
         files = files[::-1]
 
@@ -214,6 +276,29 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         if len(other_axes):
             df.load_other_data()
+
+        df.calibrate_phase()
+
+        # plt.figure()
+        # plt.plot(df.phase[4]-np.mean(df.phase[4]))
+        # plt.plot(df.phase[0]-np.mean(df.phase[0]))
+
+        # plt.figure()
+        # plt.plot(df.phase[4]-df.phase[0])
+
+        # plt.figure()
+        # plt.loglog(np.abs(np.fft.rfft(df.phase[4])))
+        # plt.loglog(np.abs(np.fft.rfft(df.phase[4]-df.phase[0])))
+
+        # plt.figure()
+        # plt.plot( (df.zcal - np.mean(df.zcal)) / \
+        #             np.max(df.zcal - np.mean(df.zcal)) )
+        # # plt.plot( (df.phase[0] - np.mean(df.phase[0])) / \
+        # #             np.max(df.phase[0] - np.mean(df.phase[0])) )
+        # # plt.plot( (df.pos_data[0] - np.mean(df.pos_data[0])) / 
+        # #             np.max(df.pos_data[0] - np.mean(df.pos_data[0])) )
+        # plt.show()
+        # input()
 
         df.calibrate_stage_position()
         
@@ -263,10 +348,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                         NFFT=NFFT, window=window)
-                kludge_ax.loglog(freqs, np.sqrt(dpsd) *kludge_fac, color='C'+str(axind), \
-                                    label=posdic[axind])
-                kludge_ax.set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
-                kludge_ax.set_xlabel('Frequency [Hz]')
+                # kludge_ax.loglog(freqs, np.sqrt(dpsd) *kludge_fac, color='C'+str(axind), \
+                #                     label=posdic[axind])
+                # kludge_ax.set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                # kludge_ax.set_xlabel('Frequency [Hz]')
 
                 # daxarr[axind,0].loglog(new_freqs, fac*norm*np.abs(np.fft.rfft(df.pos_data[ax]))*kludge_fac, color='k', label='np.fft with manual normalization')
                 daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac *kludge_fac, color=color, label=df.fname) #'mlab.psd')
@@ -295,6 +380,20 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
                                       NFFT=NFFT, window=window)
                 fbaxarr[axind].loglog(freqs, np.sqrt(fb_psd) * fac, color=color)
                 fbaxarr[axind].set_ylabel('$\\sqrt{\\mathrm{PSD}}$')
+
+        if len(amp_axes):
+            for axind, ax in enumerate(amp_axes):
+                psd, freqs = mlab.psd(df.amp[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
+                ampaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
+                ampaxarr[axind].set_ylabel('$\\sqrt{\\mathrm{PSD}}$')
+
+        if len(phase_axes):
+            for axind, ax in enumerate(phase_axes):
+                psd, freqs = mlab.psd(df.phase[ax], Fs=df.fsamp, \
+                                      NFFT=NFFT, window=window)
+                phaseaxarr[axind].loglog(freqs, np.sqrt(psd), color=color )
+                phaseaxarr[axind].set_ylabel('$\\sqrt{\\mathrm{PSD}}$')
 
         if len(cant_axes):
             for axind, ax in enumerate(cant_axes):
@@ -345,22 +444,30 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
     if len(ylim):
         derp_ax.set_ylim(*ylim)
-        kludge_ax.set_ylim(*ylim)
+        # kludge_ax.set_ylim(*ylim)
     if len(xlim):
         derp_ax.set_xlim(*xlim)
-        kludge_ax.set_xlim(1,500)
+        # kludge_ax.set_xlim(1,500)
 
     dfig.tight_layout()
     dfig.subplots_adjust(top=0.91)
 
-    kludge_ax.grid()
-    kludge_ax.legend()
-    kludge_fig.tight_layout()
+    # kludge_ax.grid()
+    # kludge_ax.legend()
+    # kludge_fig.tight_layout()
 
     if plot_power:
         paxarr[-1].set_xlabel('Frequency [Hz]')
         pfig.tight_layout()
         pfig.subplots_adjust(top=0.91)
+    if len(amp_axes):
+        ampaxarr[-1].set_xlabel('Frequency [Hz]')
+        ampfig.tight_layout()
+        ampfig.subplots_adjust(top=0.91)
+    if len(phase_axes):
+        phaseaxarr[-1].set_xlabel('Frequency [Hz]')
+        phasefig.tight_layout()
+        phasefig.subplots_adjust(top=0.91)
     if len(cant_axes):
         caxarr[-1].set_xlabel('Frequency [Hz]')
         cfig.tight_layout()
@@ -391,4 +498,4 @@ plot_many_spectra(allfiles, file_inds=file_inds, diag=diag, \
                   data_axes=data_axes, other_axes=other_axes, \
                   fb_axes=fb_axes, cant_axes=cant_axes, \
                   elec_axes=elec_axes, plot_power=plot_power, \
-                  colormap=cmap)
+                  colormap=cmap, file_step=file_step)

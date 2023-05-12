@@ -31,9 +31,9 @@ plot_theory = False
 plot_limit = True
 signed_limit = True
 limit_ax = 2
-limit_path = '/data/new_trap_processed/limits/20200320_limit_binning-10000.p'
+limit_path = '/data/new_trap_processed/limits/20230330_limit_binning-10000.p'
 
-new_limit_path = '/data/new_trap_processed/limits/20230330_limit_binning-10000.p'
+old_limit_path = '/data/new_trap_processed/limits/20200320_limit_binning-10000.p'
 
 plot_projection = True
 projection_paths = [ \
@@ -72,7 +72,8 @@ line_alpha = 0.8
 
 
 savefig = True
-fig_path = '/home/cblakemore/plots/20200320/mod_grav/20200320_limit_binning-10000_v3.svg'
+fig_base = '/home/cblakemore/plots/20230330/mod_grav/comparisons/'
+fig_path = os.path.join(fig_base, '20230330_vs_20200320_limits.svg')
 
 
 ###########################################################################
@@ -90,37 +91,50 @@ fig, ax = plt.subplots(figsize=(8,6))
 
 if plot_limit:
     limit_data = pickle.load( open(limit_path, 'rb') )
+    old_limit_data = pickle.load( open(old_limit_path, 'rb') )
     if signed_limit:
         ax.loglog(limit_data['pos_limit_by_axis'][0]*1e6, \
                   limit_data['pos_limit_by_axis'][limit_ax+1], \
                   label='$\\hat{\\alpha} > 0$', color='r', lw=2, ls='--', zorder=7)
+        ax.loglog(old_limit_data['pos_limit_by_axis'][0]*1e6, \
+                  old_limit_data['pos_limit_by_axis'][limit_ax+1], \
+                  color='r', lw=2, ls='--', zorder=7, alpha=0.5)
         ax.fill_between(limit_data['pos_limit_by_axis'][0]*1e6, \
                         limit_data['pos_limit_by_axis'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['pos_limit_by_axis'][0])), \
-                        fc='w', alpha=1.0, zorder=5, ec='none' )
+                        fc='w', alpha=1.0, zorder=4, ec='none' )
         ax.fill_between(limit_data['pos_limit_by_axis'][0]*1e6, \
                         limit_data['pos_limit_by_axis'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['pos_limit_by_axis'][0])), \
                         fc='r', alpha=0.3, zorder=6, ec='none' )
 
         ax.loglog(limit_data['neg_limit_by_axis'][0]*1e6, \
-                 limit_data['neg_limit_by_axis'][limit_ax+1], \
+                  limit_data['neg_limit_by_axis'][limit_ax+1], \
                   label='$\\hat{\\alpha} < 0$', color='b', lw=3, ls=':', zorder=7)
+        ax.loglog(old_limit_data['neg_limit_by_axis'][0]*1e6, \
+                  old_limit_data['neg_limit_by_axis'][limit_ax+1], \
+                  color='b', lw=3, ls=':', zorder=7, alpha=0.5)
         ax.fill_between(limit_data['neg_limit_by_axis'][0]*1e6, \
                         limit_data['neg_limit_by_axis'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['neg_limit_by_axis'][0])), \
-                        fc='w', alpha=1.0, zorder=5, ec='none' )
+                        fc='w', alpha=1.0, zorder=4, ec='none' )
         ax.fill_between(limit_data['neg_limit_by_axis'][0]*1e6, \
                         limit_data['neg_limit_by_axis'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['neg_limit_by_axis'][0])), \
                         fc='b', alpha=0.3, zorder=6, ec='none' )
     else:
-        ax.loglog(limit_data['limit'][0]*1e6, limit_data['limit'][limit_ax+1], \
-                  label='This work', color='r', lw=2, zorder=7)
-        ax.fill_between(limit_data['limit'][0]*1e6, limit_data['limit'][limit_ax+1], \
+        ax.loglog(limit_data['limit'][0]*1e6, \
+                  limit_data['limit'][limit_ax+1], \
+                  label='20230330', color='r', lw=2, zorder=7)
+        ax.loglog(old_limit_data['limit'][0]*1e6, \
+                  old_limit_data['limit'][limit_ax+1], \
+                  label='20200320', color='r', lw=2, zorder=7, alpha=0.5)
+        ax.fill_between(limit_data['limit'][0]*1e6, \
+                        limit_data['limit'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['neg_limit_by_axis'][0])), \
-                        fc='w', alpha=1.0, zorder=5, ec='none' )
-        ax.fill_between(limit_data['limit'][0]*1e6, limit_data['limit'][limit_ax+1], \
+                        fc='w', alpha=1.0, zorder=4, ec='none' )
+        ax.fill_between(limit_data['limit'][0]*1e6, \
+                        limit_data['limit'][limit_ax+1], \
                         10.0*ylim[1]*np.ones(len(limit_data['limit'][0])), \
                         color='r', alpha=0.5, zorder=6 )
 
@@ -146,7 +160,7 @@ if plot_projection:
         #           projection_data['pos_limit'][1]*fac, \
         #           label=label, color=color, lw=2, ls=ls, zorder=1)
 
-        ax.loglog(lambdas, limit, label=label, color=color, lw=3, ls=ls, zorder=4)
+        ax.loglog(lambdas, limit, label=label, color=color, lw=3, ls=ls, zorder=5)
 
 
 
@@ -289,7 +303,8 @@ if annotate:
                  zorder=3, alpha=text_alpha)
 
 
-cmeas = np.loadtxt('prev_meas/decca_2014.txt',delimiter=",",skiprows=0)
+cmeas = np.loadtxt('prev_meas/chen_prl_116_221102_2016.txt',\
+                   delimiter=",",skiprows=0)
 ax.loglog(cmeas[:,0]*1e6,cmeas[:,1],'k',alpha=line_alpha,linewidth=1, zorder=3)
 if annotate:
     if ref:

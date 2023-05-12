@@ -104,7 +104,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             axarr[1].legend(fontsize=10, loc='upper right')
 
             fig.tight_layout()
-            plt.show(fig)
+            plt.show()
             input()
 
         # plt.plot(drive)
@@ -125,17 +125,14 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
             plt.title('Electrode data [V]')
             plt.legend()
             plt.tight_layout()
-            plt.show()
-
-            input()
 
         fac = 1.0
         if np.std(v4) < 0.5 * np.std(v3):
-            # print('Only one Tabor drive channel being digitized...')
+            print('Only one Tabor drive channel being digitized...')
             v4 = zeros
             fac = 2.0
         elif np.std(v3) < 0.5 * np.std(v4):
-            # print('Only one Tabor drive channel being digitized...')
+            print('Only one Tabor drive channel being digitized...')
             v3 = zeros
             fac = 2.0
 
@@ -150,12 +147,6 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
         drive = bu.trap_efield(voltages, new_trap=new_trap)[pcol] * fac
 
-    # try:
-    #     power = np.mean(file_obj.power)
-    # except Exception:
-    #     power = 0.0
-    #     traceback.print_exc()
-
     zpos = np.mean(file_obj.pos_data[2])
 
     #drive = bu.detrend_poly(drive, order=1.0, plot=True)
@@ -165,24 +156,12 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     freqs = np.fft.rfftfreq(len(drive), d=1./file_obj.fsamp)
     drive_freq = freqs[np.argmax(np.abs(drive_fft[1:])) + 1]
 
-    # plt.plot(drive)
-    # plt.show()
-    # input()
-
-    # print(drive_freq)
-    # for i in range(3):
-    #     plt.plot(efield[i], label=str(i))
-    # plt.legend()
-    # plt.show()
-
     ### Extract the response and detrend
-    # response = file_obj.pos_data[pcol]
     if new_trap:
         response = file_obj.pos_data_3[pcol]
     else:
         response = file_obj.pos_data[pcol]
     #response = bu.detrend_poly(response, order=1.0, plot=True)
-
 
     ### Configure a time array for plotting and fitting
     cut_samp = config.adc_params["ignore_pts"]
@@ -191,13 +170,20 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     t = np.linspace(0,(N+cut_samp-1)*dt, N+cut_samp)
     t = t[cut_samp:]
 
-    # print(drive_freq)
-    # if drive_freq < 10.0:
-    #     print(file_obj.fname)
-    #     plt.plot(t, drive)
-    #     plt.figure()
-    #     plt.loglog(freqs, np.abs(drive_fft))
-    #     plt.show()
+    if drive_freq < 10.0:
+        print(file_obj.fname)
+
+        plt.figure()
+        plt.plot(t, drive)
+        plt.title('Drive Freq < 10 Hz')
+        plt.tight_layout()
+
+        plt.figure()
+        plt.loglog(freqs, np.abs(drive_fft))
+        plt.title('Drive Freq < 10 Hz')
+        plt.tight_layout()
+
+        plt.show()
 
     if drive_freq < 0.5*bandwidth:
         apply_filter = False
@@ -206,16 +192,29 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
     ### Bandpass filter the response
     if apply_filter:
-        b, a = signal.butter(3, [2.*(drive_freq-bandwidth/2.)/file_obj.fsamp, \
-                              2.*(drive_freq+bandwidth/2.)/file_obj.fsamp ], btype = 'bandpass')
-        responsefilt = signal.filtfilt(b, a, response)
+        sos = signal.butter(3, [drive_freq-0.5*bandwidth, drive_freq+0.5*bandwidth], \
+                            fs=file_obj.fsamp, btype='bandpass', output='sos')
+        try:
+            responsefilt = signal.sosfiltfilt(sos, response)
+        except:
+            print(drive_freq, bandwidth)
+            plt.plot(response)
+            plt.show()
+            input()
     else:
         responsefilt = np.copy(response)
 
     if plot:
+        colors = bu.get_colormap(3, cmap='plasma')
         plt.figure()
-        plt.loglog(freqs, np.abs(np.fft.rfft(drive)))
-        plt.loglog(freqs, np.abs(np.fft.rfft(responsefilt)))
+        plt.loglog(freqs, 0.01*np.abs(np.fft.rfft(drive)), label='drive', \
+                   color=colors[0])
+        plt.loglog(freqs, np.abs(np.fft.rfft(response)), label='response', \
+                   color=colors[1])
+        plt.loglog(freqs, np.abs(np.fft.rfft(responsefilt)), label='response filt.', \
+                   color=colors[2])
+        plt.legend(fontsize=10, loc='lower left')
+
         plt.show()
 
         input()
@@ -225,14 +224,15 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
     ncorr = len(corr_full)
 
     phase_ratio = userphase / (2.0 * np.pi)
-    phase_inds = np.array([np.floor(phase_ratio*ncorr), np.ceil(phase_ratio*ncorr)], dtype='int')
+    phase_inds = np.array([np.floor(phase_ratio*ncorr), \
+                           np.ceil(phase_ratio*ncorr)], \
+                           dtype='int')
 
     response_inphase = corr_full[0]
     response_max = np.max(corr_full)
-    # try:
-    response_userphase = np.interp([phase_ratio*ncorr], phase_inds, corr_full[phase_inds])[0]
-    # except:
-    #     response_userphase = corr_full[phase_inds[0]]
+    response_userphase = np.interp([phase_ratio*ncorr], \
+                                   phase_inds, \
+                                   corr_full[phase_inds])[0]
 
     ### Compute the drive amplitude, assuming it's a sine wave 
     drive_amp = np.sqrt(2) * np.std(drive) # Assume drive is sinusoidal
@@ -255,7 +255,7 @@ def find_step_cal_response(file_obj, bandwidth=1., include_in_phase=False, \
 
 def step_cal(step_cal_vec, nsec=10, new_trap = False, \
              auto_try=0.0, max_step_size=10, plot_residual_histograms=False, \
-             save_discharge_plot=False, date=''):
+             residual_limit=1, save_discharge_plot=False, date=''):
     '''
     Generates a step calibration from a list of step_cal responses 
     extracted via the above routine
@@ -321,6 +321,7 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
                 plt.plot(np.arange(len(yfit)), yfit, 'o')
                 plt.xlabel('Integration number [Arb]')
                 plt.ylabel('Response [Arb]')
+                plt.grid(axis='y')
                 plt.tight_layout()
                 plt.show()
                 # plt.show(block=False)
@@ -402,25 +403,23 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
         
         xfit = np.arange(len(yfit)) * nsec
 
-        p0 = [vpq_guess, 0]#Initial guess for the fit
+        p0 = [vpq_guess, 0] #Initial guess for the fit
 
         popt, pcov = optimize.curve_fit(ffun, xfit, yfit, p0 = p0, xtol = 1e-12)
-
         fitobj = Fit(popt, pcov, ffun)
 
         newpopt = np.copy(popt)
-        newpopt[1] = 0.0
 
         normfitobj = Fit(newpopt / popt[0], pcov / popt[0], ffun)
 
-        resids = ((yfit - popt[1]) / popt[0]) - ffun(xfit, *(newpopt/popt[0]))
+        resids = (yfit - ffun(xfit, *popt)) / popt[0]
 
         f, axarr = plt.subplots(2, sharex = True, \
                                 gridspec_kw = {'height_ratios':[2,1]}, \
                                 figsize=(10,5),dpi=150)#Plot fit
-        normfitobj.plt_fit(xfit, (yfit - popt[1]) / popt[0], axarr[0], \
+        normfitobj.plt_fit(xfit, yfit / popt[0], axarr[0], \
                            ms=5, ylabel="Norm. Response [$e$]", xlabel="")
-        normfitobj.plt_residuals(xfit, (yfit - popt[1]) / popt[0], axarr[1], \
+        normfitobj.plt_residuals(xfit, yfit / popt[0], axarr[1], \
                                  ms=5, xlabel="Time [s]")
 
         fit_ylim = axarr[0].get_ylim()
@@ -455,19 +454,30 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
             ind2 = int( 2.0 * npts / 3.0 )
             nbins = int( np.min([np.max([10, int(ind1 / 10)]), 20.0]) )
 
-            vals1, bins1, _ = axarr2[0].hist(resids[:ind1], bins=nbins, range=(-2,2))
-            vals2, bins2, _ = axarr2[1].hist(resids[ind1:ind2], bins=nbins, range=(-2,2))
-            vals3, bins3, _ = axarr2[2].hist(resids[ind2:], bins=nbins, range=(-2,2))
+            if residual_limit >= 1.0:
+                max_tick = np.ceil(residual_limit)
+                ticks = np.concatenate((-1.0*np.arange(max_tick+1)[::-1], \
+                                        np.arange(max_tick+1)[1:])).astype(int)
+
+            residual_limits = (-1.0*residual_limit, residual_limit)
+            vals1, bins1, _ = axarr2[0].hist(resids[:ind1], bins=nbins, \
+                                             range=residual_limits)
+            vals2, bins2, _ = axarr2[1].hist(resids[ind1:ind2], bins=nbins, \
+                                             range=residual_limits)
+            vals3, bins3, _ = axarr2[2].hist(resids[ind2:], bins=nbins, 
+                                             range=residual_limits)
             maxval = np.max( np.concatenate((vals1, vals2, vals3)) )
 
             labels = ['First 3rd', 'Middle 3rd', 'Last 3rd']
             for i in [0,1,2]:
                 axarr2[i].tick_params(axis='y', which='both', right=False, \
                                      left=False, labelleft=False)
-                axarr2[i].set_xticks([-2,-1,0,1,2])
                 axarr2[i].set_ylim(0, 1.25*maxval)
                 axarr2[i].text(0, 1.125*maxval, labels[i], fontsize=14, \
-                               verticalalignment='center', horizontalalignment='center')
+                               verticalalignment='center', \
+                               horizontalalignment='center')
+                if residual_limit >= 1.0:
+                    axarr2[i].set_xticks(ticks)
 
             axarr2[1].set_xlabel('Residuals [$e^{-}$]')
             f2.tight_layout()
@@ -479,9 +489,9 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
             done_with_fit = True
 
         elif happy == 'n' or happy == 'N':
-            f.clf()
-            if plot_residual_histograms:
-                f2.clf()
+            # f.clf()
+            # if plot_residual_histograms:
+            #     f2.clf()
             manual = input("Do you want to proceed manually then? (Y/n): ")
             if manual == 'y' or manual == 'Y':
                 manual_fit = True
@@ -493,9 +503,9 @@ def step_cal(step_cal_vec, nsec=10, new_trap = False, \
                 sys.stdout.flush()
                 time.sleep(5)
         else:
-            f.clf()
-            if plot_residual_histograms:
-                f2.clf()
+            # f.clf()
+            # if plot_residual_histograms:
+            #     f2.clf()
             done_with_fit = False
             print('that was a yes or no question... assuming you are unhappy')
             sys.stdout.flush()

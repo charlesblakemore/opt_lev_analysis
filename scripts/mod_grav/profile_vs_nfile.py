@@ -10,7 +10,7 @@ from matplotlib.collections import PolyCollection
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 14})
 
-import grav_util_3 as gu
+import grav_util as gu
 import bead_util as bu
 import configuration as config
 

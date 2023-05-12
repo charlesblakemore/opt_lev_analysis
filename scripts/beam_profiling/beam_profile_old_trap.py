@@ -111,25 +111,29 @@ ysign = 0
 # data_dir1 = '/data/old_trap/20230202/beam_profiling_2/xsweep_no_coverslip_down_2turn'
 # data_dir2 = '/data/old_trap/20230202/beam_profiling_2/ysweep_no_coverslip_down_2turn'
 
-data_dir1 = '/data/old_trap/20230203/beam_profiling/ysweep_pos1'
-data_dir2 = '/data/old_trap/20230203/beam_profiling/ysweep_pos4'
+# data_dir1 = '/data/old_trap/20230203/beam_profiling/ysweep_pos1'
+# data_dir2 = '/data/old_trap/20230203/beam_profiling/ysweep_pos4'
 
-data_dir1 = '/data/old_trap/20230203/beam_profiling_2/xsweep_after_shimming'
-data_dir2 = '/data/old_trap/20230203/beam_profiling_2/ysweep_after_shimming'
+# data_dir1 = '/data/old_trap/20230203/beam_profiling_2/xsweep_after_shimming'
+# data_dir2 = '/data/old_trap/20230203/beam_profiling_2/ysweep_after_shimming'
 
-data_dir1 = '/data/old_trap/20230206/beam_profiling/xsweep_under_vacuum'
-data_dir2 = '/data/old_trap/20230206/beam_profiling/ysweep_under_vacuum'
+# data_dir1 = '/data/old_trap/20230206/beam_profiling/xsweep_under_vacuum'
+# data_dir2 = '/data/old_trap/20230206/beam_profiling/ysweep_under_vacuum'
+
+data_dir1 = '/data/old_trap/20230322/beam_profiling/xsweep_init_17Hz'
+data_dir2 = '/data/old_trap/20230322/beam_profiling/ysweep_init_17Hz'
 
 show = True
-savefigs = False
+savefigs = True
 save_base = '/home/cblakemore/plots/beam_profiles/'
 
 # identifier = data_dir1.split('sweep')[-1][1:]
-identifier = data_dir2.split('sweep')[-1][1:]
+# identifier = data_dir2.split('sweep')[-1][1:]
 # identifier = 'vert80um'
-# # identifier = 'XY Astigmatism'
+# identifier = 'XY Astigmatism'
 # identifier = 'different positions'
 
+identifier = '- after power outage'
 
 
 
@@ -430,8 +434,6 @@ def plot_profs(fp_arr, title='', show=True, save=False):
             ax1.plot(fp.bins, (fac**fp_ind)*(fp.y / max_val) + offset*fp_ind, \
                      'o', label = lab, color=color)
             ax1.set_ylabel("Marginalized Irradiance [arb]")
-            if log_profs:
-                ax1.set_ylim(10**(-5), 10)
         else:
             ax1.plot(fp.bins, (fac**fp_ind)*fp.y + offset, \
                      'o', label = lab, color=color)
@@ -440,7 +442,7 @@ def plot_profs(fp_arr, title='', show=True, save=False):
     if log_profs:
         ax1.set_yscale('log')
         if multi_dir:
-            ax1.set_ylim(10**(-5), 10 * fac**(len(fp_arr_sort)-1))
+            ax1.set_ylim(10**(-5), 2.0 * fac**(len(fp_arr_sort)-1))
     else:
         ax1.set_yscale('linear')
     ax1.legend(loc='lower left', title='Axial\ncoordinate:', 

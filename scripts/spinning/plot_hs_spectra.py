@@ -68,9 +68,30 @@ plt.rcParams.update({'font.size': 16})
 # dirname = '/data/old_trap/20200924/bead1/spinning/ringdown/55kHz_start_2'
 # dirname = '/data/old_trap/20200924/bead1/spinning/junk/110kHz_start_2'
 
-dirname  = '/data/old_trap/20201113/bead1/spinning/dipole_meas/initial'
-dirname  = '/data/old_trap/20230306/bead4/spinning/spinup2'
-dirname  = '/data/old_trap/20230306/bead4/spinning/25kHz_steady_state'
+# dirname  = '/data/old_trap/20201113/bead1/spinning/dipole_meas/initial'
+# dirname  = '/data/old_trap/20230306/bead4/spinning/spinup2'
+# dirname  = '/data/old_trap/20230306/bead4/spinning/25kHz_steady_state'
+
+# dirname  = '/data/old_trap/20230327/bead1/spinning/dipole_meas/initial_zadj'
+# dirname  = '/data/old_trap/20230327/bead1/spinning/dipole_meas/initial_zadj_28k'
+# dirname  = '/data/old_trap/20230327/bead1/spinning/phase_mod_test_sweep_0_05scale_hf'
+# dirname = '/data/old_trap/20230327/bead1/spinning/spindown_100kHz'
+
+
+base = '/data/old_trap/20230410/bead1/spinning/'
+
+# meas = 'change_direction_xy_to_xz'
+# meas = 'dipole_meas/initial_zadj'
+# meas = 'phase_modulate_0_01scale'
+# meas = 'phase_modulate_0_05scale'
+# meas = 'dds_phase_impulse_test'
+meas = 'phase_modulation_sweeps/10Hz_to_700Hz_0007'
+# meas = 'phase_modulation_sweeps/700Hz_to_10Hz_0007'
+
+dirname = os.path.join(base, meas)
+
+
+
 
 use_dir = True
 #use_dir = False
@@ -93,33 +114,45 @@ fig_savename = ''
 
 
 data_axes = [0,1]
+axes_labels = ['Cross-polarized light', 'Tabor Monitor']
 # data_axes = [0]
 # axes_labels = ['Cross-polarized light']
-axes_labels = ['Cross-polarized light', 'Tabor Monitor']
 
 use_filename_labels = False
 labels = []
 
 #file_inds = (-10,-1)
 file_inds = (0, 100)
-file_step = 1
+file_step = 5
 
 userNFFT = 2**20
 fullNFFT = True
 
-# plot_freqs = (55000.0, 65000.0)
-plot_freqs = (10.0, 250000.0)
+plot_freqs = (48500.0, 51500.0)
+# plot_freqs = (0.1, 250000.0)
 
 waterfall = False
-waterfall_fac = 0.01
+waterfall_fac = 100
+
+invert_zorder = False
+invert_colors = True
 
 #window = mlab.window_hanning
 window = mlab.window_none
 
-#ylim = (1e-21, 1e-14)
+# ylim = (1e-21, 1e-14)
 #ylim = (1e-7, 1e-1)
-xlim = ()
+# ylim = (1e-6, 8e-4)
 ylim = ()
+
+
+# xlim = (190000.0, 200600.0)
+xlim = (48500.0, 51500.0)
+# xlim = (10.0, 250000.0)
+xlim = ()
+
+# xticks = [190000.0, 192500.0, 195000.0, 197500.0, 200000.0]
+xticks = None
 
 track_feature = False
 tracking_band = 500.0
@@ -142,8 +175,10 @@ def lorentzian(x, A, mu, gamma, c):
 
 
 
-def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
-                      sort='time', plot_freqs=(0.0,1000000.0), labels=[]):
+def plot_many_spectra(files, data_axes=[0,1,2], colormap='plasma', \
+                      invert_colors=False, invert_zorder=False, \
+                      sort='time', \
+                      plot_freqs=(0.0,1000000.0), labels=[]):
     '''Loops over a list of file names, loads each file,
        then plots the amplitude spectral density of any number 
        of data channels
@@ -157,23 +192,28 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
 
     dfig, daxarr = plt.subplots(len(data_axes),sharex=True,sharey=False, \
-                                figsize=(8,8))
+                                figsize=(8,4*len(data_axes)))
     if len(data_axes) == 1:
         daxarr = [daxarr]
 
-
     colors = bu.get_colormap(len(files), cmap=colormap)
-    #colors = ['C0', 'C1', 'C2']
+    if invert_colors:
+        colors = colors[::-1]
+
+    zorders = np.arange(len(files)) + 5
+    if invert_zorder:
+        zorders = zorders[::-1]
 
     if track_feature:
         times = []
         feature_locs = []
 
     old_per = 0
-    print("Processing %i files..." % len(files))
+    print(f"Processing {len(files)} files...")
     for fil_ind, fil in enumerate(files):
 
         color = colors[fil_ind]
+        zorder = zorders[fil_ind]
         
         # Display percent completion
         bu.progress_bar(fil_ind, len(files))
@@ -181,9 +221,10 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
         # Load data
         obj = bu.hsDat(fil, load=True)
 
-        #plt.figure()
-        #plt.plot(df.pos_data[0])
-        #plt.show()
+        # plt.figure()
+        # plt.plot(obj.dat[:,1])
+        # plt.show()
+        # input()
 
         fsamp = obj.attribs['fsamp']
         nsamp = obj.attribs['nsamp']
@@ -219,12 +260,14 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
 
             if len(labels):
                 daxarr[axind].loglog(freqs[plot_inds], asd[plot_inds]*fac, \
-                                     label=labels[fil_ind], color=colors[fil_ind])
+                                     label=labels[fil_ind], color=colors[fil_ind], \
+                                     zorder=zorder)
             else:
                 daxarr[axind].loglog(freqs[plot_inds], asd[plot_inds]*fac, \
-                                     color=colors[fil_ind])
+                                     color=colors[fil_ind], \
+                                     zorder=zorder)
 
-            daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$')
+            daxarr[axind].set_ylabel('$\\sqrt{\\mathrm{PSD}}$')
             if ax == data_axes[-1]:
                 daxarr[axind].set_xlabel('Frequency [Hz]')
 
@@ -238,9 +281,14 @@ def plot_many_spectra(files, data_axes=[0,1,2], colormap='jet', \
         daxarr[0].set_xlim(xlim[0], xlim[1])
     if len(ylim):
         daxarr[0].set_ylim(ylim[0], ylim[1])
+
+    if xticks is not None:
+        daxarr[1].set_xticks(xticks)
+        daxarr[1].set_xticks([], minor=True)
+
     plt.tight_layout()
 
-    if savefig:
+    if savefig and fig_savename:
         dfig.savefig(fig_savename)
 
 
@@ -258,4 +306,6 @@ if use_filename_labels:
     labels = np.copy(allfiles)
 
 plot_many_spectra(allfiles, data_axes=data_axes, colormap=cmap, \
-                  plot_freqs=plot_freqs, labels=labels)
+                  plot_freqs=plot_freqs, labels=labels, \
+                  invert_colors=invert_colors, \
+                  invert_zorder=invert_zorder)

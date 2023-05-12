@@ -14,11 +14,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-file_path = '/home/cblakemore/tmp/20200320_mle_vs_time.p'
+file_path = '/data/new_trap_processed/mod_grav/20200320_mle_vs_time.p'
 
 fig_base = '/home/cblakemore/plots/20200320/mod_grav/'
 
-savefig = True
+savefig = False
 
 two_panel = False
 mle_inset = False

@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 14})
 
-import grav_util_3 as gu
+import grav_util as gu
 import bead_util as bu
 import configuration as config
 
@@ -50,21 +50,36 @@ theory_data_dir = os.path.join(theory_base, '7_6um-gbead_1um-unit-cells_master/'
 # data_dirs = [#'/data/new_trap/20200210/Bead2/Shaking/Shaking382/', \
 #              '/data/new_trap/20200210/Bead2/Shaking/Shaking384/']
 
-arg1 = str(sys.argv[1])
-arg2 = str(sys.argv[2])
-arg3 = int(sys.argv[3])
+try:
+    arg1 = str(sys.argv[1])
+except:
+    arg1 = 0
+
+
+try:
+    arg2 = str(sys.argv[2])
+except:
+    arg2 = 1000
+
+
+try:
+    arg3 = int(sys.argv[3])
+except:
+    arg3 = 0
 
 # data_dirs = ['/data/new_trap/20200320/Bead1/Shaking/Shaking373/']
 # data_dirs = ['/data/new_trap/20200320/Bead1/Shaking/Shaking378/']
+data_dirs = ['/data/new_trap/20200320/Bead1/Shaking/Shaking2_20200403/']
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/Batch3/{:s}/'.format(arg)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/SBiN_2a/{:s}/'.format(arg)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/bkg_simple/{:s}/'.format(arg)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN/{:s}/'.format(arg1)]
-data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN3/{:s}/'.format(arg1)]
+# data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN2/{:s}/'.format(arg1)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/StBiN3/{:s}/'.format(arg1)]
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/raw/noise/']
 # data_dirs = ['/data/new_trap_processed/mockfiles/20200320/output/noise/chas_tests/77/']
 new_trap = True
+skip_subdirectories = True
 
 
 signal_injection_path = ''
@@ -83,12 +98,14 @@ except:
 inj_key = arg1
 
 
-# binning_result_path = ''
-# binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_rand3_binning_2.p'
-# binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_far_rand1_binning.p'
-# binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin3_{:s}_binning.p'.format(arg1)
-binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin3_{:s}_rand{:d}_binning.p'\
-                                    .format(arg1, arg3)
+binning_result_path = ''
+# binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_binning.p'
+# binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_rand{:d}_binning.p'.format(arg3)
+# binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_far_binning.p'
+# binning_result_path = '/home/cblakemore/tmp/20200320_mod_grav_far_rand{:d}_binning.p'.format(arg3)
+# binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin2_{:s}_binning.p'.format(arg1)
+# binning_result_path = '/home/cblakemore/tmp/signal_injection_stbin2_{:s}_rand{:d}_binning.p'\
+#                                     .format(arg1, arg3)
 try:
     binning_results = pickle.load(open(binning_result_path, 'rb'))
 except:
@@ -100,31 +117,39 @@ bin_key = arg2
 # step_cal_drive_freq = 41.0
 step_cal_drive_freq = 71.0
 
-# pardirs_in_name = 1
-pardirs_in_name = 2
+pardirs_in_name = 1
+# pardirs_in_name = 2
 
 # substr = ''
 # substr = 'Noise_add_3'
-# substr = 'NoShaking_1'
-substr = 'Noise_batch'
+# substr = 'NoShaking'
+substr = 'NoShaking_1'
+# substr = 'Noise_batch'
 # substr = 'Shaking0' # for 20200210/.../...382/
 # substr = 'Shaking3'  # for 20200210/.../...384/ and 20200320/.../...378
 # substr = 'Shaking4'  # for 20200320/.../...373
 
-user_load_ext = '_discovery'
+# user_load_ext = '_discovery'
+user_load_ext = '_discovery_closer_scaled'
 # user_load_ext = '_no-discovery'
 
 # user_save_ext = '_discovery'
-# user_save_ext = '_no-discovery'
+user_save_ext = '_discovery_closer_scaled'
+# user_save_ext = '_no-discovery2'
 # user_save_ext = '_no-discovery_sign-sum'
 # user_save_ext = '_no-discovery_binning-{:s}'.format(arg2)
-user_save_ext = '_no-discovery_rand{:d}_binning-{:s}'.format(arg3, arg2)
+# user_save_ext = '_no-discovery_rand{:d}_binning-{:s}'.format(arg3, arg2)
 # user_save_ext = '_no-discovery-conservative'
 # user_save_ext = '_TEST'
 
+first_file = 0
+# first_file = 100
+
 # Nfiles = 5
 # Nfiles = 50
+# Nfiles = 200
 Nfiles = 1000
+# Nfiles = 2000
 # Nfiles = 5000
 # Nfiles = 5500  # for far 20200320 dataset
 # Nfiles = 16000
@@ -132,21 +157,21 @@ Nfiles = 1000
 
 suppress_off_diag = True
 
-# reprocess = True
-# save = True
-reprocess = False
-save = False
+reprocess = True
+save = True
+# reprocess = False
+# save = False
 
-# redo_alpha_fit = True
+redo_alpha_fit = True
 redo_likelihood_sum = True
-redo_alpha_fit = False
+# redo_alpha_fit = False
 # redo_likelihood_sum = False
 
 nalpha = 1001
 # file_chunking = 5500
 # file_chunking = 10000
 file_chunking = int(arg2)
-shuffle_in_time = True
+shuffle_in_time = False
 if arg3 == 1:
     shuffle_seed = 123456      # rand1
 elif arg3 == 2:
@@ -158,7 +183,7 @@ else:
 freq_pairing = 1
 # freq_pairing = 8
 # freq_pairing = 15
-no_discovery =  True
+no_discovery = False
 sum_by_sign = False
 confidence_level = 0.95
 
@@ -169,18 +194,39 @@ plot_alpha_xyz = False
 plot_bad_alphas = False
 
 plot_mle_vs_time = True
-mle_vs_time_chunk_size = 50
+mle_vs_time_chunk_size = 1
 zoom_limits = ()
 # zoom_limits = (6.0, 6.5)
-plot_freqs = [6.0, 12.0, 33.0, 36.0]
+# plot_freqs = [6.0, 12.0, 33.0, 36.0]
+plot_freqs = [12.0, 18.0, 21.0, 33.0, 36.0, 39.0]
 plot_alpha = 1.0
 
-plot_chunked_mle_vs_time = True
-plot_mle_histograms = False
-plot_likelihood_ratio_histograms = False
+
+plot_chunked_mle_vs_time = False
+
+derp_save = False
+# derp_file = '/home/cblakemore/tmp/20200320_mle_vs_time.p'
+derp_file = '/home/cblakemore/tmp/20200320_noise_mle_vs_time.p'
+derp_key = 'naive'
+# derp_key = 'rand{:d}'.format(arg3)
+derp_nchunk = int(round(Nfiles/file_chunking))
+
+plot_mle_histograms = True
+plot_likelihood_ratio_histograms = True
 plot_harmonic_likelihoods = True
 plot_final_likelihood = True
 plot_limit = True
+
+show_plots = False
+save_plots = True
+
+export_limit = True
+# export_path = '/data/new_trap_processed/limits/20200320_limit_discovery2.p'
+# export_path = '/data/new_trap_processed/limits/20200320_limit_binning-{:d}.p'\
+#                     .format(file_chunking)
+export_path = '/data/new_trap_processed/limits/20200320_noise-limit_discovery_closer_scaled.p'
+# export_path = '/data/new_trap_processed/limits/20200320_noise-limit_binning-{:d}.p'\
+#                     .format(file_chunking)
 
 lambdas_to_plot =  [10.0e-6]
 # lambdas_to_plot = [5.0e-6, 10.0e-6]
@@ -192,11 +238,12 @@ limit_ylim = (5e6, 1e14)
 save_hists = False
 
 ### Position of bead relative to the attractor coordinate system
-p0_bead_dict = {'20200320': [392.0, 199.7, 42.37]}
+p0_bead_dict = {'20200320': [392.4, 199.8, 42.37]}
 
 # harms = [6]
 # harms = [3,4,5,6]
-harms = [2,4,6,7,10,11,12,13]
+# harms = [2,4,6,7,10,11,12,13]
+harms = [4,6,7,11,12,13]
 # harms = [2,3,4,5,6,7,8,9,10,11,12,13]
 # harms = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 # harms = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
@@ -204,6 +251,18 @@ harms = [2,4,6,7,10,11,12,13]
 # harms = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,22,23,24,25,26,27,28,29,30] # no 51/60/63 Hz
 # harms = [2,3,4,5,6,7,8,9,10]
 # harms = []
+
+### First level of keys for dict are {drive}{resp} pairs
+### with axes indexed as x=0, y=1, z=2. So adjusting z phase
+### response to a z drive would need the key '22'
+adjust_phase = True
+adjust_phase_dict  = {
+                      '22': {3.0: 1.378, 6.0: 1.018, 9.0: 0.765, \
+                             12.0: 0.657, 15.0: 0.455, 18.0: 0.344, \
+                             21.0: 0.513, 24.0: 0.330, 27.0: 0.380, \
+                             30.0: 0.626, 33.0: 0.681, 36.0: 0.620, \
+                             39.0: 0.452}
+                     }
 
 
 fake_attractor_data = True
@@ -213,13 +272,17 @@ fake_attractor_data_dc = 194.92
 fake_attractor_data_axis = 1
 
 fix_sep = True
+fix_sep_val = 7.5
 # fix_sep_val = 11.1
-fix_sep_val = 13.9
+# fix_sep_val = 13.9
 # fix_sep_val = 19.9
 
 fix_height = True
-fix_height_val = -15.23
+fix_height_val = -5.0
+# fix_height_val = -15.23
 
+# ax_scale_facs = [1.0, 1.0, 1.0]
+ax_scale_facs = [1.0/179.0, 1.0/112.0, 1.0/56.0]
 
 
 add_fake_data = False
@@ -244,7 +307,7 @@ opt_ext = '_harms'
 for harm in harms:
     opt_ext += '-' + str(int(harm))
 
-opt_ext += '_first-{:d}'.format(Nfiles)
+opt_ext += '_first-{:d}'.format(Nfiles-first_file)
 if len(substr):
     opt_ext = '_{:s}{:s}'.format(substr, opt_ext)
 
@@ -282,9 +345,10 @@ for ddir in data_dirs:
         print('Loading aggregate data from:')
         print('     {:s}'.format(agg_load_path))
 
-    print('----------------------------------')
-    print('Will save to:')
-    print('     {:s}'.format(agg_path))
+    if save:
+        print('----------------------------------')
+        print('Will save to:')
+        print('     {:s}'.format(agg_path))
 
     print('----------------------------------')
     print('Will save plots to:')
@@ -300,8 +364,9 @@ for ddir in data_dirs:
 
         datafiles, lengths = bu.find_all_fnames(ddir, ext=config.extensions['data'], \
                                                 substr=substr, sort_by_index=True, \
-                                                sort_time=False)
-        datafiles = datafiles[:Nfiles]
+                                                sort_time=False, \
+                                                skip_subdirectories=skip_subdirectories)
+        datafiles = datafiles[first_file:Nfiles]
 
         agg_dat = gu.AggregateData(datafiles, p0_bead=p0_bead, harms=harms, \
                                    plot_harm_extraction=plot_harms, new_trap=new_trap, \
@@ -311,7 +376,9 @@ for ddir in data_dirs:
                                    fake_attractor_data_amp=fake_attractor_data_amp, \
                                    fake_attractor_data_dc=fake_attractor_data_dc, \
                                    fake_attractor_data_freq=fake_attractor_data_freq, \
-                                   fake_attractor_data_axis=fake_attractor_data_axis)
+                                   fake_attractor_data_axis=fake_attractor_data_axis, \
+                                   adjust_phase=adjust_phase, \
+                                   adjust_phase_dict=adjust_phase_dict)
 
         agg_dat.load_grav_funcs(theory_data_dir)
 
@@ -321,7 +388,7 @@ for ddir in data_dirs:
         agg_dat.bin_rough_stage_positions()
         #agg_dat.average_resp_by_coordinate()
 
-        # agg_dat.plot_force_plane(resp=0, fig_ind=1, show=True)
+        # agg_dat.plot_force_plane(resp=0, fig_ind=1, show=False)
         # agg_dat.plot_force_plane(resp=1, fig_ind=2, show=False)
         # agg_dat.plot_force_plane(resp=2, fig_ind=3, show=True)
 
@@ -336,7 +403,8 @@ for ddir in data_dirs:
                                                   add_fake_data=add_fake_data, \
                                                   fake_alpha=fake_alpha, fix_sep=fix_sep, \
                                                   fix_sep_val=fix_sep_val, fix_height=fix_height, \
-                                                  fix_height_val=fix_height_val)
+                                                  fix_height_val=fix_height_val, \
+                                                  ax_scale_facs=ax_scale_facs)
 
         if save:
             agg_dat.save(agg_path)
@@ -353,32 +421,35 @@ for ddir in data_dirs:
         sys.stdout.flush()
 
         if plot_mle_vs_time:
-            agg_dat.plot_mle_vs_time(show=False, save=True, plot_freqs=plot_freqs, basepath=plot_dir, \
-                                     plot_alpha=plot_alpha, chunk_size=mle_vs_time_chunk_size,  \
+            agg_dat.plot_mle_vs_time(show=show_plots, save=save_plots, plot_freqs=plot_freqs, \
+                                     basepath=plot_dir, plot_alpha=plot_alpha, \
+                                     chunk_size=mle_vs_time_chunk_size,  \
                                      zoom_limits=zoom_limits)
 
-        if plot_chunked_mle_vs_time:
-            agg_dat.plot_chunked_mle_vs_time(show=False, save=True, plot_freqs=plot_freqs, \
+        if plot_chunked_mle_vs_time and no_discovery:
+            agg_dat.plot_chunked_mle_vs_time(show=show_plots, save=save_plots, plot_freqs=plot_freqs, \
                                              basepath=plot_dir, plot_alpha=plot_alpha)
 
         if plot_mle_histograms:
-            agg_dat.plot_mle_histograms(show=False, save=True, bins=20, basepath=plot_dir)
+            agg_dat.plot_mle_histograms(show=show_plots, save=save_plots, bins=20, basepath=plot_dir)
 
         if plot_likelihood_ratio_histograms:
             for lambda_to_plot in lambdas_to_plot:
-                agg_dat.plot_likelihood_ratio_histograms(show=False, save=True, basepath=plot_dir, \
+                agg_dat.plot_likelihood_ratio_histograms(show=show_plots, save=save_plots, \
+                                                         basepath=plot_dir, \
                                                          yuklambda=lambda_to_plot)
 
         if plot_harmonic_likelihoods:
             for lambda_to_plot in lambdas_to_plot:
-                agg_dat.plot_sum_likelihood_by_harm(show=False, save=True, basepath=plot_dir, \
+                agg_dat.plot_sum_likelihood_by_harm(show=show_plots, save=save_plots, \
+                                                    basepath=plot_dir, \
                                                     include_limit=True, no_discovery=no_discovery, \
                                                     confidence_level=confidence_level, ss=ss, \
                                                     yuklambda=lambda_to_plot)
 
         if plot_final_likelihood:
             for lambda_to_plot in lambdas_to_plot:
-                agg_dat.plot_sum_likelihood(show=False, save=True, basepath=plot_dir, \
+                agg_dat.plot_sum_likelihood(show=show_plots, save=save_plots, basepath=plot_dir, \
                                             include_limit=True, no_discovery=no_discovery, \
                                             confidence_level=confidence_level, ss=ss, \
                                             yuklambda=lambda_to_plot)
@@ -386,8 +457,11 @@ for ddir in data_dirs:
         if plot_limit:
             agg_dat.get_limit_from_likelihood_sum(confidence_level=confidence_level, \
                                                   no_discovery=no_discovery, ss=ss, \
-                                                  xlim=limit_xlim, ylim=limit_ylim,
-                                                  show=False, save=True, basepath=plot_dir)
+                                                  xlim=limit_xlim, ylim=limit_ylim, \
+                                                  show=show_plots, save=save_plots, \
+                                                  basepath=plot_dir, \
+                                                  export_limit=export_limit, \
+                                                  export_path=export_path)
         print('Done!')
 
 
@@ -421,7 +495,8 @@ for ddir in data_dirs:
                                                       fake_alpha=fake_alpha, fix_sep=fix_sep, \
                                                       fix_sep_val=fix_sep_val, \
                                                       fix_height=fix_height, \
-                                                      fix_height_val=fix_height_val)
+                                                      fix_height_val=fix_height_val, \
+                                                      ax_scale_facs=ax_scale_facs)
             if save:
                 agg_dat.save(agg_path)
 
@@ -440,40 +515,47 @@ for ddir in data_dirs:
         sys.stdout.flush()
 
         if plot_mle_vs_time:
-            agg_dat.plot_mle_vs_time(show=False, save=True, plot_freqs=plot_freqs, basepath=plot_dir, \
-                                     plot_alpha=plot_alpha, chunk_size=mle_vs_time_chunk_size, \
-                                     zoom_limits=zoom_limits)
+            agg_dat.plot_mle_vs_time(show=show_plots, save=save_plots, plot_freqs=plot_freqs, \
+                                     basepath=plot_dir, plot_alpha=plot_alpha, \
+                                     chunk_size=mle_vs_time_chunk_size, zoom_limits=zoom_limits)
             
-        if plot_chunked_mle_vs_time:
-            agg_dat.plot_chunked_mle_vs_time(show=False, save=True, plot_freqs=plot_freqs, \
-                                             basepath=plot_dir, plot_alpha=plot_alpha)
+        if plot_chunked_mle_vs_time and no_discovery:
+            agg_dat.plot_chunked_mle_vs_time(show=show_plots, save=save_plots, plot_freqs=plot_freqs, \
+                                             basepath=plot_dir, plot_alpha=plot_alpha, \
+                                             derp_save=derp_save, derp_file=derp_file, \
+                                             derp_key=derp_key, derp_nchunk=derp_nchunk)
 
         if plot_mle_histograms:
-            agg_dat.plot_mle_histograms(show=False, save=True, bins=20, basepath=plot_dir)
+            agg_dat.plot_mle_histograms(show=show_plots, save=save_plots, bins=20, basepath=plot_dir)
 
         if plot_likelihood_ratio_histograms:
             for lambda_to_plot in lambdas_to_plot:
-                agg_dat.plot_likelihood_ratio_histograms(show=False, save=True, basepath=plot_dir, \
+                agg_dat.plot_likelihood_ratio_histograms(show=show_plots, save=save_plots, \
+                                                         basepath=plot_dir, \
                                                          yuklambda=lambda_to_plot)
 
         if plot_harmonic_likelihoods:
             for lambda_to_plot in lambdas_to_plot:
-                agg_dat.plot_sum_likelihood_by_harm(show=False, save=True, basepath=plot_dir, \
+                agg_dat.plot_sum_likelihood_by_harm(show=show_plots, save=save_plots, \
+                                                    basepath=plot_dir, \
                                                     include_limit=True, no_discovery=no_discovery, \
                                                     confidence_level=confidence_level, ss=ss, \
                                                     yuklambda=lambda_to_plot)
 
         if plot_final_likelihood:
             for lambda_to_plot in lambdas_to_plot:
-                agg_dat.plot_sum_likelihood(show=False, save=True, basepath=plot_dir, \
+                agg_dat.plot_sum_likelihood(show=show_plots, save=save_plots, basepath=plot_dir, \
                                             include_limit=True, no_discovery=no_discovery, \
                                             confidence_level=confidence_level, ss=ss, \
                                             yuklambda=lambda_to_plot)
         if plot_limit:
             agg_dat.get_limit_from_likelihood_sum(confidence_level=confidence_level, \
                                                   no_discovery=no_discovery, ss=ss, \
-                                                  xlim=limit_xlim, ylim=limit_ylim,
-                                                  show=False, save=True, basepath=plot_dir)
+                                                  xlim=limit_xlim, ylim=limit_ylim, \
+                                                  show=show_plots, save=save_plots, \
+                                                  basepath=plot_dir, \
+                                                  export_limit=export_limit, \
+                                                  export_path=export_path)
         print('Done!')
 
         if save:

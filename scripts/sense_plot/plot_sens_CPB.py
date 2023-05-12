@@ -179,7 +179,8 @@ if annotate:
                  verticalalignment='center', fontsize=12)
 
 
-cmeas = np.loadtxt('prev_meas/decca_2014.txt',delimiter=",",skiprows=0)
+cmeas = np.loadtxt('prev_meas/chen_prl_116_221102_2016.txt',\
+                   delimiter=",",skiprows=0)
 ax.loglog(cmeas[:,0]*1e6,cmeas[:,1],'k',linewidth=1, zorder=3)
 if annotate:
     if ref:

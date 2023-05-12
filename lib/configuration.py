@@ -77,6 +77,7 @@ stage_inds = {"x DC": 0,
 # Taken straight from newport stage datasheet
 stage_cal = 8.0 # um/V
 stage_cal_func = lambda x: 8.0 * x
+
 # From calibration taken by AFieguth, sometime late 2019
 # volt_mon = [-0.007, 4.968, 9.91], pos_setting = [0, 250, 500]
 stage_cal_new = 50.418 # um/V, with ~0.077 um offset

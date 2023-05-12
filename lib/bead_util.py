@@ -439,21 +439,16 @@ class DataFile:
             = extract_xyz_new(data_dict['pos_data'], self.time)
         self.quad_time, self.amp, self.phase \
             = extract_quad_new(data_dict['quad_data'], self.time)
+        self.electrode_data = data_dict['electrode_data']
         self.spin_data = data_dict['spin_data']
         self.cant_data = data_dict['cant_data']
         self.power = data_dict['laser_power']
         self.p_trans = data_dict['p_trans']
+        self.electrode_data = data_dict['electrode_data']
 
         self.nsamp = len(self.pos_data[0])
 
         self.time = self.pos_time[0]
-
-
-        plt.figure()
-        plt.plot(self.pos_time)
-        plt.figure()
-        plt.plot(self.pos_data[2])
-        plt.show()
 
         ### Check for the weird scrambling that sometimes
         ### happens from the new trap fpga
@@ -476,82 +471,82 @@ class DataFile:
         self.electrode_settings['frequencies'] = np.zeros(8)
         self.electrode_settings['dc_settings'] = np.zeros(8)
 
-        if len(data_dict['electrode_data']):
+        # if len(data_dict['electrode_data']):
 
-            ### Since the actual electrode data isn't saved (only 1-s portions because
-            ### that totally makes sense, but hey I'm not in charge in the new setup)
-            ### the following reconstructs the signal depending on whether the data
-            ### is labeld as "Discharge" or "Transfunc" since the actual electrode 
-            ### amplitudes aren't stored properly for the transfer function data.
-            ### Still mind-boggling that this information isn't stored in the file and
-            ### and has to be hardcoded. Like wtf.
-            discharge = False
-            trans_func = False
-            if 'Discharge' in self.fname:
-                discharge = True
-                amp = np.sqrt(2) * np.std(data_dict['electrode_data'][0])
-            elif 'TransFunc' in self.fname:
-                trans_func = True
-                amp = 0.65
-            else:
-                amp = 1.0
+            # ### Since the actual electrode data isn't saved (only 1-s portions because
+            # ### that totally makes sense, but hey I'm not in charge in the new setup)
+            # ### the following reconstructs the signal depending on whether the data
+            # ### is labeld as "Discharge" or "Transfunc" since the actual electrode 
+            # ### amplitudes aren't stored properly for the transfer function data.
+            # ### Still mind-boggling that this information isn't stored in the file and
+            # ### and has to be hardcoded. Like wtf.
+            # discharge = False
+            # trans_func = False
+            # if 'Discharge' in self.fname:
+            #     discharge = True
+            #     amp = np.sqrt(2) * np.std(data_dict['electrode_data'][0])
+            # elif 'TransFunc' in self.fname:
+            #     trans_func = True
+            #     amp = 0.65
+            # else:
+            #     amp = 1.0
 
-            tarr = np.arange(self.nsamp) * (1.0 / self.fsamp)
-            dumb_tarr = np.arange(data_dict['electrode_data'].shape[1]) \
-                            * (1.0 / self.fsamp)
+            # tarr = np.arange(self.nsamp) * (1.0 / self.fsamp)
+            # dumb_tarr = np.arange(data_dict['electrode_data'].shape[1]) \
+            #                 * (1.0 / self.fsamp)
 
-            freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
-            dumb_freqs = np.fft.rfftfreq(data_dict['electrode_data'].shape[1], \
-                                         d=1.0/self.fsamp)
-            #elec_data = np.zeros((8,self.nsamp))
-            elec_data = (1.0e-9) * amp * np.random.randn(8,self.nsamp)
+            # freqs = np.fft.rfftfreq(self.nsamp, d=1.0/self.fsamp)
+            # dumb_freqs = np.fft.rfftfreq(data_dict['electrode_data'].shape[1], \
+            #                              d=1.0/self.fsamp)
+            # #elec_data = np.zeros((8,self.nsamp))
+            # elec_data = (1.0e-9) * amp * np.random.randn(8,self.nsamp)
 
-            channels = np.copy(attribs['electrode_channel'])
-            #channels.sort()
+            # channels = np.copy(attribs['electrode_channel'])
+            # channels.sort()               
+
+            # print(channels)
+            # input()
+
+            # tarr = np.arange(self.nsamp) * (1.0 / self.fsamp)
+
+            # for ind, elec_ind in enumerate(channels):
+            #     sign = 1.0
+            #     if ind != 0:
+            #         sign = -1.0 
+            #     plt.plot(tarr, self.electrode_data[ind], label=elec_ind, \
+            #                 color='C'+str(ind), lw=2)
+
+            #     self.electrode_settings['driven'][elec_ind] = 1.0
+            #     self.electrode_settings['amplitudes'][elec_ind] = amp
+            #     fft = np.fft.rfft(data_dict['electrode_data'][ind])
+
+            #     if discharge:
+            #         max_freq = dumb_freqs[np.argmax(np.abs(fft[1:])) + 1]
+            #         self.electrode_settings['frequencies'][elec_ind] = max_freq
+            #         reconstructed = sign * amp * np.sin(2.0 * np.pi * max_freq * tarr)
+            #         reconstructed += (1.0e-9) * amp * np.random.randn(self.nsamp)
+            #         elec_data[elec_ind] = reconstructed
+
+            #     elif trans_func:
+            #         thresh = 0.5 * np.max(np.abs(fft))
+            #         drive_freqs = dumb_freqs[np.abs(fft) > thresh]
+            #         drive_freq_inds = np.arange(len(dumb_freqs))[np.abs(fft) > thresh]
+            #         for freq_ind, freq in zip(drive_freq_inds, drive_freqs):
+            #             phase = np.angle(fft[freq_ind])
+            #             reconstructed = amp * np.cos(2.0 * np.pi * freq * tarr + phase)
+            #             elec_data[elec_ind] += reconstructed
 
 
-            for ind, elec_ind in enumerate(channels):
-                sign = 1.0
-                if ind != 0:
-                    sign = -1.0
 
-                self.electrode_settings['driven'][elec_ind] = 1.0
-                self.electrode_settings['amplitudes'][elec_ind] = amp
-                fft = np.fft.rfft(data_dict['electrode_data'][ind])
+            # # for channel in range(8):
+            # #     plt.plot(tarr, elec_data[channel], label=str(channel))
+            # # plt.show()
 
-                if discharge:
-                    max_freq = dumb_freqs[np.argmax(np.abs(fft[1:])) + 1]
-                    self.electrode_settings['frequencies'][elec_ind] = max_freq
-                    reconstructed = sign * amp * np.sin(2.0 * np.pi * max_freq * tarr)
-                    reconstructed += (1.0e-9) * amp * np.random.randn(self.nsamp)
-                    elec_data[elec_ind] = reconstructed
+            # # print(self.electrode_settings)
+        # else:
+        #     elec_data = []
 
-                elif trans_func:
-                    thresh = 0.5 * np.max(np.abs(fft))
-                    drive_freqs = dumb_freqs[np.abs(fft) > thresh]
-                    drive_freq_inds = np.arange(len(dumb_freqs))[np.abs(fft) > thresh]
-                    for freq_ind, freq in zip(drive_freq_inds, drive_freqs):
-                        phase = np.angle(fft[freq_ind])
-                        reconstructed = amp * np.cos(2.0 * np.pi * freq * tarr + phase)
-                        elec_data[elec_ind] += reconstructed
-
-                    # print(channels)
-                    # plt.plot(tarr, elec_data[elec_ind], label=elec_ind, \
-                    #             color='C'+str(ind), lw=2, ls=':')
-                    # plt.plot(dumb_tarr, dat5[ind], color='C'+str(ind))
-                    
-                    # plt.legend()
-                    # plt.show()
-
-            # for channel in range(8):
-            #     plt.plot(tarr, elec_data[channel], label=str(channel))
-            # plt.show()
-
-            # print(self.electrode_settings)
-        else:
-            elec_data = []
-
-        self.electrode_data = elec_data
+        # self.electrode_data = elec_data
 
         # run bu.print_quadrant_indices() to see an explanation of these
         right = self.amp[0] + self.amp[1]
@@ -569,7 +564,7 @@ class DataFile:
                                     y2.astype(np.float64)/quad_sum, \
                                     self.phase[4]])
 
-        self.pos_data = np.copy(self.pos_data_3)
+        # self.pos_data = np.copy(self.pos_data_3)
 
 
 
@@ -642,16 +637,16 @@ class DataFile:
         avging_fac = 1.0 / (100.0 / 2.0**7)
         cast_fac = 1.0 / 2.0**16
 
-        bitshift_fac = 1.0 / (2.0**z_bitshift)
+        z_cast_fac = 1.0 / 2.0**14
+        z_bitshift_fac = 1.0 / (2.0**z_bitshift)
 
         newphase = []
-
         for det in range(5):
             newphase.append( np.array(self.phase[det]) \
-                             * avging_fac * cast_fac * bitshift_fac )
+                             * avging_fac * cast_fac )
 
-        self.phase = newphase
-        self.zcal = self.pos_data[2] * avging_fac * np.pi
+        self.phase = np.array(newphase)
+        self.zcal = self.pos_data[2] * avging_fac * z_cast_fac * z_bitshift_fac
 
 
 
@@ -891,11 +886,16 @@ class DataFile:
         driveffts = drivefft_full[ginds]
         driveffts_all = drivefft_full[drive_ginds]
 
+        if self.new_trap:
+            data = self.pos_data_3
+        else:
+            data = self.pos_data
+
         for resp in [0,1,2]:
 
             N = len(self.pos_data[resp])
 
-            datfft = np.fft.rfft(self.pos_data[resp]*self.conv_facs[resp])
+            datfft = np.fft.rfft(data[resp]*self.conv_facs[resp])
             # plt.loglog(freqs, np.abs(datfft)*fft_norm(self.nsamp, self.fsamp))
             # plt.show()
             # input()
@@ -964,7 +964,7 @@ class DataFile:
                     if avg_ind not in ginds:
                         new_avg_inds.append(avg_ind)
 
-                print(np.mean(np.abs(datfft[avg_inds])*normfac))
+                # print(np.mean(np.abs(datfft[avg_inds])*normfac))
 
                 fig, axarr = plt.subplots(2,1,sharex=True,sharey=True,figsize=(10,8))
                 axarr[0].loglog(freqs, np.abs(datfft)*normfac, alpha=0.4)

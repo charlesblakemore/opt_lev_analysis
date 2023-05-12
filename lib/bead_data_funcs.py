@@ -159,12 +159,13 @@ def getdata_new(fname, verbose=False):
 
 def get_hdf5_time(fname, new_trap=False):
     if new_trap:
-        try:
-            d1, _, _, _, _, _, _ = getdata_new(fname)
-            pos_time, _, _, _, _ = extract_xyz_new(d1)
-            file_time = pos_time[0]
-        except:
-            file_time = 0.0
+        # try:
+        time_guess = os.stat(fname).st_ctime * 1e9
+        outdic, _ = getdata_new(fname)
+        pos_time, _, _, _, _ = extract_xyz_new(outdic['quad_data'], time_guess)
+        file_time = pos_time[0]
+        # except:
+        #     file_time = 0.0
 
     else:
         try:
@@ -325,19 +326,19 @@ def extract_quad(quad_dat, timestamp_ns, verbose=False, \
     quad_time = np.left_shift(quad_time_high.astype(np.uint64), np.uint64(32)) \
                   + quad_time_low.astype(np.uint64)
 
-    # amp = [quad_dat[tind+2::ndata], quad_dat[tind+3::ndata], \
-    #        quad_dat[tind+4::ndata], quad_dat[tind+5::ndata], \
-    #        quad_dat[tind+6::ndata]]
-    # phase = [quad_dat[tind+7::ndata], quad_dat[tind+8::ndata], \
-    #          quad_dat[tind+9::ndata], quad_dat[tind+10::ndata], \
-    #          quad_dat[tind+11::ndata]]
+    # amp = [quad_dat[tind-10::ndata], quad_dat[tind-9::ndata], \
+    #        quad_dat[tind-8::ndata], quad_dat[tind-7::ndata], \
+    #        quad_dat[tind-6::ndata]]
+    # phase = [quad_dat[tind-5::ndata], quad_dat[tind-4::ndata], \
+    #          quad_dat[tind-3::ndata], quad_dat[tind-2::ndata], \
+    #          quad_dat[tind-1::ndata]]
 
-    amp = [quad_dat[tind-10::ndata], quad_dat[tind-9::ndata], \
-           quad_dat[tind-8::ndata], quad_dat[tind-7::ndata], \
-           quad_dat[tind-6::ndata]]
-    phase = [quad_dat[tind-5::ndata], quad_dat[tind-4::ndata], \
-             quad_dat[tind-3::ndata], quad_dat[tind-2::ndata], \
-             quad_dat[tind-1::ndata]]    
+    amp = [quad_dat[tind+2::ndata], quad_dat[tind+3::ndata], \
+           quad_dat[tind+4::ndata], quad_dat[tind+5::ndata], \
+           quad_dat[tind+6::ndata]]
+    phase = [quad_dat[tind+7::ndata], quad_dat[tind+8::ndata], \
+             quad_dat[tind+9::ndata], quad_dat[tind+10::ndata], \
+             quad_dat[tind+11::ndata]] 
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data
@@ -488,19 +489,15 @@ def extract_xyz(xyz_dat, timestamp_ns, verbose=False, \
     xyz_time = np.left_shift(xyz_time_high.astype(np.uint64), np.uint64(32)) \
                   + xyz_time_low.astype(np.uint64)
 
-    # xyz = [xyz_dat[tind+4::ndata], xyz_dat[tind+5::ndata], xyz_dat[tind+6::ndata]]
-    # xy_2 = [xyz_dat[tind+2::ndata], xyz_dat[tind+3::ndata]]
-    # xyz_fb = [xyz_dat[tind+8::ndata], xyz_dat[tind+9::ndata], xyz_dat[tind+10::ndata]]
+    # xyz = [xyz_dat[tind-7::ndata], xyz_dat[tind-6::ndata], xyz_dat[tind-5::ndata]]
+    # xy_2 = [xyz_dat[tind-9::ndata], xyz_dat[tind-8::ndata]]
+    # xyz_fb = [xyz_dat[tind-3::ndata], xyz_dat[tind-2::ndata], xyz_dat[tind-1::ndata]]
+    # sync = np.int32(xyz_dat[tind-4::ndata])
 
     xyz = [xyz_dat[tind+4::ndata], xyz_dat[tind+5::ndata], xyz_dat[tind+6::ndata]]
     xy_2 = [xyz_dat[tind+2::ndata], xyz_dat[tind+3::ndata]]
     xyz_fb = [xyz_dat[tind+8::ndata], xyz_dat[tind+9::ndata], xyz_dat[tind+10::ndata]]
-    
     sync = np.int32(xyz_dat[tind+7::ndata])
-
-    #plt.plot(np.int32(xyz_dat[tind+1::9]).astype(np.uint64) << np.uint64(32) \
-    #         + np.int32(xyz_dat[tind::9]).astype(np.uint64) )
-    #plt.show()
 
     # Since the FIFO read request is asynchronous, sometimes
     # the timestamp isn't first to come out, but the total amount of data

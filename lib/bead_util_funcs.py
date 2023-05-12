@@ -5,13 +5,13 @@ import datetime as dt
 import dill as pickle 
 
 import matplotlib
-backends = ['MacOSX', 'Qt5Agg', 'GTK3Agg', 'TkAgg', 'Agg']
-for backend in backends:
-    try:
-        matplotlib.use(backend)
-        break
-    except:
-        continue
+# backends = ['MacOSX', 'Qt5Agg', 'GTK3Agg', 'TkAgg', 'Agg']
+# for backend in backends:
+#     try:
+#         matplotlib.use(backend)
+#         break
+#     except:
+#         continue
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -465,7 +465,7 @@ def find_all_fnames(dirlist, ext='.h5', sort=False, exclude_fpga=True, \
             for filename in fnmatch.filter(filenames, '*' + ext):
                 if ('_fpga.h5' in filename) and exclude_fpga:
                     continue
-                if substr and (substr not in filename):
+                if substr and (substr not in filename) and (substr not in root):
                     continue
                 if subdir and (subdir not in root):
                     continue
@@ -493,8 +493,10 @@ def find_all_fnames(dirlist, ext='.h5', sort=False, exclude_fpga=True, \
         files.sort(key = lambda x: int(re.findall(r'_([0-9]+)\.', x)[0]) )
 
     if sort_time:
-        files = sort_files_by_timestamp(files, use_origin_timestamp=use_origin_timestamp, \
-                                        new_trap=new_trap)
+        files = sort_files_by_timestamp(\
+            files, \
+            use_origin_timestamp=use_origin_timestamp, \
+            new_trap=new_trap)
 
     if verbose:
         print("Found %i files..." % len(files))
@@ -892,8 +894,6 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
             max_ind = np.argmax(sine_cut)
             max_phase = tvec_phased_cut[max_ind]
 
-
-
             ### Hard-coded number to try to avoid stupid edge effects and 
             ### outliers skewing data
             buffer = 0.1  
@@ -976,6 +976,71 @@ def get_sine_amp_phase(sine, int_band=0, freq=0.0, fit=False, \
         input()
 
     return popt[0], amp_unc, popt[2], phase_unc
+
+
+
+def demod_single(input_sig, fsig, fsamp, tFFT=None, win=('tukey',0.25),
+                 nOverlap=0, detrend='constant', median=False):
+    '''
+    Single frequency digital demodulation.
+    Parameters:
+    -----------
+    dat: array_like
+         Data to demodulate. May contain multiple time series
+    fsig: float
+         Frequency at which to do the demodulation.
+    fs: float, optional
+        Sampling frequency of the time series. Defaults to 2**14=16384 Hz.
+    tFFT: float, optional
+        Segment length (seconds) to evaluate the FFT. Defaults to None and thus
+        the full length of the input signal.
+    win: tuple, optional
+        Input to scipy.signal window function. Defaults to Tukey window with alpha=0.25
+    nOverlap: int, optional
+        Number of samples to overlap window. Defaults to 0.
+    detrend: string, optional
+        Input to scipy.signal detrend function. Defaults to 'constant'
+    median: Bool, optional
+        Median averaging of final result. Defaults to False.
+    Returns:
+    --------
+    result: complex
+        Result of the digital demodulation.
+    TODO: error handling...
+    '''
+
+    if tFFT is None:
+        tFFT = len(input_sig) * (1.0 / fsamp)
+
+    input_sig = np.asarray(input_sig)
+    if input_sig.size == 0:
+        return(np.empty(input_sig.shape[-1]))
+    nperseg = int(np.round(tFFT*fsamp)) # Number of segments in a sample segment.
+    nOverlap = int(nOverlap);
+
+    ### Make the LO time series
+    tt = np.arange(len(input_sig))/fsamp
+    LO = np.exp(-1j*2*np.pi*fsig*tt)
+
+    ### Compute the step to take as we stride through the segments
+    step = nperseg - nOverlap
+    segShape = ((input_sig.shape[-1]-nOverlap)//step, nperseg)
+    datStrides = (step*input_sig.strides[-1], input_sig.strides[-1])
+    LOStrides = (step*LO.strides[-1], LO.strides[-1])
+    dS = np.lib.stride_tricks.as_strided(input_sig, shape=segShape, strides=datStrides)
+    LOS = np.lib.stride_tricks.as_strided(LO, shape=segShape, strides=LOStrides)
+
+    ### Detrend the data
+    data = signal.detrend(dS, type=detrend)
+
+    ### Demodulate the (windowed) data
+    wind = signal.get_window(win,nperseg)
+    result = data * wind * LOS
+    result = result.sum(axis=-1)
+    scale = 2*np.sqrt(1/(wind.sum()**2))
+    result *= scale
+    return result
+
 
 
 
@@ -1410,9 +1475,12 @@ def detrend_linalg(input_sig, xvec=None, input_unc=None, coeffs=False, \
 def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
           bandwidth=1000.0, filt_band=[], pad=True, npad=1.0, \
           pad_mode='constant', optimize_frequency=False, \
-          notch_freqs=[], notch_qs=[], \
+          unwrap=True, notch_freqs=[], notch_qs=[], \
           force_2pi_wrap=False, detrend=False, keep_mean=False, \
-          tukey=False, tukey_alpha=1e-3, debug=False, plot=False):
+          pre_tukey=False, post_tukey=False, tukey_alpha=1e-3, \
+          phase_hp=False, phase_hpf=1.0, debug=False, plot=False, \
+          sideband_filter=False, sideband_filter_freq=420.0, \
+          sideband_filter_nharm=1.0, sideband_filter_bw=5.0):
     '''
     Sub-routine to perform a hilbert transformation on a given 
     signal, filtering it if requested and plotting throughout.
@@ -1534,6 +1602,10 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     sig_mean = np.mean(input_sig)
     sig = input_sig - sig_mean
 
+    if pre_tukey:
+        window = signal.tukey(nsamp, alpha=tukey_alpha)
+        sig *= window
+
     ### Pad the waveform to be demodulated
     if pad:
         if not npad:
@@ -1550,9 +1622,31 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
             lower = fc - 0.5 * bandwidth
             upper = fc + 0.5 * bandwidth
 
-        sos = signal.butter(3, [lower, upper], btype='bandpass', fs=fsamp, output='sos')
+        if sideband_filter:
+            sig_filt = np.zeros_like(sig)
 
-        sig_filt = signal.sosfiltfilt(sos, sig, padlen=int(0.1*nsamp))
+            for i in range(sideband_filter_nharm + 1):
+                lower_band = \
+                    [fc - i*sideband_filter_freq - 0.5*sideband_filter_bw, \
+                     fc - i*sideband_filter_freq + 0.5*sideband_filter_bw]
+                upper_band = \
+                    [fc + i*sideband_filter_freq - 0.5*sideband_filter_bw, \
+                     fc + i*sideband_filter_freq + 0.5*sideband_filter_bw]
+                
+                sos_lower = signal.butter(6, lower_band, btype='bandpass', \
+                                          fs=fsamp, output='sos')
+                sig_filt += signal.sosfiltfilt(sos_lower, sig, \
+                                               padlen=int(0.1*nsamp))
+                if i != 0:
+                    sos_upper = signal.butter(6, upper_band, btype='bandpass', \
+                                              fs=fsamp, output='sos')
+                    sig_filt += signal.sosfiltfilt(sos_upper, sig, \
+                                                   padlen=int(0.1*nsamp))
+        else:
+            sos = signal.butter(6, [lower, upper], btype='bandpass', \
+                                fs=fsamp, output='sos')
+            sig_filt = signal.sosfiltfilt(sos, sig, padlen=int(0.1*nsamp))
+
         if debug:
             debug_dict['sig_filt'] = sig_filt[npad_actual:-npad_actual]
 
@@ -1567,14 +1661,16 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     else:
         hilbert = signal.hilbert(sig)
 
+    amp = np.abs(hilbert)
+    phase = np.unwrap(np.angle(hilbert))
+
     if pad:
         sig = sig[npad_actual:-npad_actual]
         hilbert = hilbert[npad_actual:-npad_actual]
+        amp = amp[npad_actual:-npad_actual]
+        phase = phase[npad_actual:-npad_actual]
         if filt:
             sig_filt = sig_filt[npad_actual:-npad_actual]
-
-    amp = np.abs(hilbert)
-    phase = np.unwrap(np.angle(hilbert)) 
 
     if optimize_frequency:
         old_fc = fc
@@ -1585,27 +1681,54 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
 
     phase_mod = phase - 2.0*np.pi*fc*tvec
 
-    phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
-    phase_mod_unwrap = np.unwrap(phase_mod)
+    if phase_hp:
+        sos_hp = signal.butter(3, phase_hpf, btype='high', \
+                               fs=fsamp, output='sos')
+        phase_mod = signal.sosfiltfilt(sos_hp, phase_mod, \
+                                       padlen=int(0.1*nsamp))
+
+    if unwrap:
+        phase_mod_unwrap = np.unwrap(phase_mod)
+    else:
+        phase_mod_unwrap = np.copy(phase_mod)
+
+    # plt.plot(phase[:10000])
+    # plt.plot(phase_mod[:10000])
+    # plt.show()
+
+    # input()
+
+    # phase_mod = (phase_mod + np.pi) % (2.0*np.pi) - np.pi
+    # phase_mod_unwrap = np.unwrap(phase_mod)
+
+    # plt.plot(phase_mod)
+    # plt.plot(phase_mod_unwrap)
+    # plt.show()
+
+    # input()
 
     if detrend:
-        good_inds = (phase_mod - phase_mod_unwrap) == 0
         inds = np.arange(len(phase_mod))
+        matching_inds = (phase_mod - phase_mod_unwrap) == 0
+        inner_inds = (inds > 0.05*nsamp) * (inds < 0.95*nsamp)
+        good_inds = matching_inds * inner_inds
         slope, offset = \
-            detrend_linalg(phase_mod[good_inds], xvec=inds[good_inds], coeffs=True)
+            detrend_linalg(phase_mod[good_inds], \
+                           xvec=inds[good_inds], coeffs=True)
 
         if debug:
             debug_dict['residual_freq'] = slope * fsamp
 
-            print(fsig*float(harmind), fc, fc+debug_dict['residual_freq'])
-            sys.stdout.flush()
+            # print(fsig*float(harmind), fc, fc+debug_dict['residual_freq'])
+            # sys.stdout.flush()
 
         phase_mod_unwrap -= inds*slope + offset
 
         if plot:
             fig, axarr = plt.subplots(2,1,figsize=(8,6),sharex=True,sharey=True)
             axarr[0].set_title('Phase detrending')
-            axarr[0].plot(inds, phase_mod, color='k')
+            axarr[0].plot(inds, phase_mod, color='k', alpha=0.2)
+            axarr[0].plot(inds[good_inds], phase_mod[good_inds], color='k')
             axarr[0].plot(inds, slope*inds + offset, color='r', lw=2)
             axarr[1].plot(inds, phase_mod_unwrap, color='k')
             axarr[1].set_xlabel('Samples')
@@ -1619,10 +1742,10 @@ def demod(input_sig, fsig, fsamp, harmind=1.0, filt=False, \
     else:
         phase_mod = np.copy(phase_mod_unwrap)
 
-    if tukey:
-        window = signal.tukey(len(phase), alpha=tukey_alpha)
-        phase_mod *= window
+    if post_tukey:
+        window = signal.tukey(nsamp, alpha=tukey_alpha)
         amp *= window
+        phase_mod *= window
 
     phase_mod *= (1.0 / float(harmind))
 
@@ -1732,8 +1855,9 @@ def minimize_nll(nll_func, param_arr, confidence_level=0.9, plot=False):
 
 
 
-def get_limit_from_general_profile(profx, profy, ss=False, confidence_level=0.95, \
-                                   centered=False, no_discovery=False):
+def get_limit_from_general_profile(\
+        profx, profy, ss=False, confidence_level=0.95, \
+        centered=False, no_discovery=False):
 
     chi2dist = stats.chi2(1)
     con_val = chi2dist.ppf(confidence_level)
@@ -1836,9 +1960,9 @@ def trap_efield(voltages, nsamp=0, only_x=False, only_y=False, only_z=False, \
             Ez = np.zeros(nsamp)
         else:
             if new_trap:
-                Ez = voltages[1] * E_zp(0.0)   + voltages[2] * E_zn(0.0)
+                Ez = voltages[1] * E_zp(0.0) + voltages[2] * E_zn(0.0)
             else:
-                Ez = voltages[1] * E_top(0.0)   + voltages[2] * E_bot(0.0)
+                Ez = voltages[1] * E_top(0.0) + voltages[2] * E_bot(0.0)
 
         return np.array([Ex, Ey, Ez])   
 

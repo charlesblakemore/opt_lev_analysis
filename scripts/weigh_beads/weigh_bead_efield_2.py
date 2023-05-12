@@ -88,22 +88,32 @@ arr.append('/data/old_trap/20200727/bead1/weigh/4Vpp_lowp_neg')
 arr.append('/data/old_trap/20200727/bead1/weigh/6Vpp_lowp_neg')
 file_dict['20200727'] = (arr, 1, 0)
 
-file_dict = {'20200727': (arr, 1, 0)}
-
 
 arr = []  ### 
 arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
 arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
 file_dict['20200924'] = (arr, 2, 1)
 
-file_dict = {'20200924': (arr, 2, 1)}
-
 
 arr = []  ### 
 arr.append('/data/old_trap/20201030/bead1/weigh/6Vpp_lowp_neg')
 file_dict['20201030'] = (arr, 2, 1)
 
-file_dict = {'20201030': (arr, 2, 1)}
+arr = []  ### 
+arr.append('/data/old_trap/20230306/bead4/mass_meas/8Vpp_1Hz_no-igain')
+file_dict['20230306'] = (arr, 1, 1)
+
+arr = []  ### 
+# arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5')
+arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5_fbadj')
+file_dict['20230327'] = (arr, 1, 1)
+
+arr = []  ### 
+# arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5')
+arr.append('/data/new_trap/20230330/Bead0/Mass/approx28charges')
+file_dict['20230330'] = (arr, 1, 1)
+
+file_dict = {'20230330': (arr, 1, 1)}
 
 
 # arr = []  ### 
@@ -112,8 +122,8 @@ file_dict = {'20201030': (arr, 2, 1)}
 
 # file_dict = {'20201222': (arr, 2, 0)}
 
-xlim = (-15, 100)
-# xlim = (-40, 450)
+# xlim = (-15, 100)
+xlim = (-40, 400)
 
 # arr = []  ### 
 # arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
@@ -139,27 +149,32 @@ noise_dirs = ['/data/20181211/bead2/weigh/noise/no_charge_0.5Hz_4pp', \
               '/data/20181213/bead1/weigh/noise/no-bead_zfb-inject_pd-blocked']
 
 
-# new_trap = True
-new_trap = False
+new_trap = True
+# new_trap = False
 
 #r_divider = 50000.0 / (3000.0 + 50000.0)
 r_divider = 1.0
 mon_fac = r_divider**(-1) * 100.0 # Tabor amplifier monitor is 100:1
+
+# mon_fac = 200.0
 
 sign = -1.0
 # sign = 1.0
 trans_gain = 100e3  # V/A
 pd_gain = 0.25      # A/W
 
-# line_filter_trans = 0.45
-line_filter_trans = 1
+line_filter_trans = 0.9
+# line_filter_trans = 1
 # bs_fac = 0.01
-bs_fac = 0.09
+bs_fac = 0.01
+bs_fac *= 10**(-0.1)   # include the ND filter
 
 maxfiles = 1000 # Many more than necessary
 lpf = 2500   # Hz
 
 file_inds = (0, 500)
+
+nbin = 801
 
 userNFFT = 2**12
 diag = False
@@ -178,12 +193,14 @@ plot = True
 save_example = False
 example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.svg'
 
-upper_outlier = 88.5e-15
+# upper_outlier = 88.5e-15
 # upper_outlier = 95e-15  # in kg
 # upper_outlier = 120e-15
+upper_outlier = 1000.0e-15
 
-lower_outlier = 70e-15
 # lower_outlier = 1e-15
+lower_outlier = 70e-15
+# lower_outlier = 350e-15
 
 try:
     allres_dict = pickle.load(open('./allres.p', 'rb'))
@@ -203,7 +220,8 @@ def line(x, a, b):
 
 def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                       file_inds=(0,10000), plot=True, print_res=False, pos=False, \
-                      save_mass=False, new_trap=False, correct_phase_shift=False):
+                      save_mass=False, new_trap=False, correct_phase_shift=False, \
+                      debug_plot=False):
     '''Loops over a list of file names, loads each file, diagonalizes,
        then plots the amplitude spectral density of any number of data
        or cantilever/electrode drive signals
@@ -236,7 +254,6 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     else:
         charge_file += '.charge'
 
-
     try:
         nq = np.load(charge_file)[0]
         found_charge = True
@@ -264,6 +281,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
     all_eforce = []
     all_power = []
+    all_power_norm = []
 
     all_param = []
 
@@ -325,8 +343,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
         ### Extract electrode data
         if new_trap:
-            top_elec = df.electrode_data[1]
-            bot_elec = df.electrode_data[2]
+            top_elec = mon_fac * df.electrode_data[0]
+            bot_elec = mon_fac * df.electrode_data[1]
         else:
             top_elec = mon_fac * df.other_data[elec_ind]
             bot_elec = mon_fac * df.other_data[elec_ind+1]
@@ -348,21 +366,19 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
         tarr = np.arange(0, df.nsamp/df.fsamp, 1.0/df.fsamp)
 
-        # fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
+        if debug_plot:
+            fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
 
-        # axarr[0].plot(tarr, top_elec, label='Top elec.')
-        # axarr[0].plot(tarr, bot_elec, label='Bottom elec.')
-        # axarr[0].set_ylabel('Apparent Voltages [V]')
-        # axarr[0].legend(fontsize=12, loc='upper right')
+            axarr[0].plot(tarr, top_elec, label='Top elec.')
+            axarr[0].plot(tarr, bot_elec, label='Bottom elec.')
+            axarr[0].set_ylabel('Apparent Voltages [V]')
+            axarr[0].legend(fontsize=12, loc='upper right')
 
-        # axarr[1].plot(tarr, efield[2])
-        # axarr[1].set_xlabel('Time [s]')
-        # axarr[1].set_ylabel('Apparent Electric Field [V/m]')
+            axarr[1].plot(tarr, efield[2])
+            axarr[1].set_xlabel('Time [s]')
+            axarr[1].set_ylabel('Apparent Electric Field [V/m]')
 
-        # fig.tight_layout()
-
-        # plt.show()
-        # input()
+            fig.tight_layout()
 
 
         freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
@@ -401,7 +417,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         if np.sum(df.power) == 0.0:
             current = np.abs(df.other_data[pow_ind]) / trans_gain
         else:
-            fac = 1e-6
+            fac = 1e-6  ## bit-shifting?
             current = fac * df.power / trans_gain
             
         power = current / pd_gain
@@ -433,36 +449,35 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         # input()
 
 
-        # fig, axarr = plt.subplots(2,1,sharex=True,figsize=(10,8))
+        if debug_plot:
+            fig2, axarr2 = plt.subplots(2,1,sharex=True,figsize=(10,8))
 
-        # axarr[0].plot(tarr, power)
-        # axarr[0].set_ylabel('Measured Power [Arb.]')
+            axarr2[0].plot(tarr, power)
+            axarr2[0].set_ylabel('Measured Power [Arb.]')
 
-        # axarr[1].plot(tarr, power)
-        # axarr[1].set_xlabel('Time [s]')
-        # axarr[1].set_ylabel('Measured Power [Arb.]')
+            axarr2[1].plot(tarr, power)
+            axarr2[1].set_xlabel('Time [s]')
+            axarr2[1].set_ylabel('Measured Power [Arb.]')
 
-        # bot, top = axarr[1].get_ylim()
-        # axarr[1].set_ylim(1.05*bot, 0)
+            bot, top = axarr2[1].get_ylim()
+            axarr2[1].set_ylim(1.05*bot, 0)
 
-        # fig.tight_layout()
+            fig2.tight_layout()
 
-        # plt.show()
-        # input()
+            plt.show()
+            input()
 
+        bins, dat, errs = bu.rebin(eforce2, power, nbin=nbin)
 
-        bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.0, #width=0.05, \
-                                         dt=1.0/df.fsamp, harms=[1], \
-                                         add_mean=True, verbose=False, \
-                                         correct_phase_shift=correct_phase_shift, \
-                                         grad_sign=0)
+        # bins, dat, errs = bu.spatial_bin(eforce2, power, nbins=200, width=0.0, #width=0.05, \
+        #                                  dt=1.0/df.fsamp, harms=[1], \
+        #                                  add_mean=True, verbose=False, \
+        #                                  correct_phase_shift=correct_phase_shift, \
+        #                                  grad_sign=0)
 
-        dat = dat / np.mean(dat)
+        dat_norm = dat / np.mean(dat)
 
-        #plt.plot(bins, dat, 'o')
-        #plt.show()
-
-        popt, pcov = opti.curve_fit(line, bins*1.0e13, dat, \
+        popt, pcov = opti.curve_fit(line, bins*1.0e13, dat_norm, \
                                     absolute_sigma=False, maxfev=10000)
         test_vals = np.linspace(np.min(eforce2*1.0e13), np.max(eforce2*1.0e13), 100)
 
@@ -489,6 +504,7 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
         all_eforce.append(bins)
         all_power.append(dat)
+        all_power_norm.append(dat_norm)
 
         mass_vec.append(mass)
 
@@ -507,16 +523,27 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
     mean_lev = np.mean(mass_vec) * 9.806
     plot_vec = np.linspace(np.min(all_eforce), mean_lev, 100)
 
+    nmeas = len(mass_vec)
+    plasma_colors = bu.get_colormap(nmeas, cmap='plasma')
+
+    long_plasma_colors = []
+    for color in plasma_colors:
+        for i in range(nbin):
+            long_plasma_colors.append(color)
+
+
     if plot:
-        fig, ax = plt.subplots(1, 1, dpi=200, figsize=(6,4))
+        decimate_fac = 1
+        fig, ax = plt.subplots(1, 1, dpi=200, figsize=(6,4), \
+                               constrained_layout=True)
         ### Plot force (in pN / g = pg) vs power
-        ax.plot(np.array(all_eforce).flatten()[::5]*1e15*(1.0/9.806), \
-                np.array(all_power).flatten()[::5], \
+        ax.plot(np.array(all_eforce).flatten()[::decimate_fac]*1e15*(1.0/9.806), \
+                np.array(all_power_norm).flatten()[::decimate_fac], \
                 'o', alpha = 0.5)
         #for params in all_param:
         #    plt.plot(plot_vec, line(plot_vec, params[0]*1e13, params[1]), \
         #             '--', color='r', lw=1, alpha=0.05)
-        ax.plot(plot_vec*1e12*(1.0/9.806)*1e3, \
+        ax.plot(plot_vec*1e15*(1.0/9.806), \
                 line(plot_vec, mean_popt[0]*1e13, mean_popt[1]), \
                 '--', color='k', lw=2, \
                 label='Implied mass: %0.1f pg' % (np.mean(mass_vec)*1e15))
@@ -528,10 +555,10 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         ax.set_ylim((0, top))
         
         ax.legend()
-        ax.set_xlabel('Applied electrostatic force/$g$ (pg)')
-        ax.set_ylabel('Optical power (arb. units)')
+        ax.set_xlabel('Applied electrostatic force/$g$ [pg]')
+        ax.set_ylabel('Optical power [arb. units]')
         ax.grid()
-        fig.tight_layout()
+        # fig.tight_layout()
 
         fig.savefig( os.path.join(plot_save_directory, \
                             '{:s}_{:s}_mass_meas.svg'.format(date, suffix)) )
@@ -541,45 +568,60 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
 
         x_plotvec = np.array(all_eforce).flatten()
-        y_plotvec = np.array(all_power).flatten()
+        y_plotvec = np.array(all_power_norm).flatten()
 
         yresid = (y_plotvec - line(x_plotvec, mean_popt[0]*1e13, mean_popt[1])) \
                         / y_plotvec
 
-        fig2, ax2 = plt.subplots(1, 1, dpi=200, figsize=(3,2))
+        fig2, ax2 = plt.subplots(1, 1, dpi=200, figsize=(3,2), \
+                                 constrained_layout=True)
         ax2.hist(yresid*100, bins=30)
-        ax2.legend()
         ax2.set_xlabel('Resid. Power [%]')
         ax2.set_ylabel('Counts')
         ax2.grid()
-        fig2.tight_layout()
+        # fig2.tight_layout()
         fig2.savefig( os.path.join(plot_save_directory, \
                             '{:s}_{:s}_mass_meas_resid_power_hist.svg'\
                                 .format(date, suffix)) )
 
-        fig3, ax3 = plt.subplots(1, 1, dpi=200, figsize=(3,2))
-        ax3.plot(x_plotvec*1e15, yresid*100, 'o')
-        ax3.legend()
+        fig3, ax3 = plt.subplots(1, 1, dpi=200, figsize=(3,2), \
+                                 constrained_layout=True)
+        # ax3.plot(x_plotvec*1e15, yresid*100, 'o')
+        ax3.scatter(x_plotvec*1e12, yresid*100, s=30, marker='o', \
+                    c=long_plasma_colors)
         ax3.set_xlabel('E-Force [pN]')
         ax3.set_ylabel('Resid. Pow. [%]')
         ax3.grid()
-        fig3.tight_layout()
+        # fig3.tight_layout()
         fig3.savefig( os.path.join(plot_save_directory, \
                             '{:s}_{:s}_mass_meas_resid_power.svg'\
                                 .format(date, suffix)) )
 
 
 
-        fig4, ax4 = plt.subplots(1, 1, dpi=200, figsize=(3,2))
+        fig4, ax4 = plt.subplots(1, 1, dpi=200, figsize=(3,2), \
+                                 constrained_layout=True)
         ax4.hist(np.array(mass_vec)*1e15, bins=10)
-        ax4.set_xlabel('Mass (pg)')
+        ax4.set_xlabel('Mass [pg]')
         ax4.set_ylabel('Count')
         ax4.grid()
-        #plt.title('Implied Masses, Each from 50s Integration')
-        #plt.xlim(0.125, 0.131)
-        fig4.tight_layout()
+        # fig4.tight_layout()
         fig4.savefig( os.path.join(plot_save_directory, \
                             '{:s}_{:s}_mass_meas_hist.svg'\
+                                .format(date, suffix)) )
+
+
+
+        fig5, ax5 = plt.subplots(1, 1, dpi=200, figsize=(3,2), \
+                                 constrained_layout=True)
+        ax5.scatter(np.abs(np.mean(np.array(all_power), axis=-1))*1e3, \
+                    np.array(mass_vec)*1e15, s=30, marker='o', c=plasma_colors)
+        ax5.set_xlabel('Mean Power [~mW]')
+        ax5.set_ylabel('Mass [pg]')
+        ax5.grid()
+        # fig5.tight_layout()
+        fig5.savefig( os.path.join(plot_save_directory, \
+                            '{:s}_{:s}_mass_vs_power.svg'\
                                 .format(date, suffix)) )
 
 
@@ -592,6 +634,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
     final_mass = np.mean(mass_vec)
     final_err_stat = 0.5*np.std(mass_vec) #/ np.sqrt(len(mass_vec))
+
+    ### Amplifier monitor accuracy and lens focal length uncertainty
     final_err_sys = np.sqrt((0.015**2 + 0.01**2) * final_mass**2)
     final_pressure = np.mean(pressure_vec)  
 
@@ -622,11 +666,12 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
                    (zamp_avg / zamp_N) * gresid_fac, \
                    zphase_avg / zamp_N, zfb_avg / zfb_N ]
         return outarr
+
     else:
         scaled_params = np.array(all_param)
         scaled_params[:,0] *= 1e13
     
-        outdic = {'eforce': all_eforce, 'power': all_power, \
+        outdic = {'eforce': all_eforce, 'power': all_power_norm, \
                   'linear_fit_params': scaled_params, \
                   'ext_masses': mass_vec}
     

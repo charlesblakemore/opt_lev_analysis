@@ -48,7 +48,9 @@ except:
 
 
 # date = '20200727'
-date = '20200924'
+# date = '20200924'
+# date = '20230327'
+date = '20230410'
 
 bead = 'bead1'
 
@@ -83,7 +85,7 @@ else:
     # meas = 'dds_phase_impulse_1Vpp_low_dg/trial_{:04d}'.format(trial_ind)
     # meas = 'dds_phase_impulse_1Vpp_mid_dg/trial_{:04d}'.format(trial_ind)
     # meas = 'dds_phase_impulse_1Vpp_high_dg/trial_{:04d}'.format(trial_ind)
-file_inds = (0, 15)
+file_inds = (0, 75)
 file_step = 1
 
 
@@ -94,6 +96,11 @@ file_step = 1
 # file_inds = (0, 100)
 # file_step = 3
 
+# meas = 'dipole_meas/initial_zadj'
+# meas = 'phase_modulate_0_05scale'
+# meas = 'phase_modulation_sweeps/10Hz_to_700Hz_0007'
+meas = 'phase_modulation_sweeps/700Hz_to_10Hz_0003'
+
 dir_name = os.path.join(base, meas)
 
 
@@ -101,20 +108,25 @@ dir_name = os.path.join(base, meas)
 # fspin = 19000
 fspin = 25000
 wspin = 2.0*np.pi*fspin
-bandwidth = 10000.0
+bandwidth = 200.0
 
-notch_freqs = []
+# sideband_filter = True
+
+# notch_freqs = []
+notch_freqs = [49989.9, 50010.4]
 # notch_freqs = [42036.5, 44986.4]
-notch_freqs = [49020.3]
-notch_qs = []
+# notch_freqs = [49020.3]
+
+# notch_qs = []
+notch_qs = [50000.0, 50000.0]
 # notch_qs = [5000.0, 10000.0]
-notch_qs = [10000.0]
+# notch_qs = [10000.0]
 
 detrend = True
-force_2pi_wrap = True
+force_2pi_wrap = False
 
 ### Boolean flags for various sorts of plotting (used for debugging usually)
-plot_demod = True
+plot_demod = False
 
 ### Should probably measure these monitor factors
 tabor_mon_fac = 100
@@ -127,6 +139,9 @@ tabor_mon_fac = 100
 ### Plotting behavior ###
 #########################
 show = True
+
+cmap = 'plasma'
+invert_colors = True
 
 output_band = (0, 5000)
 drive_output_band = (0, 80000)
@@ -141,8 +156,9 @@ waterfall = False   # Doesn't do anything if average_spectra = True
 waterfall_fac = 0.01
  
 ### Full spectra plot limits
-xlim = (0.5, 5000)
-ylim = (3e-4, 5e0)
+xlim = (1, 3000)
+ylim = ()
+# ylim = (3e-4, 5e0)
 # ylim = (4e-4, 3e-1)
 
 ### Libration zoom plot limits
@@ -153,7 +169,7 @@ ylim = (3e-4, 5e0)
 # xlim2 = (1000, 1350)
 # zoom_xticks = [1000.0, 1150.0, 1300.0]
 
-xlim2 = (1, 5000)
+xlim2 = (1, 3000)
 zoom_xticks = []
 # zoom_xticks = [800, 900, 950]
 
@@ -219,7 +235,9 @@ date = re.search(r"\d{8,}", dir_name)[0]
 files, _ = bu.find_all_fnames(dir_name, ext='.h5', sort_time=True)
 files = files[file_inds[0]:file_inds[1]:file_step]
 
-Ibead = bu.get_Ibead(date=date)
+# Ibead = bu.get_Ibead(date=date)
+Ibead = bu.get_Ibead(mbead={'val': 400.0e-15, 'sterr': 0.0, 'syserr': 0.0}, \
+                     rhobead=bu.rhobead['german7'])
 
 
 def sqrt(x, A, x0, b):
@@ -268,18 +286,43 @@ def proc_file(file):
     inds = np.abs(full_freqs - fspin) < 200.0
 
     elec3_fft = np.fft.rfft(elec3)
-    true_fspin = full_freqs[np.argmax(np.abs(elec3_fft)*inds)]
-    print(true_fspin)
+    # true_fspin = full_freqs[np.argmax(np.abs(elec3_fft)*inds)]
+    # print(true_fspin)
     # true_fspin = np.average(full_freqs[inds], weights=np.abs(elec3_fft)[inds])
     true_fspin = 25000.1
 
+    # bandwidth = 5.0*fobj.attribs['pm_freq']
+    bandwidth = 5000.0
+
+    pm_freq = fobj.attribs['pm_freq']
+    phase_hpf = 0.5*pm_freq
+
+    sideband_filter_bw = np.min([0.5*pm_freq, 10.0])
+
     # try:
     amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
-                                  filt=True, bandwidth=bandwidth, \
-                                  notch_freqs=notch_freqs, notch_qs=notch_qs, \
-                                  tukey=True, tukey_alpha=5.0e-4, \
-                                  detrend=detrend, detrend_order=1, harmind=2.0, \
-                                  force_2pi_wrap=force_2pi_wrap)
+                              filt=True, bandwidth=bandwidth, \
+                              notch_freqs=notch_freqs, notch_qs=notch_qs, \
+                              pre_tukey=False, post_tukey=False, \
+                              tukey_alpha=5.0e-3, \
+                              detrend=detrend, harmind=2.0, \
+                              force_2pi_wrap=force_2pi_wrap, \
+                              optimize_frequency=False, unwrap=False,\
+                              pad=True, npad=1, pad_mode='reflect', \
+                              phase_hp=True, phase_hpf=phase_hpf, \
+                              sideband_filter=True, \
+                              sideband_filter_freq=pm_freq, \
+                              sideband_filter_nharm=7, \
+                              sideband_filter_bw=sideband_filter_bw)
+
+    # amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
+    #                           filt=True, bandwidth=bandwidth, \
+    #                           notch_freqs=notch_freqs, notch_qs=notch_qs, \
+    #                           tukey=False, tukey_alpha=5.0e-4, \
+    #                           detrend=detrend, harmind=2.0, \
+    #                           force_2pi_wrap=force_2pi_wrap, \
+    #                           optimize_frequency=False, unwrap=False,\
+    #                           pad=False, phase_hp=True, phase_hpf=phase_hpf)
     # except:
     #     phase_mod = 1e-3 * np.random.randn(len(vperp))
 
@@ -529,7 +572,8 @@ elif average_spectra:
 
 else:
 
-    colors = bu.get_colormap(len(phase_results), cmap='plasma')
+    colors = bu.get_colormap(len(phase_results), cmap=cmap, \
+                             invert=invert_colors)
 
     plt.figure(figsize=(10,5))
 

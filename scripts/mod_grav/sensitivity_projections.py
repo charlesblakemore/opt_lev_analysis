@@ -8,7 +8,7 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-import grav_util_3 as gu
+import grav_util as gu
 import bead_util as bu
 import configuration as config
 

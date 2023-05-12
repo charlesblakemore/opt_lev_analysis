@@ -95,7 +95,7 @@ def formatter20200924(measString, voltage, dg, ind, trial):
 
 
 
-save_ringdowns = True
+save_ringdowns = False
 
 
 
