@@ -5,13 +5,6 @@ import datetime as dt
 import dill as pickle 
 
 import matplotlib
-# backends = ['MacOSX', 'Qt5Agg', 'GTK3Agg', 'TkAgg', 'Agg']
-# for backend in backends:
-#     try:
-#         matplotlib.use(backend)
-#         break
-#     except:
-#         continue
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -1040,6 +1033,53 @@ def demod_single(input_sig, fsig, fsamp, tFFT=None, win=('tukey',0.25),
     scale = 2*np.sqrt(1/(wind.sum()**2))
     result *= scale
     return result
+
+
+def find_freq(sig, fsamp, freq_guess=None, tol=None):
+    '''
+    Function to determine the frequency of a single tone using
+    LIGO's single-frequency DFT demodulation algorithm that
+    Gautam shared with me. Basically just uses a minimization
+    to find the maximum demodulated amplitude as a function of
+    assumed signal frequency. Useful in situations with non
+    negligible spectral leakage. Otherwise, the min/max of the
+    objective function will be VERY sharp (thus hard to find).
+    
+    INPUTS
+    
+        sig - array-like, signal of interest
+        
+        fsamp - float, signal sampling frequency
+        
+        freq_guess - float, initial value for minimization.
+            Crucial to use when the tone is close to 
+            spectrally pure
+            
+        tol - float, default=None, tolerance for minimization
+            passed to the optimize.minimize function
+    
+    OUTPUTS
+    
+        freq - float, the determined signal frequency
+        
+    '''
+    
+    ### If an initial frequency is not provided, guess the value
+    ### from the fourier component with maximal power
+    if freq_guess is None:
+        nsamp = len(sig)
+        freq_guess = np.fft.rfftfreq(nsamp, 1.0/fsamp)\
+                        [np.argmax(np.abs(np.fft.rfft(sig)))]
+    
+    ### Define a really naive objective function to minimize as a
+    ### function of DFT frequency
+    fit_fun = lambda f: -1.0 * np.abs(bu.demod_single(sig, f, fsamp)[0])
+    
+    ### Minimize the function to find the best fit frequency
+    res = optimize.minimize( fit_fun, freq_guess, tol=tol )
+    
+    ### Return a single float value
+    return res.x[0]
 
 
 
