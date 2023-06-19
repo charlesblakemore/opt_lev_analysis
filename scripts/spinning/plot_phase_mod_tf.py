@@ -1,6 +1,7 @@
 import sys, os, time, itertools, re, warnings
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.collections as collections
 import dill as pickle
 
 from obspy.signal.detrend import polynomial
@@ -13,6 +14,7 @@ import scipy.signal as signal
 
 from tqdm import tqdm
 from joblib import Parallel, delayed
+
 # ncore = 1
 ncore = 30
 
@@ -27,13 +29,34 @@ np.random.seed(12345)
 # # meas = 'dds_phase_modulation_sweep/trial_0000'
 # meas = 'dds_phase_modulation_sweep_8Vpp/'
 
-date = '20230410'
-base = f'/data/old_trap/{date}/bead1/spinning/'
+# date = '20230410'
+# base = f'/data/old_trap/{date}/bead1/spinning/'
 
-# meas = 'phase_modulation_sweeps/10Hz_to_700Hz_0007'
-meas = 'phase_modulation_sweeps/700Hz_to_10Hz_0007'
+# meas_list = [\
+#              # 'phase_modulation_sweeps/10Hz_to_700Hz_0002', \
+#              # 'phase_modulation_sweeps/700Hz_to_10Hz_0002', \
+#              'phase_modulation_sweeps/10Hz_to_700Hz_0007', \
+#              'phase_modulation_sweeps/700Hz_to_10Hz_0007', \
+#             ]
 
-dir_name = os.path.join(base, meas)
+date = '20230531'
+base = f'/data/old_trap/{date}/bead1/spinning/phase_modulation_sweeps/'
+
+meas_list = [\
+             # '10Hz_to_700Hz_8Vpp_5sec_settle_50mrad', \
+             # '700Hz_to_10Hz_8Vpp_5sec_settle_50mrad', \
+             # '10Hz_to_700Hz_8Vpp_50sec_settle_50mrad', \
+             # '700Hz_to_10Hz_8Vpp_50sec_settle_50mrad', \
+             '10Hz_to_700Hz_8Vpp_500sec_settle_50mrad', \
+             '700Hz_to_10Hz_8Vpp_500sec_settle_50mrad', \
+            ]
+
+labels = []
+# labels = [\
+#           'Sweep up', \
+#           'Sweep down', \
+#          ]
+
 file_inds = (0, 500)
 file_step = 1
 
@@ -55,11 +78,11 @@ sideband_filter = True
 sideband_filter_nharm = 5
 sideband_filter_bw = 10.0
 
-# notch_freqs = []
-notch_freqs = [49989.9, 50010.4]
+notch_freqs = []
+# notch_freqs = [49989.9, 50010.4]
 
-# notch_qs = []
-notch_qs = [50000.0, 50000.0]
+notch_qs = []
+# notch_qs = [50000.0, 50000.0]
 
 detrend = True
 force_2pi_wrap = False
@@ -86,18 +109,34 @@ if plot_demod:
     ncore = 1
 
 
+
+save_data = True
+save_base = '/data/old_trap_processed/spinning/libration_tf/'
+
+
+
 def proc_file(file):
 
     fobj = bu.hsDat(file, load=True)
+    nsamp = fobj.nsamp
+    fsamp = fobj.fsamp
+
+    fac = bu.fft_norm(nsamp, fsamp)
 
     vperp = fobj.dat[:,0]
     elec3 = fobj.dat[:,1] * tabor_mon_fac
 
-    inds = np.abs(full_freqs - fspin) < 200.0
-
+    full_freqs = np.fft.rfftfreq(nsamp, 1.0/fsamp)
     elec3_fft = np.fft.rfft(elec3)
     # true_fspin = full_freqs[np.argmax(np.abs(elec3_fft))]
     true_fspin = 25000.1
+
+    # start = time.time()
+    # true_fspin = bu.find_freq(elec3[:int(0.1*fsamp)], \
+    #                           fsamp, freq_guess=25000.1)
+    # stop = time.time()
+    # print(f'freq: {true_fspin:0.3f}  -  time: {stop-start:0.3f}')
+    # input()
 
     pm_freq = fobj.pm_freq    
 
@@ -118,6 +157,13 @@ def proc_file(file):
                              pad=True, npad=1, pad_mode='reflect', \
                              phase_hp=True, phase_hpf=phase_hpf)
 
+    n_cut = int(1e-3*nsamp)
+    drive_voltage = np.mean(drive_amp[n_cut:-n_cut])
+    efield_strength = bu.trap_efield([[0.0], [0.0], [0.0], \
+                                      [drive_voltage], [-1.0*drive_voltage], \
+                                      [0.0], [0.0], [0.0], ],\
+                                     nsamp=1, only_x=True)[0,0]
+
     amp, phase_mod = bu.demod(vperp, true_fspin, fsamp, plot=plot_demod, \
                               filt=True, bandwidth=bandwidth, \
                               notch_freqs=notch_freqs, notch_qs=notch_qs, \
@@ -133,15 +179,24 @@ def proc_file(file):
                               sideband_filter_nharm=sideband_filter_nharm, \
                               sideband_filter_bw=sideband_filter_bw)
 
+    # plt.figure()
+    # plt.plot(phase_mod)
+    # plt.show()
+
+    out_inds = (full_freqs > output_band[0]) \
+                * (full_freqs < output_band[1])
+
     phase_mod_fft = np.fft.rfft(phase_mod)[out_inds] * fac
     drive_phase_mod_fft = np.fft.rfft(drive_phase_mod)[out_inds] * fac
 
-    return (phase_mod_fft, drive_phase_mod_fft, pm_freq, fobj.time)
+    return (phase_mod_fft, drive_phase_mod_fft, \
+            efield_strength, pm_freq, fobj.time)
 
 
 
 
-def proc_directory(dir_name):
+def proc_directory(dir_name, fig=None, axarr=None, \
+                   label='', show=True):
 
     files, _ = bu.find_all_fnames(dir_name, ext='.h5', \
                                   sort_time=True, \
@@ -152,13 +207,13 @@ def proc_directory(dir_name):
     results = Parallel(n_jobs=ncore)( delayed(proc_file)(file) \
                                         for file in tqdm(files) )
 
-    phase_mod_results, drive_phase_mod_results, pm_freqs, times \
-        = map(list,zip(*results))
+    phase_mod_results, drive_phase_mod_results, \
+        field_strengths, pm_freqs, times \
+            = map(list,zip(*results))
 
+    field_strengths = np.array(field_strengths)
     times = np.array(times) * 1e-9
     times -= times[0]
-
-
 
     fobj = bu.hsDat(files[0], load=False, load_attribs=True)
 
@@ -202,6 +257,7 @@ def proc_directory(dir_name):
     tf_freqs = tf_freqs[sorter]
     tf_vals = tf_vals[sorter]
     drive_vals = drive_vals[sorter]
+    field_strengths = field_strengths[sorter]
 
     duplicates = []
     for i, tf_freq in enumerate(tf_freqs):
@@ -218,30 +274,71 @@ def proc_directory(dir_name):
         tf_freqs = np.delete(tf_freqs, ind)
         tf_vals = np.delete(tf_vals, ind)
         drive_vals = np.delete(drive_vals, ind)
+        field_strengths = np.delete(field_strengths, ind)
+
+
+    if fig is None:
+        fig, axarr = plt.subplots(2,1,sharex=True,figsize=(8,5), \
+                                  gridspec_kw={'height_ratios': [2,1]})
+
+    axarr[0].set_title('Libration Response to E-field Phase Modulation', fontsize=16)
+
+    axarr[0].loglog(tf_freqs, np.abs(tf_vals), 'o', ms=6, label=label)
+    axarr[0].set_ylabel('TF Mag [rad/rad]')
+
+    phase = np.angle(tf_vals)
+    pos = phase > 0.5*np.pi
+    phase -= pos * 2.0 * np.pi
+
+    axarr[1].semilogx(tf_freqs, phase, 'o', ms=6)
+    axarr[1].set_ylabel('TF Phase [rad]')
+    axarr[1].set_xlabel('Frequency [Hz]')
+    axarr[1].set_yticks([-np.pi, -np.pi/2.0, 0])
+    axarr[1].set_yticklabels(['$-\\pi$', '$-\\frac{\\pi}{2}$', '0'])
+    axarr[1].set_yticks([], minor=True)
+    axarr[1].set_yticklabels([], minor=True)
+
+    # axarr[0].set_xscale('linear')
+    # axarr[0].set_yscale('linear')
+
+    fig.tight_layout()
+
+    if show:
+        plt.show()
+
+    outdict = {}
+    outdict['tf_freqs'] = tf_freqs
+    outdict['tf_vals'] = tf_vals
+    outdict['drive_vals'] =  drive_vals
+    outdict['efield'] = np.mean(field_strengths)
+
+    return outdict
+
 
 
 
 fig, axarr = plt.subplots(2,1,sharex=True,figsize=(8,5), \
                           gridspec_kw={'height_ratios': [2,1]})
+for meas_ind, meas in enumerate(meas_list):
+    if len(labels):
+        label = labels[meas_ind]
+    else:
+        label = ''
 
-axarr[0].set_title('Libration Response to E-field Phase Modulation', fontsize=16)
+    dir_name = os.path.join(base, meas)
+    data = proc_directory(dir_name, fig=fig, axarr=axarr, \
+                          label=label, show=False)
 
-axarr[0].loglog(tf_freqs, np.abs(tf_vals), 'o', ms=6)
-axarr[0].set_ylabel('TF Mag [rad/rad]')
+    if save_data:
+        save_filename = os.path.join(save_base, date+'.libtf')
+        try:
+            libtf = pickle.load( open(save_filename, 'rb') )
+        except:
+            libtf = {}
+        libtf[dir_name] = data
 
-phase = np.angle(tf_vals)
-pos = phase > 0.5*np.pi
-phase -= pos * 2.0 * np.pi
+        pickle.dump(libtf, open(save_filename, 'wb'))
 
-axarr[1].semilogx(tf_freqs, phase, 'o', ms=6)
-axarr[1].set_ylabel('TF Phase [rad]')
-axarr[1].set_xlabel('Frequency [Hz]')
-axarr[1].set_yticks([-np.pi, -np.pi/2.0, 0])
-axarr[1].set_yticklabels(['$-\\pi$', '$-\\frac{\\pi}{2}$', '0'])
-axarr[1].set_yticks([], minor=True)
-axarr[1].set_yticklabels([], minor=True)
-
-fig.tight_layout()
-
+if len(labels):
+    axarr[0].legend(loc='upper left', fontsize=14)
 plt.show()
-

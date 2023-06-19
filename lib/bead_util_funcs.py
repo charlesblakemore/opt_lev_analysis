@@ -1073,7 +1073,7 @@ def find_freq(sig, fsamp, freq_guess=None, tol=None):
     
     ### Define a really naive objective function to minimize as a
     ### function of DFT frequency
-    fit_fun = lambda f: -1.0 * np.abs(bu.demod_single(sig, f, fsamp)[0])
+    fit_fun = lambda f: -1.0 * np.abs(demod_single(sig, f, fsamp)[0])
     
     ### Minimize the function to find the best fit frequency
     res = optimize.minimize( fit_fun, freq_guess, tol=tol )

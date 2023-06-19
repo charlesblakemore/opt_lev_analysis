@@ -5,10 +5,16 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib.collections as collections
 
 from matplotlib import cm
 from matplotlib.ticker import Locator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from tqdm import tqdm
+from joblib import Parallel, delayed
+
+from bead_util_funcs import make_all_pardirs
 
 
 def get_single_color(val, cmap='plasma', vmin=0.0, vmax=1.0, log=False):
@@ -293,3 +299,127 @@ class MinorSymLogLocator(Locator):
 
 
 
+def make_segments(x, y):
+    '''
+    Creates a list of line segments from x and y coordinates,
+    in a form that is compatible with pyplot.LineCollection.
+    The result is an array with shape (nlines, 2, 2), when 
+    pyplot wants (nlines, pts_per_line, 2), so we good
+    '''
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    return segments
+
+
+
+
+def animate_trajectory(xvec, yvec, nframe=None, savepath=None, \
+                       suffix='', figsize=(8, 6), cmap='plasma', \
+                       markersize=20, fps=10, annotate_list=None, \
+                       annotate_time=False, plot_t=None, \
+                       ncore=1, xlabel=None, ylabel=None, \
+                       frame_decimate=1):
+
+    plt.rcParams.update({'font.size': 16})
+
+    duration = 1.0 / fps
+
+    if nframe is None:
+        nframe = len(xvec)
+
+    if annotate_time and plot_t is not None:
+        dt = plot_t[1] - plot_t[0]
+        fps_loss = int(np.ceil(np.log10(frame_decimate*fps/10.0)))
+        decimals_needed = int(np.abs(np.floor(np.log10(dt))))
+        time_format_str = f'0.{decimals_needed-fps_loss:d}f'
+
+    if plot_t is None:
+        plot_t = np.arange(nframe)
+
+    colors = get_colormap(nframe, cmap=cmap)
+
+    format_str = f'0{int(np.ceil(np.log10(nframe))):d}d'
+
+    full_segments = make_segments(xvec[:nframe], yvec[:nframe])
+
+    make_all_pardirs(os.path.join(savepath, 'frames/test.file'), \
+                     confirm=False)
+
+    ### Build the instruction file first since it's quick
+    instruction_filename = os.path.join(savepath, 'frames', 'instructions.txt')
+    instruction_file = open(instruction_filename, 'w')
+
+    with open(instruction_filename, 'w') as instruction_file:
+        for i in np.arange(nframe)[::frame_decimate]:
+            figname = os.path.join(savepath, 'frames', \
+                                   f'frame_{i:>{format_str}}.png')
+
+            instruction_file.write( f"file '{figname}'\n" )
+            instruction_file.write( f"duration {duration:0.3f}\n")
+
+    def plot_frame(args):
+        i, x, y, t = args
+
+        figname = os.path.join(savepath, 'frames', \
+                               f'frame_{i:>{format_str}}.png')
+
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.tick_params(axis='both', labelsize=16)
+
+        full_lc = collections.LineCollection(full_segments, \
+                                             colors=colors, lw=2, \
+                                             alpha=0.3, zorder=5)
+        ax.add_collection(full_lc)
+        ax.autoscale()
+
+        if annotate_time:
+            label = f'{t:>{time_format_str}} s'
+        else:
+            label = ''
+
+        ax.scatter([x], [y], color=colors[i], s=markersize, \
+                   zorder=7, label=label)
+
+        if i != 0:
+            partial_segments = full_segments[:i,:,:]
+            lc = collections.LineCollection(partial_segments, \
+                                            colors=colors[:i], lw=2, \
+                                            zorder=6)
+            ax.add_collection(lc)
+
+        if annotate_list is not None:
+            for annotate_string in annotate_list:
+                ax.scatter([0.0], [0.0], color='w', s=0, zorder=0, \
+                           label=annotate_string)
+
+        ax.legend(loc='upper left', fontsize=16, \
+                  framealpha=1.0).set_zorder(7)
+
+        if xlabel is not None:
+            ax.set_xlabel(xlabel, fontsize=16)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel, fontsize=16)
+
+        fig.tight_layout()
+
+        fig.savefig(figname)
+        plt.close(fig)
+
+        return figname
+
+
+    arg_list = list(zip(range(nframe), xvec, yvec, plot_t))[::frame_decimate]
+    fignames = Parallel(n_jobs=ncore)(delayed(plot_frame)(arg) \
+                 for arg in tqdm(arg_list, total=int(nframe/frame_decimate)))
+
+    if suffix:
+        movie_name = os.path.join(savepath, 'trajectory' + f'_{suffix}.mp4')
+    else:
+        movie_name = os.path.join(savepath, 'trajectory.mp4')
+
+    os.system(f'ffmpeg -f concat -safe 0 -i {instruction_filename}' \
+                + ' -vsync vfr -pix_fmt yuv420p' \
+                + f' {movie_name}')
+    os.system(f"rm -r {os.path.join(savepath, 'frames')}")
+
+    return

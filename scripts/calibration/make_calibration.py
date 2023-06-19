@@ -28,17 +28,17 @@ files_to_pop = []
 ### Settings for discharge
 #####################################
 
-plot_raw_dat = True
+plot_raw_dat = False
 
-# using_tabor = True
-using_tabor = False
+using_tabor = True
+# using_tabor = False
 tabor_ind = 3
 
 sort_by_index = False
 sort_time = True
 
-new_trap = True
-# new_trap = False
+# new_trap = True
+new_trap = False
 
 fucked_up_manual_electrode_mon_fac = 200
 fucked_up_manual_electrode_indices_for_new_trap = [3,4]
@@ -101,21 +101,21 @@ fucked_up_manual_electrode_indices_for_new_trap = [3,4]
 # last_file = -1
 # files_to_pop = [11, 22, 27, 42, 83, 92]
 
-# step_cal_dir = [\
-#                 # '/data/old_trap/20230327/bead1/discharge/fine/', \
-#                 # '/data/old_trap/20230327/bead1/discharge/fine_2/',\
-#                 # '/data/old_trap/20230327/bead1/discharge/fine_3/',\
-#                 # '/data/old_trap/20230327/bead1/discharge/fine_4/',\
-#                 '/data/old_trap/20230327/bead1/discharge/fine_5/',\
-#                 # '/data/old_trap/20230327/bead1/discharge/fine_5_long/',\
-#                ]
-# first_file = 0
-# last_file = -1
-
-
-step_cal_dir = ['/data/new_trap/20230330/Bead0/Discharge/FineDischarge_3/']
+step_cal_dir = [\
+                # '/data/old_trap/20230327/bead1/discharge/fine/', \
+                # '/data/old_trap/20230327/bead1/discharge/fine_2/',\
+                # '/data/old_trap/20230327/bead1/discharge/fine_3/',\
+                # '/data/old_trap/20230327/bead1/discharge/fine_4/',\
+                '/data/old_trap/20230327/bead1/discharge/fine_5/',\
+                # '/data/old_trap/20230327/bead1/discharge/fine_5_long/',\
+               ]
 first_file = 0
 last_file = -1
+
+
+# step_cal_dir = ['/data/new_trap/20230330/Bead0/Discharge/FineDischarge_3/']
+# first_file = 0
+# last_file = -1
 
 skip_subdirectories = False
 
@@ -164,14 +164,14 @@ vpn = 1.627e11    # for X, likely
 drive_freq = 71.0
 q0 = -28
 
-save_discharge_plot = True
-plot_residual_histograms = True
-# save_discharge_plot = False
-# plot_residual_histograms = False
+# save_discharge_plot = True
+# plot_residual_histograms = True
+save_discharge_plot = False
+plot_residual_histograms = False
 residual_limit = 0.1
 
-save_charge = True
-# save_charge = False
+# save_charge = True
+save_charge = False
 
 
 #####################################

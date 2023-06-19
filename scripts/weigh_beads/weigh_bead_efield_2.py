@@ -109,11 +109,14 @@ arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5_fbadj'
 file_dict['20230327'] = (arr, 1, 1)
 
 arr = []  ### 
-# arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5')
 arr.append('/data/new_trap/20230330/Bead0/Mass/approx28charges')
 file_dict['20230330'] = (arr, 1, 1)
 
-file_dict = {'20230330': (arr, 1, 1)}
+arr = []  ### 
+arr.append('/data/old_trap/20230531/bead1/mass_meas/8Vpp_0_5Hz_init')
+file_dict['20230531'] = (arr, 1, 1)
+
+file_dict = {'20230531': (arr, 1, 1)}
 
 
 # arr = []  ### 
@@ -133,7 +136,7 @@ xlim = (-40, 400)
 # file_dict = {'20200320': (arr, 1, 0)}
 
 manual_charge = 0
-# manual_charge = 25
+manual_charge = 10
 
 # Noise data
 #chopper = True
@@ -149,8 +152,8 @@ noise_dirs = ['/data/20181211/bead2/weigh/noise/no_charge_0.5Hz_4pp', \
               '/data/20181213/bead1/weigh/noise/no-bead_zfb-inject_pd-blocked']
 
 
-new_trap = True
-# new_trap = False
+# new_trap = True
+new_trap = False
 
 #r_divider = 50000.0 / (3000.0 + 50000.0)
 r_divider = 1.0
@@ -172,7 +175,8 @@ bs_fac *= 10**(-0.1)   # include the ND filter
 maxfiles = 1000 # Many more than necessary
 lpf = 2500   # Hz
 
-file_inds = (0, 500)
+file_inds = (0, 5)
+# file_inds = (0, 500)
 
 nbin = 801
 
@@ -724,7 +728,8 @@ for date in dates:
         dat = weigh_bead_efield(allfiles, elec_ind, pow_ind, pos=pos, \
                                 print_res=print_res, plot=plot, \
                                 save_mass=save_mass, new_trap=new_trap, \
-                                correct_phase_shift=correct_phase_shift)
+                                correct_phase_shift=correct_phase_shift, \
+                                file_inds=file_inds)
         allres.append(dat)
         allres_dict[date].append(dat)
         masses.append(dat[0])

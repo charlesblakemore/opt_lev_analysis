@@ -45,8 +45,15 @@ dir1 = '/data/old_trap/20230410/bead1/spinning/initial_test_slow_DAQ'
 dir1 = '/data/old_trap/20230410/bead1/spinning/moderate_spinup_slow_DAQ'
 dir1 = '/data/old_trap/20230410/bead1/discharge/spinning_test'
 
-use_dir = True
-# use_dir = False
+dir1 = '/data/old_trap/20230518/bead1/height_determination'
+
+dir1 = '/data/old_trap/20230531/bead1/zset_step'
+dir1 = '/data/old_trap/20230531/bead1/zset_step_with_xdrive'
+dir1 = '/data/old_trap/20230531/bead1/spinning/test'
+
+
+# use_dir = True
+use_dir = False
 
 invert_order = False
 
@@ -88,28 +95,57 @@ invert_order = False
 #             ]
 
 
-allfiles  = [
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_nocool.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_izcool.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pizcool.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pidzcool.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pidzcool_2.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_xzcool.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_yzcool.h5',
-             # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_xyzcool.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m0.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m100k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m200k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m300k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m400k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m500k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m600k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_2.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_3.h5',
-             # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_4.h5',
-             '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_morelight.h5',
-             '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m800k.h5',
+# allfiles  = [
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_nocool.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_izcool.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pizcool.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pidzcool.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_pidzcool_2.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_xzcool.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_yzcool.h5',
+#              # '/data/old_trap/20230410/bead1/feedback_tuning_2/1_5mbar_xyzcool.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m0.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m100k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m200k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m300k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m400k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m500k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m600k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_2.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_3.h5',
+#              # '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_4.h5',
+#              '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m700k_morelight.h5',
+#              '/data/old_trap/20230410/bead1/lowering/1_5mbar_xyzcool_m800k.h5',
+#             ]
+
+# allfiles  = [\
+#              # '/data/old_trap/20230531/bead1/feedback_tuning/5mbar_zcool_init.h5', \
+#              # '/data/old_trap/20230531/bead1/feedback_tuning/3mbar_zcool_low1.h5', \
+#              '/data/old_trap/20230531/bead1/1_5mbar_zcool.h5', \
+#              '/data/old_trap/20230531/bead1/1_5mbar_xzcool.h5', \
+#              '/data/old_trap/20230531/bead1/1_5mbar_yzcool.h5', \
+#              '/data/old_trap/20230531/bead1/1_5mbar_xyzcool.h5', \
+#              # '/data/old_trap/20230531/bead1/discharge/test_hp/1_5mbar_xyzcool_xdrive.h5', \
+#              # '/data/old_trap/20230531/bead1/discharge/test_hp/1_5mbar_xyzcool_ydrive.h5', \
+#              # '/data/old_trap/20230531/bead1/spinup/1_5mbar_xyzcool_init41Hz.h5', \
+#              # '/data/old_trap/20230531/bead1/spinup/1_5mbar_xyzcool_init91Hz.h5', \
+#              # '/data/old_trap/20230531/bead1/spinup/1_5mbar_xyzcool_spin700Hz_xdrive41Hz.h5', \
+#              # '/data/old_trap/20230531/bead1/spinup/1_5mbar_xyzcool_spin700Hz_xdrive61Hz.h5', \
+#              # '/data/old_trap/20230531/bead1/spinup/1_5mbar_zcool_spin700Hz_xdrive61Hz.h5', \
+#              # '/data/old_trap/20230531/bead1/discharge/test_hp_2/1_5mbar_zcool_xdrive.h5', \
+#              # '/data/old_trap/20230531/bead1/discharge/test_hp_2/1_5mbar_zcool_ydrive.h5', \
+#             ]
+
+allfiles  = [\
+             # '/data/old_trap/20230617/bead1/6mbar_zcool.h5', \
+             # '/data/old_trap/20230617/bead1/lowering/6mbar_zcool_init.h5', \
+             # '/data/old_trap/20230617/bead1/lowering/6mbar_zcool_m200k.h5', \
+             # '/data/old_trap/20230617/bead1/lowering/6mbar_zcool_m500k.h5', \
+             # '/data/old_trap/20230617/bead1/lowering/6mbar_zcool_m800k.h5', \
+             # '/data/old_trap/20230617/bead1/lowering/6mbar_zcool_m800k_realign.h5', \
+             '/data/old_trap/20230617/bead1/feedback/18e-1mbar_zxycool.h5', \
+             '/data/old_trap/20230617/bead1/feedback/12e-1mbar_zxycool.h5', \
             ]
 
 # allfiles = ['/data/new_trap/20200210/Bead2/InitialTest/Data56.h5', \
@@ -143,7 +179,7 @@ phase_axes = []
 fb_axes = [0,1,2]
 
 other_axes = []
-# other_axes = [3]
+# other_axes = [0,3,4,5,6]
 # other_axes = [1,2,3,4,5,6]
 
 elec_axes = []
@@ -189,6 +225,8 @@ cmap = 'plasma'
 
 posdic = {0: 'x', 1: 'y', 2: 'z'}
 
+psd_ylabel = '$\\sqrt{\\mathrm{PSD}}$ $[\\mathrm{N}/\\sqrt{\\mathrm{Hz}}]$'
+psd_arb_ylabel = '$\\sqrt{\\mathrm{PSD}}$ $[\\mathrm{Arb}/\\sqrt{\\mathrm{Hz}}]$'
 
 
 def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], other_axes=[], \
@@ -250,8 +288,6 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
         pfig, paxarr = plt.subplots(2,1,sharex=True,figsize=(6,6))
         pfig.suptitle('Power/Power Feedback Data', fontsize=18)
 
-    # kludge_fig, kludge_ax = plt.subplots(1,1)
-
     files = files[file_inds[0]:file_inds[1]:file_step]
     if invert_order:
         files = files[::-1]
@@ -269,10 +305,13 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
         # Load data
         df = bu.DataFile()
-        if new_trap:
-            df.load_new(fil)
-        else:
-            df.load(fil)
+        try:
+            if new_trap:
+                df.load_new(fil)
+            else:
+                df.load(fil)
+        except:
+            continue
 
         if len(other_axes):
             df.load_other_data()
@@ -343,32 +382,29 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
             new_freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
             #fac = 1.0
 
-            kludge_fac = 1.0
-            #kludge_fac = 1.0 / np.sqrt(10)
             if diag:
                 dpsd, dfreqs = mlab.psd(df.diag_pos_data[ax], Fs=df.fsamp, \
                                         NFFT=NFFT, window=window)
-                # kludge_ax.loglog(freqs, np.sqrt(dpsd) *kludge_fac, color='C'+str(axind), \
-                #                     label=posdic[axind])
-                # kludge_ax.set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
-                # kludge_ax.set_xlabel('Frequency [Hz]')
 
-                # daxarr[axind,0].loglog(new_freqs, fac*norm*np.abs(np.fft.rfft(df.pos_data[ax]))*kludge_fac, color='k', label='np.fft with manual normalization')
-                daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac *kludge_fac, color=color, label=df.fname) #'mlab.psd')
+                daxarr[axind,0].loglog(freqs, np.sqrt(psd) * fac, \
+                                       color=color, label=df.fname)
                 daxarr[axind,0].grid(alpha=0.5)
-                daxarr[axind,1].loglog(new_freqs, norm*np.abs(np.fft.rfft(df.diag_pos_data[ax])) *kludge_fac, color='k')
-                daxarr[axind,1].loglog(freqs, np.sqrt(dpsd) *kludge_fac, color=color)
+                daxarr[axind,1].loglog(new_freqs, \
+                                       norm*np.abs(np.fft.rfft(df.diag_pos_data[ax])), \
+                                       color='k')
+                daxarr[axind,1].loglog(freqs, \
+                                       np.sqrt(dpsd), \
+                                       color=color)
                 daxarr[axind,1].grid(alpha=0.5)
-                daxarr[axind,0].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                daxarr[axind,0].set_ylabel(psd_ylabel)
                 if ax == data_axes[-1]:
                     daxarr[axind,0].set_xlabel('Frequency [Hz]')
                     daxarr[axind,1].set_xlabel('Frequency [Hz]')
             else:
-                # daxarr[axind].loglog(new_freqs, norm*np.abs(np.fft.rfft(df.pos_data[ax])), color='k', label='np.fft with manual normalization')
-                daxarr[axind].loglog(freqs, np.sqrt(psd)*fac, color=color, label=df.fname) #'mlab.psd')
+                daxarr[axind].loglog(freqs, np.sqrt(psd)*fac, \
+                                     color=color, label=df.fname)
                 daxarr[axind].grid(alpha=0.5)
-                daxarr[axind].set_ylabel('$\\sqrt{\mathrm{PSD}}$ $[\\mathrm{Arb}/\\sqrt{\mathrm{Hz}}]$')
-                #daxarr[axind].set_ylabel('$\sqrt{\mathrm{PSD}}$ $[\mathrm{N}/\sqrt{\mathrm{Hz}}]$')
+                daxarr[axind].set_ylabel(psd_arb_ylabel)
 
                 if ax == data_axes[-1]:
                     daxarr[axind].set_xlabel('Frequency [Hz]')
@@ -444,17 +480,11 @@ def plot_many_spectra(files, data_axes=[0,1,2], cant_axes=[], elec_axes=[], othe
 
     if len(ylim):
         derp_ax.set_ylim(*ylim)
-        # kludge_ax.set_ylim(*ylim)
     if len(xlim):
         derp_ax.set_xlim(*xlim)
-        # kludge_ax.set_xlim(1,500)
 
     dfig.tight_layout()
     dfig.subplots_adjust(top=0.91)
-
-    # kludge_ax.grid()
-    # kludge_ax.legend()
-    # kludge_fig.tight_layout()
 
     if plot_power:
         paxarr[-1].set_xlabel('Frequency [Hz]')

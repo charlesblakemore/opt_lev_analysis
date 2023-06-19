@@ -78,15 +78,22 @@ plt.rcParams.update({'font.size': 16})
 # dirname = '/data/old_trap/20230327/bead1/spinning/spindown_100kHz'
 
 
-base = '/data/old_trap/20230410/bead1/spinning/'
+# base = '/data/old_trap/20230410/bead1/spinning/'
 
-# meas = 'change_direction_xy_to_xz'
-# meas = 'dipole_meas/initial_zadj'
-# meas = 'phase_modulate_0_01scale'
-# meas = 'phase_modulate_0_05scale'
-# meas = 'dds_phase_impulse_test'
-meas = 'phase_modulation_sweeps/10Hz_to_700Hz_0007'
-# meas = 'phase_modulation_sweeps/700Hz_to_10Hz_0007'
+# # meas = 'change_direction_xy_to_xz'
+# # meas = 'dipole_meas/initial_zadj'
+# # meas = 'phase_modulate_0_01scale'
+# # meas = 'phase_modulate_0_05scale'
+# # meas = 'dds_phase_impulse_test'
+# meas = 'phase_modulation_sweeps/10Hz_to_700Hz_0007'
+# # meas = 'phase_modulation_sweeps/700Hz_to_10Hz_0007'
+
+
+
+base = '/data/old_trap/20230531/bead1/spinning/'
+# meas = 'spinup'
+# meas = 'test_25kHz'
+meas = 'phase_modulation_sweeps/10Hz_to_700Hz_8Vpp_5sec_settle'
 
 dirname = os.path.join(base, meas)
 
@@ -123,7 +130,7 @@ labels = []
 
 #file_inds = (-10,-1)
 file_inds = (0, 100)
-file_step = 5
+file_step = 1
 
 userNFFT = 2**20
 fullNFFT = True
@@ -149,7 +156,7 @@ ylim = ()
 # xlim = (190000.0, 200600.0)
 xlim = (48500.0, 51500.0)
 # xlim = (10.0, 250000.0)
-xlim = ()
+# xlim = ()
 
 # xticks = [190000.0, 192500.0, 195000.0, 197500.0, 200000.0]
 xticks = None
