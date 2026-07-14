@@ -25,98 +25,101 @@ file_dict = {}
 
 
 
-arr = []  ### FIRST BEAD ON ATTRACTOR
-arr.append('/data/20190122/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190122/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append(['/data/20190122/bead1/weigh/low_pressure_pos_0.5Hz_4pp_2', \
-            '/data/20190122/bead1/weigh/low_pressure_pos_0.5Hz_4pp_3'])
-file_dict['20190122'] = (arr, 5, 7)
+# arr = []  ### FIRST BEAD ON ATTRACTOR
+# arr.append('/data/20190122/bead1/weigh/high_pressure_neg_0.5Hz_4pp')
+# arr.append('/data/20190122/bead1/weigh/low_pressure_neg_0.5Hz_4pp')
+# arr.append(['/data/20190122/bead1/weigh/low_pressure_pos_0.5Hz_4pp_2', \
+#             '/data/20190122/bead1/weigh/low_pressure_pos_0.5Hz_4pp_3'])
+# file_dict['20190122'] = (arr, 5, 7)
 
 
 
-arr = []  ### SECOND BEAD ON ATTRACTOR
-arr.append('/data/20190123/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190123/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190123/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190123'] = (arr, 5, 7)
+# arr = []  ### SECOND BEAD ON ATTRACTOR
+# arr.append('/data/20190123/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
+# arr.append('/data/20190123/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
+# arr.append('/data/20190123/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
+# file_dict['20190123'] = (arr, 5, 7)
 
 
-arr = []  ### THIRD BEAD ON ATTRACTOR
-arr.append('/data/20190124/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190124/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
-arr.append('/data/20190124/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
-file_dict['20190124'] = (arr, 5, 7)
+# arr = []  ### THIRD BEAD ON ATTRACTOR
+# arr.append('/data/20190124/bead2/weigh/high_pressure_neg_0.5Hz_4pp')
+# arr.append('/data/20190124/bead2/weigh/low_pressure_neg_0.5Hz_4pp')
+# arr.append('/data/20190124/bead2/weigh/low_pressure_pos_0.5Hz_4pp')
+# file_dict['20190124'] = (arr, 5, 7)
 
 
 
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20200307/gbead1/weigh_2/4Vpp_lowp_0')
-# arr.append('/data/old_trap/20200307/gbead1/weigh/6Vpp_lowp_0')
-file_dict['20200307'] = (arr, 1, 0)
+# arr = []  ### 
+# arr.append('/data/old_trap/20200307/gbead1/weigh_2/4Vpp_lowp_0')
+# # arr.append('/data/old_trap/20200307/gbead1/weigh/6Vpp_lowp_0')
+# file_dict['20200307'] = (arr, 1, 0)
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20200322/gbead1/weigh/4Vpp_neg')
-arr.append('/data/old_trap/20200322/gbead1/weigh/6Vpp_neg')
-arr.append('/data/old_trap/20200322/gbead1/weigh/8Vpp_neg')
-file_dict['20200322'] = (arr, 1, 0)
+# arr = []  ### 
+# arr.append('/data/old_trap/20200322/gbead1/weigh/4Vpp_neg')
+# arr.append('/data/old_trap/20200322/gbead1/weigh/6Vpp_neg')
+# arr.append('/data/old_trap/20200322/gbead1/weigh/8Vpp_neg')
+# file_dict['20200322'] = (arr, 1, 0)
 
 
-arr = []  ### 
-# arr.append('/data/old_trap/20200327/gbead1/weigh/4Vpp_neg_lowp')
-# arr.append('/data/old_trap/20200327/gbead1/weigh/6Vpp_neg_lowp')
-arr.append('/data/old_trap/20200327/gbead1/weigh/8Vpp_neg_lowp')
-file_dict['20200327'] = (arr, 1, 0)
+# arr = []  ### 
+# # arr.append('/data/old_trap/20200327/gbead1/weigh/4Vpp_neg_lowp')
+# # arr.append('/data/old_trap/20200327/gbead1/weigh/6Vpp_neg_lowp')
+# arr.append('/data/old_trap/20200327/gbead1/weigh/8Vpp_neg_lowp')
+# file_dict['20200327'] = (arr, 1, 0)
 
 
-arr = []  ### 
-# arr.append('/data/old_trap/20200330/gbead3/weigh/6Vpp_neg_lowp')
-arr.append('/data/old_trap/20200330/gbead3/weigh/8Vpp_neg_lowp')
-file_dict['20200330'] = (arr, 1, 0)
+# arr = []  ### 
+# # arr.append('/data/old_trap/20200330/gbead3/weigh/6Vpp_neg_lowp')
+# arr.append('/data/old_trap/20200330/gbead3/weigh/8Vpp_neg_lowp')
+# file_dict['20200330'] = (arr, 1, 0)
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20200721/bead2/weigh/4Vpp_lowp_neg_1')
-arr.append('/data/old_trap/20200721/bead2/weigh/6Vpp_lowp_neg_1')
-file_dict['20200721'] = (arr, 1, 0)
+# arr = []  ### 
+# arr.append('/data/old_trap/20200721/bead2/weigh/4Vpp_lowp_neg_1')
+# arr.append('/data/old_trap/20200721/bead2/weigh/6Vpp_lowp_neg_1')
+# file_dict['20200721'] = (arr, 1, 0)
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20200727/bead1/weigh/4Vpp_lowp_neg')
-arr.append('/data/old_trap/20200727/bead1/weigh/6Vpp_lowp_neg')
-file_dict['20200727'] = (arr, 1, 0)
+# arr = []  ### 
+# arr.append('/data/old_trap/20200727/bead1/weigh/4Vpp_lowp_neg')
+# arr.append('/data/old_trap/20200727/bead1/weigh/6Vpp_lowp_neg')
+# file_dict['20200727'] = (arr, 1, 0)
 
 
-arr = []  ### 
-arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
-arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
-file_dict['20200924'] = (arr, 2, 1)
+# arr = []  ### 
+# arr.append('/data/old_trap/20200924/bead1/weigh/4Vpp_lowp_neg')
+# arr.append('/data/old_trap/20200924/bead1/weigh/6Vpp_lowp_neg')
+# file_dict['20200924'] = (arr, 2, 1)
 
 
 arr = []  ### 
 arr.append('/data/old_trap/20201030/bead1/weigh/6Vpp_lowp_neg')
 file_dict['20201030'] = (arr, 2, 1)
 
-arr = []  ### 
-arr.append('/data/old_trap/20230306/bead4/mass_meas/8Vpp_1Hz_no-igain')
-file_dict['20230306'] = (arr, 1, 1)
+file_dict = {'20201030': (arr, 2, 1)}
 
-arr = []  ### 
-# arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5')
-arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5_fbadj')
-file_dict['20230327'] = (arr, 1, 1)
 
-arr = []  ### 
-arr.append('/data/new_trap/20230330/Bead0/Mass/approx28charges')
-file_dict['20230330'] = (arr, 1, 1)
+# arr = []  ### 
+# arr.append('/data/old_trap/20230306/bead4/mass_meas/8Vpp_1Hz_no-igain')
+# file_dict['20230306'] = (arr, 1, 1)
 
-arr = []  ### 
-arr.append('/data/old_trap/20230531/bead1/mass_meas/8Vpp_0_5Hz_init')
-file_dict['20230531'] = (arr, 1, 1)
+# arr = []  ### 
+# # arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5')
+# arr.append('/data/old_trap/20230327/bead1/mass_meas/8Vpp_0_5Hz_moregain_5_fbadj')
+# file_dict['20230327'] = (arr, 1, 1)
 
-file_dict = {'20230531': (arr, 1, 1)}
+# arr = []  ### 
+# arr.append('/data/new_trap/20230330/Bead0/Mass/approx28charges')
+# file_dict['20230330'] = (arr, 1, 1)
+
+# arr = []  ### 
+# arr.append('/data/old_trap/20230531/bead1/mass_meas/8Vpp_0_5Hz_init')
+# file_dict['20230531'] = (arr, 1, 1)
+
+# file_dict = {'20230531': (arr, 1, 1)}
 
 
 # arr = []  ### 
@@ -125,18 +128,21 @@ file_dict = {'20230531': (arr, 1, 1)}
 
 # file_dict = {'20201222': (arr, 2, 0)}
 
-# xlim = (-15, 100)
-xlim = (-40, 400)
+xlim = (-15, 100)
+# xlim = (-40, 400)
+
+
 
 # arr = []  ### 
 # arr.append('/data/new_trap/20200320/Bead1/Mass/derp')
 # file_dict['20200320'] = (arr, 1, 0)
 
-
 # file_dict = {'20200320': (arr, 1, 0)}
 
+
+
 manual_charge = 0
-manual_charge = 10
+# manual_charge = 10
 
 # Noise data
 #chopper = True
@@ -190,9 +196,11 @@ fullNFFT = False
 
 correct_phase_shift = False
 
-save_mass = True
+save_mass = False
 print_res = True
-plot = True
+plot = False
+
+debug_plot = False
 
 save_example = False
 example_filename = '/home/cblakemore/plots/weigh_beads/example_extrapolation.svg'
@@ -384,6 +392,8 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
 
             fig.tight_layout()
 
+            # fig.savefig('/home/cblakemore/tmp/mass_measurement_example_drive.pdf')
+
 
         freqs = np.fft.rfftfreq(df.nsamp, d=1.0/df.fsamp)
         drive_ind = np.argmax(np.abs(np.fft.rfft(eforce2)))
@@ -456,20 +466,24 @@ def weigh_bead_efield(files, elec_ind, pow_ind, colormap='plasma', sort='time',\
         if debug_plot:
             fig2, axarr2 = plt.subplots(2,1,sharex=True,figsize=(10,8))
 
-            axarr2[0].plot(tarr, power)
+            mean_power = np.mean(np.abs(power))
+
+            axarr2[0].plot(tarr, np.abs(power))
             axarr2[0].set_ylabel('Measured Power [Arb.]')
 
-            axarr2[1].plot(tarr, power)
+            axarr2[1].plot(tarr, 100 * (np.abs(power) - mean_power) / mean_power)
             axarr2[1].set_xlabel('Time [s]')
-            axarr2[1].set_ylabel('Measured Power [Arb.]')
+            axarr2[1].set_ylabel('Power Modulation [%]')
 
-            bot, top = axarr2[1].get_ylim()
-            axarr2[1].set_ylim(1.05*bot, 0)
+            bot, top = axarr2[0].get_ylim()
+            axarr2[0].set_ylim(0, 1.05*top)
 
             fig2.tight_layout()
 
+            # fig2.savefig('/home/cblakemore/tmp/mass_measurement_example_power.pdf')
+
             plt.show()
-            input()
+
 
         bins, dat, errs = bu.rebin(eforce2, power, nbin=nbin)
 
@@ -729,7 +743,7 @@ for date in dates:
                                 print_res=print_res, plot=plot, \
                                 save_mass=save_mass, new_trap=new_trap, \
                                 correct_phase_shift=correct_phase_shift, \
-                                file_inds=file_inds)
+                                file_inds=file_inds, debug_plot=debug_plot)
         allres.append(dat)
         allres_dict[date].append(dat)
         masses.append(dat[0])
